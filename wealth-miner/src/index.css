@@ -1,0 +1,975 @@
+/* ── Visual Styles: Wealth Miner ── */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #050b14;
+  font-family: 'Outfit', 'Poppins', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#game-container {
+  position: relative;
+  width: 420px;
+  height: 720px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+  background-color: #0B1221;
+  border-radius: 20px;
+  border: 4px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 420px), (max-height: 720px) {
+  #game-container {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    border: none;
+  }
+}
+
+/* ── Layout & Spacing Utilities ── */
+.text-center {
+  text-align: center !important;
+}
+.text-left {
+  text-align: left !important;
+}
+.w-full {
+  width: 100% !important;
+}
+
+/* Max widths */
+.max-w-xs { max-width: 320px !important; }
+.max-w-sm { max-width: 360px !important; }
+.max-w-md { max-width: 400px !important; }
+.max-w-lg { max-width: 440px !important; }
+
+/* Margins */
+.mt-1 { margin-top: 4px !important; }
+.mt-2 { margin-top: 8px !important; }
+.mt-3 { margin-top: 12px !important; }
+.mt-4 { margin-top: 16px !important; }
+.mt-5 { margin-top: 20px !important; }
+.mt-6 { margin-top: 24px !important; }
+.mt-8 { margin-top: 32px !important; }
+
+/* Premium shadow */
+.shadow-premium {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+#c {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ── HUD Styles ── */
+#hud-container {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  right: 15px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.hud-left-group, .hud-right-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.hud-right-group {
+  align-items: flex-end;
+}
+
+.hud-item {
+  background: rgba(11, 18, 33, 0.9);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 6px 12px;
+  min-width: 95px;
+  text-align: center;
+  color: #FFFFFF;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.hud-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 2px;
+}
+
+.hud-value {
+  font-family: 'Poppins', sans-serif;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.combo-badge {
+  background: rgba(242, 101, 34, 0.95); /* Bajaj Orange */
+  border-color: rgba(255, 255, 255, 0.3);
+  padding: 6px 10px;
+  min-width: 95px;
+  animation: pulse-quick 1s infinite alternate;
+}
+
+.combo-badge .hud-label {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+#combo-bar-track {
+  width: 100%;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+#combo-bar-fill {
+  height: 100%;
+  background: #FFFFFF;
+  width: 100%;
+  transition: width 0.05s linear;
+}
+
+/* ── Screen Modals ── */
+.game-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(7, 12, 22, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+  overflow-y: auto;
+  padding: 24px 0;
+}
+
+/* Custom Scrollbar for screens */
+.game-screen::-webkit-scrollbar {
+  width: 4px;
+}
+.game-screen::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.screen-content {
+  width: 88%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: auto; /* Vertically and horizontally centers in flex wrapper, handles scroll overlap */
+}
+
+.premium-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 22px 20px;
+  color: #FFFFFF;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  width: 88%;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-glow {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(242, 101, 34, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+
+/* ── Buttons ── */
+.ls-btn {
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 12px 28px;
+  cursor: pointer;
+  color: #FFFFFF;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-family: 'Poppins', sans-serif;
+}
+
+.ls-btn:active {
+  transform: scale(0.96);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.ls-btn-primary {
+  background: linear-gradient(135deg, #003DA6, #0054e0);
+  border-bottom: 4px solid #002566;
+}
+
+.ls-btn-primary:hover {
+  background: linear-gradient(135deg, #0049c4, #0060ff);
+}
+
+.ls-btn-orange {
+  background: linear-gradient(135deg, #F26522, #ff7e42);
+  border-bottom: 4px solid #aa3b00;
+}
+
+.ls-btn-orange:hover {
+  background: linear-gradient(135deg, #ff702b, #ff9158);
+}
+
+.ls-btn-green {
+  background: linear-gradient(135deg, #25D366, #34e075);
+  border-bottom: 4px solid #148039;
+}
+
+.ls-btn-red {
+  background: linear-gradient(135deg, #EF4444, #ff5e5e);
+  border-bottom: 4px solid #8f1717;
+}
+
+.ls-btn-blue {
+  background: linear-gradient(135deg, #003DA6, #0054e0);
+  border-bottom: 4px solid #002566;
+}
+
+.ls-btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+}
+
+.ls-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Intro Screen ── */
+.logo-box {
+  margin-bottom: 24px;
+}
+
+.logo-drill-icon {
+  font-size: 56px;
+  animation: bounce-icon 2s infinite ease-in-out;
+  display: inline-block;
+  margin-bottom: 10px;
+  filter: brightness(0) invert(1) drop-shadow(0 0 12px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 20px rgba(255, 215, 0, 0.4));
+}
+
+.logo-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 900;
+  font-size: 46px;
+  letter-spacing: -1.5px;
+  color: #FFFFFF;
+  line-height: 1.0;
+}
+
+.logo-title span {
+  color: #FFD700;
+}
+
+.logo-tagline {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.intro-graphics {
+  height: 160px;
+  position: relative;
+  margin-bottom: 35px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.winch-machine {
+  position: absolute;
+  top: -10px;
+  left: calc(50% - 25px);
+  width: 50px;
+  height: 50px;
+  z-index: 2;
+  object-fit: contain;
+}
+
+.swinging-arm-container {
+  position: absolute;
+  top: 15px; /* winch center pivot */
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform-origin: top center;
+  animation: swing-arm 3.5s infinite ease-in-out;
+}
+
+.swinging-cable {
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: 2px;
+  height: 80px;
+  background: #FFD700;
+  box-shadow: 0 0 6px rgba(255, 215, 0, 0.5);
+}
+
+.swinging-claw-asset {
+  position: absolute;
+  top: 80px;
+  left: -20px;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.intro-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+/* ── Tutorial Screen ── */
+.title-premium {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 900;
+  font-size: 26px;
+  color: #FFFFFF;
+}
+
+.title-premium span {
+  color: #FFD700;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+}
+
+.close-x {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 28px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close-x:hover {
+  color: #FFFFFF;
+}
+
+.tutorial-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.tut-step {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.tut-num {
+  width: 26px;
+  height: 26px;
+  background: linear-gradient(135deg, #003DA6, #0054e0);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 13px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.tut-text strong {
+  font-size: 14px;
+  color: #FFD700;
+  display: block;
+}
+
+.tut-text p {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 1px;
+  line-height: 1.3;
+}
+
+
+/* ── Level Start Screen ── */
+#level-start-card {
+  border: 2px solid;
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 30px 70px rgba(0,0,0,0.6);
+  position: relative;
+  overflow: hidden;
+}
+
+#level-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+}
+
+#level-card-name {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 900;
+  font-size: 32px;
+  color: #FFFFFF;
+}
+
+#level-card-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 6px;
+}
+
+#level-card-target {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 900;
+  font-size: 24px;
+  color: #FFD700;
+  margin-top: 20px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 8px 16px;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+/* ── Upgrade Shop Screen ── */
+.shop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.shop-coins {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.coins-badge {
+  background: #FFA500;
+  color: #000000;
+  font-weight: 900;
+  font-size: 16px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.shop-tagline {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 20px;
+}
+
+#shop-items-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+/* Custom Scrollbar for Shop */
+#shop-items-grid::-webkit-scrollbar {
+  width: 5px;
+}
+#shop-items-grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+#shop-items-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.shop-item-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+.shop-item-card.maxed {
+  opacity: 0.65;
+}
+
+.shop-item-header {
+  flex-grow: 1;
+  text-align: left;
+}
+
+.shop-item-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #FFFFFF;
+}
+
+.shop-item-dots {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.level-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.level-dot.active {
+  background: #F26522; /* Bajaj Orange indicators */
+}
+
+.shop-item-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 180px;
+  text-align: left;
+}
+
+.shop-buy-btn {
+  padding: 8px 16px;
+  font-size: 12px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.gold-symbol {
+  color: #FFD700;
+  margin-right: 2px;
+}
+
+/* ── Game Over / Speedometer ── */
+#speedometer-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 170px;
+  margin-bottom: 5px;
+}
+
+.score-summary-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.score-summary-val {
+  font-family: 'Poppins', sans-serif;
+  font-size: 38px;
+  font-weight: 900;
+  color: #FFD700;
+  line-height: 1.1;
+}
+
+.insurance-pitch-box {
+  background: rgba(242, 101, 34, 0.08);
+  border: 1px dashed rgba(242, 101, 34, 0.35);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.pitch-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.pitch-content h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.pitch-content h4 span {
+  color: #F26522;
+}
+
+.pitch-content p {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 3px;
+  line-height: 1.3;
+}
+
+.cta-row-double {
+  display: flex;
+  gap: 10px;
+}
+
+.cta-row-double > * {
+  flex: 1;
+}
+
+.cta-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Forms and Inputs ── */
+.lead-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.form-container {
+  text-align: left;
+  width: 100%;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.input-group label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.input-group input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.input-group input:focus {
+  border-color: #003DA6;
+}
+
+/* Checkbox design override */
+.tc-consent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.consent-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.consent-text a {
+  color: #12A7F4;
+  text-decoration: underline;
+}
+
+.checkbox-container {
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+}
+
+.checkbox-container input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 18px;
+  width: 18px;
+  background-color: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  border-radius: 4px;
+}
+
+.checkbox-container input:checked ~ .checkmark {
+  background-color: #003DA6;
+  border-color: #003DA6;
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 5px;
+  top: 2px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+  display: block;
+}
+
+.error-msg {
+  font-size: 12px;
+  font-weight: 600;
+  color: #FF4B4B;
+  text-align: center;
+  min-height: 18px;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ls-slot-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.ls-slot-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ls-slot-chip.selected {
+  background: rgba(0, 61, 166, 0.2);
+  border-color: #003DA6;
+  color: #12A7F4;
+  box-shadow: 0 0 10px rgba(0, 61, 166, 0.25);
+}
+
+.text-btn-secondary {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+
+.text-btn-secondary:hover {
+  color: #FFFFFF;
+}
+
+/* ── Thank You Screen ── */
+.success-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00E064, #2ebd6f);
+  color: #000000;
+  font-size: 28px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  box-shadow: 0 6px 18px rgba(0, 224, 100, 0.3);
+}
+
+.thankyou-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+}
+
+/* ── Terms Modal Overlay ── */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.65);
+  z-index: 100;
+}
+
+.modal-body {
+  text-align: left;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+
+.modal-body p {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+}
+
+.modal-body a {
+  color: #12A7F4;
+  text-decoration: underline;
+}
+
+/* ── Keyframe Animations ── */
+@keyframes swing-arm {
+  0% { transform: rotate(-55deg); }
+  50% { transform: rotate(55deg); }
+  100% { transform: rotate(-55deg); }
+}
+
+@keyframes swing-arm-claw {
+  0% { transform: translate(calc(50% - 15px), 90px) rotate(-55deg) translate(-50%, -90px) rotate(-55deg); }
+  /* Simulates claw attachment following swing pivot offset angle */
+  0% { transform: rotate(-55deg) translate(-13px, 90px); }
+  50% { transform: rotate(55deg) translate(13px, 90px); }
+  100% { transform: rotate(-55deg) translate(-13px, 90px); }
+}
+
+@keyframes bounce-icon {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pulse-quick {
+  0% { transform: scale(1); box-shadow: 0 4px 10px rgba(242, 101, 34, 0.2); }
+  100% { transform: scale(1.03); box-shadow: 0 8px 18px rgba(242, 101, 34, 0.4); }
+}
+
+.animate-pulse {
+  animation: pulse-quick 1.2s infinite alternate;
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2.5s infinite ease-in-out;
+}
+
+.animate-fade-in {
+  animation: fade-in-keyframes 0.4s ease-out both;
+}
+
+.animate-slide-up {
+  animation: slide-up-keyframes 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fade-in-keyframes {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up-keyframes {
+  from { transform: translateY(25px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

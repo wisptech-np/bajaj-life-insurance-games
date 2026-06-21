@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="data:;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B1221" />
+  <title>Wealth Miner – Insurance Fortune Hunt</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="game-container">
+    <!-- Main Game Canvas -->
+    <canvas id="c" width="420" height="720"></canvas>
+
+    <!-- HTML UI Overlay -->
+    <div id="ui-overlay">
+      
+      <!-- HUD (Only visible while PLAYING) -->
+      <div id="hud-container" class="hidden">
+        <div class="hud-left-group">
+          <div class="hud-item shadow-premium" id="hud-score">
+            <div class="hud-label">WEALTH</div>
+            <div class="hud-value">$<span id="score-val">0</span></div>
+          </div>
+          <div class="hud-item shadow-premium" id="hud-target">
+            <div class="hud-label">TARGET</div>
+            <div class="hud-value" style="color: #FFD700;">$<span id="target-val">600</span></div>
+          </div>
+        </div>
+        
+        <div class="hud-right-group">
+          <div class="hud-item shadow-premium" id="hud-timer">
+            <div class="hud-label">TIME LEFT</div>
+            <div class="hud-value"><span id="timer-val">45</span>s</div>
+          </div>
+          
+          <!-- Combo Badge (Fades in dynamically) -->
+          <div class="hud-item combo-badge hidden shadow-premium">
+            <div class="hud-label">COMBO</div>
+            <div class="hud-value" id="combo-val">x1</div>
+            <div id="combo-bar-track">
+              <div id="combo-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- INTRO SCREEN -->
+      <div id="intro-screen" class="game-screen">
+        <div class="screen-content animate-fade-in text-center">
+          <div class="logo-box">
+            <div class="logo-drill-icon">⛏</div>
+            <h1 class="logo-title">WEALTH<span>MINER</span></h1>
+            <p class="logo-tagline">Insurance Fortune Hunt</p>
+          </div>
+          
+          <div class="intro-graphics">
+            <img class="winch-machine" id="intro-winch" src="assets/mining_machine.png" alt="winch" />
+            <!-- Simulated swinging animation of mechanical claw -->
+            <div class="swinging-arm-container">
+              <div class="swinging-cable"></div>
+              <img class="swinging-claw-asset" id="intro-claw" src="assets/mechanical_claw.png" alt="claw" />
+            </div>
+          </div>
+          
+          <div class="intro-buttons">
+            <button class="ls-btn ls-btn-primary w-full animate-pulse" id="btn-play" type="button">
+              START HUNT
+            </button>
+            <button class="ls-btn ls-btn-secondary mt-3 w-full" id="btn-reset-upgrades" type="button">
+              RESET UPGRADES
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TUTORIAL SCREEN -->
+      <div id="tutorial-screen" class="game-screen hidden">
+        <div class="screen-content premium-card text-center max-w-md">
+          <div class="modal-header">
+            <h2 class="title-premium">How to Mine</h2>
+            <button id="btn-tutorial-close" class="close-x">&times;</button>
+          </div>
+          
+          <div class="tutorial-grid">
+            <div class="tut-step">
+              <div class="tut-num">1</div>
+              <div class="tut-text">
+                <strong>Launch Claw</strong>
+                <p>Tap anywhere to drop the claw as it swings back and forth.</p>
+              </div>
+            </div>
+            <div class="tut-step">
+              <div class="tut-num">2</div>
+              <div class="tut-text">
+                <strong>Collect Wealth</strong>
+                <p>Grab coins, money bags, and shields. Good treasures add score!</p>
+              </div>
+            </div>
+            <div class="tut-step">
+              <div class="tut-num">3</div>
+              <div class="tut-text">
+                <strong>Avoid Hazards</strong>
+                <p>Loan Sharks and Inflation jellyfish cost wealth points. Bombs detonate nearby treasures!</p>
+              </div>
+            </div>
+            <div class="tut-step">
+              <div class="tut-num">4</div>
+              <div class="tut-text">
+                <strong>Buy Insurance Upgrades</strong>
+                <p>Spend coins between rounds on equipment upgrades (Claw Strength, Magnet, Lucky Finder) to shield score.</p>
+              </div>
+            </div>
+          </div>
+          
+          <button class="ls-btn ls-btn-primary mt-6 w-full" id="btn-tutorial-start" type="button">
+            GOT IT, START GAME!
+          </button>
+        </div>
+      </div>
+
+      <!-- LEVEL START SCREEN -->
+      <div id="level-start-screen" class="game-screen hidden">
+        <div class="screen-content text-center max-w-sm" id="level-start-card">
+          <div class="card-glow"></div>
+          <div id="level-card-title">Level 1</div>
+          <div id="level-card-name">Savings Cavern</div>
+          <div id="level-card-subtitle">Secure your base with safe savings bags</div>
+          <div id="level-card-target">Target: $600</div>
+          
+          <button class="ls-btn ls-btn-orange mt-8 w-full animate-bounce-slow" id="btn-start-level" type="button">
+            LAUNCH DRILL CRANE
+          </button>
+        </div>
+      </div>
+
+      <!-- UPGRADE SHOP SCREEN -->
+      <div id="shop-screen" class="game-screen hidden">
+        <div class="screen-content premium-card max-w-lg">
+          <div class="shop-header">
+            <h2 class="title-premium">Vault Upgrades</h2>
+            <div class="shop-coins">
+              <span>My Coins:</span>
+              <div class="coins-badge">$<span id="shop-coins-count">0</span></div>
+            </div>
+          </div>
+          <p class="shop-tagline">Upgrade equipment to defend and grow wealth</p>
+          
+          <div id="shop-items-grid">
+            <!-- Upgrades filled dynamically by GameManager -->
+          </div>
+          
+          <div class="shop-actions">
+            <button class="ls-btn ls-btn-primary mt-4 w-full" id="btn-shop-next" type="button">
+              NEXT LEVEL
+            </button>
+            <button class="ls-btn ls-btn-secondary mt-3 w-full" id="btn-shop-end" type="button">
+              END RUN
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- GAME OVER SCREEN -->
+      <div id="gameover-screen" class="game-screen hidden">
+        <div class="screen-content premium-card max-w-md text-center">
+          <h2 class="title-premium">Financial Analysis</h2>
+          
+          <!-- Gauge container -->
+          <div id="speedometer-container">
+            <canvas id="speedometer-canvas" width="280" height="175"></canvas>
+          </div>
+          
+          <div class="score-summary mt-4">
+            <div class="score-summary-label">TOTAL WEALTH MINED</div>
+            <div class="score-summary-val" id="gameover-score-value">$0</div>
+          </div>
+
+          <!-- Pitch Box -->
+          <div class="insurance-pitch-box mt-4">
+            <div class="pitch-icon">🛡️</div>
+            <div class="pitch-content text-left">
+              <h4 id="gameover-insurance-title">Tunnels collapse, <span>Life Goals shouldn't!</span></h4>
+              <p id="gameover-insurance-body">A single hazard ended the game, we can't afford that in real life. Protect your family's future with Bajaj Term Plan.</p>
+            </div>
+          </div>
+          
+          <!-- CTA Rows -->
+          <div class="cta-container mt-6">
+            <button class="ls-btn ls-btn-green w-full" id="btn-gameover-share" type="button">
+              SHARE RECORD (WhatsApp)
+            </button>
+            
+            <div class="cta-row-double mt-3">
+              <a class="ls-btn ls-btn-red" id="btn-gameover-call" href="tel:02261241800">
+                CALL ADVISOR
+              </a>
+              <button class="ls-btn ls-btn-blue" id="btn-gameover-lms" type="button">
+                BOOK SLOT
+              </button>
+            </div>
+            
+            <button class="ls-btn ls-btn-secondary mt-4 w-full" id="btn-gameover-restart" type="button">
+              PLAY AGAIN
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEAD CAPTURE SCREEN -->
+      <div id="lead-screen" class="game-screen hidden">
+        <div class="screen-content premium-card max-w-sm">
+          <h2 class="title-premium text-center">SECURE PROGRESS</h2>
+          <p class="lead-sub text-center">Enter your details to claim rewards & analysis</p>
+          
+          <div class="form-container mt-4">
+            <div class="input-group">
+              <label for="lead-name-input">FULL NAME</label>
+              <input type="text" id="lead-name-input" placeholder="Enter Full Name" autocomplete="name">
+            </div>
+            
+            <div class="input-group">
+              <label for="lead-mobile-input">MOBILE NUMBER</label>
+              <input type="tel" id="lead-mobile-input" placeholder="10-digit number" maxlength="10" inputmode="numeric">
+            </div>
+            
+            <div class="input-group">
+              <label for="lead-email-input">EMAIL ADDRESS (OPTIONAL)</label>
+              <input type="email" id="lead-email-input" placeholder="name@domain.com">
+            </div>
+            
+            <div class="tc-consent mt-4">
+              <label class="checkbox-container">
+                <input type="checkbox" id="lead-tc-checkbox" checked>
+                <span class="checkmark"></span>
+              </label>
+              <span class="consent-text">
+                I agree to the <a href="#" id="btn-link-tc">T&C and Privacy Policy</a>
+              </span>
+            </div>
+            
+            <div class="error-msg mt-3" id="lead-error"></div>
+            
+            <button class="ls-btn ls-btn-primary mt-6 w-full" id="btn-lead-submit" type="button">
+              SEE FINAL ANALYSIS
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLOT BOOKING SCREEN -->
+      <div id="slot-screen" class="game-screen hidden">
+        <div class="screen-content premium-card max-w-sm">
+          <h2 class="title-premium text-center">RESERVE SLOT</h2>
+          <p class="lead-sub text-center">Book a consultation with our Financial Specialist</p>
+          
+          <div class="form-container mt-4">
+            <div class="input-group">
+              <label for="slot-date">PREFERRED DATE</label>
+              <input type="date" id="slot-date">
+            </div>
+            
+            <div class="input-group mt-3">
+              <label>PREFERRED TIME SLOT</label>
+              <div id="slot-times-grid" class="slot-grid">
+                <!-- Slot chips inserted dynamically by GameManager -->
+              </div>
+            </div>
+            
+            <div class="error-msg mt-3" id="slot-error"></div>
+            
+            <button class="ls-btn ls-btn-primary mt-6 w-full" id="btn-slot-confirm" type="button">
+              CONFIRM BOOKING
+            </button>
+            
+            <button class="text-btn-secondary mt-3 w-full" id="btn-slot-skip" type="button">
+              SKIP FOR NOW
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- THANK YOU SCREEN -->
+      <div id="thankyou-screen" class="game-screen hidden">
+        <div class="screen-content premium-card max-w-sm text-center">
+          <div class="success-icon animate-bounce-slow">✓</div>
+          <h2 class="title-premium mt-4">RESERVED!</h2>
+          <p class="thankyou-text mt-2">Your slot has been successfully registered. A Bajaj Life relationship advisor will connect with you shortly.</p>
+          
+          <button class="ls-btn ls-btn-primary mt-8 w-full" id="btn-thankyou-restart" type="button">
+            PLAY AGAIN
+          </button>
+        </div>
+      </div>
+
+      <!-- T&C MODAL -->
+      <div id="tc-modal" class="modal-overlay hidden">
+        <div class="modal-card premium-card animate-slide-up max-w-sm">
+          <h3 class="title-premium text-center">TERMS & CONDITIONS</h3>
+          <div class="modal-body mt-4">
+            <p>I hereby authorize Bajaj Allianz Life Insurance Co. Ltd. to contact me on the number provided for explaining products/services or solicitation.</p>
+            <p>This consent supersedes any DND/NCPR registration, and any communication sent via SMS, Call, or WhatsApp shall not be treated as unsolicited.</p>
+            <p>Read the complete <a href="https://www.bajajallianzlife.com/privacy-policy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
+          </div>
+          
+          <div class="modal-footer mt-6">
+            <button class="ls-btn ls-btn-primary w-full" id="btn-tc-agree">I AGREE</button>
+            <button class="text-btn-secondary mt-3 w-full" id="btn-tc-close">CLOSE</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
