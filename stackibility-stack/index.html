@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <link rel="icon" href="data:;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#051a3a" />
+  <title>LifeStack – Premium Stacking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/index.css" />
+</head>
+
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="ui">
+    <!-- ── HUD ──────────────────────────────────────────── -->
+    <div id="hud">
+      <div class="ls-chip" id="score-box">
+        <div class="hud-label">Score</div>
+        <div class="ls-num" id="score">0</div>
+      </div>
+      <div class="ls-chip" id="timer-box">
+        <div class="hud-label">Time Left</div>
+        <div class="ls-num" id="timer">1:00</div>
+      </div>
+      <div class="ls-chip" id="height-box">
+        <div class="hud-label">Floors</div>
+        <div class="ls-num" id="height">0</div>
+      </div>
+    </div>
+
+    <div id="level-name">Starting Life</div>
+
+    <!-- ── Stability bar (right side, vertical) ─────────── -->
+    <div id="stability-bar-wrap">
+      <div class="stability-label">Stability</div>
+      <div id="stability-track">
+        <div id="stability-fill"></div>
+      </div>
+    </div>
+
+    <!-- ── Combo badge (ephemeral) ──────────────────────── -->
+    <div id="combo-badge" class="hidden"></div>
+
+    <!-- ── Tap hint ─────────────────────────────────────── -->
+    <div id="tap-hint">
+      <div class="tap-ring" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v4M4.93 4.93l2.83 2.83M2 12h4M4.93 19.07l2.83-2.83" />
+          <path d="M14 12a2 2 0 1 0-4 0v6a3 3 0 0 0 3 3h2.5a3.5 3.5 0 0 0 3.5-3.5V14a2 2 0 0 0-4 0" fill="rgba(255,255,255,0.15)" />
+        </svg>
+      </div>
+      <div class="tap-hint-label">Tap to drop</div>
+    </div>
+
+    <!-- ── Start screen ─────────────────────────────────── -->
+    <div id="start-screen">
+      <div style="text-align:center; animation: ls-rise 600ms ease-out both;">
+        <div class="logo-stack" aria-hidden="true">
+          <div class="logo-block logo-block-1"></div>
+          <div class="logo-block logo-block-2"></div>
+          <div class="logo-block logo-block-3"></div>
+        </div>
+        <div class="logo-title">Life<span>Stack</span></div>
+        <div class="logo-tagline">Build · Protect · Rise</div>
+      </div>
+
+      <div class="start-hero">
+        <div class="start-mini-tower" aria-hidden="true">
+          <!-- Townhouse — bottom -->
+          <div class="bld-tile bld-1" style="--tint:#005BAC;">
+            <svg viewBox="0 0 64 64" preserveAspectRatio="none">
+              <rect x="2" y="6" width="60" height="3" fill="rgba(0,0,0,0.35)"/>
+              <rect x="4" y="9" width="56" height="2" fill="rgba(255,255,255,0.25)"/>
+              <rect x="8" y="14" width="12" height="14" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <line x1="14" y1="14" x2="14" y2="28" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <line x1="8" y1="21" x2="20" y2="21" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="26" y="14" width="12" height="14" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <line x1="32" y1="14" x2="32" y2="28" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <line x1="26" y1="21" x2="38" y2="21" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="44" y="14" width="12" height="14" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <line x1="50" y1="14" x2="50" y2="28" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <line x1="44" y1="21" x2="56" y2="21" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="2" y="32" width="60" height="2" fill="rgba(0,0,0,0.30)"/>
+              <rect x="6" y="38" width="14" height="16" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <rect x="44" y="38" width="14" height="16" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <path d="M26 64 L26 44 Q26 38 32 38 Q38 38 38 44 L38 64 Z" fill="rgba(0,0,0,0.4)"/>
+              <circle cx="36" cy="54" r="0.7" fill="rgba(255,255,255,0.7)"/>
+            </svg>
+            <div class="bld-label">Townhouse</div>
+          </div>
+
+          <!-- Cottage -->
+          <div class="bld-tile bld-2" style="--tint:#3B8DD4;">
+            <svg viewBox="0 0 64 64" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="ctg-roof-mini" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stop-color="rgba(0,0,0,0.35)"/>
+                  <stop offset="1" stop-color="rgba(0,0,0,0.18)"/>
+                </linearGradient>
+              </defs>
+              <path d="M4 22 L32 6 L60 22 L60 26 L4 26 Z" fill="url(#ctg-roof-mini)"/>
+              <rect x="4" y="24" width="56" height="2" fill="rgba(0,0,0,0.35)"/>
+              <rect x="46" y="10" width="5" height="10" fill="rgba(0,0,0,0.30)"/>
+              <rect x="28" y="40" width="8" height="20" rx="0.5" fill="rgba(0,0,0,0.32)"/>
+              <circle cx="34" cy="50" r="0.7" fill="rgba(255,255,255,0.6)"/>
+              <rect x="10" y="34" width="12" height="10" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <line x1="16" y1="34" x2="16" y2="44" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <line x1="10" y1="39" x2="22" y2="39" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <rect x="42" y="34" width="12" height="10" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <line x1="48" y1="34" x2="48" y2="44" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <line x1="42" y1="39" x2="54" y2="39" stroke="rgba(0,0,0,0.3)" stroke-width="0.6"/>
+              <rect x="10" y="44" width="12" height="2" fill="rgba(0,0,0,0.35)"/>
+              <rect x="42" y="44" width="12" height="2" fill="rgba(0,0,0,0.35)"/>
+            </svg>
+            <div class="bld-label">Cottage</div>
+          </div>
+
+          <!-- Hospital — perfect -->
+          <div class="bld-tile bld-3 perfect" style="--tint:#F26922;">
+            <svg viewBox="0 0 64 64" preserveAspectRatio="none">
+              <rect x="4" y="6" width="56" height="4" fill="rgba(0,0,0,0.28)"/>
+              <rect x="4" y="10" width="56" height="2" fill="rgba(255,255,255,0.25)"/>
+              <rect x="29" y="0" width="6" height="2" fill="rgba(255,255,255,0.95)"/>
+              <rect x="31" y="-2" width="2" height="6" fill="rgba(255,255,255,0.95)"/>
+              <rect x="6" y="16" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="17" y="16" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="28" y="16" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="39" y="16" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="50" y="16" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="6" y="30" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="17" y="30" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="28" y="30" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="39" y="30" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="50" y="30" width="8" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <line x1="4" y1="26" x2="60" y2="26" stroke="rgba(0,0,0,0.25)" stroke-width="0.6"/>
+              <rect x="28" y="44" width="8" height="10" fill="rgba(0,0,0,0.4)"/>
+              <rect x="29" y="45" width="3" height="9" fill="rgba(255,255,255,0.45)"/>
+              <rect x="32" y="45" width="3" height="9" fill="rgba(255,255,255,0.45)"/>
+            </svg>
+            <div class="bld-label">Hospital</div>
+          </div>
+
+          <!-- School — top -->
+          <div class="bld-tile bld-4" style="--tint:#00897B;">
+            <svg viewBox="0 0 64 64" preserveAspectRatio="none">
+              <path d="M26 4 L32 -2 L38 4 L38 10 L26 10 Z" fill="rgba(0,0,0,0.4)"/>
+              <rect x="26" y="10" width="12" height="14" fill="rgba(255,255,255,0.18)"/>
+              <circle cx="32" cy="16" r="4" fill="rgba(255,255,255,0.85)" stroke="rgba(0,0,0,0.5)" stroke-width="0.6"/>
+              <line x1="32" y1="16" x2="32" y2="13" stroke="rgba(0,0,0,0.7)" stroke-width="0.7"/>
+              <line x1="32" y1="16" x2="34" y2="16" stroke="rgba(0,0,0,0.7)" stroke-width="0.7"/>
+              <rect x="5" y="24" width="6" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="14" y="24" width="6" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="44" y="24" width="6" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="53" y="24" width="6" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="5" y="36" width="6" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="14" y="36" width="6" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="44" y="36" width="6" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <rect x="53" y="36" width="6" height="8" fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+              <line x1="2" y1="34" x2="62" y2="34" stroke="rgba(0,0,0,0.25)" stroke-width="0.5"/>
+              <rect x="28" y="24" width="8" height="32" fill="rgba(255,255,255,0.18)"/>
+              <rect x="28" y="50" width="8" height="14" fill="rgba(0,0,0,0.42)"/>
+              <rect x="24" y="60" width="16" height="4" fill="rgba(255,255,255,0.18)"/>
+            </svg>
+            <div class="bld-label">School</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="start-cta-stack">
+        <button class="ls-btn ls-btn-primary blink" id="btn-start" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Play
+        </button>
+        <div class="start-secondary-row start-secondary-row-single">
+          <button class="ls-btn ls-btn-secondary" id="btn-tutorial" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22.5z" />
+              <path d="M4 4.5v18" />
+            </svg>
+            How to Play
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tutorial screen ──────────────────────────────── -->
+    <div id="tutorial-screen" class="hidden">
+      <div class="tut-header">
+        <div>
+          <div class="tut-eyebrow">How to Play</div>
+          <div class="tut-title">Stack your <span>life</span>.</div>
+        </div>
+        <button id="btn-tut-close" type="button" aria-label="Close">×</button>
+      </div>
+
+      <div class="tut-cards">
+        <div class="tut-card">
+          <div class="tut-icon" style="--tint:#3B8DD4;">
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 4v6" /><path d="M8 6l3 4" /><path d="M20 6l-3 4" />
+              <path d="M14 14a3 3 0 0 1 6 0v3" />
+              <path d="M20 17a3 3 0 0 1 6 0v6a5 5 0 0 1-5 5h-3a6 6 0 0 1-6-6v-3l-3-3a2 2 0 0 1 3-3l3 3" />
+            </svg>
+          </div>
+          <div class="tut-card-text">
+            <div class="tut-card-title">Tap to drop</div>
+            <div class="tut-card-body">Time the swing. Release the block on a steady beat.</div>
+          </div>
+          <div class="tut-card-num">1</div>
+        </div>
+
+        <div class="tut-card">
+          <div class="tut-icon" style="--tint:#F26922;">
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" aria-hidden="true">
+              <circle cx="16" cy="16" r="11" />
+              <circle cx="16" cy="16" r="6" />
+              <circle cx="16" cy="16" r="2" fill="#fff" />
+            </svg>
+          </div>
+          <div class="tut-card-text">
+            <div class="tut-card-title">Perfect drop</div>
+            <div class="tut-card-body">Land flush — keep your full width and start a combo.</div>
+          </div>
+          <div class="tut-card-num">2</div>
+        </div>
+
+        <div class="tut-card">
+          <div class="tut-icon" style="--tint:#F26922;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+              <path d="M12 2c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 1-5-2 1-4 3-4 7a8 8 0 0 0 16 0C20 8 14 6 12 2z" />
+            </svg>
+          </div>
+          <div class="tut-card-text">
+            <div class="tut-card-title">Fever ×5</div>
+            <div class="tut-card-body">Five perfects in a row. Time slows to a crawl.</div>
+          </div>
+          <div class="tut-card-num">3</div>
+        </div>
+
+        <div class="tut-card">
+          <div class="tut-icon" style="--tint:#005BAC;">
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="#fff" aria-hidden="true">
+              <path d="M16 3L2 28h28L16 3z" />
+              <rect x="14.6" y="12" width="2.8" height="8" fill="rgba(0,0,0,0.5)" />
+              <rect x="14.6" y="22" width="2.8" height="2.8" fill="rgba(0,0,0,0.5)" />
+            </svg>
+          </div>
+          <div class="tut-card-text">
+            <div class="tut-card-title">Watch stability</div>
+            <div class="tut-card-body">Off-center drops trim your block. Below 30% the tower shakes.</div>
+          </div>
+          <div class="tut-card-num">4</div>
+        </div>
+      </div>
+
+      <button class="ls-btn ls-btn-primary tut-cta" type="button" id="btn-tut-close-cta">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        Got it · Play
+      </button>
+    </div>
+
+    <!-- ── Game Over screen ─────────────────────────────── -->
+    <div id="gameover-screen" class="hidden">
+      <div class="go-card">
+        <div class="go-trophy" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
+            <rect x="8" y="20" width="16" height="6" rx="1.5" fill="#fff" />
+            <rect x="10" y="14" width="12" height="6" rx="1.5" fill="#fff" opacity="0.92" />
+            <rect x="12" y="8" width="8" height="6" rx="1.5" fill="#fff" opacity="0.85" />
+            <circle cx="16" cy="5" r="1.6" fill="#fff" />
+          </svg>
+        </div>
+
+        <div class="go-eyebrow" id="go-greeting">Hi there</div>
+        <div class="go-personal-line">You built a tower of</div>
+        <div class="go-height-row">
+          <span class="ls-num" id="go-floors">0</span>
+          <span class="go-unit">floors</span>
+        </div>
+
+        <div class="go-stats-grid go-stats-grid-single">
+          <div class="go-stat go-stat-accent">
+            <div class="hud-label">Score</div>
+            <span class="ls-num" id="go-score">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Insurance pitch: messaging swaps for win/lose scenarios -->
+      <div class="go-insurance">
+        <div class="go-insurance-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" fill="rgba(255,255,255,0.18)"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="go-insurance-title" id="go-insurance-title">
+          Towers fall, <span>Your Life Goals shouldn't!</span>
+        </div>
+        <div class="go-insurance-body" id="go-insurance-body">
+          One bad move ended the game, we can't afford that in real life! Protect your family's Life Goals with Bajaj life term plan and riders now!
+        </div>
+      </div>
+
+      <div class="go-cta-stack">
+        <div class="go-action-row">
+          <button class="ls-btn ls-btn-secondary go-action-btn" id="btn-share" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Share
+          </button>
+          <a class="ls-btn ls-btn-secondary go-action-btn hidden" id="btn-call" href="#" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            Call now
+          </a>
+        </div>
+        <button class="ls-btn ls-btn-primary go-insurance-cta" id="btn-insurance" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="16" rx="2"/>
+            <path d="M3 9h18M8 3v4M16 3v4"/>
+          </svg>
+          Book a Slot with our Relationship Manager
+        </button>
+        <button class="ls-btn ls-btn-secondary" id="btn-restart" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 4v5h5" />
+          </svg>
+          Play Again
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Lead capture screen ──────────────────────────── -->
+    <div id="lead-screen" class="hidden premium-overlay">
+      <div class="ls-card premium-card animate-fade-in">
+        <div class="ls-card-title-premium">ENTER DETAILS</div>
+        <div class="ls-card-sub-premium">To see the results</div>
+
+        <div class="ls-form-premium">
+          <div class="ls-field-premium">
+            <label class="ls-field-label-premium">YOUR NAME</label>
+            <input type="text" id="lead-name" class="ls-input-premium" placeholder="Full Name" autocomplete="name" />
+          </div>
+          <div class="ls-field-premium">
+            <label class="ls-field-label-premium">MOBILE NUMBER</label>
+            <input type="tel" id="lead-mobile" class="ls-input-premium" placeholder="9876543210" maxlength="10" inputmode="numeric" autocomplete="tel-national" />
+          </div>
+
+          
+          <div class="ls-tc-premium">
+            <div class="ls-checkbox-wrapper">
+              <input type="checkbox" id="lead-tc" checked />
+              <div class="ls-checkbox-custom"></div>
+            </div>
+            <span class="ls-tc-text">I agree and consent to the <a href="#" id="link-tc" class="ls-link">T&C and Privacy Policy</a></span>
+          </div>
+
+          <div class="ls-error-premium" id="lead-error"></div>
+          
+          <button class="ls-btn-premium-cta" id="btn-lead-submit" type="button">
+            SEE RESULTS!
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Slot booking screen ──────────────────────────── -->
+    <div id="slot-screen" class="hidden premium-overlay">
+      <div class="ls-card premium-card animate-fade-in">
+        <div class="ls-card-title-premium">BOOK SLOT</div>
+        <div class="ls-card-sub-premium">Pick a preferred time</div>
+
+        <div class="ls-form-premium">
+          <div class="ls-field-premium">
+            <label class="ls-field-label-premium">DATE</label>
+            <input type="date" id="slot-date" class="ls-input-premium" />
+          </div>
+          <div class="ls-field-premium">
+            <label class="ls-field-label-premium">TIME SLOT</label>
+            <div id="slot-times" class="ls-slot-grid-premium"></div>
+          </div>
+          <div class="ls-error-premium" id="slot-error"></div>
+          <button class="ls-btn-premium-cta" id="btn-slot-confirm" type="button">
+            CONFIRM SLOT!
+          </button>
+          <button class="ls-text-btn-premium" id="btn-slot-skip" type="button">
+            SKIP FOR NOW
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Thank-you screen ─────────────────────────────── -->
+    <div id="thankyou-screen" class="hidden premium-overlay">
+      <div class="ls-card premium-card animate-fade-in text-center">
+        <div class="ls-check-premium animate-bounce-slow" aria-hidden="true">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12l5 5L20 7"/>
+          </svg>
+        </div>
+        <div class="ls-card-title-premium mt-4">THANK YOU!</div>
+        <div class="ls-card-sub-premium">Our advisor will call you shortly.</div>
+        <button class="ls-btn-premium-cta mt-6" id="btn-thankyou-restart" type="button">
+          PLAY AGAIN
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Terms Modal ──────────────────────────────────── -->
+    <div id="terms-modal" class="hidden premium-overlay">
+      <div class="modal-overlay" id="terms-overlay"></div>
+      <div class="modal-card premium-card animate-slide-up">
+        <button id="btn-terms-close" class="modal-close-btn">&times;</button>
+        <div class="ls-card-title-premium">TERMS & CONDITIONS</div>
+        <div class="modal-content mt-4">
+          <p>I hereby authorize Bajaj Life Insurance Limited. to call me on the contact number made available by me on the website with a specific request to call back.</p>
+          <p>I further declare that, irrespective of my contact number being registered on National Customer Preference Register (NCPR) or on National Do Not Call Registry (NDNC), any call made, SMS or WhatsApp sent in response to my request shall not be construed as an Unsolicited Commercial Communication even though the content of the call may be for the purposes of explaining various insurance products and services or solicitation and procurement of insurance business.</p>
+          <p>Please refer to Bajaj Life <a href="https://www.bajajallianzlife.com/privacy-policy.html" target="_blank" rel="noopener noreferrer" class="ls-link">Privacy Policy</a>.</p>
+        </div>
+        <button class="ls-btn-premium-cta mt-8" id="btn-terms-agree">
+          I AGREE
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Wire the tutorial bottom CTA to the same close path as the X button.
+    // UIManager.js owns #btn-tut-close — we just forward the click.
+    document.getElementById('btn-tut-close-cta').addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('btn-tut-close').click();
+    });
+  </script>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
