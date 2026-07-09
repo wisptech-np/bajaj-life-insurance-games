@@ -1,11 +1,14 @@
 {
   "name": "coverage-archer",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode uat",
+    "build:uat": "vite build --mode uat",
+    "build:preprod": "vite build --mode preprod",
+    "build:prod": "vite build --mode production",
     "preview": "vite preview"
   },
   "dependencies": {

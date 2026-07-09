@@ -92,13 +92,13 @@ const HowToPlayPopup: React.FC<Props> = ({ onStart, onClose }) => {
           <div className="grid grid-cols-5 gap-3 pt-2">
             <button
               onClick={onClose}
-              className="btn-press col-span-2 rounded-full border border-white/20 bg-white/10 py-3 text-xs font-bold text-white hover:bg-white/15"
+              className="btn-press col-span-2 rounded-xl border border-white/20 bg-white/10 py-3 text-xs font-bold text-white hover:bg-white/15"
             >
               Back
             </button>
             <button
               onClick={onStart}
-              className="btn-press col-span-3 rounded-full py-3 text-xs font-black uppercase tracking-wider text-black shadow-[0_4px_16px_rgba(249,115,22,0.4)]"
+              className="btn-press col-span-3 rounded-xl py-3 text-xs font-black uppercase tracking-wider text-black shadow-[0_4px_16px_rgba(249,115,22,0.4)]"
               style={{ background: 'linear-gradient(135deg, #F97316 0%, #FACC15 100%)' }}
             >
               Start Game

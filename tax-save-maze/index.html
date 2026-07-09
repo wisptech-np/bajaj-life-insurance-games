@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <link rel="icon" href="data:;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==">
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Tax Save Maze - Bajaj Allianz Life Insurance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      background-color: #030A16;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    #root,
+    .game-wrap {
+      width: 100%;
+      height: var(--app-height, 100vh);
+      min-height: var(--app-height, 100vh);
+    }
+
+    #root {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .game-wrap {
+      max-width: 480px;
+      overflow: hidden;
+      position: relative;
+      background: radial-gradient(circle at 50% 30%, #0c2040 0%, #030a16 100%);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    /* Screen animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+
+    .animate-slide-up {
+      animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Glow effects */
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+    }
+    .glow-orange {
+      box-shadow: 0 0 15px rgba(249, 115, 22, 0.4);
+    }
+    .glow-green {
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+    }
+
+    /* Standard touch buttons active effect */
+    .btn-press:active {
+      transform: scale(0.96);
+      filter: brightness(1.1);
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #06b6d4;
+      border-radius: 2px;
+    }
+
+    /* Virtual D-pad active styling */
+    .dpad-btn:active {
+      background-color: rgba(6, 182, 212, 0.3) !important;
+      transform: scale(0.9);
+    }
+  </style>
+  <script>
+    (() => {
+      const syncAppHeight = () => {
+        const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        document.documentElement.style.setProperty('--app-height', `${h}px`);
+      };
+      syncAppHeight();
+      window.addEventListener('resize', syncAppHeight);
+      window.addEventListener('orientationchange', syncAppHeight);
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', syncAppHeight);
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>

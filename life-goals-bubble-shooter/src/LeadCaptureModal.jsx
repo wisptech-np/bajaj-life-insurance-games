@@ -1,14 +1,17 @@
 // LeadCaptureModal.jsx — collects name + mobile and posts to LMS.
 // Restyled to match the Snake-Life lead form design exactly.
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { submitToLMS, extractLeadNo, LEAD_NO_KEY } from './api.js';
 
 const NAME_RE = /^[A-Za-z\s]+$/;
 const MOBILE_RE = /^[6-9]\d{9}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LeadCaptureModal({ score, onSubmitted }) {
   const [name, setName] = useState(sessionStorage.getItem('lastSubmittedName') || '');
   const [mobile, setMobile] = useState(sessionStorage.getItem('lastSubmittedPhone') || '');
+  const [email, setEmail] = useState(sessionStorage.getItem('lastSubmittedEmail') || '');
   const [terms, setTerms] = useState(true);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +32,10 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
       errs.mobile = 'Invalid 10-digit number';
     }
 
+    if (email.trim() && !EMAIL_RE.test(email.trim())) {
+      errs.email = 'Invalid email address';
+    }
+
     if (!terms) {
       errs.terms = 'Please agree to Terms and Conditions';
     }
@@ -46,6 +53,7 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
       const result = await submitToLMS({
         name: name.trim(),
         mobile,
+        email: email.trim(),
         score,
         summaryDtls: 'Life Goals Bubble Shooter - Post Game Lead',
       });
@@ -53,10 +61,11 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
       if (leadNo) sessionStorage.setItem(LEAD_NO_KEY, leadNo);
       sessionStorage.setItem('lastSubmittedName', name.trim());
       sessionStorage.setItem('lastSubmittedPhone', mobile);
-      onSubmitted({ name: name.trim(), mobile, leadNo });
+      sessionStorage.setItem('lastSubmittedEmail', email.trim());
+      onSubmitted({ name: name.trim(), mobile, email: email.trim(), leadNo });
     } catch (err) {
       console.error(err);
-      onSubmitted({ name: name.trim(), mobile, leadNo: null });
+      onSubmitted({ name: name.trim(), mobile, email: email.trim(), leadNo: null });
     } finally {
       setSubmitting(false);
     }
@@ -64,8 +73,8 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
 
   return (
     <>
-      <div className="sl-lead-overlay">
-        <div className="sl-lead-card">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="sl-lead-overlay">
+        <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: 'spring', damping: 22, stiffness: 200 }} className="sl-lead-card">
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <h2 className="sl-lead-title">
               Enter Details
@@ -121,6 +130,28 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
               )}
             </div>
 
+            {/* Email Field */}
+            <div className="sl-lead-field">
+              <label className="sl-lead-label">
+                Email Address (Optional)
+              </label>
+              <input
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errors.email) setErrors({ ...errors, email: '' });
+                }}
+                className={`sl-lead-input ${errors.email ? 'has-error' : ''}`}
+              />
+              {errors.email && (
+                <p className="sl-error-text">
+                  {errors.email}
+                </p>
+              )}
+            </div>
+
             {/* Consent Checkbox */}
             <div 
               onClick={() => {
@@ -168,8 +199,8 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
               </p>
             )}
           </form>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Terms Modal Overlay */}
       {termsOpen && (

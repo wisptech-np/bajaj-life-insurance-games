@@ -1,17 +1,19 @@
 import Phaser from 'phaser';
+import { DPR, GAME_CONFIG } from '../../data';
 
+// All textures are generated procedurally on canvas — no image files, no emoji.
+// Every texture is rasterized at DPR scale (canvas dims x DPR, ctx.scale(DPR)),
+// and MainScene displays sprites at 1/DPR so their world size is unchanged —
+// crisp on retina, bit-identical on DPR-1 screens.
 export default class PreloadScene extends Phaser.Scene {
   constructor() {
     super('PreloadScene');
   }
 
   preload() {
-    // Dynamically draw and register all textures procedurally
     this.createArcherSpritesheet();
     this.createVirusSpritesheets();
     this.createArrowTexture();
-    this.createShieldTexture();
-    this.createHazardOrbTexture();
     this.createParticleTexture();
   }
 
@@ -23,17 +25,22 @@ export default class PreloadScene extends Phaser.Scene {
     const frameWidth = 64;
     const frameHeight = 64;
     const numFrames = 5;
-    const texture = this.textures.createCanvas('archer_spritesheet_canvas', frameWidth * numFrames, frameHeight);
+    const texture = this.textures.createCanvas(
+      'archer_spritesheet_canvas',
+      frameWidth * numFrames * DPR,
+      frameHeight * DPR
+    );
+    if (!texture) return;
     const ctx = texture.context;
+    ctx.scale(DPR, DPR);
 
     for (let f = 0; f < numFrames; f++) {
       const ox = f * frameWidth + frameWidth / 2;
-      const oy = frameHeight / 2 + 6; // slightly offset downwards
+      const oy = frameHeight / 2 + 6;
 
-      // Draw Archer Body (Strong posture, modern insurance blue uniform)
-      ctx.fillStyle = '#003DA6'; // Bajaj Blue
+      // Body trunk — Bajaj blue uniform
+      ctx.fillStyle = '#003DA6';
       ctx.beginPath();
-      // Draw body trunk
       ctx.ellipse(ox, oy + 12, 10, 14, 0, 0, Math.PI * 2);
       ctx.fill();
 
@@ -46,36 +53,36 @@ export default class PreloadScene extends Phaser.Scene {
       ctx.closePath();
       ctx.fill();
 
-      // Head (Skin tone)
+      // Head
       ctx.fillStyle = '#FFCDB2';
       ctx.beginPath();
       ctx.arc(ox, oy - 8, 8, 0, Math.PI * 2);
       ctx.fill();
 
-      // Cap (Bajaj Blue)
+      // Cap
       ctx.fillStyle = '#003DA6';
       ctx.beginPath();
       ctx.arc(ox, oy - 10, 8.5, Math.PI, 0);
       ctx.fill();
-      ctx.fillRect(ox - 3, oy - 13, 14, 3.5); // visor
+      ctx.fillRect(ox - 3, oy - 13, 14, 3.5);
 
-      // Eyes (Looking right, since archer faces right)
+      // Eye (facing right)
       ctx.fillStyle = '#000000';
       ctx.beginPath();
       ctx.arc(ox + 4, oy - 9, 1.2, 0, Math.PI * 2);
       ctx.fill();
 
-      // Legs / Pants (White)
+      // Legs
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(ox - 6, oy + 22, 4, 8);
       ctx.fillRect(ox + 2, oy + 22, 4, 8);
 
-      // Shoes (Black)
+      // Shoes
       ctx.fillStyle = '#111827';
       ctx.fillRect(ox - 8, oy + 30, 6, 2.5);
       ctx.fillRect(ox, oy + 30, 6, 2.5);
 
-      // Gold Shield Emblem on Uniform Chest
+      // Gold shield emblem on chest
       ctx.fillStyle = '#FACC15';
       ctx.beginPath();
       ctx.moveTo(ox - 3, oy + 10);
@@ -86,26 +93,16 @@ export default class PreloadScene extends Phaser.Scene {
       ctx.closePath();
       ctx.fill();
 
-      // Draw bow based on frame/aim stage
-      ctx.strokeStyle = '#D97706'; // Wooden bow
-      ctx.lineWidth = 3.5;
-      ctx.lineCap = 'round';
-
-      // Draw bow string
-      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-      ctx.lineWidth = 1.2;
-
-      // Poses
+      // Bow poses per frame
       if (f === 0) {
-        // --- 0. Idle Pose ---
-        // Left arm holding bow forward relaxed
+        // Idle
         ctx.strokeStyle = '#D97706';
         ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.arc(ox + 10, oy, 16, -Math.PI / 3, Math.PI / 3);
         ctx.stroke();
 
-        // Bow string (straight)
         ctx.strokeStyle = 'rgba(255,255,255,0.6)';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -113,101 +110,90 @@ export default class PreloadScene extends Phaser.Scene {
         ctx.lineTo(ox + 10, oy + 14);
         ctx.stroke();
 
-        // Archer arms relaxed
         ctx.strokeStyle = '#FFCDB2';
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(ox + 4, oy + 8);
         ctx.lineTo(ox + 10, oy + 6);
         ctx.stroke();
-      }
-      else if (f === 1) {
-        // --- 1. Aim Draw Stage 1 (Minor Pull) ---
-        // Bow drawn slightly back
+      } else if (f === 1) {
+        // Draw stage 1 (light pull)
         ctx.strokeStyle = '#D97706';
         ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.arc(ox + 10, oy, 16, -Math.PI / 3, Math.PI / 3);
         ctx.stroke();
 
-        // Bow string pulled back slightly to the left
         ctx.strokeStyle = 'rgba(255,255,255,0.8)';
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(ox + 10, oy - 14);
-        ctx.lineTo(ox + 3, oy); // pulled point
+        ctx.lineTo(ox + 3, oy);
         ctx.lineTo(ox + 10, oy + 14);
         ctx.stroke();
 
-        // Drawing arm pulling back
         ctx.strokeStyle = '#FFCDB2';
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(ox - 4, oy + 4);
         ctx.lineTo(ox + 3, oy);
         ctx.stroke();
-      }
-      else if (f === 2) {
-        // --- 2. Aim Draw Stage 2 (Full Pull) ---
-        // Bow flexed (deeper bend)
+      } else if (f === 2) {
+        // Draw stage 2 (full pull)
         ctx.strokeStyle = '#B45309';
         ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.arc(ox + 12, oy, 14, -Math.PI / 2.7, Math.PI / 2.7);
         ctx.stroke();
 
-        // Bow string pulled back deep left
         ctx.strokeStyle = 'rgba(255,255,255,0.95)';
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(ox + 12, oy - 14);
-        ctx.lineTo(ox - 4, oy); // deep pull point
+        ctx.lineTo(ox - 4, oy);
         ctx.lineTo(ox + 12, oy + 14);
         ctx.stroke();
 
-        // Drawing arm holding fully pulled string
         ctx.strokeStyle = '#FFCDB2';
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(ox - 6, oy + 4);
         ctx.lineTo(ox - 4, oy);
         ctx.stroke();
-      }
-      else if (f === 3) {
-        // --- 3. Release Stage (Bow vibrating, string snaps) ---
+      } else if (f === 3) {
+        // Release (string snap)
         ctx.strokeStyle = '#D97706';
         ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.arc(ox + 10, oy, 16, -Math.PI / 3, Math.PI / 3);
         ctx.stroke();
 
-        // String vibrating (drawn straight/moving forward slightly)
         ctx.strokeStyle = 'rgba(255,255,255,0.85)';
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(ox + 10, oy - 14);
-        ctx.lineTo(ox + 12, oy); // snap vibration
+        ctx.lineTo(ox + 12, oy);
         ctx.lineTo(ox + 10, oy + 14);
         ctx.stroke();
 
-        // Left arm pointing forward, right arm flung back
         ctx.strokeStyle = '#FFCDB2';
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(ox - 6, oy + 6);
         ctx.lineTo(ox - 12, oy + 10);
         ctx.stroke();
-      }
-      else if (f === 4) {
-        // --- 4. Victory Pose ---
-        // Bow raised high in right hand
+      } else if (f === 4) {
+        // Victory pose
         ctx.strokeStyle = '#D97706';
         ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.arc(ox + 4, oy - 14, 12, -Math.PI / 2, Math.PI / 2);
         ctx.stroke();
 
-        // Left hand waving
         ctx.strokeStyle = '#FFCDB2';
         ctx.lineWidth = 3;
         ctx.beginPath();
@@ -218,125 +204,142 @@ export default class PreloadScene extends Phaser.Scene {
     }
 
     texture.refresh();
-    this.textures.addSpriteSheet('archer_spritesheet', texture.canvas as unknown as HTMLImageElement, { frameWidth: frameWidth, frameHeight: frameHeight });
+    this.textures.addSpriteSheet('archer_spritesheet', texture.canvas as unknown as HTMLImageElement, {
+      frameWidth: frameWidth * DPR,
+      frameHeight: frameHeight * DPR,
+    });
   }
 
+  // Green virus creatures — three sizes, each a 3-frame sheet (pulsing core + wobbling spikes).
   private createVirusSpritesheets() {
-    const frameSize = 64;
+    const sizes: Array<{ key: string; r: number }> = [
+      { key: 'virus_L', r: GAME_CONFIG.VIRUS_RADIUS.L },
+      { key: 'virus_M', r: GAME_CONFIG.VIRUS_RADIUS.M },
+      { key: 'virus_S', r: GAME_CONFIG.VIRUS_RADIUS.S },
+    ];
     const numFrames = 3;
 
-    // Define the three threat types with distinct colors/labels
-    const riskTypes = [
-      { name: 'virus_red', fill: '#EF4444', border: '#991B1B', text: 'ILLNESS' },
-      { name: 'virus_purple', fill: '#A855F7', border: '#6B21A8', text: 'DEBT' },
-      { name: 'virus_black', fill: '#374151', border: '#111827', text: 'ACCIDENT' }
-    ];
-
-    riskTypes.forEach(risk => {
-      const texture = this.textures.createCanvas(`${risk.name}_canvas`, frameSize * numFrames, frameSize);
+    sizes.forEach(({ key, r }) => {
+      const frameSize = Math.ceil(r * 3.1);
+      const texture = this.textures.createCanvas(`${key}_canvas`, frameSize * numFrames * DPR, frameSize * DPR);
+      if (!texture) return;
       const ctx = texture.context;
+      ctx.scale(DPR, DPR);
 
       for (let f = 0; f < numFrames; f++) {
         const ox = f * frameSize + frameSize / 2;
         const oy = frameSize / 2;
 
-        // Walking leg animations
-        ctx.strokeStyle = risk.border;
-        ctx.lineWidth = 4;
+        // Outer spikes (dark green), wobbling per frame
+        const spikeCount = 10;
+        const wobble = f * 0.21;
+        ctx.strokeStyle = '#14532D';
+        ctx.fillStyle = '#166534';
+        ctx.lineWidth = Math.max(2.5, r * 0.14);
         ctx.lineCap = 'round';
-        const legWalk = Math.sin(f * Math.PI) * 6;
-
-        ctx.beginPath();
-        ctx.moveTo(ox - 8, oy + 12);
-        ctx.lineTo(ox - 12 - legWalk, oy + 24);
-        ctx.moveTo(ox + 8, oy + 12);
-        ctx.lineTo(ox + 12 + legWalk, oy + 24);
-        ctx.stroke();
-
-        // Draw outer virus Spikes
-        ctx.fillStyle = risk.border;
-        const spikeCount = 8;
-        const radius = 15;
         for (let i = 0; i < spikeCount; i++) {
-          const angle = (i * Math.PI * 2) / spikeCount + (f * 0.1); // rotating spikes
-          const sx = ox + Math.cos(angle) * (radius + 4);
-          const sy = oy + Math.sin(angle) * (radius + 4);
-          
-          ctx.beginPath();
-          ctx.arc(sx, sy, 3.5, 0, Math.PI * 2);
-          ctx.fill();
+          const angle = (i * Math.PI * 2) / spikeCount + wobble;
+          const len = r * (1.28 + 0.06 * Math.sin(f * 2.1 + i));
+          const sx = ox + Math.cos(angle) * len;
+          const sy = oy + Math.sin(angle) * len;
 
-          ctx.strokeStyle = risk.border;
-          ctx.lineWidth = 3.5;
           ctx.beginPath();
-          ctx.moveTo(ox, oy);
+          ctx.moveTo(ox + Math.cos(angle) * r * 0.8, oy + Math.sin(angle) * r * 0.8);
           ctx.lineTo(sx, sy);
           ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(sx, sy, Math.max(2.2, r * 0.13), 0, Math.PI * 2);
+          ctx.fill();
         }
 
-        // Draw main body circle
-        ctx.fillStyle = risk.fill;
+        // Body — radial green gradient (brand green family)
+        const grad = ctx.createRadialGradient(ox - r * 0.35, oy - r * 0.35, r * 0.15, ox, oy, r);
+        grad.addColorStop(0, '#5EE07C');
+        grad.addColorStop(0.55, '#28A745');
+        grad.addColorStop(1, '#166534');
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(ox, oy, radius, 0, Math.PI * 2);
+        ctx.arc(ox, oy, r, 0, Math.PI * 2);
         ctx.fill();
 
-        // Angry Eyes
-        ctx.fillStyle = '#FFFFFF';
+        // Rim highlight
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = Math.max(1.2, r * 0.06);
         ctx.beginPath();
-        // Left eye
-        ctx.arc(ox - 5, oy - 3, 3, 0, Math.PI * 2);
-        // Right eye
-        ctx.arc(ox + 5, oy - 3, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = '#000000';
-        ctx.beginPath();
-        ctx.arc(ox - 4.5, oy - 2.5, 1.2, 0, Math.PI * 2);
-        ctx.arc(ox + 4.5, oy - 2.5, 1.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Angry eyebrow lines
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(ox - 8, oy - 7);
-        ctx.lineTo(ox - 3, oy - 5);
-        ctx.moveTo(ox + 8, oy - 7);
-        ctx.lineTo(ox + 3, oy - 5);
+        ctx.arc(ox, oy, r * 0.94, -Math.PI * 0.85, -Math.PI * 0.2);
         ctx.stroke();
 
-        // Grumpy Mouth
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1.8;
+        // CORE — pulsing bright nucleus (direct hit = CRITICAL x2)
+        const coreR = r * GAME_CONFIG.CORE_RATIO * (1 + 0.12 * Math.sin((f / numFrames) * Math.PI * 2));
+        const coreGrad = ctx.createRadialGradient(ox, oy, coreR * 0.1, ox, oy, coreR * 1.5);
+        coreGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+        coreGrad.addColorStop(0.4, 'rgba(186,255,201,0.85)');
+        coreGrad.addColorStop(1, 'rgba(186,255,201,0)');
+        ctx.fillStyle = coreGrad;
         ctx.beginPath();
-        ctx.arc(ox, oy + 6, 4, Math.PI, 0); // frown
-        ctx.stroke();
+        ctx.arc(ox, oy, coreR * 1.5, 0, Math.PI * 2);
+        ctx.fill();
 
-        // Text banner overlay representing the risk
-        ctx.fillStyle = risk.border;
-        ctx.fillRect(ox - 22, oy - 22, 44, 9);
-        
+        ctx.fillStyle = '#EAFFEF';
+        ctx.beginPath();
+        ctx.arc(ox, oy, coreR * 0.62, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core ring marker
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.lineWidth = Math.max(1, r * 0.05);
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(ox, oy, coreR, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Angry eyes above the core
+        const eyeY = oy - r * 0.52;
+        const eyeDX = r * 0.3;
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'black 6.5px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(risk.text, ox, oy - 17.5);
+        ctx.beginPath();
+        ctx.arc(ox - eyeDX, eyeY, Math.max(2, r * 0.13), 0, Math.PI * 2);
+        ctx.arc(ox + eyeDX, eyeY, Math.max(2, r * 0.13), 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#052E13';
+        ctx.beginPath();
+        ctx.arc(ox - eyeDX + 1, eyeY + 0.5, Math.max(1, r * 0.06), 0, Math.PI * 2);
+        ctx.arc(ox + eyeDX + 1, eyeY + 0.5, Math.max(1, r * 0.06), 0, Math.PI * 2);
+        ctx.fill();
+
+        // Angry eyebrows
+        ctx.strokeStyle = '#052E13';
+        ctx.lineWidth = Math.max(1.2, r * 0.06);
+        ctx.beginPath();
+        ctx.moveTo(ox - eyeDX - r * 0.16, eyeY - r * 0.2);
+        ctx.lineTo(ox - eyeDX + r * 0.12, eyeY - r * 0.08);
+        ctx.moveTo(ox + eyeDX + r * 0.16, eyeY - r * 0.2);
+        ctx.lineTo(ox + eyeDX - r * 0.12, eyeY - r * 0.08);
+        ctx.stroke();
       }
 
       texture.refresh();
-      this.textures.addSpriteSheet(risk.name, texture.canvas as unknown as HTMLImageElement, { frameWidth: frameSize, frameHeight: frameSize });
+      this.textures.addSpriteSheet(key, texture.canvas as unknown as HTMLImageElement, {
+        frameWidth: frameSize * DPR,
+        frameHeight: frameSize * DPR,
+      });
     });
   }
 
   private createArrowTexture() {
     const width = 48;
     const height = 16;
-    const texture = this.textures.createCanvas('arrow', width, height);
+    const texture = this.textures.createCanvas('arrow', width * DPR, height * DPR);
+    if (!texture) return;
     const ctx = texture.context;
+    ctx.scale(DPR, DPR);
     const cy = height / 2;
 
-    // Glowing shield point (Arrowhead)
-    ctx.fillStyle = '#00AEEF'; // Cyan
+    // Glowing arrowhead (cyan protection tip)
+    ctx.fillStyle = '#00AEEF';
     ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
@@ -347,7 +350,7 @@ export default class PreloadScene extends Phaser.Scene {
     ctx.fill();
     ctx.stroke();
 
-    // Shaft (white rod with subtle gradient)
+    // Shaft
     ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
@@ -355,7 +358,7 @@ export default class PreloadScene extends Phaser.Scene {
     ctx.lineTo(width - 12, cy);
     ctx.stroke();
 
-    // Fletching/feathers (Blue V-tails)
+    // Fletching (blue V-tails)
     ctx.fillStyle = '#003DA6';
     ctx.beginPath();
     ctx.moveTo(8, cy);
@@ -370,90 +373,17 @@ export default class PreloadScene extends Phaser.Scene {
     texture.refresh();
   }
 
-  private createShieldTexture() {
-    const size = 48;
-    const texture = this.textures.createCanvas('shield_powerup', size, size);
-    const ctx = texture.context;
-    const cx = size / 2;
-    const cy = size / 2;
-
-    const drawCrest = (c: CanvasRenderingContext2D, x: number, y: number, s: number) => {
-      c.beginPath();
-      c.moveTo(x, y - 20 * s);
-      c.lineTo(x + 16 * s, y - 14 * s);
-      c.lineTo(x + 18 * s, y + 2 * s);
-      c.lineTo(x, y + 20 * s);
-      c.lineTo(x - 18 * s, y + 2 * s);
-      c.lineTo(x - 16 * s, y - 14 * s);
-      c.closePath();
-    };
-
-    // Glow ring
-    ctx.fillStyle = 'rgba(34, 197, 94, 0.15)'; // Green glow
-    drawCrest(ctx, cx, cy, 1.2);
-    ctx.fill();
-
-    // Outer rim (White edge)
-    ctx.fillStyle = '#FFFFFF';
-    drawCrest(ctx, cx, cy, 1.02);
-    ctx.fill();
-
-    // Body (Green/Teal gradient)
-    const grad = ctx.createLinearGradient(cx, cy - 15, cx, cy + 15);
-    grad.addColorStop(0, '#22C55E');
-    grad.addColorStop(1, '#0D9488');
-    ctx.fillStyle = grad;
-    drawCrest(ctx, cx, cy, 0.88);
-    ctx.fill();
-
-    // Inner white star/shield symbol
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(cx - 7, cy - 1);
-    ctx.lineTo(cx - 2, cy + 4);
-    ctx.lineTo(cx + 6, cy - 5);
-    ctx.stroke();
-
-    texture.refresh();
-  }
-
-  private createHazardOrbTexture() {
-    const size = 24;
-    const texture = this.textures.createCanvas('hazard_orb', size, size);
-    const ctx = texture.context;
-    const cx = size / 2;
-    const cy = size / 2;
-
-    // Small red risk particle sphere
-    ctx.fillStyle = '#EF4444';
-    ctx.beginPath();
-    ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Spikes around orb
-    ctx.strokeStyle = '#991B1B';
-    ctx.lineWidth = 1.5;
-    const spikeCount = 6;
-    for (let i = 0; i < spikeCount; i++) {
-      const angle = (i * Math.PI * 2) / spikeCount;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(angle) * 11, cy + Math.sin(angle) * 11);
-      ctx.stroke();
-    }
-
-    texture.refresh();
-  }
-
   private createParticleTexture() {
-    const texture = this.textures.createCanvas('sparkle', 16, 16);
+    const texture = this.textures.createCanvas('sparkle', 16 * DPR, 16 * DPR);
+    if (!texture) return;
     const ctx = texture.context;
-    ctx.fillStyle = '#FFFFFF';
+    ctx.scale(DPR, DPR);
+    const grad = ctx.createRadialGradient(8, 8, 1, 8, 8, 7);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(8, 8, 6, 0, Math.PI * 2);
+    ctx.arc(8, 8, 7, 0, Math.PI * 2);
     ctx.fill();
     texture.refresh();
   }

@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <link rel="icon" href="data:;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==">
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>She Shield Protector - Bajaj Allianz Women's Critical Illness Cover</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      background: #090514;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .game-container {
+      width: 100%;
+      max-width: 480px;
+      height: var(--app-height, 100vh);
+      min-height: var(--app-height, 100vh);
+      overflow: hidden;
+      position: relative;
+      background: #030208;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      border-left: 1px solid rgba(236, 72, 153, 0.15);
+      border-right: 1px solid rgba(236, 72, 153, 0.15);
+    }
+
+    input,
+    select {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #EC4899;
+      border-radius: 2px;
+    }
+
+    .btn-press:active {
+      transform: scale(0.96);
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        transform: scale(0.6);
+        opacity: 0;
+      }
+      50% {
+        opacity: 0.6;
+      }
+      100% {
+        transform: scale(1.6);
+        opacity: 0;
+      }
+    }
+
+    .pulse-ripple {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 3px solid #EC4899;
+      animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+
+    @keyframes swipe-loop {
+      0% {
+        transform: translateX(-40px) scale(1);
+        opacity: 0;
+      }
+      10% {
+        transform: translateX(-40px) scale(0.85);
+        opacity: 1;
+      }
+      50% {
+        transform: translateX(40px) scale(0.85);
+        opacity: 1;
+      }
+      60% {
+        transform: translateX(40px) scale(1);
+        opacity: 0;
+      }
+      100% {
+        transform: translateX(-40px) scale(1);
+        opacity: 0;
+      }
+    }
+
+    .swipe-hand {
+      animation: swipe-loop 2.4s ease-in-out infinite;
+    }
+
+    .neon-text-pink {
+      text-shadow: 0 0 10px rgba(236, 72, 153, 0.65), 0 0 20px rgba(236, 72, 153, 0.35);
+    }
+
+    .neon-text-emerald {
+      text-shadow: 0 0 10px rgba(16, 185, 129, 0.65), 0 0 20px rgba(16, 185, 129, 0.35);
+    }
+
+    .neon-border-cyan {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.3), inset 0 0 15px rgba(6, 182, 212, 0.15);
+    }
+  </style>
+  <script>
+    (() => {
+      const syncAppHeight = () => {
+        const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        document.documentElement.style.setProperty('--app-height', `${h}px`);
+      };
+      syncAppHeight();
+      window.addEventListener('resize', syncAppHeight);
+      window.addEventListener('orientationchange', syncAppHeight);
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', syncAppHeight);
+    })();
+  </script>
+</head>
+
+<body>
+  <div class="game-container flex flex-col h-full w-full select-none overflow-hidden relative">
+    
+    <!-- START SCREEN -->
+    <div id="start-screen" class="absolute inset-0 z-50 flex flex-col justify-between p-6 bg-gradient-to-br from-slate-950 via-purple-950 to-rose-950 text-white overflow-y-auto">
+      <!-- Branding Header -->
+      <div class="flex justify-between items-center pt-2">
+        <div class="text-[11px] font-extrabold tracking-widest text-pink-400">BAJAJ ALLIANZ LIFE</div>
+        <div class="px-2.5 py-0.5 bg-pink-500/20 border border-pink-500/30 rounded-full text-[9px] uppercase text-pink-300 font-bold tracking-widest">SheShield Cover</div>
+      </div>
+      
+      <!-- Title & Illustration -->
+      <div class="my-auto flex flex-col items-center text-center py-3">
+        <div class="relative w-28 h-28 mb-4 flex items-center justify-center">
+          <div class="absolute inset-0 bg-pink-500/15 rounded-full blur-xl animate-pulse"></div>
+          <div class="absolute inset-2 border-2 border-pink-500/30 rounded-full border-dashed animate-spin" style="animation-duration: 20s;"></div>
+          <div class="absolute inset-4 border border-purple-500/20 rounded-full"></div>
+          <svg class="w-14 h-14 text-pink-400 relative z-10 filter drop-shadow-[0_0_10px_rgba(236,72,153,0.6)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        
+        <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-pink-200 to-purple-200 bg-clip-text text-transparent">
+          SHE SHIELD
+        </h1>
+        <h2 class="text-lg font-bold text-pink-300 tracking-wider uppercase">Protector</h2>
+        <p class="text-xs text-purple-200/80 max-w-sm mt-3 px-3 leading-relaxed">
+          Unpredicted critical illnesses can disrupt dreams. <strong>SheShield Critical Illness Cover</strong> shields women financially. Guide the protector shield to block incoming threats and absorb healthy habits!
+        </p>
+      </div>
+
+      <!-- Action Panel & Quick Tutorial -->
+      <div class="space-y-3 pb-6">
+        <!-- Interactive Tutorial Button -->
+        <button id="tutorial-btn" class="w-full py-3.5 bg-purple-950/60 border border-purple-500/30 hover:scale-[1.02] hover:bg-purple-900/50 hover:border-purple-500/50 hover:opacity-95 active:scale-[0.98] transition-all duration-200 rounded-xl font-bold text-xs tracking-wider uppercase text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50">
+          🎓 Learn How to Play (15s Tutorial)
+        </button>
+
+        <button id="start-btn" class="w-full py-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:scale-[1.02] hover:opacity-95 hover:from-pink-600 hover:to-purple-700 active:scale-[0.98] transition-all duration-200 rounded-xl font-extrabold text-xs tracking-widest uppercase shadow-[0_0_20px_rgba(236,72,153,0.45)] border border-pink-400/20 focus:outline-none focus:ring-2 focus:ring-pink-500/50">
+          Activate SheShield (Start Game)
+        </button>
+        
+        <div class="text-[9px] text-center text-purple-300/40">
+          Touch & slide at the screen bottom to control. Goal: Survive 60s.
+        </div>
+      </div>
+    </div>
+
+    <!-- TUTORIAL TOOLTIP OVERLAY (Only visible during Tutorial Mode) -->
+    <div id="tutorial-overlay" class="absolute inset-x-4 top-24 z-45 bg-black/80 border border-pink-500/30 rounded-2xl p-4 text-center hidden backdrop-blur-md">
+      <div id="tutorial-step-indicator" class="text-[9px] font-extrabold text-pink-400 tracking-widest uppercase">Tutorial: Step 1 of 3</div>
+      <h3 id="tutorial-title" class="text-sm font-bold text-white mt-1">Deflect the critical threat!</h3>
+      <p id="tutorial-desc" class="text-[11px] text-purple-200/90 mt-1 leading-relaxed">
+        Slide the shield left/right under the falling threat to deflect it.
+      </p>
+      <div class="mt-2 text-[10px] text-yellow-300 font-bold" id="tutorial-feedback">Waiting for shield block...</div>
+    </div>
+
+    <!-- GAME HUD (Always overlaying while playing) -->
+    <div id="hud" class="absolute top-0 inset-x-0 z-40 p-4 pointer-events-none hidden">
+      <div class="flex justify-between items-start">
+        <!-- Shield Integrity and Score -->
+        <div class="flex flex-col gap-1.5 w-[55%]">
+          <div class="flex justify-between items-center text-[10px] font-extrabold text-white tracking-wider">
+            <span class="flex items-center gap-1 text-pink-400 filter drop-shadow-[0_0_5px_rgba(236,72,153,0.5)]">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+              SHIELD INTEGRITY
+            </span>
+            <span id="shield-integrity-text" class="text-white font-mono font-black">100%</span>
+          </div>
+          
+          <!-- Shield integrity bar container -->
+          <div class="h-3 w-full bg-black/40 rounded-full overflow-hidden border border-white/10 backdrop-blur-md p-0.5">
+            <div id="shield-integrity-bar" class="h-full bg-gradient-to-r from-red-500 via-pink-500 to-emerald-400 rounded-full transition-all duration-100 w-full"></div>
+          </div>
+          
+          <!-- Score counter & active combo multiplier -->
+          <div class="flex justify-between items-center mt-1">
+            <div class="text-[10px] text-purple-300 font-bold tracking-widest uppercase">
+              Score: <span id="score-text" class="text-lg font-black text-white tracking-normal pl-0.5">0</span>
+            </div>
+            
+            <div id="combo-bubble" class="px-2 py-0.5 bg-pink-500/20 border border-pink-500/30 rounded-full text-[9px] font-bold text-pink-300 tracking-wider uppercase hidden">
+              Combo: <span id="combo-count" class="font-black text-white">0</span> (<span id="combo-mult" class="text-yellow-300">1.0x</span>)
+            </div>
+          </div>
+        </div>
+        
+        <!-- Timer countdown and Blocked count -->
+        <div class="flex flex-col items-end">
+          <div class="flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-full px-3.5 py-1.5 backdrop-blur-md shadow-md">
+            <span class="w-2.5 h-2.5 rounded-full bg-pink-500 animate-ping"></span>
+            <span id="timer-text" class="text-base font-black text-white tracking-widest font-mono">60.0s</span>
+          </div>
+          
+          <div class="text-[9px] text-purple-300 font-bold tracking-widest uppercase mt-1">
+            Blocked: <span id="threats-blocked-count" class="font-extrabold text-white">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boost active warning/indicator -->
+      <div id="boost-indicator" class="mt-4 flex justify-center hidden">
+        <div class="px-3.5 py-1 bg-gradient-to-r from-cyan-500/25 to-purple-500/25 border border-cyan-400/40 rounded-full text-[9px] font-extrabold text-cyan-300 uppercase tracking-widest animate-pulse backdrop-blur-md neon-border-cyan">
+          💎 PREMIUM RIDER: SAFETY NET BARRIER ACTIVE
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME CANVAS -->
+    <canvas id="game-canvas" class="flex-grow w-full h-full block bg-[#03020a]"></canvas>
+
+    <!-- SWIPE GUIDE overlay (fades out) -->
+    <div id="swipe-guide" class="absolute bottom-24 inset-x-0 z-35 flex flex-col items-center justify-center text-center pointer-events-none hidden transition-opacity duration-700">
+      <div class="relative w-16 h-16 flex items-center justify-center">
+        <div class="pulse-ripple"></div>
+        <!-- Hand icon sliding left-right -->
+        <svg class="w-10 h-10 text-white/50 swipe-hand filter drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 11c0-.512-.44-1-1-1s-1 .488-1 1v5h2v-5zm0 0c0-.512-.44-1-1-1s-1 .488-1 1v5h2v-5zm0 0c0-.512-.44-1-1-1s-1 .488-1 1v5h2v-5zm0 0c0-.512-.44-1-1-1s-1 .488-1 1v5h2v-5zm0 0c0-.512-.44-1-1-1s-1 .488-1 1v5h2v-5zm0 0c0-.512-.44-1-1-1s-1 .488-1 1v5h2v-5z" />
+        </svg>
+      </div>
+      <div class="text-[9px] text-white/70 font-extrabold uppercase tracking-widest mt-4 px-4 py-2 bg-black/60 rounded-full border border-white/10 backdrop-blur-md">
+        Slide bottom area to move shield
+      </div>
+    </div>
+
+    <!-- GAME OVER / LEAD CAPTURE SCREEN -->
+    <div id="game-over-screen" class="absolute inset-0 z-50 flex flex-col justify-between p-5 bg-gradient-to-b from-slate-950 via-purple-950 to-rose-950 text-white overflow-y-auto hidden">
+      <!-- Header -->
+      <div class="text-center pt-2">
+        <span id="game-over-badge" class="px-3.5 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-extrabold tracking-widest uppercase">
+          Defense Complete
+        </span>
+        <h2 id="game-over-title" class="text-2xl font-black text-white mt-2 tracking-tight">
+          SHIELD INTEGRITY OFFLINE
+        </h2>
+        <p id="game-over-subtitle" class="text-xs text-purple-200/70 mt-1">
+          Health risk overcame shield capabilities.
+        </p>
+      </div>
+
+      <!-- Score and stats summary -->
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 my-3 text-center backdrop-blur-md">
+        <div class="text-[10px] text-purple-300 font-extrabold uppercase tracking-widest">Final Score</div>
+        <div id="final-score" class="text-4xl font-extrabold text-white mt-0.5 tracking-tight filter drop-shadow-[0_0_15px_rgba(236,72,153,0.55)]">
+          0
+        </div>
+        <div id="new-high-score-label" class="text-[9px] font-extrabold text-pink-400 mt-1 uppercase tracking-widest hidden animate-pulse">
+          ✨ NEW PERSONAL BEST! ✨
+        </div>
+        
+        <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-white/5 text-center">
+          <div>
+            <div class="text-[9px] text-purple-300/80 uppercase font-bold tracking-wider">Blocked</div>
+            <div id="stats-blocked" class="text-sm font-bold text-white mt-0.5">0</div>
+          </div>
+          <div>
+            <div class="text-[9px] text-purple-300/80 uppercase font-bold tracking-wider">Caught</div>
+            <div id="stats-caught" class="text-sm font-bold text-emerald-400 mt-0.5">0</div>
+          </div>
+          <div>
+            <div class="text-[9px] text-purple-300/80 uppercase font-bold tracking-wider">Time Survived</div>
+            <div id="stats-time" class="text-sm font-bold text-cyan-400 mt-0.5">0s</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Educational Context (Insurance value) -->
+      <div class="px-2 my-2 text-center">
+        <div class="inline-flex items-center gap-1.5 text-[9px] font-extrabold text-pink-300 uppercase tracking-widest bg-pink-500/10 px-3 py-1 rounded-full border border-pink-500/25">
+          🛡️ Protect Your Health & Future
+        </div>
+        <p class="text-[10px] text-purple-200/80 mt-2 leading-relaxed">
+          Eating healthy and exercising helps, but critical illnesses like breast cancer or diabetes can strike unpredictably. <strong>Bajaj Allianz SheShield Cover</strong> provides a robust financial backup, offering a lump-sum payout to cover medical bills so you focus on recovery.
+        </p>
+      </div>
+
+      <!-- Lead Capture Form -->
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 my-2 backdrop-blur-md">
+        <h3 class="text-[11px] font-extrabold text-pink-300 uppercase tracking-wider text-center mb-3">
+          Get Free consultation & SheShield Quote
+        </h3>
+        
+        <form id="lead-form" class="space-y-2.5 text-left">
+          <div>
+            <label class="block text-[9px] font-bold text-purple-300 uppercase tracking-wider mb-1">Full Name</label>
+            <input type="text" id="lead-name" required placeholder="Enter your full name" class="w-full bg-white/10 border border-white/10 focus:border-pink-500 focus:bg-white/15 text-white placeholder-purple-300/40 rounded-xl px-3 py-2 text-xs outline-none transition-all" />
+          </div>
+          
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[9px] font-bold text-purple-300 uppercase tracking-wider mb-1">Mobile Number</label>
+              <input type="tel" id="lead-mobile" pattern="[6-9][0-9]{9}" required placeholder="10-digit number" class="w-full bg-white/10 border border-white/10 focus:border-pink-500 focus:bg-white/15 text-white placeholder-purple-300/40 rounded-xl px-3 py-2 text-xs outline-none transition-all" />
+            </div>
+            <div>
+              <label class="block text-[9px] font-bold text-purple-300 uppercase tracking-wider mb-1">Email Address</label>
+              <input type="email" id="lead-email" required placeholder="name@domain.com" class="w-full bg-white/10 border border-white/10 focus:border-pink-500 focus:bg-white/15 text-white placeholder-purple-300/40 rounded-xl px-3 py-2 text-xs outline-none transition-all" />
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-2 pt-1">
+            <input type="checkbox" id="lead-consent" required checked class="mt-0.5 checkbox-accent rounded cursor-pointer" />
+            <label for="lead-consent" class="text-[9px] text-purple-300/80 leading-normal cursor-pointer">
+              I agree to allow a Bajaj Allianz Life representative to call/WhatsApp/email me with details of SheShield Cover.
+            </label>
+          </div>
+          
+          <button type="submit" id="submit-lead-btn" class="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:scale-[1.02] hover:opacity-95 active:scale-[0.98] transition-all duration-200 rounded-xl font-bold text-xs tracking-wider uppercase shadow-[0_0_15px_rgba(236,72,153,0.3)] mt-2 focus:outline-none focus:ring-2 focus:ring-pink-500/50">
+            Get Quote & Consultation
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- LEAD CAPTURE SUCCESS SCREEN -->
+    <div id="success-screen" class="absolute inset-0 z-50 flex flex-col justify-between p-6 bg-gradient-to-br from-slate-950 via-purple-950 to-rose-950 text-white hidden">
+      <div class="my-auto flex flex-col items-center text-center py-4">
+        <div class="relative w-20 h-20 mb-6 flex items-center justify-center">
+          <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl animate-pulse"></div>
+          <div class="w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.5)]">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        </div>
+        
+        <h2 class="text-2xl font-black text-white tracking-tight">CONSULTATION BOOKED!</h2>
+        <p class="text-xs text-emerald-300 font-extrabold tracking-wider uppercase mt-1">Thank you, <span id="success-name-placeholder" class="text-pink-400">Visitor</span></p>
+        
+        <p class="text-xs text-purple-200/80 mt-4 max-w-xs leading-relaxed">
+          Your details are secured. A certified Bajaj Allianz Health specialist will reach out to you at <span id="success-phone-placeholder" class="font-bold text-white font-mono"></span> or <span id="success-email-placeholder" class="font-bold text-white"></span> within 24 hours to create your custom coverage.
+        </p>
+        
+        <!-- Interactive Advisory message based on performance -->
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-4 mt-6 text-left max-w-sm backdrop-blur-md">
+          <h4 class="text-[10px] font-extrabold text-pink-400 uppercase tracking-widest mb-1.5">Your Defense Profile Summary:</h4>
+          <p id="success-analysis-text" class="text-[11px] text-gray-300 leading-normal">
+            Great performance! You showed excellent preventative habits. Adding critical illness protection ensures that no financial threat can slip past your shields in real life.
+          </p>
+        </div>
+      </div>
+      
+      <div class="pb-6">
+        <button id="retry-btn" class="w-full py-4 bg-white/10 hover:bg-white/15 hover:scale-[1.02] hover:opacity-95 active:scale-[0.98] transition-all duration-200 rounded-xl font-bold text-xs tracking-wider uppercase border border-white/15 focus:outline-none focus:ring-2 focus:ring-white/30">
+          Defend Again
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME LOGIC -->
+  <script type="module">
+    // Web Audio Synthesizer implementation
+    class SoundEffects {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (this.ctx) return;
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      playCatch() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(350, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(750, this.ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.13);
+      }
+      playBlock() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(500, this.ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.11);
+      }
+      playDamage() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(130, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(35, this.ctx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.38);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.39);
+      }
+      playPowerup() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [440, 554, 659, 880];
+        notes.forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.07);
+          gain.gain.setValueAtTime(0.1, now + i * 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.005, now + i * 0.07 + 0.15);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + i * 0.07);
+          osc.stop(now + i * 0.07 + 0.2);
+        });
+      }
+      playComboUp() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // Arpeggio C
+        notes.forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.05);
+          gain.gain.setValueAtTime(0.08, now + i * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.005, now + i * 0.05 + 0.1);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + i * 0.05);
+          osc.stop(now + i * 0.05 + 0.15);
+        });
+      }
+      playFanfare() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const playChord = (freqs, start, duration) => {
+          freqs.forEach(freq => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + start);
+            gain.gain.setValueAtTime(0.08, now + start);
+            gain.gain.exponentialRampToValueAtTime(0.005, now + start + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + start);
+            osc.stop(now + start + duration + 0.05);
+          });
+        };
+        playChord([261.63, 329.63, 392.00], 0, 0.25);
+        playChord([329.63, 392.00, 523.25], 0.25, 0.25);
+        playChord([523.25, 659.25, 783.99], 0.5, 0.5);
+      }
+    }
+
+    const sfx = new SoundEffects();
+
+    // DOM References
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const startScreen = document.getElementById('start-screen');
+    const startBtn = document.getElementById('start-btn');
+    const tutorialBtn = document.getElementById('tutorial-btn');
+    const tutorialOverlay = document.getElementById('tutorial-overlay');
+    const tutorialStepIndicator = document.getElementById('tutorial-step-indicator');
+    const tutorialTitle = document.getElementById('tutorial-title');
+    const tutorialDesc = document.getElementById('tutorial-desc');
+    const tutorialFeedback = document.getElementById('tutorial-feedback');
+    const hud = document.getElementById('hud');
+    const swipeGuide = document.getElementById('swipe-guide');
+    
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const gameOverBadge = document.getElementById('game-over-badge');
+    const gameOverTitle = document.getElementById('game-over-title');
+    const gameOverSubtitle = document.getElementById('game-over-subtitle');
+    const finalScoreEl = document.getElementById('final-score');
+    const newHighScoreLabel = document.getElementById('new-high-score-label');
+    const statsBlockedEl = document.getElementById('stats-blocked');
+    const statsCaughtEl = document.getElementById('stats-caught');
+    const statsTimeEl = document.getElementById('stats-time');
+    
+    const leadForm = document.getElementById('lead-form');
+    const leadNameInput = document.getElementById('lead-name');
+    const leadMobileInput = document.getElementById('lead-mobile');
+    const leadEmailInput = document.getElementById('lead-email');
+    
+    const successScreen = document.getElementById('success-screen');
+    const successNamePlaceholder = document.getElementById('success-name-placeholder');
+    const successPhonePlaceholder = document.getElementById('success-phone-placeholder');
+    const successEmailPlaceholder = document.getElementById('success-email-placeholder');
+    const successAnalysisText = document.getElementById('success-analysis-text');
+    const retryBtn = document.getElementById('retry-btn');
+    
+    const scoreTextEl = document.getElementById('score-text');
+    const shieldIntegrityTextEl = document.getElementById('shield-integrity-text');
+    const shieldIntegrityBarEl = document.getElementById('shield-integrity-bar');
+    const timerTextEl = document.getElementById('timer-text');
+    const threatsBlockedCountEl = document.getElementById('threats-blocked-count');
+    const boostIndicator = document.getElementById('boost-indicator');
+    
+    const comboBubble = document.getElementById('combo-bubble');
+    const comboCountEl = document.getElementById('combo-count');
+    const comboMultEl = document.getElementById('combo-mult');
+
+    // Game states & values
+    let gameState = 'START'; // START, TUTORIAL, PLAYING, GAMEOVER, SUCCESS
+    let score = 0;
+    let shieldIntegrity = 100;
+    let timeLeft = 60.0;
+    let threatsBlocked = 0;
+    let habitsCaught = 0;
+    let combo = 0;
+    let highscore = parseInt(localStorage.getItem('she_shield_high_score') || '0');
+
+    let items = [];
+    let particles = [];
+    let floatingTexts = [];
+    let backgroundStars = [];
+    
+    let lastTime = 0;
+    let spawnTimer = 0;
+    let spawnRate = 1350;
+    let frameIndex = 0;
+    
+    // Shield configuration
+    const shield = {
+      x: 0,
+      targetX: 0,
+      y: 0,
+      width: 120,
+      height: 12,
+      color: '#EC4899',
+      widthMultiplier: 1.0,
+      pulse: 0
+    };
+
+    // Premium Cover state variables
+    let premiumCoverRiderTime = 0;
+    let screenShake = 0;
+    let hitFlashAlpha = 0;
+
+    // Interactive Tutorial steps
+    let tutorialStep = 1; // 1: Block Breast Cancer, 2: Catch Nutrients, 3: Catch Premium Rider
+    let tutorialSpawned = false;
+
+    // Item Templates
+    const HABIT_TYPES = [
+      { name: 'Exercise', icon: '🏃‍♀️', color: 'rgba(16, 185, 129, 0.95)', glow: '#10B981' },
+      { name: 'Nutrients', icon: '🍏', color: 'rgba(132, 204, 22, 0.95)', glow: '#84CC16' },
+      { name: 'Annual Check-up', icon: '🩺', color: 'rgba(6, 182, 212, 0.95)', glow: '#06B6D4' },
+      { name: 'Savings', icon: '💰', color: 'rgba(245, 158, 11, 0.95)', glow: '#F59E0B' }
+    ];
+
+    const THREAT_TYPES = [
+      { name: 'Stress', icon: '⚡', color: 'rgba(249, 115, 22, 0.95)', glow: '#F97316' },
+      { name: 'Heart Issue', icon: '💔', color: 'rgba(239, 68, 68, 0.95)', glow: '#EF4444' },
+      { name: 'Breast Cancer', icon: '🎀', color: 'rgba(236, 72, 153, 0.95)', glow: '#EC4899' },
+      { name: 'Diabetes', icon: '💉', color: 'rgba(168, 85, 247, 0.95)', glow: '#A855F7' }
+    ];
+
+    // Resize Canvas to fit container bounds sharply
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpi = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpi;
+      canvas.height = rect.height * dpi;
+      ctx.scale(dpi, dpi);
+      
+      shield.width = Math.min(130, rect.width * 0.28);
+      shield.y = rect.height - 110;
+      if (shield.x === 0) {
+        shield.x = rect.width / 2;
+        shield.targetX = rect.width / 2;
+      }
+    }
+
+    // Initialize floating background stars
+    function initStars() {
+      backgroundStars = [];
+      const rect = canvas.getBoundingClientRect();
+      const count = 40;
+      for (let i = 0; i < count; i++) {
+        backgroundStars.push({
+          x: Math.random() * rect.width,
+          y: Math.random() * rect.height,
+          size: Math.random() * 1.5 + 0.5,
+          speed: Math.random() * 0.35 + 0.1,
+          alpha: Math.random() * 0.6 + 0.3
+        });
+      }
+    }
+
+    // Input handlers mapping touch to shield targetX
+    function setupControls() {
+      const getX = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        return clientX - rect.left;
+      };
+
+      const handlePointerMove = (e) => {
+        if (gameState !== 'PLAYING' && gameState !== 'TUTORIAL') return;
+        const x = getX(e);
+        shield.targetX = x;
+        
+        if (e.cancelable) e.preventDefault();
+      };
+
+      const handlePointerDown = (e) => {
+        if (gameState !== 'PLAYING' && gameState !== 'TUTORIAL') return;
+        const x = getX(e);
+        shield.targetX = x;
+        
+        if (e.cancelable) e.preventDefault();
+      };
+
+      const container = document.querySelector('.game-container');
+      container.addEventListener('mousemove', handlePointerMove);
+      container.addEventListener('mousedown', handlePointerDown);
+      container.addEventListener('touchmove', handlePointerMove, { passive: false });
+      container.addEventListener('touchstart', handlePointerDown, { passive: false });
+    }
+
+    // Random game item spawning
+    function spawnItem() {
+      const rect = canvas.getBoundingClientRect();
+      const rand = Math.random();
+      
+      let item = {};
+      const radius = 20;
+      const x = Math.random() * (rect.width - radius * 2) + radius;
+      const y = -radius - 10;
+      
+      const elapsed = 60 - timeLeft;
+      const speedMultiplier = 1.0 + (elapsed / 60) * 0.8; 
+      const speedY = (Math.random() * 1.5 + 2.2) * speedMultiplier;
+      
+      if (rand < 0.08 && elapsed > 8 && premiumCoverRiderTime <= 0) {
+        // Spawn Power-up (Premium Cover Rider)
+        item = {
+          x,
+          y,
+          radius: 22,
+          speedY: speedY * 1.05,
+          type: 'boost',
+          name: 'Premium Rider',
+          icon: '💎',
+          color: 'rgba(6, 182, 212, 0.95)',
+          glow: '#06B6D4'
+        };
+      } else if (rand < 0.46) {
+        // Spawn healthy habit
+        const template = HABIT_TYPES[Math.floor(Math.random() * HABIT_TYPES.length)];
+        item = {
+          x,
+          y,
+          radius,
+          speedY,
+          type: 'habit',
+          ...template
+        };
+      } else {
+        // Spawn critical threat
+        const template = THREAT_TYPES[Math.floor(Math.random() * THREAT_TYPES.length)];
+        item = {
+          x,
+          y,
+          radius,
+          speedY,
+          type: 'threat',
+          ...template
+        };
+      }
+      
+      items.push(item);
+    }
+
+    // Tutorial Spawner - Spawns 1 item at a time slowly for guidance
+    function spawnTutorialItem() {
+      const rect = canvas.getBoundingClientRect();
+      const radius = 20;
+      const x = rect.width / 2 + (Math.random() - 0.5) * 100;
+      const y = -radius - 10;
+      const speedY = 1.4; // very slow falling speed
+
+      let item = {};
+      if (tutorialStep === 1) {
+        // Step 1: Block Breast Cancer
+        item = {
+          x,
+          y,
+          radius,
+          speedY,
+          type: 'threat',
+          name: 'Breast Cancer',
+          icon: '🎀',
+          color: 'rgba(236, 72, 153, 0.95)',
+          glow: '#EC4899'
+        };
+      } else if (tutorialStep === 2) {
+        // Step 2: Catch Nutrients
+        item = {
+          x,
+          y,
+          radius,
+          speedY,
+          type: 'habit',
+          name: 'Nutrients',
+          icon: '🍏',
+          color: 'rgba(132, 204, 22, 0.95)',
+          glow: '#84CC16'
+        };
+      } else if (tutorialStep === 3) {
+        // Step 3: Catch Premium Rider
+        item = {
+          x,
+          y,
+          radius: 22,
+          speedY,
+          type: 'boost',
+          name: 'Premium Rider',
+          icon: '💎',
+          color: 'rgba(6, 182, 212, 0.95)',
+          glow: '#06B6D4'
+        };
+      }
+
+      items.push(item);
+      tutorialSpawned = true;
+    }
+
+    // Particle explosions
+    function createExplosion(x, y, color, count = 12, directionY = 0) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 3.5 + 1.5;
+        
+        let vy = Math.sin(angle) * speed;
+        if (directionY !== 0) {
+          vy = -Math.abs(vy) * 1.2 + directionY * 1.5;
+        }
+        
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy,
+          size: Math.random() * 3.5 + 1.5,
+          color,
+          alpha: 1,
+          decay: Math.random() * 0.035 + 0.02
+        });
+      }
+    }
+
+    // Floating text notification
+    function createFloatingText(x, y, text, color, isBig = false) {
+      floatingTexts.push({
+        x,
+        y,
+        text,
+        color,
+        alpha: 1,
+        vy: -1.2,
+        scale: isBig ? 1.45 : 1.0,
+        age: 0
+      });
+    }
+
+    // Update combo bubble HUD elements
+    function updateComboHUD(reset = false) {
+      if (reset) {
+        combo = 0;
+        comboBubble.classList.add('hidden');
+      } else {
+        combo++;
+        if (combo >= 3) {
+          comboBubble.classList.remove('hidden');
+          comboCountEl.textContent = combo;
+          
+          // Calculate score multiplier
+          const mult = 1.0 + Math.floor(combo / 5) * 0.25;
+          comboMultEl.textContent = `${mult.toFixed(2)}x`;
+          
+          // Play sound when reaching a new level of combo
+          if (combo % 5 === 0) {
+            sfx.playComboUp();
+            createFloatingText(shield.x, shield.y - 40, `COMBO x${mult.toFixed(2)}!`, '#FBBF24', true);
+          }
+        }
+      }
+    }
+
+    // Main Game Loop Update
+    function update(time) {
+      const dt = time - lastTime;
+      lastTime = time;
+      
+      const rect = canvas.getBoundingClientRect();
+
+      if (gameState === 'TUTORIAL') {
+        frameIndex++;
+        
+        // Update Shield position (smooth sliding)
+        shield.x += (shield.targetX - shield.x) * 0.28;
+        const halfWidth = (shield.width * shield.widthMultiplier) / 2;
+        if (shield.x < halfWidth) shield.x = halfWidth;
+        if (shield.x > rect.width - halfWidth) shield.x = rect.width - halfWidth;
+
+        // Manage active boost decay
+        if (premiumCoverRiderTime > 0) {
+          premiumCoverRiderTime -= dt;
+          if (premiumCoverRiderTime <= 0) {
+            premiumCoverRiderTime = 0;
+            shield.widthMultiplier = 1.0;
+            boostIndicator.classList.add('hidden');
+          }
+        }
+
+        // Spawn slow items for tutorial
+        if (!tutorialSpawned && items.length === 0) {
+          spawnTutorialItem();
+        }
+
+        // Update items in tutorial
+        for (let i = items.length - 1; i >= 0; i--) {
+          const item = items[i];
+          item.y += item.speedY;
+
+          const sWidth = shield.width * shield.widthMultiplier;
+          const shieldTop = shield.y;
+          const shieldBottom = shield.y + shield.height;
+          
+          const withinShieldX = item.x >= shield.x - sWidth/2 - 8 && item.x <= shield.x + sWidth/2 + 8;
+          const hitsShieldY = item.y + item.radius >= shieldTop && item.y - item.radius <= shieldBottom;
+
+          // Check Shield Collision
+          if (withinShieldX && hitsShieldY) {
+            if (tutorialStep === 1 && item.type === 'threat') {
+              sfx.playBlock();
+              createExplosion(item.x, item.y, item.glow, 15, -1.2);
+              createFloatingText(item.x, shieldTop - 15, 'THREAT DEFLECTED!', '#EC4899', true);
+              
+              tutorialFeedback.textContent = "Awesome block! Proceeding...";
+              tutorialFeedback.className = "mt-2 text-[10px] text-emerald-400 font-bold";
+              
+              setTimeout(() => {
+                tutorialStep = 2;
+                tutorialSpawned = false;
+                tutorialStepIndicator.textContent = "Tutorial: Step 2 of 3";
+                tutorialTitle.textContent = "Catch Healthy Habits!";
+                tutorialDesc.textContent = "Let nutrients fall on your shield to absorb it. Catching healthy habits restores shield!";
+                tutorialFeedback.textContent = "Waiting for catch...";
+                tutorialFeedback.className = "mt-2 text-[10px] text-yellow-300 font-bold";
+              }, 1800);
+            } 
+            else if (tutorialStep === 2 && item.type === 'habit') {
+              sfx.playCatch();
+              createExplosion(item.x, item.y, item.glow, 15, 0.5);
+              createFloatingText(item.x, shieldTop - 15, 'HABIT COLLECTED! +Shield', '#10B981', true);
+              
+              tutorialFeedback.textContent = "Excellent catch! Proceeding...";
+              tutorialFeedback.className = "mt-2 text-[10px] text-emerald-400 font-bold";
+              
+              setTimeout(() => {
+                tutorialStep = 3;
+                tutorialSpawned = false;
+                tutorialStepIndicator.textContent = "Tutorial: Step 3 of 3";
+                tutorialTitle.textContent = "Grab the Premium Rider!";
+                tutorialDesc.textContent = "Collect the 💎 diamond to expand your shield and create a safety net at the bottom.";
+                tutorialFeedback.textContent = "Waiting for Premium Rider...";
+                tutorialFeedback.className = "mt-2 text-[10px] text-yellow-300 font-bold";
+              }, 1800);
+            } 
+            else if (tutorialStep === 3 && item.type === 'boost') {
+              sfx.playPowerup();
+              premiumCoverRiderTime = 4000;
+              shield.widthMultiplier = 1.4;
+              boostIndicator.classList.remove('hidden');
+              
+              createExplosion(item.x, item.y, '#06B6D4', 25, -0.5);
+              createFloatingText(item.x, shieldTop - 20, 'SAFETY NET ACTIVE!', '#22D3EE', true);
+              
+              tutorialFeedback.textContent = "Tutorial Completed! Get ready to defend!";
+              tutorialFeedback.className = "mt-2 text-[10px] text-emerald-300 font-black animate-pulse";
+              
+              setTimeout(() => {
+                tutorialOverlay.classList.add('hidden');
+                startGame();
+              }, 2000);
+            }
+
+            items.splice(i, 1);
+            continue;
+          }
+
+          // Safety barrier bottom block (tutorial step 3)
+          if (premiumCoverRiderTime > 0 && item.y + item.radius >= rect.height - 20) {
+            sfx.playBlock();
+            createExplosion(item.x, rect.height - 20, '#06B6D4', 15, -1.8);
+            items.splice(i, 1);
+            continue;
+          }
+
+          // Respawner if player missed in tutorial
+          if (item.y - item.radius > rect.height) {
+            items.splice(i, 1);
+            tutorialSpawned = false; // allow respawn to try again
+          }
+        }
+      }
+
+      if (gameState === 'PLAYING') {
+        frameIndex++;
+        
+        // Update countdown timer
+        timeLeft -= dt / 1000;
+        if (timeLeft <= 0) {
+          timeLeft = 0;
+          endGame(true); // Victory survival!
+        }
+        
+        timerTextEl.textContent = `${timeLeft.toFixed(1)}s`;
+        
+        // Manage premium boost timer
+        if (premiumCoverRiderTime > 0) {
+          premiumCoverRiderTime -= dt;
+          if (premiumCoverRiderTime <= 0) {
+            premiumCoverRiderTime = 0;
+            shield.widthMultiplier = 1.0;
+            boostIndicator.classList.add('hidden');
+          }
+        }
+        
+        // Decelerate visual tremors
+        if (screenShake > 0) screenShake -= dt * 0.05;
+        if (hitFlashAlpha > 0) hitFlashAlpha -= dt * 0.0035;
+        
+        // Spawn controller
+        spawnTimer += dt;
+        const elapsed = 60 - timeLeft;
+        const currentSpawnRate = Math.max(700, spawnRate - (elapsed * 12.5));
+        
+        if (spawnTimer >= currentSpawnRate) {
+          spawnItem();
+          spawnTimer = 0;
+        }
+        
+        // Update Shield horizontal tracking
+        shield.x += (shield.targetX - shield.x) * 0.28;
+        const halfWidth = (shield.width * shield.widthMultiplier) / 2;
+        if (shield.x < halfWidth) shield.x = halfWidth;
+        if (shield.x > rect.width - halfWidth) shield.x = rect.width - halfWidth;
+        
+        // Update falling items
+        for (let i = items.length - 1; i >= 0; i--) {
+          const item = items[i];
+          item.y += item.speedY;
+          
+          const sWidth = shield.width * shield.widthMultiplier;
+          const shieldTop = shield.y;
+          const shieldBottom = shield.y + shield.height;
+          
+          const withinShieldX = item.x >= shield.x - sWidth/2 - 8 && item.x <= shield.x + sWidth/2 + 8;
+          const hitsShieldY = item.y + item.radius >= shieldTop && item.y - item.radius <= shieldBottom;
+          
+          if (withinShieldX && hitsShieldY) {
+            // Collision occurred!
+            if (item.type === 'habit') {
+              sfx.playCatch();
+              
+              // Score with multiplier
+              const mult = 1.0 + Math.floor(combo / 5) * 0.25;
+              const pointsAdded = Math.round(100 * mult);
+              score += pointsAdded;
+              habitsCaught++;
+              
+              // Restore health
+              shieldIntegrity = Math.min(100, shieldIntegrity + 8);
+              updateShieldHUD();
+              updateComboHUD();
+              
+              createExplosion(item.x, item.y, item.glow, 15, 0.5);
+              createFloatingText(item.x, shieldTop - 15, `+${pointsAdded} ${item.name}`, '#34D399');
+              shield.pulse = 10;
+              
+            } else if (item.type === 'threat') {
+              sfx.playBlock();
+              
+              const mult = 1.0 + Math.floor(combo / 5) * 0.25;
+              const pointsAdded = Math.round(150 * mult);
+              score += pointsAdded;
+              threatsBlocked++;
+              threatsBlockedCountEl.textContent = threatsBlocked;
+              updateComboHUD();
+              
+              createExplosion(item.x, item.y, item.glow, 18, -1.5);
+              createFloatingText(item.x, shieldTop - 15, `BLOCKED! +${pointsAdded}`, '#F472B6', true);
+              shield.pulse = 15;
+              
+            } else if (item.type === 'boost') {
+              sfx.playPowerup();
+              score += 200;
+              premiumCoverRiderTime = 6000;
+              shield.widthMultiplier = 1.4;
+              
+              boostIndicator.classList.remove('hidden');
+              createExplosion(item.x, item.y, '#06B6D4', 25, -0.5);
+              createFloatingText(item.x, shieldTop - 20, 'PREMIUM RIDER ACTIVE!', '#22D3EE', true);
+              shield.pulse = 20;
+            }
+            
+            items.splice(i, 1);
+            scoreTextEl.textContent = score;
+            continue;
+          }
+          
+          // Collision Check with bottom safety barrier (rider)
+          if (premiumCoverRiderTime > 0 && item.y + item.radius >= rect.height - 20) {
+            if (item.type === 'threat') {
+              sfx.playBlock();
+              score += 150;
+              threatsBlocked++;
+              threatsBlockedCountEl.textContent = threatsBlocked;
+              
+              createExplosion(item.x, rect.height - 20, '#06B6D4', 16, -2);
+              createFloatingText(item.x, rect.height - 35, 'RIDER AUTO-BLOCK! +150', '#22D3EE');
+            } else {
+              createExplosion(item.x, rect.height - 20, item.glow, 6, 0.5);
+            }
+            items.splice(i, 1);
+            scoreTextEl.textContent = score;
+            continue;
+          }
+          
+          // Missed falling items reaching screen bottom
+          if (item.y - item.radius > rect.height) {
+            if (item.type === 'threat') {
+              // Threat breached shield
+              sfx.playDamage();
+              shieldIntegrity = Math.max(0, shieldIntegrity - 15);
+              updateShieldHUD();
+              updateComboHUD(true); // reset combo
+              
+              screenShake = 12;
+              hitFlashAlpha = 0.45;
+              
+              createExplosion(item.x, rect.height - 10, '#EF4444', 20, -0.8);
+              createFloatingText(item.x, rect.height - 50, `${item.name} Impact! -15%`, '#F87171', true);
+              
+              if (shieldIntegrity <= 0) {
+                endGame(false);
+              }
+            } else if (item.type === 'habit') {
+              createFloatingText(item.x, rect.height - 30, 'Habit Missed', '#9CA3AF');
+            }
+            
+            items.splice(i, 1);
+          }
+        }
+      }
+
+      // Draw active frames
+      drawGame();
+      
+      // Request frame callback
+      requestAnimationFrame(update);
+    }
+
+    // Updates HUD shield progress bar
+    function updateShieldHUD() {
+      shieldIntegrityTextEl.textContent = `${shieldIntegrity}%`;
+      shieldIntegrityBarEl.style.width = `${shieldIntegrity}%`;
+      
+      if (shieldIntegrity > 50) {
+        shieldIntegrityBarEl.className = "h-full bg-gradient-to-r from-pink-500 via-rose-500 to-emerald-400 rounded-full transition-all duration-100";
+      } else if (shieldIntegrity > 25) {
+        shieldIntegrityBarEl.className = "h-full bg-gradient-to-r from-orange-500 to-pink-500 rounded-full transition-all duration-100";
+      } else {
+        shieldIntegrityBarEl.className = "h-full bg-gradient-to-r from-red-600 to-orange-500 rounded-full transition-all duration-100 animate-pulse";
+      }
+    }
+
+    // Master draw sequence
+    function drawGame() {
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      
+      ctx.save();
+      
+      // Screen shake translation
+      if (screenShake > 0) {
+        const shakeX = (Math.random() - 0.5) * screenShake;
+        const shakeY = (Math.random() - 0.5) * screenShake;
+        ctx.translate(shakeX, shakeY);
+      }
+      
+      // 1. Draw Space background & grid
+      drawBackground(rect);
+      
+      // 2. Draw safety net if premium rider active
+      if (premiumCoverRiderTime > 0) {
+        drawSafetyBarrier(rect);
+      }
+      
+      // 3. Draw particles
+      drawParticles();
+      
+      // 4. Draw items
+      drawItems();
+      
+      // 5. Draw SheShield
+      drawShield();
+      
+      // 6. Draw floating texts
+      drawFloatingTexts();
+      
+      // 7. Red hit warning flash overlay
+      if (hitFlashAlpha > 0) {
+        ctx.fillStyle = `rgba(239, 68, 68, ${hitFlashAlpha})`;
+        ctx.fillRect(0, 0, rect.width, rect.height);
+      }
+      
+      ctx.restore();
+    }
+
+    // Dynamic grid overlay drawing
+    function drawBackground(rect) {
+      const baseGrad = ctx.createRadialGradient(rect.width/2, rect.height/2, 10, rect.width/2, rect.height/2, rect.height);
+      baseGrad.addColorStop(0, '#0d0722');
+      baseGrad.addColorStop(1, '#030209');
+      ctx.fillStyle = baseGrad;
+      ctx.fillRect(0, 0, rect.width, rect.height);
+      
+      // Draw background stars
+      ctx.fillStyle = '#ffffff';
+      backgroundStars.forEach(star => {
+        if (gameState === 'PLAYING') {
+          star.y += star.speed;
+          if (star.y > rect.height) {
+            star.y = 0;
+            star.x = Math.random() * rect.width;
+          }
+        }
+        
+        ctx.save();
+        ctx.globalAlpha = star.alpha * (0.6 + Math.sin(frameIndex * 0.05 + star.x) * 0.4);
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+      
+      // Moving grid overlay
+      ctx.save();
+      ctx.strokeStyle = 'rgba(236, 72, 153, 0.035)';
+      ctx.lineWidth = 1;
+      const gridOffset = (frameIndex * 0.8) % 40;
+      
+      for (let y = gridOffset; y < rect.height; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(rect.width, y);
+        ctx.stroke();
+      }
+      
+      ctx.strokeStyle = 'rgba(139, 92, 246, 0.02)';
+      for (let x = 0; x < rect.width; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, rect.height);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Draws cyan automatic protection barrier
+    function drawSafetyBarrier(rect) {
+      ctx.save();
+      const barrierY = rect.height - 20;
+      
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.7)';
+      ctx.shadowColor = '#06B6D4';
+      ctx.shadowBlur = 10;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, barrierY);
+      ctx.lineTo(rect.width, barrierY);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#22D3EE';
+      ctx.font = '900 8.5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText("PREMIUM RIDER SAFETY NET ACTIVE - AUTO DEFLECTING", rect.width / 2, barrierY - 10);
+      
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.06)';
+      ctx.fillRect(0, barrierY, rect.width, 20);
+      ctx.restore();
+    }
+
+    // Shield crescent drawing
+    function drawShield() {
+      ctx.save();
+      const activeWidth = shield.width * shield.widthMultiplier;
+      const arcCenterY = shield.y + 40;
+      const radius = 55;
+      const startAngle = 1.25 * Math.PI;
+      const endAngle = 1.75 * Math.PI;
+      
+      if (shield.pulse > 0) shield.pulse -= 0.5;
+      
+      ctx.beginPath();
+      ctx.arc(shield.x, arcCenterY, radius, startAngle - 0.05, endAngle + 0.05);
+      
+      const isBoosted = premiumCoverRiderTime > 0;
+      const colorGlow = isBoosted ? '#06B6D4' : '#EC4899';
+      
+      ctx.strokeStyle = isBoosted ? 'rgba(34, 211, 238, 0.3)' : 'rgba(236, 72, 153, 0.25)';
+      ctx.lineWidth = isBoosted ? 20 + shield.pulse : 14 + shield.pulse;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = colorGlow;
+      ctx.shadowBlur = 20 + shield.pulse;
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.arc(shield.x, arcCenterY, radius, startAngle, endAngle);
+      
+      const grad = ctx.createLinearGradient(shield.x - activeWidth/2, shield.y, shield.x + activeWidth/2, shield.y);
+      if (isBoosted) {
+        grad.addColorStop(0, '#06B6D4');
+        grad.addColorStop(0.5, '#A855F7');
+        grad.addColorStop(1, '#EC4899');
+      } else {
+        grad.addColorStop(0, '#EC4899');
+        grad.addColorStop(0.5, '#D946EF');
+        grad.addColorStop(1, '#8B5CF6');
+      }
+      
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = isBoosted ? 12 : 8;
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.arc(shield.x, arcCenterY, radius, startAngle + 0.1, endAngle - 0.1);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 7.5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(isBoosted ? 'PREMIUM SHIELD' : 'SHESHIELD', shield.x, shield.y + 15);
+      ctx.restore();
+    }
+
+    // Draw falling element circles
+    function drawItems() {
+      items.forEach(item => {
+        ctx.save();
+        ctx.shadowColor = item.glow;
+        ctx.shadowBlur = 12 + Math.sin(frameIndex * 0.1) * 4;
+        
+        ctx.beginPath();
+        ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
+        ctx.fillStyle = item.color;
+        ctx.fill();
+        
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+        
+        ctx.save();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        if (item.name === 'Exercise') {
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(item.x - 9, item.y);
+          ctx.lineTo(item.x + 9, item.y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(item.x - 9, item.y, 4, 0, Math.PI * 2);
+          ctx.arc(item.x + 9, item.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (item.name === 'Nutrients') {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(item.x - 3, item.y, 5, 0, Math.PI * 2);
+          ctx.arc(item.x + 3, item.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#a16207';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(item.x, item.y - 3);
+          ctx.quadraticCurveTo(item.x + 2, item.y - 7, item.x + 4, item.y - 8);
+          ctx.stroke();
+        } else if (item.name === 'Annual Check-up') {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(item.x - 3, item.y - 9, 6, 18);
+          ctx.fillRect(item.x - 9, item.y - 3, 18, 6);
+        } else if (item.name === 'Savings') {
+          ctx.fillStyle = '#fef08a';
+          ctx.beginPath();
+          ctx.arc(item.x, item.y, 7.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ca8a04';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(item.x, item.y, 4.5, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (item.name === 'Stress') {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(item.x - 2, item.y - 8);
+          ctx.lineTo(item.x + 4, item.y - 2);
+          ctx.lineTo(item.x, item.y);
+          ctx.lineTo(item.x + 3, item.y + 8);
+          ctx.lineTo(item.x - 3, item.y + 1);
+          ctx.lineTo(item.x + 1, item.y - 1);
+          ctx.closePath();
+          ctx.fill();
+        } else if (item.name === 'Heart Issue') {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(item.x, item.y - 3);
+          ctx.bezierCurveTo(item.x - 3, item.y - 8, item.x - 9, item.y - 6, item.x - 9, item.y - 1);
+          ctx.bezierCurveTo(item.x - 9, item.y + 3, item.x - 4, item.y + 6, item.x, item.y + 10);
+          ctx.bezierCurveTo(item.x + 4, item.y + 6, item.x + 9, item.y + 3, item.x + 9, item.y - 1);
+          ctx.bezierCurveTo(item.x + 9, item.y - 6, item.x + 3, item.y - 8, item.x, item.y - 3);
+          ctx.fill();
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(item.x, item.y - 5);
+          ctx.lineTo(item.x - 2, item.y - 1);
+          ctx.lineTo(item.x + 2, item.y + 2);
+          ctx.lineTo(item.x, item.y + 7);
+          ctx.stroke();
+        } else if (item.name === 'Breast Cancer') {
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(item.x - 5, item.y + 6);
+          ctx.quadraticCurveTo(item.x - 1, item.y - 1, item.x, item.y - 4);
+          ctx.arc(item.x, item.y - 4, 4, Math.PI, 0);
+          ctx.quadraticCurveTo(item.x + 1, item.y - 1, item.x + 5, item.y + 6);
+          ctx.stroke();
+        } else if (item.name === 'Diabetes') {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(item.x, item.y - 8);
+          ctx.quadraticCurveTo(item.x + 5, item.y + 1, item.x + 5, item.y + 3);
+          ctx.arc(item.x, item.y + 3, 5, 0, Math.PI);
+          ctx.quadraticCurveTo(item.x - 5, item.y + 1, item.x, item.y - 8);
+          ctx.closePath();
+          ctx.fill();
+        } else if (item.name === 'Premium Rider') {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(item.x, item.y - 9);
+          ctx.lineTo(item.x + 9, item.y);
+          ctx.lineTo(item.x, item.y + 9);
+          ctx.lineTo(item.x - 9, item.y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(item.x, item.y - 9);
+          ctx.lineTo(item.x, item.y + 9);
+          ctx.moveTo(item.x - 9, item.y);
+          ctx.lineTo(item.x + 9, item.y);
+          ctx.stroke();
+        } else {
+          ctx.font = '19px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(item.icon, item.x, item.y);
+        }
+        ctx.restore();
+        
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.font = 'bold 8.5px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 4;
+        
+        const labelText = item.type === 'boost' ? '★ POWER UP ★' : item.name.toUpperCase();
+        const labelColor = item.type === 'boost' ? '#22D3EE' : (item.type === 'habit' ? '#34D399' : '#F87171');
+        ctx.fillStyle = labelColor;
+        ctx.fillText(labelText, item.x, item.y - item.radius - 6);
+        ctx.restore();
+      });
+    }
+
+    // Draw active particle arrays
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    // Draw text notifications
+    function drawFloatingTexts() {
+      floatingTexts.forEach(ft => {
+        ctx.save();
+        ctx.globalAlpha = ft.alpha;
+        ctx.fillStyle = ft.color;
+        const fontSize = 11.5 * ft.scale;
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 4;
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+      });
+    }
+
+    // Update animations coordinates
+    function updateEntities() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.08;
+        p.alpha -= p.decay;
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+      
+      for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const ft = floatingTexts[i];
+        ft.y += ft.vy;
+        ft.age += 16.7;
+        if (ft.age > 450) {
+          ft.alpha -= 0.06;
+        }
+        if (ft.alpha <= 0) {
+          floatingTexts.splice(i, 1);
+        }
+      }
+    }
+
+    // Global animation clock tick
+    function gameLoop(time) {
+      if (gameState === 'PLAYING' || gameState === 'TUTORIAL') {
+        updateEntities();
+      } else {
+        backgroundStars.forEach(star => {
+          star.y += star.speed * 0.5;
+          const rect = canvas.getBoundingClientRect();
+          if (star.y > rect.height) {
+            star.y = 0;
+            star.x = Math.random() * rect.width;
+          }
+        });
+      }
+      update(time);
+    }
+
+    // Start Interactive Tutorial Mode
+    function startTutorial() {
+      sfx.init();
+      
+      tutorialStep = 1;
+      tutorialSpawned = false;
+      items = [];
+      particles = [];
+      floatingTexts = [];
+      premiumCoverRiderTime = 0;
+      
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      successScreen.classList.add('hidden');
+      hud.classList.add('hidden');
+      
+      tutorialOverlay.classList.remove('hidden');
+      tutorialStepIndicator.textContent = "Tutorial: Step 1 of 3";
+      tutorialTitle.textContent = "Deflect the Critical Threat!";
+      tutorialDesc.textContent = "Breast Cancer risk (🎀) is falling! Slide the SheShield underneath to deflect it.";
+      tutorialFeedback.textContent = "Waiting for shield block...";
+      tutorialFeedback.className = "mt-2 text-[10px] text-yellow-300 font-bold";
+      
+      gameState = 'TUTORIAL';
+    }
+
+    // Start Real Gameplay Mode
+    function startGame() {
+      sfx.init();
+      
+      score = 0;
+      shieldIntegrity = 100;
+      timeLeft = 60.0;
+      threatsBlocked = 0;
+      habitsCaught = 0;
+      combo = 0;
+      items = [];
+      particles = [];
+      floatingTexts = [];
+      premiumCoverRiderTime = 0;
+      
+      scoreTextEl.textContent = '0';
+      threatsBlockedCountEl.textContent = '0';
+      updateShieldHUD();
+      updateComboHUD(true);
+      boostIndicator.classList.add('hidden');
+      
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      successScreen.classList.add('hidden');
+      tutorialOverlay.classList.add('hidden');
+      hud.classList.remove('hidden');
+      
+      gameState = 'PLAYING';
+      
+      swipeGuide.classList.remove('hidden');
+      swipeGuide.style.opacity = '1';
+      setTimeout(() => {
+        swipeGuide.style.opacity = '0';
+        setTimeout(() => swipeGuide.classList.add('hidden'), 700);
+      }, 3200);
+    }
+
+    // End Game
+    function endGame(isVictory) {
+      gameState = 'GAMEOVER';
+      hud.classList.add('hidden');
+      
+      finalScoreEl.textContent = score.toLocaleString();
+      statsBlockedEl.textContent = threatsBlocked;
+      statsCaughtEl.textContent = habitsCaught;
+      statsTimeEl.textContent = `${(60 - timeLeft).toFixed(0)}s`;
+      
+      if (score > highscore) {
+        highscore = score;
+        localStorage.setItem('she_shield_high_score', highscore.toString());
+        newHighScoreLabel.classList.remove('hidden');
+      } else {
+        newHighScoreLabel.classList.add('hidden');
+      }
+      
+      if (isVictory) {
+        sfx.playFanfare();
+        gameOverBadge.textContent = "Defenses Intact";
+        gameOverBadge.className = "px-3.5 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-[9px] font-extrabold tracking-widest uppercase text-emerald-400";
+        gameOverTitle.textContent = "SHIELD DEFENSE COMPLETED!";
+        gameOverTitle.className = "text-2xl font-black text-white mt-2 tracking-tight neon-text-emerald";
+        gameOverSubtitle.textContent = "Splendid job! You survived the 60s critical health threats.";
+      } else {
+        sfx.playDamage();
+        gameOverBadge.textContent = "Shield Depleted";
+        gameOverBadge.className = "px-3.5 py-1 bg-rose-500/10 border border-rose-500/30 rounded-full text-[9px] font-extrabold tracking-widest uppercase text-rose-400";
+        gameOverTitle.textContent = "SHIELD COLLAPSED!";
+        gameOverTitle.className = "text-2xl font-black text-white mt-2 tracking-tight neon-text-pink";
+        gameOverSubtitle.textContent = "Threats breached defense barriers. Secure complete coverage.";
+      }
+      
+      gameOverScreen.classList.remove('hidden');
+    }
+
+    // Submit Lead to LMS Helper
+    async function submitToLMS(data) {
+      const baseUrl = typeof __LMS_BASE_URL__ !== 'undefined' ? __LMS_BASE_URL__ : 'https://sales.bajajlife.com/BalicLmsUtil';
+      const uatUrl = `${baseUrl}/whatsappInhouse`;
+      const userId = sessionStorage.getItem('gamification_userId') || '';
+      const gameID = sessionStorage.getItem('gamification_gameId') || 'GAME_037';
+      
+      const payload = {
+        cust_name: data.name || "",
+        mobile_no: data.mobile || "",
+        dob: "",
+        gender: "F",
+        pincode: "",
+        email_id: data.email || "",
+        life_goal_category: "",
+        investment_amount: "",
+        product_id: "",
+        p_source: sessionStorage.getItem('gamification_referral') === 'Y' ? 'Referral' : 'Marketing Assist',
+        p_data_source: "GAMIFICATION",
+        pasa_amount: "",
+        product_name: "",
+        pasa_product: "",
+        associated_rider: "",
+        customer_app_product: "",
+        p_data_medium: " GAMIFICATION ",
+        utmSource: "",
+        userId: userId,
+        gameID: gameID,
+        remarks: `Game: ${gameID} | Score: ${data.score} | SheShield Protector Lead`,
+        appointment_date: "",
+        appointment_time: ""
+      };
+
+      try {
+        const response = await fetch(uatUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const responseData = await response.json().catch(() => ({}));
+        return {
+          success: response.ok,
+          data: responseData,
+          error: response.ok ? null : (responseData?.message || `API error: ${response.status}`)
+        };
+      } catch (error) {
+        console.error("submitToLMS error:", error);
+        return { success: false, error: error.message };
+      }
+    }
+
+    // Submit Lead Details
+    async function handleLeadSubmit(e) {
+      e.preventDefault();
+      
+      const nameVal = leadNameInput.value.trim();
+      const mobileVal = leadMobileInput.value.trim();
+      const emailVal = leadEmailInput.value.trim();
+      const consentVal = document.getElementById('lead-consent').checked;
+      
+      if (!nameVal || !mobileVal || !emailVal) return;
+      if (!/^[A-Za-z\s]+$/.test(nameVal)) {
+        alert("Please enter a valid name using letters only.");
+        return;
+      }
+      if (!/^[6-9]\d{9}$/.test(mobileVal)) {
+        alert("Please enter a valid 10-digit mobile number starting with 6-9.");
+        return;
+      }
+      if (!/\S+@\S+\.\S+/.test(emailVal)) {
+        alert("Please enter a valid email address.");
+        return;
+      }
+      if (!consentVal) {
+        alert("Please consent to the terms and conditions.");
+        return;
+      }
+      
+      const submitBtn = document.getElementById('submit-lead-btn');
+      const originalText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = "PROCESSING...";
+
+      try {
+        await submitToLMS({
+          name: nameVal,
+          mobile: mobileVal,
+          email: emailVal,
+          score: score
+        });
+      } catch (err) {
+        console.error("LMS submission failed:", err);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+
+      successNamePlaceholder.textContent = nameVal.toUpperCase();
+      successPhonePlaceholder.textContent = mobileVal;
+      successEmailPlaceholder.textContent = emailVal;
+      
+      let tipText = "";
+      if (score >= 4000) {
+        tipText = `Sensational score of ${score.toLocaleString()}! You successfully deflected ${threatsBlocked} threats and caught ${habitsCaught} healthy habits. While you build strong everyday wellness habits, securing Bajaj Allianz SheShield Cover ensures that a critical health issue won't impact your life savings. We'll connect shortly to prepare your quote.`;
+      } else {
+        tipText = `Great effort! You blocked ${threatsBlocked} threats and caught ${habitsCaught} habits. Building healthy habits is vital. However, because critical illnesses can occur unexpectedly, the lump-sum payouts from SheShield Critical Illness Cover offer the complete financial backup you need. A specialist will call you soon.`;
+      }
+      
+      successAnalysisText.textContent = tipText;
+      
+      gameOverScreen.classList.add('hidden');
+      successScreen.classList.remove('hidden');
+      gameState = 'SUCCESS';
+    }
+
+    // Button Event Listeners
+    startBtn.addEventListener('click', startGame);
+    tutorialBtn.addEventListener('click', startTutorial);
+    leadForm.addEventListener('submit', handleLeadSubmit);
+    retryBtn.addEventListener('click', () => {
+      successScreen.classList.add('hidden');
+      startScreen.classList.remove('hidden');
+      gameState = 'START';
+      leadForm.reset();
+    });
+
+    // Handle orientation & resizing
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Boot sequence
+    resizeCanvas();
+    initStars();
+    setupControls();
+    
+    // Start RAF loops
+    requestAnimationFrame((time) => {
+      lastTime = time;
+      requestAnimationFrame(update);
+    });
+  </script>
+</body>
+
+</html>

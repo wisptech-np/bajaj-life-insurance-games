@@ -25,7 +25,7 @@ export async function submitToLMS(data) {
     dob: "",
     gender: "M",
     pincode: "",
-    email_id: data.email_id || "",
+    email_id: data.email || data.email_id || "",
     life_goal_category: "",
     investment_amount: "",
     product_id: "",

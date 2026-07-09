@@ -56,7 +56,7 @@ const IntroScreen: React.FC<Props> = ({ onPlay }) => {
 
           <button
             onClick={() => setShowHowToPlay(true)}
-            className="btn-press w-full rounded-full py-3.5 text-xs font-black uppercase tracking-wider text-white shadow-[0_6px_24px_rgba(34,197,94,0.45)] transition-all"
+            className="btn-press w-full rounded-xl py-3.5 text-xs font-black uppercase tracking-wider text-white shadow-[0_6px_24px_rgba(34,197,94,0.45)] transition-all"
             style={{
               background: "linear-gradient(135deg, #22C55E 0%, #16A34A 100%)",
               textShadow: "0 1px 2px rgba(0,0,0,0.2)",

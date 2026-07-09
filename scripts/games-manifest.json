@@ -1,0 +1,365 @@
+{
+  "generated": "2026-07-09",
+  "standard": "okf-brain/GAME_STANDARD.md",
+  "goldStandard": "life-goals-bubble-shooter",
+  "newGames": [
+    {
+      "dir": "guardian-shelter",
+      "bajajName": "Guardian Shelter",
+      "gameName": "Umbrella Cover",
+      "concept": "Cover / Shield Placement Physics (Cover Orange style)",
+      "reference": "https://poki.com/en/g/cover-orange",
+      "financialConcept": "Preemptive risk protection",
+      "feedback": "Ok, Replace cloud with risk (virus)",
+      "port": 5030,
+      "brief": "Physics puzzle: family member characters sit on a level layout. Player drags & drops shield objects (umbrellas, crates, barrels rendered as glossy vector shapes) from a tray onto the scene. After placement (or a GO button / 3s timer), a virus storm sweeps across the top raining spiky virus particles that fall with gravity and bounce. Any family member touched by a virus is lost. Protect all members to win the round. 6 hand-designed rounds of rising complexity inside a 2-minute session, score = members saved x100 + unused shields x50 + time bonus. Simple 2D physics: gravity, AABB/circle collisions, stacking. Viruses are green spiky orbs with glow, NOT emoji."
+    },
+    {
+      "dir": "balance-block-journey",
+      "bajajName": "Balance Block Journey",
+      "gameName": "Balance Block Journey",
+      "concept": "Bloxorz-style block rolling puzzle",
+      "reference": "https://www.coolmathgames.com/0-bloxorz",
+      "financialConcept": "Bridging coverage gaps in life journey",
+      "feedback": "Ok, Dont use stages just keep one stage with longer process but time limit should be 2min max",
+      "port": 5031,
+      "brief": "Bloxorz clone: a 1x1x2 block rolls (swipe or on-screen arrows) across an isometric-looking tile board floating over a void. Falling off or overhanging the edge = fall & respawn at start (small time penalty). Board tiles labelled as life stages (First Job, Marriage, Home, Child, Retirement checkpoints that light up when crossed). ONE long single stage (~30-45 moves optimal) with bridges/switch tiles that toggle when rolled over, and fragile tiles that break if the block stands vertically on them. 2-minute countdown; reach the goal hole (drop block vertically into it) to win. Score = time remaining x10 + checkpoints crossed x200. Render with crisp pseudo-3D: top+side faces with gradient shading, soft drop shadow, smooth 150ms roll tween per move."
+    },
+    {
+      "dir": "secure-journey",
+      "bajajName": "Secure Journey",
+      "gameName": "Battle Brigade",
+      "concept": "Forward-rail crowd shooter (Battle Brigade / Mob Control style)",
+      "reference": "https://www.crazygames.com/game/battle-brigade",
+      "financialConcept": "Building a stable bridge for long-term wealth",
+      "feedback": "Ok, Replace army with virus and powerup with health shield that increases the firing power",
+      "port": 5032,
+      "brief": "Auto-forward rail shooter: player character (blue guardian with glowing shield emblem) auto-runs along a bridge over water, auto-firing energy bolts forward. Drag horizontally to steer between 3 lanes. Waves of green virus blobs (varied sizes, HP shown as small bars) march toward the player; bolts damage them; a virus reaching the player drains health. Collect floating HEALTH SHIELD pickups (hex shield with cross) - each one restores health AND permanently increases fire rate/damage this run (stacking power). 90-second run to reach the vault at bridge end = win. Score = viruses destroyed x10 + shields collected x100 + health remaining bonus. Parallax water & sky, muzzle flashes, hit particles, boss virus at the end."
+    },
+    {
+      "dir": "smart-match-3d",
+      "bajajName": "Smart Match 3D",
+      "gameName": "Smart Match 3D",
+      "concept": "Triple-tile matching (Goods Triple Match 3D style)",
+      "reference": "https://www.crazygames.com/game/goods-triple-match-3d",
+      "financialConcept": "Matching the Life goals",
+      "feedback": "Ok, Replace with Life goals: Shield, Savings, Home, Car, Education, Marriage, Child, Retirement, Health, Rewards, Family. Use better Assets for this not emoji",
+      "port": 5033,
+      "brief": "Triple-match: a scattered pile of overlapping life-goal tokens (Shield, Savings coin, Home, Car, Education cap, Marriage rings, Child, Retirement chair, Health heart-pulse, Rewards gift, Family) rendered as premium layered inline-SVG icon sprites (gradient fills, inner highlights, soft shadows - absolutely no emoji). Tap a token to move it into a 7-slot tray at the bottom; 3 identical tokens in the tray auto-merge with a satisfying pop + particles. Tray full with no match = lose. Clear the whole board within 2 minutes = win. Tokens deeper in the pile are dimmed/locked until uncovered. ~60 tokens (20 triplets), gentle shuffle + 1 free undo + 1 magnet booster. Score = matches x100 + time bonus + tray-efficiency bonus."
+    },
+    {
+      "dir": "risk-exit",
+      "bajajName": "Risk Exit",
+      "gameName": "Arrow Escape",
+      "concept": "Arrow sliding escape puzzle (Arrow Exit style)",
+      "reference": "https://www.crazygames.com/game/arrow-exit-puzzle",
+      "financialConcept": "Smart decisions",
+      "feedback": "Ok, Make similar game",
+      "port": 5034,
+      "brief": "Unblock-style arrow puzzle: a 6x6 grid packed with rounded arrow blocks, each pointing up/down/left/right. Tap an arrow: it slides in its pointing direction until it exits the board (collect + score) or hits another block (bump animation + tiny shake). Clear all arrows to finish the level; wrong-order taps waste moves. Blocks styled as sleek gradient chevrons in brand palette; risk blocks (red, marked with virus icon) must be cleared last or they lock neighbors - teaching order-of-decisions. 5 escalating boards inside a 2-minute timer, move counter, combo bonus for consecutive successful exits. Score = exits x50 + remaining time x10 - bumps x10."
+    },
+    {
+      "dir": "life-soar",
+      "bajajName": "Life Soar",
+      "gameName": "Life Soar",
+      "concept": "Hang glider / canyon gliding (Canyon Glider style)",
+      "reference": "https://kbhgames.com/game/canyon-glider",
+      "financialConcept": "Life-stage protection & wealth collection",
+      "feedback": "Reference not opening - rebuilt from concept description",
+      "port": 5035,
+      "brief": "Glider physics: hold to dive (gain speed), release to convert speed into lift and soar. Side-scrolling canyon with parallax rock layers; canyon ceiling/floor undulate. Collect gold wealth coins and blue shield tokens along flight arcs; shields grant 1-hit protection against red risk spikes/birds (virus-styled hazards). Distance milestones labelled as life stages (Graduation 200m, First Job 500m, Marriage 900m, Home 1400m, Retirement 2000m) with banner popups. Run ends on unshielded collision or at 2000m (win) or 105s cap. Score = distance + coins x25 + stages reached x300. Smooth camera, wind trail particles behind glider, day-sky gradient."
+    },
+    {
+      "dir": "shield-cascade",
+      "bajajName": "Shield Cascade",
+      "gameName": "Shield Cascade",
+      "concept": "Physics cannon destruction (Roly-Poly Cannon style)",
+      "reference": "http://www.xgenstudios.com/game.php?keyword=rolypolycannon",
+      "financialConcept": "Risk structure elimination & rebuilding",
+      "feedback": "Reference not opening - rebuilt from concept description",
+      "port": 5036,
+      "brief": "Physics artillery puzzle: a fixed cannon at bottom-left; drag to aim (trajectory dots preview) and release to fire a glowing shield orb. Levels are structures of wooden planks/crates with green virus blobs perched on them. Shield orb + collapsing debris destroy viruses on contact; gravity + simple rigid-body tumble (rect bodies, rotation) makes structures cascade. Limited shots per level (3-5). 5 levels in a 2-minute session. Score = viruses cleared x150 + shots remaining x100 + demolition bonus. Squash-and-stretch on impacts, dust particles, slow-mo 0.3s on final virus of each level."
+    },
+    {
+      "dir": "wealth-drop",
+      "bajajName": "Wealth Drop",
+      "gameName": "Plinko Pachinko",
+      "concept": "Plinko / pachinko board drop",
+      "reference": "(original) Plinko-style",
+      "financialConcept": "Market volatility & ULIP - disciplined investing through ups and downs",
+      "feedback": "New original concept",
+      "port": 5037,
+      "brief": "Plinko: tap/drag to choose drop position at top, release a gold premium coin that bounces down through rows of glowing pegs (circle physics, restitution, slight randomness) into buckets at the bottom labelled with goal multipliers (Retirement x5, Home x3, Education x2, Savings x1, and 2 red Risk x0 buckets that flash). 10 coins per session (or 90s cap). Occasional blue shield peg: touching it shields the coin so a Risk bucket pays x1 instead of x0 - insurance smooths volatility. Running total with animated counter; combo streak for consecutive scoring buckets. Score = total payout. Peg hit sparkles, bucket win confetti bursts, coin trail."
+    },
+    {
+      "dir": "compound-merge",
+      "bajajName": "Compound Quest",
+      "gameName": "Wealth 2048",
+      "concept": "2048-style merge puzzle",
+      "reference": "(original) 2048-style",
+      "financialConcept": "Power of compounding - small savings merge into a large corpus",
+      "feedback": "New original concept",
+      "port": 5038,
+      "brief": "2048 on a 4x4 grid: swipe to slide tiles; equal money tiles merge and double (Rs 500 -> 1K -> 2K ... -> 1Cr). Tiles are rounded glossy cards with rupee values and tier colors climbing the brand palette (blue -> orange -> gold with glow at high tiers). Every merge shows floating '+compound' text; milestone tiles (1L, 10L, 1Cr) trigger banner + confetti. Reach the 10L tile within 2 minutes to win (1Cr = grand win); no-moves-left = lose. Score = classic 2048 scoring. Buttery 120ms slide/merge tweens, spawn pop, subtle grid glow. Include best-score in sessionStorage."
+    },
+    {
+      "dir": "milestone-hopper",
+      "bajajName": "Milestone Hopper",
+      "gameName": "Life Crossing",
+      "concept": "Crossy Road / Frogger lane-hopping",
+      "reference": "(original) Crossy-Road-style",
+      "financialConcept": "Navigating life's risks to reach each life milestone",
+      "feedback": "New original concept",
+      "port": 5039,
+      "brief": "Top-down lane hopper: tap to hop forward, swipe left/right/down to hop sideways/back. Character (small rounded guardian figure with shield backpack) crosses alternating lane types: roads with virus trucks (green blob vehicles at varying speeds), rivers with floating policy rafts (ride them; falling in water = lose), and safe pavement rows with collectible coins. Every 8 rows = a milestone gate (Job, Marriage, Home, Child, Retirement) with banner + score bonus. Camera scrolls up; lingering behind the bottom edge = lose. 2-minute cap; score = rows crossed x10 + coins x25 + milestones x250. Discrete grid hops with squash/stretch, long shadows, pastel-dark night palette with headlights."
+    },
+    {
+      "dir": "shield-drop",
+      "bajajName": "Shield Drop",
+      "gameName": "Cut the Cord",
+      "concept": "Cut-the-rope physics delivery",
+      "reference": "(original) Cut-the-Rope-style",
+      "financialConcept": "Delivering protection to your family at the right moment",
+      "feedback": "New original concept",
+      "port": 5040,
+      "brief": "Physics puzzle: a glowing shield medallion hangs from one or more ropes (verlet rope segments, swing physics). Swipe to cut ropes so the shield drops/swings into the family basket below. Star pickups (bonus coins) placed along ideal swing paths; green virus saws/bubbles must be avoided - contact destroys the shield (retry level, -time). Interactive elements across 6 levels: air-puffers (tap to blow), bubbles (wrap shield & float up, tap to pop), moving anchors. 2-minute session, score = levels cleared x300 + coins x50 + time bonus. Rope render as smooth curved strands; satisfying snip animation + strand recoil."
+    },
+    {
+      "dir": "income-flow",
+      "bajajName": "Income Flow",
+      "gameName": "Pipe Connect",
+      "concept": "Pipe rotation flow puzzle",
+      "reference": "(original) Pipe-Mania-style",
+      "financialConcept": "Guaranteed income stream - routing salary into lifelong retirement income",
+      "feedback": "New original concept",
+      "port": 5041,
+      "brief": "Pipe puzzle: 6x6 grid of pipe tiles (straight, elbow, T, cross) - tap a tile to rotate 90deg. Connect the SALARY tap (top-left, gold) to the RETIREMENT vault (bottom-right, blue) before the water... i.e. golden income liquid starts flowing (10s planning phase, then liquid advances tile-by-tile every 1.2s). Liquid reaching a dead end = leak (lose life, board pauses for fixes). Leak-proof route = level clear; leak-blocking shield valves as rare tiles. 4 boards in 2 minutes, animated liquid fill inside pipes with gradient shimmer, gauge showing vault fill %. Score = tiles used efficiency + time bonus + vault fill."
+    },
+    {
+      "dir": "shield-spin",
+      "bajajName": "Shield Spin",
+      "gameName": "Knife Hit Shields",
+      "concept": "Knife-Hit timing throw",
+      "reference": "(original) Knife-Hit-style",
+      "financialConcept": "Timing your protection right - add covers without conflicts",
+      "feedback": "New original concept",
+      "port": 5042,
+      "brief": "Timing game: a large spinning wheel (life wheel with segmented art: family, home, health icons as vector art) at top; player taps to throw shield darts (sleek pin with shield head) from bottom that stick into the wheel rim. Hitting an already-stuck dart or a red risk node = lose a life (3 lives). Wheel speed/direction varies per level, sometimes pulses. Gold coin targets on the rim award bonus if hit. 8 darts per wheel = next wheel (boss wheel every 3rd with erratic spin). 2-minute cap, score = darts landed x50 + coins x100 + wheels cleared x300. Thunk animations, wheel wobble on hit, dart trail."
+    },
+    {
+      "dir": "premium-tiles",
+      "bajajName": "Premium Tiles",
+      "gameName": "Piano Tiles Premium",
+      "concept": "Piano-tiles lane tapping",
+      "reference": "(original) Piano-Tiles-style",
+      "financialConcept": "Premium payment discipline - never miss a due date",
+      "feedback": "New original concept",
+      "port": 5043,
+      "brief": "4-lane falling tile tapper: blue PREMIUM PAID tiles stream downward at increasing speed - tap each before it crosses the bottom line (a missed premium = policy lapse = game over). Avoid tapping red LAPSE/virus tiles mixed in. Gold bonus tiles (x2 score, coin burst). Each tap plays a rising synth note so streaks form a melody; combo meter with fever mode at 30-streak (screen glow, double points). 90-second survival = win. Score = tiles x10 x combo multiplier. Crisp lane dividers, tile press-down animation, speed ramps every 15s with 'Year 2, Year 3...' banners framing premium-paying years."
+    },
+    {
+      "dir": "portfolio-fit",
+      "bajajName": "Portfolio Fit",
+      "gameName": "Block Fit 1010",
+      "concept": "1010! drag-and-place block puzzle (no gravity)",
+      "reference": "(original) 1010!-style",
+      "financialConcept": "Asset allocation - fitting every asset class into a balanced portfolio",
+      "feedback": "New original concept",
+      "port": 5044,
+      "brief": "1010!-style: 9x9 board; three asset pieces offered at a time (tetromino-like shapes themed as asset classes: Equity=orange, Debt=blue, Gold=gold, Insurance=green with shield sheen). Drag pieces onto the board; completing a full row or column clears it with a sweep animation + particles ('Portfolio Rebalanced!'). No gravity, no rotation. Game ends when no offered piece fits (lose) or 2-minute timer ends (score win). Clearing rows containing all 4 asset colors = Diversification Bonus x2. Score = cells placed + clears x100 + diversification bonuses. Ghost preview while dragging, invalid-drop shake, streak flames on multi-clears."
+    },
+    {
+      "dir": "spot-the-risk",
+      "bajajName": "Spot the Risk",
+      "gameName": "Spot the Difference",
+      "concept": "Spot-the-difference / hidden risk hunt",
+      "reference": "(original) spot-the-difference-style",
+      "financialConcept": "Risk awareness - spotting the gaps in a family's protection",
+      "feedback": "New original concept",
+      "port": 5045,
+      "brief": "Hidden-risk hunt: a single detailed household scene built entirely from layered inline SVG (living room with family, kitchen, driveway with car, garden). 6 hazards are hidden per scene (frayed wire spark, unlocked door, leaking pipe, virus cloud near window, unattended candle, missing document folder). Tap hazards to tag them with a shield marker (+150, sparkle). Wrong taps -5s. Magnify lens follows a long-press for inspection. 3 scenes escalating in subtlety, 40s per scene within a 2-minute session; find-all bonus + time bonus. A hint button (1 per scene) pulses one hazard. End screen ties each hazard to a protection lesson line."
+    },
+    {
+      "dir": "ripple-shield",
+      "bajajName": "Ripple Shield",
+      "gameName": "Chain Reaction",
+      "concept": "One-tap chain reaction",
+      "reference": "(original) chain-reaction-style",
+      "financialConcept": "One policy protects many - the ripple effect of family coverage",
+      "feedback": "New original concept",
+      "port": 5046,
+      "brief": "Chain-reaction: 40-60 drifting orbs float on screen - most are blue family orbs, some green virus orbs that must NOT be caught. Player gets ONE tap per wave: tap creates an expanding shield ripple; any family orb it touches becomes a new expanding ripple (chain), viruses touched shrink the ripple penalty. Each wave has a target ('Protect 25 of 40'). 5 waves in 2 minutes, orb speed rises. Score = orbs protected x40 + chain-depth bonus + wave-clear x200. Gorgeous bloom: translucent expanding rings, orb glow, slow-motion when a mega-chain (15+) triggers, count-up ticker of protected members."
+    },
+    {
+      "dir": "steady-tower",
+      "bajajName": "Steady Tower",
+      "gameName": "Jenga De-Risk",
+      "concept": "Jenga-style block removal without toppling",
+      "reference": "(original) Jenga-style",
+      "financialConcept": "De-risking your portfolio without destabilizing your life plan",
+      "feedback": "New original concept",
+      "port": 5047,
+      "brief": "Physics tower: a 12-layer tower of alternating blocks; some blocks are RED RISK blocks (high-interest debt, junk investment, virus icon), others are BLUE FOUNDATION blocks (term cover, emergency fund). Tap-and-flick red blocks to pull them out; tower physics (center-of-mass + wobble simulation - simplified stacked-body solver is fine) reacts: pull the wrong support and the tower sways; topple = lose. Remove ALL red blocks to win; a stability meter shows current center-of-mass offset with heartbeat when critical. 2-minute cap. Score = risks removed x200 + stability average bonus + time bonus. Dust particles + slow tilt when tower leans, dramatic collapse if lost."
+    },
+    {
+      "dir": "spiral-sprint",
+      "bajajName": "Spiral Sprint",
+      "gameName": "Helix Descent",
+      "concept": "Helix-jump descending ball",
+      "reference": "(original) Helix-Jump-style",
+      "financialConcept": "Riding market cycles - descend through volatility, avoid the crash zones",
+      "feedback": "New original concept",
+      "port": 5048,
+      "brief": "Helix jump: a bouncing shield ball descends a rotating spiral tower; drag horizontally to rotate the tower (pseudo-3D: draw platform arcs as ellipse segments with depth shading). Each platform ring has gaps (fall through to descend), safe arcs (blue), and red crash arcs (touch = lose unless in fever). Passing 3+ rings in one fall = fever streak (ball flames, smashes through one red arc). 40 rings to the vault at the bottom = win; 2-minute cap. Rings labelled with descending years to retirement every 10 rings. Score = rings descended x20 + fever smashes x100 + finish bonus. Bounce squash, paint-splash on landing, tower gradient darkens with depth."
+    },
+    {
+      "dir": "swing-to-secure",
+      "bajajName": "Swing to Secure",
+      "gameName": "Rope Swing",
+      "concept": "Tarzan rope-swing physics traversal",
+      "reference": "(original) rope-swing-style",
+      "financialConcept": "Bridging life's gaps - momentum of continuous protection",
+      "feedback": "New original concept",
+      "port": 5049,
+      "brief": "Rope swing: character auto-launches; tap-and-hold to fire a grappling rope to the nearest anchor point overhead (pendulum physics), release to let go and fly with momentum. Chain swings across a skyline gap course collecting coins arranged along ideal arcs and shield tokens; falling into the gap = restart from last checkpoint flag (3 checkpoints). Green virus drones patrol some arcs - touching one cuts your rope. Reach the SECURE HOME platform at 1800m or best distance at 105s cap. Score = distance + coins x25 + flawless-swing streak bonus. Rope drawn as tapering curve, motion-blur streaks, sunset parallax city."
+    },
+    {
+      "dir": "goal-orbit",
+      "bajajName": "Goal Orbit",
+      "gameName": "Orbit Hop",
+      "concept": "Orbit-switch timing arcade",
+      "reference": "(original) orbit-hop-style",
+      "financialConcept": "Staying on track - disciplined orbit around your life goals",
+      "feedback": "New original concept",
+      "port": 5050,
+      "brief": "Orbit timing: a comet (player) circles a glowing goal planet (Home). Tap to release tangentially and get captured by the next planet's orbit (Education, Car, Marriage... each a distinct vector-art planet). Time releases to travel clean transfer arcs; hitting drifting green virus asteroids or flying off-screen = lose a life (3 lives). Coins dot the transfer paths. Every 5th planet is a MILESTONE (banner + bonus). Speed increases gradually; 2-minute cap or 20 planets = win. Score = planets reached x100 + coins x20 + perfect-transfer (no orbit >1 loop) bonus x50. Orbit trails, gravity-well glow rings, star parallax."
+    },
+    {
+      "dir": "cashflow-control",
+      "bajajName": "Cashflow Control",
+      "gameName": "Traffic Controller",
+      "concept": "Traffic-control tap-to-stop/go",
+      "reference": "(original) traffic-control-style",
+      "financialConcept": "Budgeting - controlling money flows so income and expenses never collide",
+      "feedback": "New original concept",
+      "port": 5051,
+      "brief": "Traffic control: top-down crossroads with 4 approach roads. Green INCOME trucks and orange EXPENSE cars (rounded vector vehicles with coin/bill decals) drive toward the central junction on fixed paths. Tap a vehicle to stop it (brake lights), tap again to resume. Any collision = crash (virus cloud burst) = lose 1 of 3 shields; 3 crashes = lose. Vehicles that cross safely bank their value (income +100, expense +40). Spawn rate ramps; special gold BONUS van worth 500 needs a clear corridor. 2-minute survival = win. Score = banked value. Skid marks, honk synth blips when waiting too long (impatience meter - waiting cars honk then run the junction!)."
+    },
+    {
+      "dir": "goal-grabber",
+      "bajajName": "Goal Grabber",
+      "gameName": "Claw Machine",
+      "concept": "Claw-machine timing grab",
+      "reference": "(original) claw-machine-style",
+      "financialConcept": "Precision goal selection - grab the goals that matter most",
+      "feedback": "New original concept",
+      "port": 5052,
+      "brief": "Claw machine: side view of a glass cabinet filled with a physics pile of prize orbs containing life-goal icons (vector art: home, car, education, health, retirement, gold coins) plus green virus orbs (grabbing one voids the grab and slimes the claw for 5s). Claw auto-slides horizontally; tap to drop it - claw descends, closes (grip strength varies by prize weight - heavier goals like Home may slip with a wobble), lifts and carries to the chute. 8 grabs or 2 minutes. Combo for consecutive successful grabs; jackpot golden shield orb = 500. Score = sum of prize values. Chain-link claw animation, glass reflections, prize drop bounce into chute, near-miss slip drama."
+    },
+    {
+      "dir": "memory-milestones",
+      "bajajName": "Memory Milestones",
+      "gameName": "Simon Goals",
+      "concept": "Simon-style sequence memory",
+      "reference": "(original) Simon-style",
+      "financialConcept": "Plan ahead - remember the order of your life goals",
+      "feedback": "New original concept",
+      "port": 5053,
+      "brief": "Simon memory: 6 glass pads arranged in a ring, each a life-goal icon (vector: Education, Career, Marriage, Home, Child, Retirement) with its own glow color and synth note. The game plays a growing sequence ('your life plan') - watch, then repeat by tapping. Correct round = +round x50 with rising melody; wrong tap = lose 1 of 3 hearts and the round replays. Rounds speed up; every 4th round adds a decoy flash (red virus pad that must never be tapped). Reach round 12 within 2 minutes = win. Score = rounds completed + perfect-round bonuses. Central ring shows a family avatar leveling up life stages as rounds progress. Pads press with depth, ripple light, ambient particle field."
+    },
+    {
+      "dir": "risk-strike",
+      "bajajName": "Risk Strike",
+      "gameName": "Shield Bowling",
+      "concept": "Flick bowling physics",
+      "reference": "(original) bowling-style",
+      "financialConcept": "Knock out risks in one decisive shot - comprehensive cover",
+      "feedback": "New original concept",
+      "port": 5054,
+      "brief": "Bowling: pseudo-3D lane (perspective trapezoid with gloss reflections); 10 pins styled as green virus bottles (Illness, Accident, Debt, Inflation labels on front pins). Flick the glowing shield ball - flick speed sets power, flick angle sets direction, small post-flick curve via device-friendly swipe curl. Realistic-enough pin physics: ball-pin and pin-pin 2D collisions projected onto the lane. 5 frames, 2 throws each (strike/spare bonuses like real bowling, simplified display). 2-minute cap. Score = bowling score x10. Pin explosion into particle shards on strike + STRIKE banner, gutter shame wobble, ball trail, crowd-cheer synth swell."
+    }
+  ],
+  "revamps": [
+    {
+      "dir": "coverage-archer",
+      "bajajName": "Guardian Archer",
+      "gameName": "Coverage Archer",
+      "concept": "Archery / angle shooter (Bowman style)",
+      "reference": "https://www.crazygames.com/game/bowman",
+      "financialConcept": "Precision coverage against risks",
+      "feedback": "Ok, Make single player: replace the other human opponent with virus targets; ONLY our player can fire (no return fire)",
+      "port": null,
+      "brief": "REVAMP per explicit feedback: convert from 2-archer duel to single-player target shooting. The opponent archer is REMOVED and replaced by green virus creatures (varied sizes/distances, some drifting or bobbing) that NEVER fire back. Player drags to aim (angle+power with trajectory hint for first 3 shots), arrows arc with gravity + light wind (wind indicator). Limited arrows (12) per 2-minute session; viruses spawn in waves at varying ranges; headshot-style direct hits = CRITICAL x2. Also: rename title/branding to Guardian Archer everywhere (index.html title, intro screen, OKF), keep/polish the lead-capture + slot booking + playCount flow to bubble-shooter standard, ensure no emoji sprites, verify pnpm build passes."
+    },
+    {
+      "dir": "stackibility-stack",
+      "bajajName": "LifeStack",
+      "gameName": "Stackibility Stack",
+      "concept": "Physics stacking tower (crane)",
+      "reference": "(existing)",
+      "financialConcept": "Whole Life - building life is hard, protecting it is smart",
+      "port": null,
+      "brief": "REVAMP polish pass: bring fully up to okf-brain/GAME_STANDARD.md - verify screen flow matches bubble-shooter (home/howtoplay/results/lead/slot/thankyou), buttons 12px radius + press-scale, glassmorphic cards, particles + floating score text + screen shake present, synth audio on all events, no emoji sprites on canvas, email validation in lead form, playCount wired, mobile viewport + DPR canvas scaling, 2-min session cap. Fix any rough edges found (the dist/ folder has stale build artifacts - rebuild it). Improve juice: combo streak feedback, stack wobble anticipation, fever-mode visuals. Verify pnpm build passes and update OKF files."
+    },
+    {
+      "dir": "tightrope-protection",
+      "bajajName": "Tightrope Protection",
+      "gameName": "Wire Runner / Balance Dodger",
+      "concept": "Balance runner on a wire",
+      "reference": "https://www.miniplay.com/game/bug-on-a-wire",
+      "financialConcept": "Balancing family finances & risks",
+      "port": null,
+      "brief": "REVAMP polish pass to GAME_STANDARD.md: audit gameplay feel (input latency, difficulty curve, 60fps), visual juice (particles, screen shake, floating text, parallax background), synth audio coverage, no emoji sprites, glassmorphic UI, lead capture + slot booking + playCount correctness, mobile viewport + touch handling, 2-min session. Strengthen the theme: risks the runner dodges should read clearly as virus hazards, collectibles as shields/coins with premium vector art. Verify pnpm build passes and update OKF files."
+    },
+    {
+      "dir": "retire-rich-clicker",
+      "bajajName": "Retire-Rich Clicker",
+      "gameName": "Retirement Pension Clicker",
+      "concept": "Incremental clicker",
+      "reference": "(existing)",
+      "financialConcept": "Annuity & pension - compounding retirement corpus",
+      "port": null,
+      "brief": "REVAMP polish pass to GAME_STANDARD.md: session must resolve in <=2 minutes with a clear win state (corpus target reached) and score summary; add satisfying tap feedback (coin burst particles, number fly-ups, button squash), upgrade cards glassmorphic with clear ROI copy, milestone banners, synth audio, no emoji sprites, animated counters. Audit lead capture + slot booking + playCount + validations against bubble-shooter reference. Verify pnpm build passes and update OKF files."
+    },
+    {
+      "dir": "edurise-jumper",
+      "bajajName": "EduRise Jumper",
+      "gameName": "Child Education Plan Jumper",
+      "concept": "Vertical platform jumper (Doodle-Jump style)",
+      "reference": "(existing)",
+      "financialConcept": "Child education planning - rising toward the education goal",
+      "port": null,
+      "brief": "REVAMP polish pass to GAME_STANDARD.md: tune jump physics (coyote time, smooth camera), platform variety (breaking/moving/boost springs), education-milestone height banners (Primary/High School/College/Study Abroad), collectible fee-fund coins, virus hazards with clear vector art (no emoji), particles + trails + screen shake, synth audio, glass UI, 2-min cap with distance win. Audit lead capture + slot booking + playCount + validations. Verify pnpm build passes and update OKF files."
+    },
+    {
+      "dir": "tax-save-maze",
+      "bajajName": "Tax-Save Maze",
+      "gameName": "Tax Exemption Maze",
+      "concept": "Maze pathfinding collect",
+      "reference": "(existing)",
+      "financialConcept": "Section 80C/80D tax savings",
+      "port": null,
+      "brief": "REVAMP polish pass to GAME_STANDARD.md: smooth swipe-to-move (grid tween, not teleport), collectible 80C/80D deduction tokens with premium vector art, tax-collector chaser enemy with pathing, fog-of-war or spotlight polish optional, minimap or progress bar, particles on collect, synth audio, glass UI, no emoji sprites, 2-min cap. Audit lead capture + slot booking + playCount + validations. Verify pnpm build passes and update OKF files."
+    },
+    {
+      "dir": "she-shield-protector",
+      "bajajName": "SheShield Protector",
+      "gameName": "Women's Protection Catcher",
+      "concept": "Falling-object catcher",
+      "reference": "(existing)",
+      "financialConcept": "Women's critical illness cover",
+      "port": null,
+      "brief": "REVAMP polish pass to GAME_STANDARD.md: responsive drag/tilt movement, catch feedback (basket squash, sparkle burst, combo streaks with multiplier text), good-vs-bad item readability at speed (vector art already replaced emojis - verify + improve), fever mode, near-miss slow-mo, synth audio coverage, glass UI, 2-min session with health target win. Audit lead capture + slot booking + playCount + validations. Verify pnpm build passes and update OKF files."
+    },
+    {
+      "dir": "safe-stride-balancer",
+      "bajajName": "SafeStride Balancer",
+      "gameName": "Accident Protection Balancer",
+      "concept": "Physics balance keeper",
+      "reference": "(existing)",
+      "financialConcept": "Personal accident protection - one misstep matters",
+      "port": null,
+      "brief": "REVAMP polish pass to GAME_STANDARD.md: tune balance physics (readable, fair, ramping wind/obstacle events with telegraphs), danger-zone heartbeat feedback, shield pickups that absorb one stumble, distance/time milestones, particles + screen shake + floating text, synth audio, glass UI, no emoji sprites, 2-min cap. Audit lead capture + slot booking + playCount + validations. Verify pnpm build passes and update OKF files."
+    }
+  ]
+}

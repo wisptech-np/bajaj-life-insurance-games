@@ -15,6 +15,7 @@ const EnterDetailsScreen: React.FC<Props> = ({ score, onSubmit }) => {
   
   const [nameError, setNameError] = useState('');
   const [mobileError, setMobileError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [consentError, setConsentError] = useState('');
   
   const [showTCModal, setShowTCModal] = useState(false);
@@ -38,6 +39,7 @@ const EnterDetailsScreen: React.FC<Props> = ({ score, onSubmit }) => {
     
     let valid = true;
     const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
     
     // 1. Name validation
     if (!trimmedName) {
@@ -54,7 +56,16 @@ const EnterDetailsScreen: React.FC<Props> = ({ score, onSubmit }) => {
       valid = false;
     }
 
-    // 3. Consent validation
+    // 3. Email validation
+    if (!trimmedEmail) {
+      setEmailError('Please enter your email');
+      valid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setEmailError('Enter a valid email address');
+      valid = false;
+    }
+
+    // 4. Consent validation
     if (!agreed) {
       setConsentError('Please accept the T&C to continue');
       valid = false;
@@ -75,7 +86,7 @@ const EnterDetailsScreen: React.FC<Props> = ({ score, onSubmit }) => {
         const response = await submitToLMS({
           name: trimmedName,
           mobile_no: mobile,
-          email_id: email.trim(),
+          email_id: trimmedEmail,
           score: score,
           summary_dtls: 'Tightrope Protection Lead Submission'
         });
@@ -88,11 +99,11 @@ const EnterDetailsScreen: React.FC<Props> = ({ score, onSubmit }) => {
       }
       
       // Proceed to the result screen
-      onSubmit({ name: trimmedName, mobile, email: email.trim() });
+      onSubmit({ name: trimmedName, mobile, email: trimmedEmail });
     } catch (err) {
       console.error('[Details] lead submission failed:', err);
       // Proceed anyway to not block user experience
-      onSubmit({ name: trimmedName, mobile, email: email.trim() });
+      onSubmit({ name: trimmedName, mobile, email: trimmedEmail });
     } finally {
       setIsSubmitting(false);
     }
@@ -111,7 +122,7 @@ const EnterDetailsScreen: React.FC<Props> = ({ score, onSubmit }) => {
       </div>
 
       {/* Glassmorphic Form Card */}
-      <form onSubmit={handleFormSubmit} className="my-auto py-6 space-y-4 relative z-10">
+      <form onSubmit={handleFormSubmit} className="my-auto py-6 space-y-4 relative z-10 bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md">
         
         {/* Name input */}
         <div className="space-y-1">
@@ -148,17 +159,20 @@ const EnterDetailsScreen: React.FC<Props> = ({ score, onSubmit }) => {
           )}
         </div>
 
-        {/* Email Input (Optional) */}
+        {/* Email Input */}
         <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase tracking-wider text-blue-200 block">Email Address (Optional)</label>
+          <label className="text-[10px] font-black uppercase tracking-wider text-blue-200 block">Email Address</label>
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
             placeholder="name@example.com"
             disabled={isSubmitting}
             className="w-full bg-[#051736] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-blue-300/30 focus:border-[#00AEEF] focus:outline-none transition-all"
           />
+          {emailError && (
+            <p className="text-[10px] font-bold text-red-400 mt-1">{emailError}</p>
+          )}
         </div>
 
         {/* Consent Checkbox */}
@@ -196,7 +210,7 @@ const EnterDetailsScreen: React.FC<Props> = ({ score, onSubmit }) => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-press w-full rounded-full py-4 text-sm font-black uppercase tracking-wider text-white shadow-[0_4px_16px_rgba(0,174,239,0.35)] transition-all flex items-center justify-center gap-2"
+            className="btn-press w-full rounded-xl py-4 text-sm font-black uppercase tracking-wider text-white shadow-[0_4px_16px_rgba(0,174,239,0.35)] transition-all flex items-center justify-center gap-2"
             style={{ background: 'linear-gradient(135deg, #00AEEF 0%, #0077B6 100%)' }}
           >
             {isSubmitting ? (
@@ -229,7 +243,7 @@ const EnterDetailsScreen: React.FC<Props> = ({ score, onSubmit }) => {
             </p>
             <button
               onClick={() => setShowTCModal(false)}
-              className="btn-press mt-4 w-full rounded-full bg-[#00AEEF] py-2 text-xs font-bold text-white uppercase tracking-wider"
+              className="btn-press mt-4 w-full rounded-xl bg-[#00AEEF] py-2 text-xs font-bold text-white uppercase tracking-wider"
             >
               Close
             </button>

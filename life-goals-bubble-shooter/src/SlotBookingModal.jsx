@@ -1,6 +1,7 @@
 // SlotBookingModal.jsx — books a callback slot via updateLeadNew (or submitToLMS fallback).
 // Restyled to match the stackibility-stack .ls-card form pattern.
 import React, { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { submitToLMS, updateLeadNew, LEAD_NO_KEY } from './api.js';
 
 // Time slots from Snake-Life
@@ -135,8 +136,8 @@ export default function SlotBookingModal({ initialName, initialMobile, score, on
   const firstError = errors.name || errors.mobile || errors.date || errors.time || errors.terms || '';
 
   return (
-    <div className="modal-overlay">
-      <div className="ls-card" style={{ position: 'relative' }}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="modal-overlay">
+      <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: 'spring', damping: 22, stiffness: 200 }} className="ls-card" style={{ position: 'relative' }}>
         <div className="ls-card-icon" aria-hidden="true">
           <CalendarIcon />
         </div>
@@ -256,7 +257,7 @@ export default function SlotBookingModal({ initialName, initialMobile, score, on
             {submitting ? 'Confirming…' : 'Confirm booking'}
           </button>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

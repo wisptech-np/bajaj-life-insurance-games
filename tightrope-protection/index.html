@@ -75,13 +75,22 @@
       width: 3px;
     }
 
-    ::-webkit-scrollbar-thumb {
-      background: #00AEEF;
-      border-radius: 2px;
+    .btn-press {
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-press:hover {
+      transform: scale(1.02);
+      opacity: 0.95;
     }
 
     .btn-press:active {
       transform: scale(0.95);
+    }
+
+    .btn-press:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.4), 0 6px 24px rgba(0, 174, 239, 0.2);
     }
 
     @keyframes pop {

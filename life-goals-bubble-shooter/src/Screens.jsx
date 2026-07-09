@@ -1,6 +1,7 @@
 // Screens.jsx — Home + Results screens for the bubble shooter.
 // Restyled to match the stackibility-stack design language.
 import React from 'react';
+import { motion } from 'framer-motion';
 import { COLORS } from './data.js';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
@@ -231,8 +232,11 @@ export function HomeScreen({ onStart, theme }) {
   void theme;
 
   return (
-    <div
-      className="screen-enter"
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 15 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 1.04, y: -15 }}
+      transition={{ type: 'spring', damping: 25, stiffness: 220 }}
       style={{
         position: 'absolute',
         inset: 0,
@@ -248,7 +252,14 @@ export function HomeScreen({ onStart, theme }) {
       }}
     >
       {/* CTA play button at bottom */}
-      <div style={{ width: '100%', display: 'flex', justifyContent: 'center', zIndex: 10 }}>
+      <motion.div 
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, type: 'spring', damping: 20, stiffness: 180 }}
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
+        style={{ width: '100%', display: 'flex', justifyContent: 'center', zIndex: 10 }}
+      >
         <button
           type="button"
           className="bubble-play-btn"
@@ -267,8 +278,8 @@ export function HomeScreen({ onStart, theme }) {
           <span className="btn-bubble-deco bubble-yellow" style={{ right: 16, top: '50%', transform: 'translateY(-50%)', width: 22, height: 22 }} />
           <span className="btn-bubble-deco bubble-green" style={{ right: 34, top: '70%', width: 14, height: 14 }} />
         </button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -388,8 +399,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   const glowColor = score < 300 ? "rgba(239, 68, 68, 0.4)" : "rgba(34, 197, 94, 0.4)";
 
   return (
-    <div
-      className="screen-enter"
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 15 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 1.04, y: -15 }}
+      transition={{ type: 'spring', damping: 25, stiffness: 220 }}
       style={{
         position: 'absolute',
         inset: 0,
@@ -556,56 +570,61 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             </div>
           )}
 
-          <button
-            onClick={onBookSlot}
-            style={{
-              background: '#16A34A',
-              color: '#fff',
-              fontWeight: 900,
-              padding: '15px 20px',
-              borderRadius: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              fontSize: 17,
-              border: 'none',
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-              boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
-            }}
-          >
-            <CalendarIcon size={18} />
-            <span>Book a Slot</span>
-          </button>
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+            <button
+              onClick={onBookSlot}
+              style={{
+                width: '100%',
+                background: '#16A34A',
+                color: '#fff',
+                fontWeight: 900,
+                padding: '15px 20px',
+                borderRadius: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                fontSize: 17,
+                border: 'none',
+                cursor: 'pointer',
+                textTransform: 'uppercase',
+                boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+              }}
+            >
+              <CalendarIcon size={18} />
+              <span>Book a Slot</span>
+            </button>
+          </motion.div>
         </div>
       </div>
 
       {/* Play again action */}
-      <button
-        onClick={onRetry}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 10,
-          background: 'none',
-          border: 'none',
-          color: 'rgba(255, 255, 255, 0.5)',
-          cursor: 'pointer',
-          fontSize: 16,
-          fontWeight: 'bold',
-          letterSpacing: '0.05em',
-          padding: '12px 24px',
-          textTransform: 'uppercase',
-          transition: 'color 0.2s',
-          marginBottom: 16,
-        }}
-        className="play-again-btn"
-      >
-        <RotateIcon />
-        <span>Play again</span>
-      </button>
+      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+        <button
+          onClick={onRetry}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            background: 'none',
+            border: 'none',
+            color: 'rgba(255, 255, 255, 0.5)',
+            cursor: 'pointer',
+            fontSize: 16,
+            fontWeight: 'bold',
+            letterSpacing: '0.05em',
+            padding: '12px 24px',
+            textTransform: 'uppercase',
+            transition: 'color 0.2s',
+            marginBottom: 16,
+          }}
+          className="play-again-btn"
+        >
+          <RotateIcon />
+          <span>Play again</span>
+        </button>
+      </motion.div>
 
       {/* Disclaimer */}
       <div style={{ width: '100%', maxWidth: 360, opacity: 0.4, padding: '0 12px 20px' }}>
@@ -614,14 +633,17 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
           The results shown in this game are indicative and based solely on the information provided by the participant. They are intended for engagement and awareness purposes only and do not constitute financial advice or a recommendation to purchase any life insurance product. Participants should seek independent professional advice before making any financial or insurance decisions. While due care has been taken in designing the game, Bajaj Life Insurance Ltd. assumes no liability for its outcomes.
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 export function HowToPlayScreen({ onPlay }) {
   return (
-    <div
-      className="screen-enter"
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 15 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 1.04, y: -15 }}
+      transition={{ type: 'spring', damping: 25, stiffness: 220 }}
       style={{
         position: 'absolute',
         inset: 0,
@@ -766,23 +788,30 @@ export function HowToPlayScreen({ onPlay }) {
           </div>
 
           {/* Gesture Finger overlay */}
-          <div className="tut-gesture-hand" style={{ fontSize: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            👆
+          <div className="tut-gesture-hand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.6))' }}>
+              <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
+              <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
+              <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
+              <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
+            </svg>
           </div>
         </div>
 
         {/* CTA Play Button */}
-        <button
-          onClick={onPlay}
-          className="bubble-play-btn"
-          style={{ width: '100%', height: 56, marginTop: 8 }}
-        >
-          <span style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontSize: 22, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Play
-          </span>
-        </button>
+        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
+          <button
+            onClick={onPlay}
+            className="bubble-play-btn"
+            style={{ width: '100%', height: 56, marginTop: 8 }}
+          >
+            <span style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontSize: 22, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Play
+            </span>
+          </button>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

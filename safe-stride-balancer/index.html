@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <link rel="icon" href="data:;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a192f" />
+  <title>Safe Stride Balancer – Bajaj Allianz Life</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              blue: '#0F2C59',
+              lightBlue: '#1D5D9B',
+              orange: '#FF6F3C',
+              dark: '#081730',
+              accent: '#00E8C6',
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'bounce-slow': 'bounce 2.5s infinite',
+            'float': 'float 4s ease-in-out infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-10px)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Prevent default scrolling/bounce on mobile */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #081730;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    #app-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 500px;
+      margin: 0 auto;
+      background-color: #0d1e3d;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Glassmorphism utility */
+    .glass-panel {
+      background: rgba(15, 44, 89, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Highlighting critical wobble */
+    .critical-shake {
+      animation: shake 0.15s linear infinite;
+    }
+
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-1px, -2px) rotate(-1deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      30% { transform: translate(0px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      75% { transform: translate(2px, 1px) rotate(-1deg); }
+      90% { transform: translate(-1px, -1px) rotate(1deg); }
+      100% { transform: translate(1px, 2px) rotate(0deg); }
+    }
+
+    /* Hide scrollbars */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+
+<body class="text-white font-sans flex items-center justify-center bg-brand-dark">
+
+  <div id="app-container">
+    
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas" class="w-full h-full block touch-none"></canvas>
+
+    <!-- ── HUD Overlay ────────────────────────────────────── -->
+    <div id="game-hud" class="absolute top-0 left-0 right-0 p-4 pointer-events-none flex flex-col gap-2 transition-all duration-300 hidden">
+      <!-- Top HUD Details -->
+      <div class="flex justify-between items-center">
+        <!-- Distance / Progress -->
+        <div class="glass-panel px-3 py-1.5 rounded-full flex items-center gap-2 text-sm shadow-md">
+          <span class="text-xs uppercase font-bold tracking-wider text-gray-400">Distance:</span>
+          <span class="font-extrabold text-brand-accent text-base"><span id="hud-distance">0</span>m</span>
+          <span class="text-gray-500 font-bold text-xs">/ 1000m</span>
+        </div>
+
+        <!-- Shield Indicator -->
+        <div id="hud-shield-container" class="glass-panel px-3 py-1.5 rounded-full flex items-center gap-2 text-sm shadow-md transition-all duration-300 opacity-40">
+          <svg class="w-4 h-4 text-brand-accent" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span id="hud-shield-text" class="text-xs font-bold uppercase tracking-wider text-gray-300">No Shield</span>
+        </div>
+      </div>
+
+      <!-- Distance Progress Bar -->
+      <div class="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner">
+        <div id="hud-progress-bar" class="h-full bg-gradient-to-r from-brand-lightBlue to-brand-accent rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+
+      <!-- Stability Balance Bar (Visual Tilt Angle Gauge) -->
+      <div class="w-full mt-2 flex flex-col items-center">
+        <div class="w-2/3 h-4 relative flex items-center justify-between rounded-full bg-gradient-to-r from-red-600 via-green-500 to-red-600 px-1 border border-white/10 shadow">
+          <div class="w-1 h-3 bg-white/70 absolute left-1/4 rounded-full"></div>
+          <div class="w-1.5 h-4 bg-white/80 absolute left-1/2 -translate-x-1/2 rounded-full border border-black/35"></div>
+          <div class="w-1 h-3 bg-white/70 absolute right-1/4 rounded-full"></div>
+          
+          <!-- Marker needle -->
+          <div id="balance-needle" class="absolute w-3 h-3 bg-white border border-brand-dark rounded-full shadow-lg transition-transform duration-75" style="left: calc(50% - 6px);"></div>
+        </div>
+        <span class="text-[10px] text-gray-400 font-semibold tracking-wider mt-1 uppercase">COMMUTE STABILITY</span>
+      </div>
+
+      <!-- Warning Indicator (flashes when tilt is high) -->
+      <div id="hud-warning-alert" class="self-center mt-3 px-4 py-1 bg-red-600/90 text-white font-extrabold text-xs tracking-wider rounded-md border border-red-500 uppercase animate-pulse shadow-lg hidden">
+        WARNING: TILT DETECTED!
+      </div>
+    </div>
+
+    <!-- ── BOTTOM TOUCH CONTROLS ──────────────────────────── -->
+    <div id="controls-overlay" class="absolute bottom-0 left-0 right-0 p-5 flex gap-4 pointer-events-auto transition-opacity duration-300 hidden">
+      <button id="btn-tilt-left" class="flex-1 py-5 bg-brand-blue/85 active:bg-brand-lightBlue/95 border border-white/10 active:border-brand-accent/50 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-lg active:scale-[0.98] transition-transform select-none touch-none">
+        <svg class="w-8 h-8 text-white group-active:text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+        </svg>
+        <span class="text-xs font-bold uppercase tracking-wider text-gray-300">TILT LEFT</span>
+      </button>
+      <button id="btn-tilt-right" class="flex-1 py-5 bg-brand-blue/85 active:bg-brand-lightBlue/95 border border-white/10 active:border-brand-accent/50 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-lg active:scale-[0.98] transition-transform select-none touch-none">
+        <svg class="w-8 h-8 text-white group-active:text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
+        <span class="text-xs font-bold uppercase tracking-wider text-gray-300">TILT RIGHT</span>
+      </button>
+    </div>
+
+    <!-- ── START SCREEN ───────────────────────────────────── -->
+    <div id="start-screen" class="absolute inset-0 bg-gradient-to-b from-brand-dark to-brand-blue p-6 flex flex-col justify-between items-center text-center z-20">
+      
+      <!-- Logo & Headers -->
+      <div class="mt-8 flex flex-col items-center">
+        <!-- SVG Unicycle Graphic -->
+        <div class="w-20 h-20 mb-4 text-brand-orange animate-float">
+          <svg class="w-full h-full" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3">
+            <!-- Unicycle frame -->
+            <circle cx="32" cy="46" r="10" stroke-dasharray="4 2" />
+            <circle cx="32" cy="46" r="2" fill="currentColor" />
+            <line x1="32" y1="46" x2="32" y2="24" />
+            <!-- Pedals -->
+            <line x1="26" y1="40" x2="38" y2="52" />
+            <rect x="22" y="38" width="8" height="3" fill="currentColor" />
+            <rect x="34" y="51" width="8" height="3" fill="currentColor" />
+            <!-- Seat -->
+            <path d="M26 24h12c0-3-4-3-6-3s-6 0-6 3z" fill="currentColor" />
+            <!-- Handlebar/Grips -->
+            <path d="M22 14h20M32 14v10" stroke-width="2" />
+          </svg>
+        </div>
+        <h1 class="text-3xl font-black uppercase tracking-tight text-white">
+          SAFE STRIDE <span class="text-brand-orange">BALANCER</span>
+        </h1>
+        <p class="text-xs font-bold tracking-widest text-brand-accent uppercase mt-1">Balance the Risk · Secure Your Path</p>
+      </div>
+
+      <!-- Quick Explanation / Info Slider -->
+      <div class="glass-panel w-full p-5 rounded-2xl flex flex-col gap-3 max-w-sm">
+        <h3 class="text-sm font-extrabold uppercase text-brand-orange tracking-wider text-left border-b border-white/10 pb-1">The Challenge:</h3>
+        <p class="text-xs text-gray-300 text-left leading-relaxed">
+          Commutes are full of unexpected bumps. Ride your unicycle through busy city streets and maintain your balance!
+        </p>
+        <div class="flex flex-col gap-2 mt-1">
+          <div class="flex items-center gap-2.5 text-xs text-left">
+            <span class="w-6 h-6 flex items-center justify-center rounded bg-red-500/20 text-red-400 font-bold border border-red-500/40">⚡</span>
+            <span>Avoid hazards: <span class="text-red-400 font-semibold">Potholes</span>, <span class="text-red-400 font-semibold">Reckless Drivers</span>, &amp; <span class="text-red-400 font-semibold">Wet Roads</span>.</span>
+          </div>
+          <div class="flex items-center gap-2.5 text-xs text-left">
+            <span class="w-6 h-6 flex items-center justify-center rounded bg-green-500/20 text-green-400 font-bold border border-green-500/40">🛡️</span>
+            <span>Collect <span class="text-green-400 font-semibold">Personal Accident Plans</span> for an auto-balance safety shield.</span>
+          </div>
+          <div class="flex items-center gap-2.5 text-xs text-left">
+            <span class="w-6 h-6 flex items-center justify-center rounded bg-brand-accent/20 text-brand-accent font-bold border border-brand-accent/40">🏁</span>
+            <span>Ride <span class="text-brand-accent font-semibold">1000 meters</span> to complete the commute securely.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTAs -->
+      <div class="w-full flex flex-col gap-3 mb-6 max-w-sm">
+        <button id="btn-start" class="w-full py-4 bg-brand-orange hover:bg-brand-orange/90 hover:scale-[1.02] hover:opacity-95 text-white font-extrabold tracking-widest text-sm rounded-xl shadow-lg shadow-brand-orange/20 active:scale-[0.98] transition-all duration-200 uppercase flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/50">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Start Balancing
+        </button>
+        <button id="btn-how-to-play" class="w-full py-3 bg-white/10 hover:bg-white/15 hover:scale-[1.02] hover:opacity-95 text-white font-bold tracking-wider text-xs rounded-xl active:scale-[0.98] transition-all duration-200 uppercase border border-white/5 focus:outline-none focus:ring-2 focus:ring-white/20">
+          Detailed Instructions
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ── HOW TO PLAY SCREEN ─────────────────────────────── -->
+    <div id="how-to-play-screen" class="absolute inset-0 bg-brand-dark/95 p-6 flex flex-col justify-between items-center z-30 hidden">
+      <div class="w-full max-w-sm mt-4">
+        <h2 class="text-xl font-extrabold uppercase text-brand-orange tracking-wider border-b border-white/10 pb-2 mb-4">Detailed Instructions</h2>
+        <div class="flex flex-col gap-4 text-xs text-gray-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-1">
+          <div>
+            <h4 class="font-bold text-white uppercase text-sm mb-1">1. Keep Your Balance</h4>
+            <p>Your commuter starts straight. Gravity and road wobbles will tilt you. Press and hold <b>Tilt Left</b> or <b>Tilt Right</b> to apply counter-torque. Keep the gauge pointer centered!</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-white uppercase text-sm mb-1">2. Identify Commute Hazards</h4>
+            <ul class="list-disc pl-4 space-y-1 mt-1">
+              <li><span class="text-red-400 font-semibold">Potholes</span>: Causes a sharp sudden tilt jerk on contact.</li>
+              <li><span class="text-red-400 font-semibold">Reckless Drivers</span>: Zoom past you, creating strong wind drafts that push you sideways.</li>
+              <li><span class="text-red-400 font-semibold">Wet Road</span>: Slicks the tires, causing highly unstable sliding and dampening your control inputs.</li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-bold text-white uppercase text-sm mb-1">3. Personal Accident Plan (Shield)</h4>
+            <p>Collect floating shield logos representing the <b>Bajaj Allianz Personal Accident Plan</b>. This grants an instant safety net:
+              <ul class="list-disc pl-4 space-y-0.5 mt-1 text-brand-accent">
+                <li>Instantly aligns you back to vertical (0° tilt).</li>
+                <li>Provides a buffer shield that completely absorbs the next hazard crash.</li>
+              </ul>
+            </p>
+          </div>
+          <div>
+            <h4 class="font-bold text-white uppercase text-sm mb-1">4. Win Conditions</h4>
+            <p>Cover <b>1000m</b> to complete the route. If your tilt exceeds 45 degrees, you wipe out, resulting in Game Over!</p>
+          </div>
+        </div>
+      </div>
+      
+      <button id="btn-close-how-to" class="w-full max-w-sm py-3.5 bg-brand-lightBlue hover:bg-brand-lightBlue/90 hover:scale-[1.02] hover:opacity-95 text-white font-extrabold tracking-widest text-xs rounded-xl active:scale-[0.98] transition-all duration-200 uppercase focus:outline-none focus:ring-2 focus:ring-brand-lightBlue/50">
+        Got It, Back to Menu
+      </button>
+    </div>
+
+    <!-- ── GAME OVER / LEAD CAPTURE FORM ──────────────────── -->
+    <div id="gameover-screen" class="absolute inset-0 bg-gradient-to-b from-brand-dark to-brand-blue p-6 flex flex-col justify-start items-center overflow-y-auto z-20 hidden">
+      
+      <!-- Top Title -->
+      <div class="text-center mt-4 mb-4">
+        <h2 id="gameover-title" class="text-3xl font-black tracking-tight text-white uppercase">
+          COMMUTE COMPLETED!
+        </h2>
+        <p id="gameover-subtitle" class="text-xs font-bold uppercase text-brand-accent tracking-widest mt-1">
+          Safe Journey Secured
+        </p>
+      </div>
+
+      <!-- Score Summary -->
+      <div class="glass-panel w-full p-4 rounded-xl flex justify-around items-center max-w-sm mb-5">
+        <div class="text-center">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-gray-400">Distance</div>
+          <div id="summary-distance" class="text-2xl font-black text-white">1000m</div>
+        </div>
+        <div class="w-px h-8 bg-white/10"></div>
+        <div class="text-center">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-gray-400">Accident Shields</div>
+          <div id="summary-shields" class="text-2xl font-black text-brand-accent">3</div>
+        </div>
+        <div class="w-px h-8 bg-white/10"></div>
+        <div class="text-center">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-gray-400">Survival Status</div>
+          <div id="summary-status" class="text-sm font-black px-2 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30 mt-1">SECURED</div>
+        </div>
+      </div>
+
+      <!-- Lead Capture Form Card -->
+      <div class="glass-panel w-full p-5 rounded-2xl max-w-sm mb-6 flex flex-col gap-4 border border-brand-accent/20 shadow-lg shadow-brand-accent/5">
+        <div>
+          <h3 class="text-sm font-extrabold uppercase text-brand-orange tracking-wider">Secure Your Daily Commute</h3>
+          <p class="text-[11px] text-gray-300 mt-1 leading-normal">
+            Bumps on the road of life are inevitable. Get an advisor call to see how a <b>Bajaj Allianz Personal Accident Plan</b> guards your family.
+          </p>
+        </div>
+
+        <form id="lead-form" class="flex flex-col gap-3">
+          <!-- Input Name -->
+          <div class="flex flex-col gap-1">
+            <label for="lead-name" class="text-[10px] uppercase tracking-wider font-bold text-gray-400">Full Name</label>
+            <input type="text" id="lead-name" placeholder="Enter your full name" required
+              class="w-full bg-brand-dark/80 border border-white/10 rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-brand-accent transition-colors" />
+          </div>
+
+          <!-- Input Mobile -->
+          <div class="flex flex-col gap-1">
+            <label for="lead-mobile" class="text-[10px] uppercase tracking-wider font-bold text-gray-400">Mobile Number</label>
+            <div class="relative flex">
+              <span class="absolute left-3 top-2 text-xs font-semibold text-gray-500">+91</span>
+              <input type="tel" id="lead-mobile" pattern="[6-9][0-9]{9}" maxlength="10" placeholder="10-digit number" required
+                class="w-full bg-brand-dark/80 border border-white/10 rounded-lg pl-11 pr-3 py-2 text-xs text-white focus:outline-none focus:border-brand-accent transition-colors" />
+            </div>
+          </div>
+
+          <!-- Input Email -->
+          <div class="flex flex-col gap-1">
+            <label for="lead-email" class="text-[10px] uppercase tracking-wider font-bold text-gray-400">Email Address</label>
+            <input type="email" id="lead-email" placeholder="name@email.com" required
+              class="w-full bg-brand-dark/80 border border-white/10 rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-brand-accent transition-colors" />
+          </div>
+
+          <!-- Consent checkbox -->
+          <div class="flex gap-2 items-start mt-1">
+            <input type="checkbox" id="lead-consent" checked required class="mt-0.5 rounded accent-brand-orange" />
+            <label for="lead-consent" class="text-[9px] text-gray-400 leading-normal">
+              I authorize Bajaj Allianz Life to call/message me. I agree to the <button type="button" id="btn-open-terms" class="text-brand-accent underline hover:text-white transition-colors">T&amp;C</button>.
+            </label>
+          </div>
+
+          <!-- Error Alert inside form -->
+          <div id="lead-form-error" class="hidden text-[10px] bg-red-600/20 border border-red-500/50 text-red-300 p-2 rounded text-center font-semibold"></div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="btn-submit-lead" class="w-full mt-2 py-3 bg-brand-orange hover:bg-brand-orange/90 hover:scale-[1.02] hover:opacity-95 text-white font-extrabold text-xs tracking-widest rounded-xl transition-all duration-200 shadow-md uppercase active:scale-[0.98] flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/50">
+            <span id="submit-btn-text">Submit Details</span>
+            <svg id="submit-btn-spinner" class="animate-spin h-3 w-3 text-white hidden" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+        </form>
+      </div>
+
+      <!-- Quick Play Again text link if they want to discard/skip (usually we force lead to get callback but we can have skip if configured) -->
+      <button id="btn-skip-lead" class="text-xs text-gray-400 font-bold uppercase tracking-wider hover:text-white transition-colors mb-6">
+        Skip Form &amp; Play Again
+      </button>
+
+    </div>
+
+    <!-- ── SLOT BOOKING SCREEN ────────────────────────────── -->
+    <div id="slot-screen" class="absolute inset-0 bg-gradient-to-b from-brand-dark to-brand-blue p-6 flex flex-col justify-start items-center overflow-y-auto z-20 hidden">
+      
+      <div class="text-center mt-6 mb-6">
+        <div class="w-12 h-12 bg-brand-accent/20 text-brand-accent rounded-full flex items-center justify-center mx-auto mb-3 border border-brand-accent/40 animate-pulse">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h2 class="text-2xl font-black text-white uppercase tracking-tight">Schedule callback</h2>
+        <p class="text-xs text-gray-400 font-semibold tracking-wider uppercase mt-1">Book your free advice session</p>
+      </div>
+
+      <!-- Slot Info Card -->
+      <div class="glass-panel w-full p-5 rounded-2xl max-w-sm mb-6 flex flex-col gap-4 border border-white/5">
+        <p class="text-xs text-gray-300 leading-relaxed text-center">
+          Choose a preferred date and time slot below to secure your personal callback with a financial expert.
+        </p>
+
+        <form id="slot-form" class="flex flex-col gap-4">
+          <!-- Date Select -->
+          <div class="flex flex-col gap-1.5">
+            <label for="slot-date" class="text-[10px] uppercase tracking-wider font-bold text-gray-400">Appointment Date</label>
+            <input type="date" id="slot-date" required
+              class="w-full bg-brand-dark/80 border border-white/10 rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-brand-accent transition-colors" />
+          </div>
+
+          <!-- Time Slot Select -->
+          <div class="flex flex-col gap-1.5">
+            <label for="slot-time" class="text-[10px] uppercase tracking-wider font-bold text-gray-400">Preferred Time Slot</label>
+            <select id="slot-time" required
+              class="w-full bg-brand-dark/80 border border-white/10 rounded-lg px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-accent transition-colors">
+              <option value="" disabled selected>Select a time window</option>
+              <option value="10:00 AM - 12:00 PM">10:00 AM - 12:00 PM</option>
+              <option value="12:00 PM - 02:00 PM">12:00 PM - 02:00 PM</option>
+              <option value="02:00 PM - 04:00 PM">02:00 PM - 04:00 PM</option>
+              <option value="04:00 PM - 06:00 PM">04:00 PM - 06:00 PM</option>
+            </select>
+          </div>
+
+          <!-- Error Message inside slot form -->
+          <div id="slot-form-error" class="hidden text-[10px] bg-red-600/20 border border-red-500/50 text-red-300 p-2 rounded text-center font-semibold"></div>
+
+          <!-- Confirm button -->
+          <button type="submit" id="btn-confirm-slot" class="w-full py-3 bg-brand-orange hover:bg-brand-orange/90 hover:scale-[1.02] hover:opacity-95 text-white font-extrabold text-xs tracking-widest rounded-xl transition-all duration-200 shadow-md uppercase active:scale-[0.98] flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/50">
+            <span>Confirm Call Slot</span>
+            <svg id="slot-btn-spinner" class="animate-spin h-3 w-3 text-white hidden" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+        </form>
+      </div>
+
+      <!-- Skip slot button -->
+      <button id="btn-skip-slot" class="text-xs text-gray-400 font-bold uppercase tracking-wider hover:text-white transition-colors mb-6">
+        Skip slot booking
+      </button>
+
+    </div>
+
+    <!-- ── THANK YOU SCREEN ───────────────────────────────── -->
+    <div id="thankyou-screen" class="absolute inset-0 bg-gradient-to-b from-brand-dark to-brand-blue p-6 flex flex-col justify-center items-center text-center z-20 hidden">
+      
+      <!-- Giant Checkmark -->
+      <div class="w-20 h-20 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mb-6 border-2 border-green-400 animate-bounce-slow shadow-lg shadow-green-500/10">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+
+      <h2 class="text-3xl font-black text-white uppercase tracking-tight">THANK YOU!</h2>
+      <p class="text-sm font-bold text-brand-accent uppercase tracking-widest mt-1">Lead Submission Successful</p>
+      
+      <div class="glass-panel p-5 rounded-2xl max-w-sm my-6 text-xs text-gray-300 leading-relaxed">
+        Our Bajaj Allianz Life insurance advisor has received your request and will contact you shortly to guide you on the best commute protective coverage.
+      </div>
+
+      <button id="btn-thankyou-restart" class="w-full max-w-sm py-4 bg-brand-orange hover:bg-brand-orange/90 hover:scale-[1.02] hover:opacity-95 text-white font-extrabold tracking-widest text-sm rounded-xl transition-all duration-200 shadow-md uppercase active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-orange/50">
+        Play Game Again
+      </button>
+
+    </div>
+
+    <!-- ── TERMS & CONDITIONS MODAL ───────────────────────── -->
+    <div id="terms-modal" class="absolute inset-0 bg-black/80 flex items-center justify-center p-6 z-40 hidden">
+      <div class="glass-panel w-full max-w-sm rounded-2xl p-5 border border-white/10 flex flex-col gap-4 animate-scale-up">
+        <div class="flex justify-between items-center border-b border-white/10 pb-2">
+          <h3 class="text-sm font-black text-white uppercase tracking-wider">Terms &amp; Conditions</h3>
+          <button id="btn-close-terms" class="text-xl text-gray-400 hover:text-white">&times;</button>
+        </div>
+        
+        <div class="text-[10px] text-gray-300 leading-relaxed space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+          <p>I hereby authorize Bajaj Allianz Life Insurance Company Limited to call me on the contact number made available by me on the website with a specific request to call back.</p>
+          <p>I further declare that, irrespective of my contact number being registered on National Customer Preference Register (NCPR) or on National Do Not Call Registry (NDNC), any call made, SMS or WhatsApp sent in response to my request shall not be construed as an Unsolicited Commercial Communication even though the content of the call may be for the purposes of explaining various insurance products and services or solicitation and procurement of insurance business.</p>
+          <p>Please refer to Bajaj Allianz Life <a href="https://www.bajajallianzlife.com/privacy-policy.html" target="_blank" rel="noopener noreferrer" class="text-brand-accent underline">Privacy Policy</a> for full compliance details.</p>
+        </div>
+        
+        <button id="btn-agree-terms" class="w-full py-3 bg-brand-lightBlue hover:bg-brand-lightBlue/90 hover:scale-[1.02] hover:opacity-95 text-white font-extrabold text-xs tracking-widest rounded-xl uppercase transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-lightBlue/50">
+          I Agree &amp; Accept
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "retire-rich-clicker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:uat": "vite build --mode uat",
+    "build:preprod": "vite build --mode preprod",
+    "build:prod": "vite build --mode production"
+  },
+  "devDependencies": {
+    "vite": "^5.4.1"
+  }
+}

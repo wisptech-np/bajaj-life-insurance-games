@@ -31,8 +31,8 @@ export class GameManager {
         this._leadName = '';
         this._leadMobile = '';
 
-        this._ui.setOnLeadSubmit(async ({ name, mobile }) => {
-            const result = await submitToLMS({ name, mobile, score: this._score });
+        this._ui.setOnLeadSubmit(async ({ name, mobile, email }) => {
+            const result = await submitToLMS({ name, mobile, email, score: this._score });
             this._leadNo = result.leadNo || result.LeadNo || null;
             if (this._leadNo) sessionStorage.setItem('stackibilityLeadNo', this._leadNo);
             this._leadName = name;

@@ -270,7 +270,7 @@ const BookSlotModal: React.FC<Props> = ({ name, mobile, onClose, onBookSuccess }
           <button
             type="submit"
             disabled={isSubmitting || (date === todayStr && availableSlots.length === 0)}
-            className="btn-press w-full rounded-full py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg transition-all flex items-center justify-center gap-1.5"
+            className="btn-press w-full rounded-xl py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg transition-all flex items-center justify-center gap-1.5"
             style={{ background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)' }}
           >
             {isSubmitting ? 'Booking...' : 'Confirm Slot'}

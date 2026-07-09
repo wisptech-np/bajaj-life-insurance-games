@@ -1,7 +1,7 @@
 // LMS lead-capture + slot-booking integration.
 // `__LMS_BASE_URL__` and `__LMS_UPDATE_BASE_URL__` are injected at build time by vite.config.js.
 
-export async function submitToLMS({ name, mobile, score, summaryDtls = 'Life Goals Bubble Shooter Lead' }) {
+export async function submitToLMS({ name, mobile, email, score, summaryDtls = 'Life Goals Bubble Shooter Lead' }) {
   const userId = sessionStorage.getItem('gamification_userId') || '';
   const gameID = sessionStorage.getItem('gamification_gameId') || '';
 
@@ -11,7 +11,7 @@ export async function submitToLMS({ name, mobile, score, summaryDtls = 'Life Goa
     dob: '',
     gender: 'M',
     pincode: '',
-    email_id: '',
+    email_id: email || '',
     life_goal_category: '',
     investment_amount: '',
     product_id: '',

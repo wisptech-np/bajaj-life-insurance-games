@@ -1,0 +1,2144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="data:," />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B1C3F" />
+  <title>Retire Rich Clicker — Bajaj Allianz Life</title>
+  
+  <!-- Tailwind CSS & Three.js -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #050B1A;
+      color: #F3F4F6;
+      overflow: hidden;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    /* Scrollbar customized for webkit */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(11, 28, 63, 0.3); }
+    ::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.4); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(212, 175, 55, 0.6); }
+
+    /* ── Animated Particle Background Canvas ── */
+    #particle-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── Screen Transition Fades ── */
+    .screen-fade {
+      transition: opacity 0.45s cubic-bezier(0.4,0,0.2,1), transform 0.45s cubic-bezier(0.4,0,0.2,1);
+    }
+    .screen-enter {
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+    }
+    .screen-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* ── Floating Click Particles ── */
+    @keyframes floatUp {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(-120px) scale(0.8); opacity: 0; }
+    }
+    .click-particle {
+      position: absolute;
+      animation: floatUp 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+      pointer-events: none;
+      z-index: 50;
+      font-weight: 900;
+      text-shadow: 0 2px 12px rgba(212,175,55,0.7), 0 4px 8px rgba(0,0,0,0.9);
+    }
+
+    /* ── Screen Shake ── */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0) translateY(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-6px) translateY(-2px); }
+      20%, 40%, 60%, 80% { transform: translateX(6px) translateY(2px); }
+    }
+    .shake-effect { animation: shake 0.4s ease-in-out; }
+    
+    /* ── Gold Glow Tiers ── */
+    .gold-glow { box-shadow: 0 0 25px rgba(212, 175, 55, 0.35), inset 0 0 12px rgba(212,175,55,0.08); }
+    .gold-glow-intense { box-shadow: 0 0 45px rgba(212, 175, 55, 0.8), 0 0 80px rgba(212,175,55,0.3), inset 0 0 20px rgba(212,175,55,0.15); }
+    
+    @keyframes pulseShield {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 20px rgba(16, 185, 129, 0.6); }
+    }
+    .shield-pulse { animation: pulseShield 2s infinite ease-in-out; }
+
+    /* ── Premium Overlay / Modals ── */
+    .premium-overlay {
+      background: rgba(5, 11, 26, 0.88);
+      backdrop-filter: blur(14px) saturate(1.2);
+      -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    }
+
+    /* ── Modal Slide-Up Animation ── */
+    @keyframes modalSlideUp {
+      from { transform: translateY(40px) scale(0.95); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .modal-animate-in {
+      animation: modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* ── Full-Screen Flash Effect for Shocks ── */
+    @keyframes screenFlash {
+      0% { opacity: 0.7; }
+      100% { opacity: 0; }
+    }
+    .shock-flash {
+      position: fixed;
+      inset: 0;
+      z-index: 55;
+      pointer-events: none;
+      animation: screenFlash 0.5s ease-out forwards;
+    }
+
+    /* ── Checkbox Styling ── */
+    .ls-checkbox-wrapper { position: relative; display: inline-block; width: 20px; height: 20px; }
+    .ls-checkbox-wrapper input { opacity: 0; width: 0; height: 0; }
+    .ls-checkbox-custom {
+      position: absolute; top: 0; left: 0; height: 20px; width: 20px;
+      background-color: #0b1c3f; border: 2px solid #d4af37; border-radius: 4px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .ls-checkbox-wrapper input:checked + .ls-checkbox-custom { background-color: #10b981; border-color: #10b981; }
+    .ls-checkbox-custom:after {
+      content: ""; position: absolute; display: none;
+      left: 6px; top: 2px; width: 5px; height: 10px;
+      border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg);
+    }
+    .ls-checkbox-wrapper input:checked + .ls-checkbox-custom:after { display: block; }
+
+    /* ── Clicker Pulse ── */
+    .btn-pulse { animation: pulseBtn 3s infinite; }
+    @keyframes pulseBtn {
+      0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.5); }
+      70% { box-shadow: 0 0 0 20px rgba(212, 175, 55, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
+    }
+
+    /* ── Clicker Shimmer Ring ── */
+    @keyframes shimmerRotate {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .clicker-shimmer-ring {
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0%, rgba(212,175,55,0.5) 25%, transparent 50%, rgba(245,224,163,0.4) 75%, transparent 100%);
+      animation: shimmerRotate 4s linear infinite;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    /* ── Coin Inner Emboss ── */
+    .coin-emboss {
+      text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 -1px 0 rgba(245,224,163,0.3);
+    }
+
+    /* ── Event Toast ── */
+    .event-toast {
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    @keyframes slideIn {
+      from { transform: translateY(-100%) scale(0.9); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    /* ── Combo Badge ── */
+    @keyframes comboPop {
+      0% { transform: scale(0.8) rotate(-5deg); opacity: 0; }
+      50% { transform: scale(1.2) rotate(5deg); }
+      100% { transform: scale(1) rotate(-3deg); opacity: 1; }
+    }
+    .combo-active { animation: comboPop 0.15s ease-out forwards; }
+
+    /* ── Glassmorphic Cards ── */
+    .glass-card {
+      background: rgba(11, 28, 63, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(212, 175, 55, 0.15);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .glass-card-upgrade {
+      background: linear-gradient(135deg, rgba(5,11,26,0.85) 0%, rgba(11,28,63,0.7) 100%);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(212,175,55,0.12);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
+      transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
+    }
+    .glass-card-upgrade:hover {
+      border-color: rgba(212,175,55,0.3);
+      box-shadow: 0 4px 24px rgba(212,175,55,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
+      transform: translateY(-1px);
+    }
+
+    /* ── Progress Bar Shimmer ── */
+    @keyframes shimmerSlide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+    .progress-shimmer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
+      animation: shimmerSlide 2.5s ease-in-out infinite;
+    }
+
+    /* ── Milestone Markers ── */
+    .milestone-marker {
+      position: absolute;
+      top: -2px; bottom: -2px;
+      width: 2px;
+      background: rgba(255,255,255,0.3);
+      z-index: 2;
+    }
+    .milestone-marker::after {
+      content: attr(data-label);
+      position: absolute;
+      top: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 7px;
+      color: rgba(255,255,255,0.4);
+      white-space: nowrap;
+      font-weight: 600;
+    }
+
+    /* ── HUD Glassmorphic Pill ── */
+    .hud-pill {
+      background: rgba(5, 11, 26, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+    }
+
+    /* ── Confetti Canvas ── */
+    #confetti-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 45;
+      pointer-events: none;
+    }
+
+    /* ── Form Input Focus Glow ── */
+    .form-input-premium {
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .form-input-premium:focus {
+      border-color: #D4AF37 !important;
+      box-shadow: 0 0 0 3px rgba(212,175,55,0.15), 0 0 12px rgba(212,175,55,0.1);
+    }
+
+    /* ── Premium Button ── */
+    .btn-premium {
+      background: linear-gradient(135deg, #D4AF37 0%, #F5E0A3 50%, #D4AF37 100%);
+      background-size: 200% 100%;
+      transition: background-position 0.5s, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, opacity 0.2s ease;
+      box-shadow: 0 4px 15px rgba(212,175,55,0.3);
+    }
+    .btn-premium:hover {
+      background-position: 100% 0;
+      transform: scale(1.02);
+      opacity: 0.95;
+      box-shadow: 0 6px 25px rgba(212,175,55,0.5);
+    }
+    .btn-premium:active {
+      transform: scale(0.98);
+      box-shadow: 0 2px 8px rgba(212,175,55,0.3);
+    }
+    .btn-premium:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.5), 0 6px 25px rgba(212, 175, 55, 0.3);
+    }
+
+    button:not(#btn-clicker) {
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+    button:not(#btn-clicker):hover {
+      transform: scale(1.02);
+      opacity: 0.95;
+    }
+    button:not(#btn-clicker):active {
+      transform: scale(0.98);
+    }
+    button:not(#btn-clicker):focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.4);
+    }
+
+    /* ── Vignette Overlay ── */
+    .vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background: radial-gradient(ellipse at center, transparent 55%, rgba(5,11,26,0.6) 100%);
+    }
+
+    /* ── Score Count-Up ── */
+    @keyframes countPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .score-counting {
+      animation: countPulse 0.1s ease-in-out;
+    }
+  </style>
+</head>
+<body class="w-full h-screen flex flex-col justify-between select-none">
+
+  <!-- ── ANIMATED PARTICLE BACKGROUND ── -->
+  <canvas id="particle-bg"></canvas>
+  <!-- ── VIGNETTE OVERLAY ── -->
+  <div class="vignette"></div>
+  <!-- ── CONFETTI CANVAS (for wins) ── -->
+  <canvas id="confetti-canvas" class="hidden"></canvas>
+
+  <!-- ── SOUND CONTROL BANNER ── -->
+  <div id="sound-init-banner" class="fixed inset-0 z-50 flex items-center justify-center px-4 premium-overlay">
+    <div class="max-w-md w-full glass-card border-2 border-[#D4AF37] p-8 rounded-2xl text-center shadow-2xl modal-animate-in">
+      <div class="relative w-20 h-20 mx-auto mb-6">
+        <div class="absolute inset-0 bg-gradient-to-tr from-[#D4AF37] to-[#F5E0A3] rounded-full animate-bounce shadow-lg"></div>
+        <div class="absolute inset-0 rounded-full" style="box-shadow: 0 0 30px rgba(212,175,55,0.4), 0 0 60px rgba(212,175,55,0.15);"></div>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-[#050B1A] absolute inset-0 m-auto z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+        </svg>
+      </div>
+      <h2 class="text-2xl font-black text-white mb-2 tracking-wide uppercase" style="text-shadow: 0 0 20px rgba(212,175,55,0.3);">RETIRE RICH CLICKER</h2>
+      <p class="text-gray-300 text-sm mb-6 leading-relaxed">
+        Experience interactive retirement planning! Enable synthesized sound effects for a fully immersive dashboard experience.
+      </p>
+      <div class="flex flex-col gap-3">
+        <button id="btn-sound-enable" class="btn-premium w-full py-4 text-[#050B1A] font-extrabold rounded-xl tracking-wider uppercase text-base">
+          Enable Audio & Start
+        </button>
+        <button id="btn-sound-skip" class="w-full py-3 bg-transparent border border-gray-600 hover:border-gray-400 text-gray-400 font-semibold rounded-xl text-sm transition">
+          Play Muted
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── START / WELCOME SCREEN ── -->
+  <div id="start-screen" class="hidden fixed inset-0 z-40 flex flex-col justify-between text-white p-6 overflow-y-auto screen-fade" style="background: linear-gradient(165deg, #050B1A 0%, #0B1C3F 40%, #0d2352 70%, #050B1A 100%);">
+    <!-- Top Brand Header -->
+    <div class="flex justify-between items-center py-2 border-b border-gray-800">
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-8 bg-[#D4AF37] rounded-full"></div>
+        <div>
+          <span class="text-xs font-bold tracking-widest text-[#D4AF37] block leading-none">BAJAJ ALLIANZ LIFE</span>
+          <span class="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Pension & Retirement</span>
+        </div>
+      </div>
+      <span class="text-[10px] text-gray-500 font-medium">VER 1.1.0</span>
+    </div>
+
+    <!-- Center Interactive Content -->
+    <div class="flex-grow flex flex-col items-center justify-center text-center my-6 max-w-md mx-auto">
+      <div class="relative mb-6">
+        <div class="absolute -inset-1 bg-gradient-to-r from-[#D4AF37] to-[#10B981] rounded-full blur opacity-35 animate-pulse"></div>
+        <div class="relative w-28 h-28 bg-gradient-to-tr from-[#0B1C3F] to-[#1a3875] border-4 border-[#D4AF37] rounded-full flex items-center justify-center gold-glow">
+          <span class="text-4xl font-black">₹</span>
+        </div>
+      </div>
+      
+      <h1 class="text-3xl font-black tracking-tight mb-2 bg-gradient-to-r from-white via-gray-200 to-[#D4AF37] bg-clip-text text-transparent uppercase">
+        Retire Rich Clicker
+      </h1>
+      
+      <p class="text-xs text-gray-400 tracking-wider uppercase mb-6">The Retirement Wealth Journey</p>
+
+      <!-- Educational Card -->
+      <div class="glass-card p-5 rounded-2xl mb-6 text-left shadow-lg w-full" style="border-image: linear-gradient(135deg, rgba(212,175,55,0.3), rgba(16,185,129,0.2)) 1; border-width: 1px; border-style: solid; border-image-slice: 1; border-radius: 16px; border: 1px solid rgba(212,175,55,0.2);">
+        <h3 class="text-[#D4AF37] font-semibold text-sm mb-3 flex items-center gap-2">
+          <svg class="w-4 h-4 text-[#D4AF37]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+          YOUR MISSION & GAMEPLAY:
+        </h3>
+        <ul class="space-y-2.5 text-xs text-gray-300">
+          <li class="flex items-start gap-2">
+            <span class="text-[#D4AF37] font-bold">•</span>
+            <span>Reach <strong class="text-white font-semibold">₹1 Crore (₹1,00,00,000)</strong> in retirement savings before age 60.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-[#D4AF37] font-bold">•</span>
+            <span>Tap the <strong class="text-[#D4AF37]">Work & Save</strong> coin. Tap repeatedly within 1.2s to build a <strong class="text-yellow-400">Combo Multiplier (up to x2.0)</strong>!</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-[#D4AF37] font-bold">•</span>
+            <span>Buy <strong class="text-[#10B981]">Pension Upgrades</strong> to automate passive income.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-[#D4AF37] font-bold">•</span>
+            <span>Buy <strong class="text-[#3B82F6]">Insurance Riders</strong> to protect against random <strong class="text-[#EF4444]">Inflation Shocks</strong>. Unshielded shocks shake your screen and drain savings!</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Quick Tips -->
+      <div class="text-center text-xs text-gray-400 mb-2">
+        <span class="inline-block px-3 py-1.5 glass-card rounded-full" style="border: 1px solid rgba(212,175,55,0.15);">
+          <svg class="w-3.5 h-3.5 inline-block mr-1 text-[#D4AF37] -mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+          If savings drop to ₹0 due to shocks, you go bankrupt and lose!
+        </span>
+      </div>
+    </div>
+
+    <!-- CTA Button -->
+    <div class="max-w-md w-full mx-auto pb-4">
+      <button id="btn-start-game" class="btn-premium w-full py-4 text-[#050B1A] font-extrabold rounded-xl tracking-wider uppercase text-base">
+        Start Savings Journey (Age 30)
+      </button>
+    </div>
+  </div>
+
+  <!-- ── MAIN GAME SCREEN ── -->
+  <div id="game-screen" class="hidden flex-grow flex flex-col justify-between h-full relative">
+    
+    <!-- Top Stats HUD -->
+    <div class="border-b border-gray-800 p-4 pt-6 pb-4" style="background: linear-gradient(180deg, rgba(11,28,63,0.95) 0%, rgba(11,28,63,0.8) 100%); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+      <div class="max-w-6xl mx-auto flex flex-col gap-3">
+        
+        <!-- Header Row -->
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-2">
+            <div class="w-2.5 h-6 bg-[#D4AF37] rounded-full"></div>
+            <div>
+              <span class="text-[10px] font-bold tracking-widest text-[#D4AF37] block leading-none">BAJAJ ALLIANZ LIFE</span>
+              <span class="text-xs font-semibold text-white">RETIRE RICH JOURNAL</span>
+            </div>
+          </div>
+          <!-- Age Counter -->
+          <div class="hud-pill px-3 py-1.5 rounded-xl flex items-center gap-2">
+            <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Current Age:</span>
+            <span id="stat-age" class="text-white font-extrabold text-sm tracking-wide">30</span>
+            <span class="text-gray-500 text-xs">/60</span>
+          </div>
+        </div>
+
+        <!-- Savings & Passive Rate Display -->
+        <div class="grid grid-cols-2 gap-2 mt-1">
+          <!-- Total Savings Card -->
+          <div class="hud-pill p-3 rounded-xl flex flex-col justify-center">
+            <span class="text-gray-400 text-[9px] uppercase tracking-wider font-semibold">Total Savings</span>
+            <span id="stat-savings" class="text-lg font-black tracking-tight mt-0.5" style="background: linear-gradient(135deg, #FFFFFF 30%, #D4AF37 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">₹0</span>
+            <span class="text-gray-500 text-[9px] mt-0.5">Target: ₹1.00 Cr</span>
+          </div>
+          <!-- Income Rates Card -->
+          <div class="hud-pill p-3 rounded-xl flex flex-col justify-center">
+            <span class="text-gray-400 text-[9px] uppercase tracking-wider font-semibold">Passive Annuity Rate</span>
+            <span id="stat-passive-rate" class="text-[#10B981] text-base font-extrabold tracking-tight mt-0.5">+₹0/sec</span>
+            <span id="stat-click-rate" class="text-gray-400 text-[9px] mt-0.5">Manual: ₹1,000/click</span>
+          </div>
+        </div>
+
+        <!-- Progress to Target Bar -->
+        <div class="w-full mt-1">
+          <div class="flex justify-between items-center text-[10px] text-gray-400 mb-1">
+            <span>Retirement Target Progress</span>
+            <span id="stat-progress-pct" class="font-bold text-[#D4AF37]">0%</span>
+          </div>
+          <div class="w-full h-3.5 bg-[#050B1A] rounded-full overflow-hidden border border-gray-800 relative" style="box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);">
+            <div id="stat-progress-bar" class="h-full bg-gradient-to-r from-[#D4AF37] via-[#10B981] to-[#3B82F6] w-0 transition-all duration-300 relative" style="border-radius: 9999px;">
+              <div class="progress-shimmer"></div>
+            </div>
+            <!-- Milestone markers at 25%, 50%, 75% -->
+            <div class="milestone-marker" style="left: 25%;" data-label="25L"></div>
+            <div class="milestone-marker" style="left: 50%;" data-label="50L"></div>
+            <div class="milestone-marker" style="left: 75%;" data-label="75L"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Center Play Area (Clicker & Toasts) -->
+    <div class="flex-grow flex flex-col items-center justify-center p-4 relative overflow-hidden" style="background: radial-gradient(ellipse at center, rgba(212,175,55,0.03) 0%, transparent 60%);">
+      <!-- Random Event Banner Slot -->
+      <div id="event-toast-container" class="absolute top-2 left-4 right-4 z-30 pointer-events-none"></div>
+
+      <!-- Main Clicker Coin Area -->
+      <div class="relative flex flex-col items-center">
+        <!-- Combo Display Badge -->
+        <div id="combo-badge" class="hidden absolute top-[-40px] px-4 py-1.5 rounded-full text-xs font-black tracking-wider uppercase shadow-xl transition-all duration-100 combo-active z-30">
+          COMBO x2 (Speed: 1.2x)
+        </div>
+
+        <!-- Interactive Glow Rings -->
+        <div id="clicker-glow" class="absolute -inset-4 bg-gradient-to-tr from-[#D4AF37] via-[#0B1C3F] to-[#10B981] rounded-full opacity-15 blur-xl transition-all duration-300"></div>
+        
+        <button id="btn-clicker" class="relative w-48 h-48 sm:w-56 sm:h-56 rounded-full flex flex-col items-center justify-center cursor-pointer select-none outline-none transform active:scale-95 transition-transform duration-75 btn-pulse gold-glow" style="background: transparent;">
+          <!-- 3D WebGL Coin Canvas -->
+          <canvas id="coin-3d-canvas" class="absolute inset-0 w-full h-full rounded-full pointer-events-none z-0"></canvas>
+          
+          <!-- Inner details overlay on top of 3D coin -->
+          <div class="relative z-10 flex flex-col items-center justify-center pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14 text-[#D4AF37] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6)) drop-shadow(0 0 4px rgba(212,175,55,0.35));">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span class="text-white text-base font-extrabold tracking-wider uppercase leading-none coin-emboss" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">WORK & SAVE</span>
+            <span id="clicker-tap-val" class="text-xs text-[#D4AF37] mt-1 font-semibold" style="text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(212,175,55,0.4);">+₹1,000</span>
+          </div>
+        </button>
+        
+        <p class="text-gray-500 text-[10px] tracking-wider uppercase mt-4 animate-pulse">Tap repeatedly to build savings combo</p>
+      </div>
+    </div>
+
+    <!-- Bottom Shop Panel -->
+    <div class="flex flex-col h-72 sm:h-80 z-20" style="background: rgba(11,28,63,0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid rgba(212,175,55,0.1);">
+      <!-- Tabs header -->
+      <div class="flex border-b border-gray-800 text-xs" style="background: rgba(5,11,26,0.7);">
+        <button id="tab-btn-active" class="flex-1 py-3 text-center font-bold tracking-wider border-b-2 border-[#D4AF37] text-white">
+          ACTIVE INCOME
+        </button>
+        <button id="tab-btn-pension" class="flex-1 py-3 text-center font-bold tracking-wider border-b-2 border-transparent text-gray-400">
+          PENSIONS
+        </button>
+        <button id="tab-btn-protection" class="flex-1 py-3 text-center font-bold tracking-wider border-b-2 border-transparent text-gray-400">
+          RIDERS
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div id="shop-scroll-container" class="flex-grow overflow-y-auto p-4 space-y-3">
+        <!-- Upgrade cards injected here -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── RANDOM EVENT MODAL ── -->
+  <div id="event-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 premium-overlay">
+    <div id="event-modal-card" class="max-w-md w-full glass-card border-2 border-red-500 p-6 rounded-2xl shadow-2xl relative modal-animate-in">
+      <!-- Close countdown bar -->
+      <div class="absolute top-0 left-0 right-0 h-1.5 bg-[#050B1A] rounded-t-2xl overflow-hidden">
+        <div id="event-modal-timer" class="h-full bg-red-500 w-full transition-all linear" style="box-shadow: 0 0 8px rgba(239,68,68,0.5);"></div>
+      </div>
+      
+      <!-- Event Icon Header -->
+      <div id="event-modal-icon-bg" class="w-16 h-16 mx-auto mb-4 bg-red-950/40 rounded-full flex items-center justify-center border-2 border-red-500" style="box-shadow: 0 0 25px rgba(239,68,68,0.25);">
+        <svg id="event-modal-icon" class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <!-- Injected dynamically -->
+        </svg>
+      </div>
+
+      <h2 id="event-modal-title" class="text-xl font-bold text-white text-center mb-2 tracking-wide" style="text-shadow: 0 0 15px rgba(239,68,68,0.2);">MEDICAL INFLATION SHOCK</h2>
+      <p id="event-modal-description" class="text-sm text-gray-300 text-center leading-relaxed mb-6">
+        Healthcare costs increased by 30%! Your savings took a hit.
+      </p>
+
+      <div class="flex flex-col items-center justify-center p-3 rounded-xl mb-6 hud-pill">
+        <span class="text-gray-500 text-[10px] uppercase font-bold tracking-wider">Financial Impact</span>
+        <span id="event-modal-impact" class="text-red-500 font-extrabold text-lg mt-0.5">-₹4,50,000</span>
+        <span id="event-modal-mitigation-note" class="text-xs text-gray-400 mt-1 italic text-center">Get the Health Rider to block this shock!</span>
+      </div>
+
+      <button id="btn-event-modal-dismiss" class="btn-premium w-full py-3 text-[#050B1A] font-extrabold rounded-xl tracking-wider uppercase">
+        Acknowledge
+      </button>
+    </div>
+  </div>
+
+  <!-- ── GAME OVER SCREEN (WIN OR LOSE) ── -->
+  <div id="game-over-screen" class="hidden fixed inset-0 z-40 flex flex-col justify-between text-white p-6 overflow-y-auto screen-fade" style="background: linear-gradient(165deg, #050B1A 0%, #0B1C3F 40%, #0d2352 70%, #050B1A 100%);">
+    <!-- Header -->
+    <div class="flex justify-between items-center py-2 border-b border-gray-800">
+      <div class="flex items-center gap-2">
+        <div class="w-2.5 h-6 bg-[#D4AF37] rounded-full"></div>
+        <div>
+          <span class="text-[9px] font-bold tracking-widest text-[#D4AF37] block leading-none">BAJAJ ALLIANZ LIFE</span>
+          <span class="text-[11px] font-bold text-white">RETIREMENT SUMMARY</span>
+        </div>
+      </div>
+      <span id="game-over-ver" class="text-[9px] text-gray-500 font-semibold uppercase">SECURED</span>
+    </div>
+
+    <!-- Center Info Card -->
+    <div class="flex-grow flex flex-col items-center justify-center text-center my-4 max-w-md mx-auto w-full">
+      
+      <!-- Result Badge -->
+      <div id="go-badge-container" class="mb-4">
+        <!-- Injected dynamically -->
+      </div>
+
+      <h1 id="go-title" class="text-2xl font-black tracking-tight mb-1 text-white">RETIRED RICH!</h1>
+      <p id="go-subtitle" class="text-xs text-gray-400 mb-5 leading-relaxed">You successfully planned and built your retirement nest egg.</p>
+
+      <!-- Stats Summary -->
+      <div class="glass-card p-4 rounded-xl shadow-lg w-full space-y-3 mb-6">
+        <div class="flex justify-between items-center border-b border-gray-800/50 pb-2">
+          <span class="text-xs text-gray-400">Final Age reached</span>
+          <span id="go-stat-age" class="text-sm font-bold text-white">45 Years</span>
+        </div>
+        <div class="flex justify-between items-center border-b border-gray-800/50 pb-2">
+          <span class="text-xs text-gray-400">Total Savings Accumulation</span>
+          <span id="go-stat-savings" class="text-sm font-black text-[#10B981]">₹1,00,45,000</span>
+        </div>
+        <div class="flex justify-between items-center border-b border-gray-800/50 pb-2">
+          <span class="text-xs text-gray-400">Passive Annuity Stream</span>
+          <span id="go-stat-annuity" class="text-sm font-extrabold text-[#D4AF37]">₹1,20,000/sec</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-xs text-gray-400">Protective Riders Owned</span>
+          <span id="go-stat-riders" class="text-xs font-semibold text-blue-400">3 / 4 Riders</span>
+        </div>
+      </div>
+
+      <!-- Lead Capture Form Banner -->
+      <div class="glass-card p-4 rounded-xl w-full text-left" style="border: 1px solid rgba(212,175,55,0.15);">
+        <h3 class="text-sm font-bold text-[#D4AF37] mb-1 flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-[#D4AF37] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          Secure Your Retirement Guarantee
+        </h3>
+        <p class="text-[11px] text-gray-300 leading-normal mb-3">
+          Don't leave your real retirement to chance. Fill in your details to get a free retirement planning session and custom pension analysis with Bajaj Allianz Life experts.
+        </p>
+        
+        <!-- Form Inputs -->
+        <div class="space-y-2.5">
+          <div>
+            <label class="block text-[9px] uppercase tracking-wider text-gray-400 font-bold mb-1">Your Full Name</label>
+            <input type="text" id="lead-name" class="w-full bg-[#0B1C3F] border border-gray-700 px-3 py-2.5 rounded-lg text-xs outline-none text-white form-input-premium" placeholder="Enter Full Name" />
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase tracking-wider text-gray-400 font-bold mb-1">10-Digit Mobile Number</label>
+            <input type="tel" id="lead-mobile" class="w-full bg-[#0B1C3F] border border-gray-700 px-3 py-2.5 rounded-lg text-xs outline-none text-white form-input-premium" placeholder="Enter Mobile Number" maxlength="10" inputmode="numeric" />
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase tracking-wider text-gray-400 font-bold mb-1">Email Address</label>
+            <input type="email" id="lead-email" class="w-full bg-[#0B1C3F] border border-gray-700 px-3 py-2.5 rounded-lg text-xs outline-none text-white form-input-premium" placeholder="name@email.com" />
+          </div>
+          
+          <!-- T&C Checkbox -->
+          <div class="flex items-start gap-2 pt-1.5">
+            <div class="ls-checkbox-wrapper mt-0.5">
+              <input type="checkbox" id="lead-tc" checked />
+              <div class="ls-checkbox-custom"></div>
+            </div>
+            <span class="text-[10px] text-gray-400 leading-relaxed">
+              I agree to the <a href="#" id="link-tc" class="text-[#D4AF37] underline">T&C and Privacy Policy</a>, authorizing BALIC to contact me.
+            </span>
+          </div>
+
+          <div id="lead-error" class="text-red-500 text-[10px] font-bold tracking-wide mt-1 hidden">
+            PLEASE COMPLETE ALL REQUIRED FIELDS.
+          </div>
+
+          <button id="btn-lead-submit" class="btn-premium w-full py-3 text-[#050B1A] font-extrabold rounded-xl tracking-wider uppercase mt-2 text-xs">
+            SUBMIT & SEE DETAILED ANALYSIS
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer Action -->
+    <div class="text-center text-[10px] text-gray-500 py-1">
+      Bajaj Allianz Life Insurance Co. Ltd. | IRDAI Reg No. 116
+    </div>
+  </div>
+
+  <!-- ── SLOT BOOKING SCREEN ── -->
+  <div id="slot-screen" class="hidden fixed inset-0 z-40 flex flex-col justify-between text-white p-6 overflow-y-auto screen-fade" style="background: linear-gradient(165deg, #050B1A 0%, #0B1C3F 40%, #0d2352 70%, #050B1A 100%);">
+    <div class="flex justify-between items-center py-2 border-b border-gray-800">
+      <div class="flex items-center gap-2">
+        <div class="w-2.5 h-6 bg-[#D4AF37] rounded-full"></div>
+        <div>
+          <span class="text-[9px] font-bold tracking-widest text-[#D4AF37] block leading-none">BAJAJ ALLIANZ LIFE</span>
+          <span class="text-[11px] font-bold text-white">BOOK CONSULTATION</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex-grow flex flex-col items-center justify-center my-6 max-w-md mx-auto w-full">
+      <div class="w-16 h-16 bg-gradient-to-tr from-[#D4AF37] to-[#F5E0A3] rounded-full flex items-center justify-center shadow-lg mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-[#050B1A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+
+      <h1 class="text-xl font-bold text-white mb-2">Book a Preferred Call Time</h1>
+      <p class="text-xs text-gray-400 text-center leading-relaxed mb-6">
+        Choose a date and time slot for our certified Financial Advisor to help design your custom retirement guarantee blueprint.
+      </p>
+
+      <!-- Booking Fields -->
+      <div class="w-full space-y-4 glass-card p-5 rounded-2xl shadow-lg">
+        <div>
+          <label class="block text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1.5">Select Date</label>
+          <input type="date" id="slot-date" class="w-full bg-[#050B1A] border border-gray-700 focus:border-[#D4AF37] px-3.5 py-2.5 rounded-lg text-xs outline-none text-white transition" />
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2">Select Preferred Time Slot</label>
+          <div id="slot-times-grid" class="grid grid-cols-2 gap-2">
+            <!-- Populated via script -->
+          </div>
+        </div>
+
+        <div id="slot-error" class="text-red-500 text-[10px] font-bold mt-1 hidden">
+          PLEASE PICK A DATE AND SELECT A TIME SLOT.
+        </div>
+
+        <button id="btn-slot-confirm" class="btn-premium w-full py-3.5 text-[#050B1A] font-extrabold rounded-xl tracking-wider uppercase text-xs">
+          CONFIRM MY APPOINTMENT
+        </button>
+
+        <button id="btn-slot-skip" class="w-full py-2 bg-transparent text-gray-400 hover:text-white font-semibold transition text-xs">
+          SKIP FOR NOW
+        </button>
+      </div>
+    </div>
+
+    <div class="text-center text-[10px] text-gray-500 py-1">
+      Your slot details will be added to your retirement advisor request.
+    </div>
+  </div>
+
+  <!-- ── THANK YOU SCREEN ── -->
+  <div id="thankyou-screen" class="hidden fixed inset-0 z-40 flex flex-col justify-between text-white p-6 overflow-y-auto screen-fade" style="background: linear-gradient(165deg, #050B1A 0%, #0B1C3F 40%, #0d2352 70%, #050B1A 100%);">
+    <!-- Top Header -->
+    <div class="flex justify-between items-center py-2 border-b border-gray-800">
+      <div class="flex items-center gap-2">
+        <div class="w-2.5 h-6 bg-[#D4AF37] rounded-full"></div>
+        <span class="text-[10px] font-bold tracking-widest text-[#D4AF37]">BAJAJ ALLIANZ LIFE</span>
+      </div>
+    </div>
+
+    <!-- Center Content -->
+    <div class="flex-grow flex flex-col items-center justify-center text-center my-6 max-w-md mx-auto w-full">
+      <!-- Checked Circle -->
+      <div class="w-20 h-20 bg-gradient-to-tr from-[#10B981] to-[#6EE7B7] rounded-full flex items-center justify-center shadow-lg border-4 border-white mb-6" style="box-shadow: 0 0 30px rgba(16,185,129,0.4), 0 0 60px rgba(16,185,129,0.15);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+
+      <h1 class="text-3xl font-extrabold tracking-tight mb-2 text-white uppercase">THANK YOU!</h1>
+      <p class="text-sm text-gray-300 leading-relaxed mb-8">
+        Your retirement analysis request has been logged successfully. A licensed Bajaj Allianz Life advisor will call you on your provided mobile number shortly.
+      </p>
+
+      <div class="w-full p-4 glass-card rounded-2xl mb-8">
+        <h4 class="text-xs text-[#D4AF37] font-bold uppercase tracking-wider mb-2">Retirement Insight</h4>
+        <p class="text-xs text-gray-300 leading-relaxed">
+          Guaranteed pension plans from Bajaj Allianz Life help ensure that your post-retirement life remains as comfortable and secure as your career years, covering medical expense inflation and passive income requirements.
+        </p>
+      </div>
+
+      <button id="btn-thankyou-restart" class="btn-premium w-full max-w-xs py-4 text-[#050B1A] font-extrabold rounded-xl tracking-wider uppercase text-sm">
+        PLAY RETIRE RICH AGAIN
+      </button>
+    </div>
+
+    <div class="text-center text-[10px] text-gray-500 py-1">
+      © Bajaj Allianz Life Insurance Co. Ltd. All rights reserved.
+    </div>
+  </div>
+
+  <!-- ── TERMS MODAL ── -->
+  <div id="terms-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 premium-overlay">
+    <div class="max-w-md w-full glass-card border border-gray-800 p-6 rounded-2xl shadow-2xl relative modal-animate-in">
+      <button id="btn-terms-close" class="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+      
+      <h2 class="text-lg font-bold text-white mb-4 tracking-wide border-b border-gray-800 pb-2">TERMS & CONDITIONS</h2>
+      
+      <div class="max-h-60 overflow-y-auto text-xs text-gray-300 space-y-3 pr-2 leading-relaxed">
+        <p>I hereby authorize Bajaj Allianz Life Insurance Co. Ltd. to call me on the contact number made available by me on this website with a specific request to call back.</p>
+        <p>I further declare that, irrespective of my contact number being registered on the National Customer Preference Register (NCPR) or on the National Do Not Call Registry (NDNC), any call made, SMS or WhatsApp message sent in response to my request shall not be construed as an Unsolicited Commercial Communication (UCC), even though the content of the communication may be for the purposes of explaining various insurance products and services or solicitation and procurement of insurance business.</p>
+        <p>Please refer to the Bajaj Allianz Life <a href="https://www.bajajallianzlife.com/privacy-policy.html" target="_blank" rel="noopener noreferrer" class="text-[#D4AF37] hover:underline">Privacy Policy</a> for more details on data security.</p>
+      </div>
+
+      <button id="btn-terms-agree" class="btn-premium w-full py-3 text-[#050B1A] font-extrabold rounded-xl tracking-wider uppercase mt-6 text-xs">
+        I AGREE & CONSENT
+      </button>
+    </div>
+  </div>
+
+  <!-- ── JAVASCRIPT STATE & GAME LOOP ── -->
+  <script type="module">
+    // Load LMS urls from build environment variables if available
+    const LMS_BASE_URL = typeof __LMS_BASE_URL__ !== 'undefined' ? __LMS_BASE_URL__ : 'https://sales.bajajlife.com/BalicLmsUtil';
+    const LMS_UPDATE_BASE_URL = typeof __LMS_UPDATE_BASE_URL__ !== 'undefined' ? __LMS_UPDATE_BASE_URL__ : 'https://sales.bajajlife.com/BalicLmsUtil';
+
+    // Sound Synthesizer Class using Web Audio API
+    class SoundSynth {
+      constructor() {
+        this.ctx = null;
+        this.muted = true;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            this.ctx = new AudioContextClass();
+            this.muted = false;
+          }
+        }
+      }
+      playClick() {
+        if (this.muted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.08);
+        
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.08);
+      }
+      playComboUpgrade(comboLevel) {
+        if (this.muted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sine';
+        const startFreq = comboLevel >= 30 ? 700 : (comboLevel >= 15 ? 600 : 500);
+        osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(startFreq * 1.5, this.ctx.currentTime + 0.12);
+        
+        gain.gain.setValueAtTime(0.07, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.12);
+      }
+      playBuy() {
+        if (this.muted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(261.63, this.ctx.currentTime); // C4
+        osc.frequency.setValueAtTime(329.63, this.ctx.currentTime + 0.08); // E4
+        osc.frequency.setValueAtTime(392.00, this.ctx.currentTime + 0.16); // G4
+        osc.frequency.setValueAtTime(523.25, this.ctx.currentTime + 0.24); // C5
+        
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.35);
+      }
+      playWindfall() {
+        if (this.muted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, this.ctx.currentTime); // D5
+        osc.frequency.setValueAtTime(880.00, this.ctx.currentTime + 0.1); // A5
+        
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
+      }
+      playShock() {
+        if (this.muted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(70, this.ctx.currentTime + 0.45);
+        
+        gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.45);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.45);
+      }
+      playShield() {
+        if (this.muted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.2);
+        
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
+      }
+      playWin() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+          
+          gain.gain.setValueAtTime(0.08, now + idx * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.3);
+          
+          osc.start(now + idx * 0.1);
+          osc.stop(now + idx * 0.1 + 0.3);
+        });
+      }
+      playLose() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [220, 196, 174.61, 146.83, 110];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.15);
+          
+          gain.gain.setValueAtTime(0.1, now + idx * 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.15 + 0.4);
+          
+          osc.start(now + idx * 0.15);
+          osc.stop(now + idx * 0.15 + 0.4);
+        });
+      }
+    }
+
+    const sound = new SoundSynth();
+
+    // ── GAME CONSTANTS & UPGRADES DEFINITIONS ──
+    const TARGET_SAVINGS = 10000000; // 1 Crore
+    const START_AGE = 30;
+    const END_AGE = 60;
+    const TIME_PER_YEAR_MS = 12000; // 12 seconds per year
+    const TICK_INTERVAL_MS = 100; // smooth 10 ticks per second
+
+    const UPGRADES = [
+      // CATEGORY 1: ACTIVE (Career upgrades / clicks multiplier)
+      {
+        id: 'active_consulting',
+        name: 'Professional Consulting',
+        category: 'active',
+        desc: 'Consult in your free time. Increases active income.',
+        cost: 5000,
+        val: 200,
+        qty: 0,
+        costMult: 1.4
+      },
+      {
+        id: 'active_ecommerce',
+        name: 'E-commerce Hustle',
+        category: 'active',
+        desc: 'Launch a side shop. Multiplies active savings.',
+        cost: 25000,
+        val: 1200,
+        qty: 0,
+        costMult: 1.45
+      },
+      {
+        id: 'active_agency',
+        name: 'Real Estate Brokerage',
+        category: 'active',
+        desc: 'Facilitate premium property sales.',
+        cost: 150000,
+        val: 8000,
+        qty: 0,
+        costMult: 1.5
+      },
+      {
+        id: 'active_startup_advisor',
+        name: 'Tech Venture Advisory',
+        category: 'active',
+        desc: 'Provide fractional leadership to seed startups.',
+        cost: 1000000,
+        val: 50000,
+        qty: 0,
+        costMult: 1.6
+      },
+
+      // CATEGORY 2: PENSION (Passive income generators)
+      {
+        id: 'pension_deferred',
+        name: 'Deferred Annuity Plan',
+        category: 'pension',
+        desc: 'BALIC Deferred Annuity. Accumulate passive interest.',
+        cost: 10000,
+        val: 500,
+        qty: 0,
+        costMult: 1.3
+      },
+      {
+        id: 'pension_monthly',
+        name: 'Monthly Guaranteed Pension',
+        category: 'pension',
+        desc: 'Receive reliable monthly pension payouts.',
+        cost: 60000,
+        val: 3500,
+        qty: 0,
+        costMult: 1.35
+      },
+      {
+        id: 'pension_lifetime',
+        name: 'Lifetime Annuity Plan',
+        category: 'pension',
+        desc: 'Guaranteed pension for your entire lifetime.',
+        cost: 300000,
+        val: 20000,
+        qty: 0,
+        costMult: 1.4
+      },
+      {
+        id: 'pension_joint_life',
+        name: 'Joint Life Annuity Cover',
+        category: 'pension',
+        desc: 'Protect spouse. Income continues for joint life.',
+        cost: 1500000,
+        val: 120000,
+        qty: 0,
+        costMult: 1.45
+      },
+      {
+        id: 'pension_nps',
+        name: 'NPS Tier-1 Account',
+        category: 'pension',
+        desc: 'National Pension Scheme contributions.',
+        cost: 4000000,
+        val: 450000,
+        qty: 0,
+        costMult: 1.5
+      },
+
+      // CATEGORY 3: PROTECTION RIDERS (Single buy shields)
+      {
+        id: 'rider_health',
+        name: 'Health Care Rider',
+        category: 'protection',
+        desc: 'Shields savings from Medical Inflation Shocks.',
+        cost: 20000,
+        qty: 0,
+        maxQty: 1
+      },
+      {
+        id: 'rider_accident',
+        name: 'Accident Protection Rider',
+        category: 'protection',
+        desc: 'Shields savings from Accident Liability Shocks.',
+        cost: 80000,
+        qty: 0,
+        maxQty: 1
+      },
+      {
+        id: 'rider_illness',
+        name: 'Critical Illness Rider',
+        category: 'protection',
+        desc: 'Shields savings from Critical Illness Emergency Shocks.',
+        cost: 200000,
+        qty: 0,
+        maxQty: 1
+      },
+      {
+        id: 'rider_market_shield',
+        name: 'Equity Portfolio Shield',
+        category: 'protection',
+        desc: 'Shields savings from Stock Market Crash corrections.',
+        cost: 500000,
+        qty: 0,
+        maxQty: 1
+      }
+    ];
+
+    const RANDOM_EVENTS = [
+      {
+        id: 'shock_medical',
+        type: 'shock',
+        title: 'MEDICAL INFLATION SHOCK',
+        desc: 'Surging healthcare costs and hospital bills drained your savings.',
+        percent: 0.3,
+        riderId: 'rider_health',
+        riderName: 'Health Care Rider'
+      },
+      {
+        id: 'shock_accident',
+        type: 'shock',
+        title: 'ACCIDENTAL LIABILITY SHOCK',
+        desc: 'An unforeseen legal & repairs liability drained your savings.',
+        percent: 0.25,
+        riderId: 'rider_accident',
+        riderName: 'Accident Protection Rider'
+      },
+      {
+        id: 'shock_illness',
+        type: 'shock',
+        title: 'CRITICAL ILLNESS EMERGENCY',
+        desc: 'Emergency surgical treatments wiped out a massive chunk of savings.',
+        percent: 0.4,
+        riderId: 'rider_illness',
+        riderName: 'Critical Illness Rider'
+      },
+      {
+        id: 'shock_market',
+        type: 'shock',
+        title: 'STOCK MARKET CORRECTION',
+        desc: 'Unhedged stocks took a nose-dive. Your retirement portfolio plunged.',
+        percent: 0.2,
+        riderId: 'rider_market_shield',
+        riderName: 'Equity Portfolio Shield'
+      },
+      {
+        id: 'windfall_tax',
+        type: 'windfall',
+        title: 'TAX SAVING WINDFALL',
+        desc: 'Your Section 80C declarations and pension rebates paid back cash!',
+        amount: 150000
+      },
+      {
+        id: 'windfall_bonus',
+        type: 'windfall',
+        title: 'PERFORMANCE BONUS',
+        desc: 'Your active hustle earned you an outstanding yearly bonus payout.',
+        amount: 80000
+      },
+      {
+        id: 'windfall_dividend',
+        type: 'windfall',
+        title: 'MUTUAL FUND DIVIDENDS',
+        desc: 'Early retirement equity growth released solid investment returns.',
+        amount: 300000
+      }
+    ];
+
+    const TIME_SLOTS = ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"];
+
+    // ── GAME STATE ──
+    let state = {
+      savings: 0,
+      age: START_AGE,
+      activeIncomeVal: 1000,
+      passiveIncomeVal: 0,
+      upgrades: JSON.parse(JSON.stringify(UPGRADES)),
+      currentTab: 'active',
+      playing: false,
+      yearTimer: 0,
+      randomEventTimer: 0,
+      leadNo: null,
+      leadName: '',
+      leadMobile: '',
+      selectedSlot: '',
+      lastGameOutcome: 'lose',
+      
+      // Combo Mechanics
+      combo: 0,
+      lastTapTime: 0,
+      comboTimeout: null
+    };
+
+    // Formatter
+    const currencyFormatter = new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    });
+
+    // ── UI ELEMENTS ──
+    const dom = {
+      soundBanner: document.getElementById('sound-init-banner'),
+      btnSoundEnable: document.getElementById('btn-sound-enable'),
+      btnSoundSkip: document.getElementById('btn-sound-skip'),
+      
+      startScreen: document.getElementById('start-screen'),
+      btnStartGame: document.getElementById('btn-start-game'),
+      
+      gameScreen: document.getElementById('game-screen'),
+      statAge: document.getElementById('stat-age'),
+      statSavings: document.getElementById('stat-savings'),
+      statPassiveRate: document.getElementById('stat-passive-rate'),
+      statClickRate: document.getElementById('stat-click-rate'),
+      statProgressPct: document.getElementById('stat-progress-pct'),
+      statProgressBar: document.getElementById('stat-progress-bar'),
+      
+      btnClicker: document.getElementById('btn-clicker'),
+      clickerTapVal: document.getElementById('clicker-tap-val'),
+      comboBadge: document.getElementById('combo-badge'),
+      clickerGlow: document.getElementById('clicker-glow'),
+      
+      tabActive: document.getElementById('tab-btn-active'),
+      tabPension: document.getElementById('tab-btn-pension'),
+      tabProtection: document.getElementById('tab-btn-protection'),
+      shopContainer: document.getElementById('shop-scroll-container'),
+      
+      eventToastContainer: document.getElementById('event-toast-container'),
+      
+      eventModal: document.getElementById('event-modal'),
+      eventModalCard: document.getElementById('event-modal-card'),
+      eventModalIconBg: document.getElementById('event-modal-icon-bg'),
+      eventModalIcon: document.getElementById('event-modal-icon'),
+      eventModalTitle: document.getElementById('event-modal-title'),
+      eventModalDesc: document.getElementById('event-modal-description'),
+      eventModalImpact: document.getElementById('event-modal-impact'),
+      eventModalMitigationNote: document.getElementById('event-modal-mitigation-note'),
+      btnEventModalDismiss: document.getElementById('btn-event-modal-dismiss'),
+      eventModalTimer: document.getElementById('event-modal-timer'),
+      
+      gameOverScreen: document.getElementById('game-over-screen'),
+      goBadgeContainer: document.getElementById('go-badge-container'),
+      goTitle: document.getElementById('go-title'),
+      goSubtitle: document.getElementById('go-subtitle'),
+      goStatAge: document.getElementById('go-stat-age'),
+      goStatSavings: document.getElementById('go-stat-savings'),
+      goStatAnnuity: document.getElementById('go-stat-annuity'),
+      goStatRiders: document.getElementById('go-stat-riders'),
+      
+      leadName: document.getElementById('lead-name'),
+      leadMobile: document.getElementById('lead-mobile'),
+      leadEmail: document.getElementById('lead-email'),
+      leadTc: document.getElementById('lead-tc'),
+      leadError: document.getElementById('lead-error'),
+      btnLeadSubmit: document.getElementById('btn-lead-submit'),
+      linkTc: document.getElementById('link-tc'),
+      
+      slotScreen: document.getElementById('slot-screen'),
+      slotDate: document.getElementById('slot-date'),
+      slotTimesGrid: document.getElementById('slot-times-grid'),
+      slotError: document.getElementById('slot-error'),
+      btnSlotConfirm: document.getElementById('btn-slot-confirm'),
+      btnSlotSkip: document.getElementById('btn-slot-skip'),
+      
+      thankyouScreen: document.getElementById('thankyou-screen'),
+      btnThankyouRestart: document.getElementById('btn-thankyou-restart'),
+      
+      termsModal: document.getElementById('terms-modal'),
+      btnTermsClose: document.getElementById('btn-terms-close'),
+      btnTermsAgree: document.getElementById('btn-terms-agree')
+    };
+
+    // Initialize date selector with tomorrow as minimum date
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    dom.slotDate.min = tomorrow.toISOString().split('T')[0];
+    dom.slotDate.value = tomorrow.toISOString().split('T')[0];
+
+    // ── 3D THREE.JS COIN RENDERER ──
+    function init3DCoin() {
+      const canvas = document.getElementById('coin-3d-canvas');
+      if (!canvas) return;
+
+      const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+      const rect = canvas.getBoundingClientRect();
+      renderer.setSize(rect.width, rect.height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      const scene = new THREE.Scene();
+      
+      const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 10);
+      camera.position.z = 4.3;
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+      scene.add(ambientLight);
+
+      const dirLight1 = new THREE.DirectionalLight(0xfff5e6, 1.5);
+      dirLight1.position.set(5, 5, 5);
+      scene.add(dirLight1);
+
+      const dirLight2 = new THREE.DirectionalLight(0xd4af37, 1.0);
+      dirLight2.position.set(-5, -5, 2);
+      scene.add(dirLight2);
+
+      // Create Coin Mesh
+      const geometry = new THREE.CylinderGeometry(1.6, 1.6, 0.18, 64);
+      geometry.rotateX(Math.PI / 2); // orient face-forward
+
+      const material = new THREE.MeshStandardMaterial({
+        color: 0xd4af37,
+        metalness: 0.95,
+        roughness: 0.12
+      });
+
+      const coin = new THREE.Mesh(geometry, material);
+      scene.add(coin);
+
+      // Rings on faces for depth
+      const ringGeo = new THREE.RingGeometry(1.3, 1.45, 64);
+      const ringMat = new THREE.MeshStandardMaterial({
+        color: 0xffd700,
+        metalness: 1.0,
+        roughness: 0.08,
+        side: THREE.DoubleSide
+      });
+      const ringFront = new THREE.Mesh(ringGeo, ringMat);
+      ringFront.position.z = 0.091;
+      coin.add(ringFront);
+
+      const ringBack = ringFront.clone();
+      ringBack.position.z = -0.091;
+      coin.add(ringBack);
+
+      let targetRotY = 0;
+      let targetRotX = 0;
+      let clickScale = 1.0;
+      let spinSpeed = 0.008;
+
+      // Mouse interactive tilt
+      dom.btnClicker.addEventListener('mousemove', (e) => {
+        const bRect = dom.btnClicker.getBoundingClientRect();
+        const mx = (e.clientX - bRect.left) / bRect.width - 0.5;
+        const my = (e.clientY - bRect.top) / bRect.height - 0.5;
+        targetRotY = mx * 0.7;
+        targetRotX = my * 0.7;
+      });
+
+      dom.btnClicker.addEventListener('mouseleave', () => {
+        targetRotY = 0;
+        targetRotX = 0;
+      });
+
+      dom.btnClicker.addEventListener('mousedown', () => {
+        clickScale = 0.88;
+        spinSpeed = 0.09;
+      });
+
+      dom.btnClicker.addEventListener('touchstart', () => {
+        clickScale = 0.88;
+        spinSpeed = 0.09;
+      });
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        coin.rotation.y += spinSpeed;
+        if (spinSpeed > 0.008) {
+          spinSpeed *= 0.95;
+        }
+
+        coin.rotation.x = THREE.MathUtils.lerp(coin.rotation.x, targetRotX, 0.1);
+        coin.rotation.y = THREE.MathUtils.lerp(coin.rotation.y, coin.rotation.y + targetRotY * 0.05, 0.1);
+
+        clickScale = THREE.MathUtils.lerp(clickScale, 1.0, 0.12);
+        coin.scale.set(clickScale, clickScale, clickScale);
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // Handle window resize dynamically
+      window.addEventListener('resize', () => {
+        const bRect = dom.btnClicker.getBoundingClientRect();
+        renderer.setSize(bRect.width, bRect.height);
+        camera.aspect = bRect.width / bRect.height;
+        camera.updateProjectionMatrix();
+      });
+    }
+
+    // Initialize 3D Coin immediately
+    init3DCoin();
+
+    // ── INITIAL AUDIO BANNER EVENT HANDLERS ──
+    dom.btnSoundEnable.addEventListener('click', () => {
+      sound.init();
+      dom.soundBanner.classList.add('hidden');
+      dom.startScreen.classList.remove('hidden');
+    });
+    dom.btnSoundSkip.addEventListener('click', () => {
+      dom.soundBanner.classList.add('hidden');
+      dom.startScreen.classList.remove('hidden');
+    });
+
+    // Start Journey Action
+    dom.btnStartGame.addEventListener('click', () => {
+      sound.playClick();
+      dom.startScreen.classList.add('hidden');
+      dom.gameScreen.classList.remove('hidden');
+      startGame();
+    });
+
+    // ── SHOP TABS ──
+    function setTab(tabName) {
+      sound.playClick();
+      state.currentTab = tabName;
+      [dom.tabActive, dom.tabPension, dom.tabProtection].forEach(btn => {
+        btn.classList.remove('border-[#D4AF37]', 'text-white');
+        btn.classList.add('border-transparent', 'text-gray-400');
+      });
+      
+      if (tabName === 'active') {
+        dom.tabActive.classList.add('border-[#D4AF37]', 'text-white');
+      } else if (tabName === 'pension') {
+        dom.tabPension.classList.add('border-[#D4AF37]', 'text-white');
+      } else {
+        dom.tabProtection.classList.add('border-[#D4AF37]', 'text-white');
+      }
+      renderShop();
+    }
+    
+    dom.tabActive.addEventListener('click', () => setTab('active'));
+    dom.tabPension.addEventListener('click', () => setTab('pension'));
+    dom.tabProtection.addEventListener('click', () => setTab('protection'));
+
+    // ── CLICKER WITH COMBO SYSTEM & FLOATING TEXT ──
+    dom.btnClicker.addEventListener('click', (e) => {
+      if (!state.playing) return;
+      
+      const now = Date.now();
+      
+      // Update Combo Logic
+      if (now - state.lastTapTime < 1200) {
+        state.combo++;
+      } else {
+        state.combo = 1;
+      }
+      state.lastTapTime = now;
+
+      // Reset Combo Timeout
+      if (state.comboTimeout) clearTimeout(state.comboTimeout);
+      state.comboTimeout = setTimeout(() => {
+        state.combo = 0;
+        updateComboBadge();
+      }, 1200);
+
+      // Determine Multiplier based on Combo
+      let multiplier = 1.0;
+      let comboColorClass = 'text-white';
+      let badgeBg = 'bg-[#0B1C3F] border-[#D4AF37]';
+      
+      if (state.combo >= 30) {
+        multiplier = 2.0;
+        comboColorClass = 'text-yellow-400';
+        badgeBg = 'bg-gradient-to-r from-red-600 to-yellow-500 border-yellow-300 text-white animate-pulse gold-glow-intense';
+      } else if (state.combo >= 15) {
+        multiplier = 1.5;
+        comboColorClass = 'text-orange-400';
+        badgeBg = 'bg-gradient-to-r from-orange-500 to-amber-500 border-orange-300 text-white gold-glow';
+      } else if (state.combo >= 5) {
+        multiplier = 1.2;
+        comboColorClass = 'text-green-400';
+        badgeBg = 'bg-gradient-to-r from-green-600 to-teal-500 border-green-300 text-white';
+      }
+
+      // Play custom blip/combo chime
+      if (state.combo === 5 || state.combo === 15 || state.combo === 30) {
+        sound.playComboUpgrade(state.combo);
+      } else {
+        sound.playClick();
+      }
+
+      // Calculate final active savings earned
+      const earned = Math.round(state.activeIncomeVal * multiplier);
+      addSavings(earned);
+      
+      // Render floating particle
+      const rect = dom.btnClicker.getBoundingClientRect();
+      const x = e.clientX || (rect.left + rect.width / 2);
+      const y = e.clientY || (rect.top + rect.height / 2);
+      
+      spawnFloatingText(`+${currencyFormatter.format(earned)}`, x, y, comboColorClass);
+      
+      // Update Combo HUD Badge
+      updateComboBadge(badgeBg, multiplier);
+
+      // Button click squish animation
+      dom.btnClicker.classList.remove('scale-95');
+      void dom.btnClicker.offsetWidth; 
+      dom.btnClicker.classList.add('scale-95');
+      setTimeout(() => dom.btnClicker.classList.remove('scale-95'), 75);
+    });
+
+    function updateComboBadge(badgeBg, multiplier) {
+      if (state.combo >= 5) {
+        dom.comboBadge.className = `absolute top-[-40px] px-4 py-1.5 rounded-full text-xs font-black tracking-wider uppercase border shadow-xl transition-all duration-100 combo-active z-30 ${badgeBg}`;
+        dom.comboBadge.textContent = `COMBO x${state.combo} (${multiplier}x Save!)`;
+        dom.comboBadge.classList.remove('hidden');
+        
+        // Intensify Glow on coin
+        if (state.combo >= 30) {
+          dom.clickerGlow.className = "absolute -inset-6 bg-gradient-to-tr from-yellow-500 via-[#0B1C3F] to-red-500 rounded-full opacity-35 blur-2xl transition-all duration-300";
+        } else if (state.combo >= 15) {
+          dom.clickerGlow.className = "absolute -inset-5 bg-gradient-to-tr from-orange-400 via-[#0B1C3F] to-amber-500 rounded-full opacity-25 blur-xl transition-all duration-300";
+        } else {
+          dom.clickerGlow.className = "absolute -inset-4 bg-gradient-to-tr from-green-400 via-[#0B1C3F] to-teal-500 rounded-full opacity-20 blur-xl transition-all duration-300";
+        }
+      } else {
+        dom.comboBadge.classList.add('hidden');
+        dom.clickerGlow.className = "absolute -inset-4 bg-gradient-to-tr from-[#D4AF37] via-[#0B1C3F] to-[#10B981] rounded-full opacity-15 blur-xl transition-all duration-300";
+      }
+    }
+
+    function spawnFloatingText(text, x, y, colorClass = 'text-white') {
+      const p = document.createElement('div');
+      p.className = `click-particle ${colorClass} text-base sm:text-lg`;
+      p.textContent = text;
+      p.style.left = `${x - 40}px`;
+      p.style.top = `${y - 20}px`;
+      document.body.appendChild(p);
+      
+      setTimeout(() => {
+        p.remove();
+      }, 800);
+    }
+
+    // ── GAME LOGIC ──
+    function startGame() {
+      state.savings = 0;
+      state.age = START_AGE;
+      state.activeIncomeVal = 1000;
+      state.passiveIncomeVal = 0;
+      state.upgrades = JSON.parse(JSON.stringify(UPGRADES));
+      state.playing = true;
+      state.yearTimer = 0;
+      state.randomEventTimer = 0;
+      state.combo = 0;
+      
+      updateHUD();
+      setTab('active');
+      
+      // Clear event banner container
+      dom.eventToastContainer.innerHTML = '';
+      
+      // Start loop
+      requestAnimationFrame(gameLoop);
+    }
+
+    let lastTick = performance.now();
+    function gameLoop(time) {
+      if (!state.playing) return;
+      
+      const delta = time - lastTick;
+      if (delta >= TICK_INTERVAL_MS) {
+        lastTick = time;
+        
+        // Passive accumulation
+        const incomeTick = state.passiveIncomeVal * (TICK_INTERVAL_MS / 1000);
+        if (incomeTick > 0) {
+          addSavings(incomeTick);
+        }
+        
+        // Age timeline increment
+        state.yearTimer += TICK_INTERVAL_MS;
+        if (state.yearTimer >= TIME_PER_YEAR_MS) {
+          state.yearTimer = 0;
+          state.age += 1;
+          sound.playShield();
+          spawnToastAlert(`🎂 You turned Age ${state.age}!`, 'bg-gradient-to-r from-blue-900 to-indigo-900 border-blue-500');
+          
+          if (state.age >= END_AGE) {
+            if (state.savings < TARGET_SAVINGS) {
+              endGame('lose_age');
+              return;
+            }
+          }
+        }
+
+        // Random Event Trigger
+        state.randomEventTimer += TICK_INTERVAL_MS;
+        const triggerTime = 14000;
+        if (state.randomEventTimer >= triggerTime) {
+          state.randomEventTimer = 0;
+          triggerRandomEvent();
+        }
+        
+        updateHUD();
+      }
+      
+      if (state.playing) {
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function addSavings(amt) {
+      state.savings = Math.max(0, state.savings + amt);
+      if (state.savings >= TARGET_SAVINGS) {
+        endGame('win');
+      }
+    }
+
+    function hasRider(riderId) {
+      const up = state.upgrades.find(u => u.id === riderId);
+      return up ? up.qty > 0 : false;
+    }
+
+    // ── RANDOM EVENTS (SHOCKS / WINDFALLS) ──
+    let eventModalDismissCallback = null;
+    let eventModalTimeoutId = null;
+
+    function triggerRandomEvent() {
+      const idx = Math.floor(Math.random() * RANDOM_EVENTS.length);
+      const ev = RANDOM_EVENTS[idx];
+      
+      if (ev.type === 'shock') {
+        const costVal = Math.round(state.savings * ev.percent);
+        const shielded = hasRider(ev.riderId);
+        
+        // Render shock details
+        dom.eventModalCard.className = "max-w-md w-full bg-[#0B1C3F] border-2 border-red-500 p-6 rounded-2xl shadow-2xl relative";
+        dom.eventModalIconBg.className = "w-16 h-16 mx-auto mb-4 bg-red-950/40 rounded-full flex items-center justify-center border-2 border-red-500";
+        dom.eventModalIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />`;
+        dom.eventModalIcon.querySelector('path').setAttribute('stroke', '#EF4444');
+        dom.eventModalTitle.textContent = ev.title;
+        dom.eventModalDesc.textContent = ev.desc;
+        
+        if (shielded) {
+          sound.playShield();
+          dom.eventModalImpact.textContent = "₹0 (Fully Shielded!)";
+          dom.eventModalImpact.className = "text-[#10B981] font-extrabold text-lg mt-0.5";
+          dom.eventModalMitigationNote.textContent = `Excellent planning! Your "${ev.riderName}" fully covered the losses!`;
+          dom.eventModalMitigationNote.className = "text-xs text-[#10B981] mt-1 font-semibold text-center";
+          
+          eventModalDismissCallback = () => {
+            spawnToastAlert(`🛡️ Protected against ${ev.title}!`, 'bg-gradient-to-r from-emerald-950 to-teal-900 border-emerald-500');
+          };
+        } else {
+          sound.playShock();
+          
+          // Screen Shake visual feedback
+          dom.gameScreen.classList.add('shake-effect');
+          setTimeout(() => {
+            dom.gameScreen.classList.remove('shake-effect');
+          }, 450);
+
+          dom.eventModalImpact.textContent = `-${currencyFormatter.format(costVal)}`;
+          dom.eventModalImpact.className = "text-red-500 font-extrabold text-lg mt-0.5";
+          dom.eventModalMitigationNote.textContent = `Get the "${ev.riderName}" rider in the shop to shield your savings!`;
+          dom.eventModalMitigationNote.className = "text-xs text-red-400 mt-1 italic text-center";
+          
+          eventModalDismissCallback = () => {
+            addSavings(-costVal);
+            spawnToastAlert(`💥 Lost ${currencyFormatter.format(costVal)} to inflation!`, 'bg-gradient-to-r from-red-950 to-rose-900 border-red-500');
+            if (state.savings <= 0) {
+              endGame('lose_shock');
+            }
+          };
+        }
+      } else {
+        // Windfall reward
+        sound.playWindfall();
+        dom.eventModalCard.className = "max-w-md w-full bg-[#0B1C3F] border-2 border-emerald-500 p-6 rounded-2xl shadow-2xl relative";
+        dom.eventModalIconBg.className = "w-16 h-16 mx-auto mb-4 bg-emerald-950/40 rounded-full flex items-center justify-center border-2 border-emerald-500";
+        dom.eventModalIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+        dom.eventModalIcon.querySelector('path').setAttribute('stroke', '#10B981');
+        dom.eventModalTitle.textContent = ev.title;
+        dom.eventModalDesc.textContent = ev.desc;
+        dom.eventModalImpact.textContent = `+${currencyFormatter.format(ev.amount)}`;
+        dom.eventModalImpact.className = "text-[#10B981] font-extrabold text-lg mt-0.5";
+        dom.eventModalMitigationNote.textContent = "Great job investing and staying productive! Keep saving.";
+        dom.eventModalMitigationNote.className = "text-xs text-gray-400 mt-1 text-center";
+        
+        eventModalDismissCallback = () => {
+          addSavings(ev.amount);
+          spawnToastAlert(`💰 Windfall: +${currencyFormatter.format(ev.amount)} added!`, 'bg-gradient-to-r from-emerald-900 to-green-900 border-[#D4AF37]');
+        };
+      }
+      
+      // Open event modal overlay
+      dom.eventModal.classList.remove('hidden');
+      
+      // Auto close countdown
+      dom.eventModalTimer.style.width = '100%';
+      let duration = 6000;
+      let elapsed = 0;
+      const interval = 50;
+      
+      if (eventModalTimeoutId) clearInterval(eventModalTimeoutId);
+      
+      eventModalTimeoutId = setInterval(() => {
+        elapsed += interval;
+        const pct = Math.max(0, 100 - (elapsed / duration) * 100);
+        dom.eventModalTimer.style.width = `${pct}%`;
+        
+        if (elapsed >= duration) {
+          clearInterval(eventModalTimeoutId);
+          dismissEventModal();
+        }
+      }, interval);
+    }
+
+    function dismissEventModal() {
+      if (eventModalTimeoutId) clearInterval(eventModalTimeoutId);
+      dom.eventModal.classList.add('hidden');
+      if (eventModalDismissCallback) {
+        eventModalDismissCallback();
+        eventModalDismissCallback = null;
+      }
+      updateHUD();
+    }
+    
+    dom.btnEventModalDismiss.addEventListener('click', dismissEventModal);
+
+    function spawnToastAlert(message, borderClass = 'bg-[#0B1C3F] border-gray-800') {
+      const toast = document.createElement('div');
+      toast.className = `event-toast ${borderClass} border p-3 rounded-xl shadow-lg mb-2 text-xs flex justify-between items-center pointer-events-auto transition duration-300`;
+      toast.innerHTML = `
+        <span class="font-medium text-white">${message}</span>
+        <button class="text-gray-400 hover:text-white font-bold ml-2 text-sm leading-none">&times;</button>
+      `;
+      toast.querySelector('button').addEventListener('click', () => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      });
+      
+      dom.eventToastContainer.appendChild(toast);
+      
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.style.opacity = '0';
+          setTimeout(() => toast.remove(), 300);
+        }
+      }, 5000);
+    }
+
+    // ── HUD UPDATES ──
+    function updateHUD() {
+      dom.statSavings.textContent = currencyFormatter.format(Math.floor(state.savings));
+      dom.statAge.textContent = state.age;
+      
+      dom.statPassiveRate.textContent = `+${currencyFormatter.format(state.passiveIncomeVal)}/sec`;
+      dom.statClickRate.textContent = `Manual: ${currencyFormatter.format(state.activeIncomeVal)}/click`;
+      dom.clickerTapVal.textContent = `+${currencyFormatter.format(state.activeIncomeVal)}`;
+      
+      const progressFraction = Math.min(1, state.savings / TARGET_SAVINGS);
+      const progressPct = Math.round(progressFraction * 100);
+      dom.statProgressPct.textContent = `${progressPct}%`;
+      dom.statProgressBar.style.width = `${progressPct}%`;
+      
+      // Refresh upgrade card status
+      const cards = dom.shopContainer.querySelectorAll('[data-upgrade-id]');
+      cards.forEach(card => {
+        const id = card.dataset.upgradeId;
+        const up = state.upgrades.find(u => u.id === id);
+        if (up) {
+          const btn = card.querySelector('.btn-buy-upgrade');
+          const isOwnedRider = up.category === 'protection' && up.qty >= 1;
+          const cost = up.cost;
+          
+          if (isOwnedRider) {
+            btn.textContent = 'PROTECTED';
+            btn.disabled = true;
+            btn.className = "btn-buy-upgrade w-full py-2 bg-emerald-950 text-emerald-400 border border-emerald-500 rounded-xl text-xs font-bold text-center tracking-wider";
+          } else {
+            const affordable = state.savings >= cost;
+            btn.disabled = !affordable;
+            if (affordable) {
+              btn.className = "btn-buy-upgrade w-full py-2 bg-[#D4AF37] hover:bg-[#F5E0A3] text-[#050B1A] rounded-xl text-xs font-bold transition shadow-sm cursor-pointer";
+            } else {
+              btn.className = "btn-buy-upgrade w-full py-2 bg-gray-800 text-gray-500 rounded-xl text-xs font-bold cursor-not-allowed";
+            }
+          }
+        }
+      });
+    }
+
+    // ── RENDER SHOP UPGRADES ──
+    function renderShop() {
+      dom.shopContainer.innerHTML = '';
+      
+      const filtered = state.upgrades.filter(u => u.category === state.currentTab);
+      
+      filtered.forEach(up => {
+        const card = document.createElement('div');
+        card.dataset.upgradeId = up.id;
+        card.className = "bg-[#050B1A] border border-gray-800 p-3 rounded-xl flex items-center justify-between gap-3 shadow-md";
+        
+        let subText = '';
+        if (up.category === 'active') {
+          subText = `Active Click: +${currencyFormatter.format(up.val)}`;
+        } else if (up.category === 'pension') {
+          subText = `Annuity Income: +${currencyFormatter.format(up.val)}/sec`;
+        } else {
+          subText = `Shield Status: ${up.qty >= 1 ? 'ACTIVE' : 'INACTIVE'}`;
+        }
+        
+        const countText = up.category === 'protection' ? '' : `<span class="bg-[#0B1C3F] text-gray-300 font-bold px-2 py-0.5 rounded text-[10px]">Qty: ${up.qty}</span>`;
+        const costStr = up.qty >= (up.maxQty || 9999) ? 'MAXED' : currencyFormatter.format(Math.round(up.cost));
+        
+        card.innerHTML = `
+          <div class="flex-grow">
+            <div class="flex justify-between items-center mb-0.5">
+              <h4 class="text-xs font-extrabold text-white tracking-wide">${up.name}</h4>
+              ${countText}
+            </div>
+            <p class="text-[10px] text-gray-400 leading-tight mb-1">${up.desc}</p>
+            <span class="text-[10px] font-bold text-[#10B981]">${subText}</span>
+          </div>
+          <div class="flex flex-col items-end gap-1.5 w-24 shrink-0">
+            <span class="text-[10px] font-semibold text-gray-400">Cost: ${costStr}</span>
+            <button class="btn-buy-upgrade w-full py-2 bg-gray-800 text-gray-500 rounded-xl text-xs font-bold cursor-not-allowed">
+              BUY
+            </button>
+          </div>
+        `;
+        
+        card.querySelector('.btn-buy-upgrade').addEventListener('click', (e) => {
+          e.stopPropagation();
+          buyUpgrade(up.id);
+        });
+        
+        dom.shopContainer.appendChild(card);
+      });
+      
+      updateHUD();
+    }
+
+    function buyUpgrade(id) {
+      const up = state.upgrades.find(u => u.id === id);
+      if (!up) return;
+      
+      if (state.savings < up.cost) return;
+      if (up.category === 'protection' && up.qty >= 1) return;
+      
+      // Deduct cost
+      addSavings(-up.cost);
+      
+      // Update quantity
+      up.qty += 1;
+      
+      sound.playBuy();
+      
+      // Process upgrade mechanics
+      if (up.category === 'active') {
+        state.activeIncomeVal += up.val;
+        up.cost = Math.round(up.cost * up.costMult);
+      } else if (up.category === 'pension') {
+        state.passiveIncomeVal += up.val;
+        up.cost = Math.round(up.cost * up.costMult);
+      } else {
+        // Protection riders
+        spawnToastAlert(`🛡️ Protected with ${up.name}!`, 'bg-gradient-to-r from-blue-900 to-indigo-900 border-blue-500');
+      }
+      
+      renderShop();
+    }
+
+    // ── GAME OVER FLOW ──
+    function endGame(outcome) {
+      state.playing = false;
+      state.lastGameOutcome = outcome === 'win' ? 'win' : 'lose';
+      
+      if (eventModalTimeoutId) clearInterval(eventModalTimeoutId);
+      dom.eventModal.classList.add('hidden');
+      
+      if (outcome === 'win') {
+        sound.playWin();
+      } else {
+        sound.playLose();
+      }
+      
+      dom.goStatAge.textContent = `${state.age} Years`;
+      dom.goStatSavings.textContent = currencyFormatter.format(Math.floor(state.savings));
+      dom.goStatAnnuity.textContent = `+${currencyFormatter.format(state.passiveIncomeVal)}/sec`;
+      
+      const ridersCount = state.upgrades.filter(u => u.category === 'protection' && u.qty > 0).length;
+      dom.goStatRiders.textContent = `${ridersCount} / 4 Riders`;
+
+      // Set badge & headers
+      if (outcome === 'win') {
+        dom.goBadgeContainer.innerHTML = `
+          <div class="w-16 h-16 bg-gradient-to-tr from-[#D4AF37] to-[#F5E0A3] rounded-full flex items-center justify-center shadow-lg border-2 border-[#D4AF37] animate-bounce">
+            <svg class="w-8 h-8 text-[#050B1A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+          </div>
+        `;
+        dom.goTitle.textContent = "RETIRED RICH!";
+        dom.goTitle.className = "text-2xl font-black tracking-tight mb-1 text-[#10B981]";
+        dom.goSubtitle.textContent = `Incredible! You reached your ₹1 Crore retirement goal at Age ${state.age} with a passive annuity of ${currencyFormatter.format(state.passiveIncomeVal)}/sec.`;
+      } else if (outcome === 'lose_age') {
+        dom.goBadgeContainer.innerHTML = `
+          <div class="w-16 h-16 bg-[#2B0E1D] border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg">
+            <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+        `;
+        dom.goTitle.textContent = "RETIRED UNSAFELY!";
+        dom.goTitle.className = "text-2xl font-black tracking-tight mb-1 text-red-500";
+        dom.goSubtitle.textContent = `You reached Age 60 before accumulating the retirement target of ₹1 Crore. Protect your future income with BALIC!`;
+      } else {
+        dom.goBadgeContainer.innerHTML = `
+          <div class="w-16 h-16 bg-[#2B0E1D] border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg">
+            <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+        `;
+        dom.goTitle.textContent = "BANKRUPTCY SHOCK!";
+        dom.goTitle.className = "text-2xl font-black tracking-tight mb-1 text-red-500";
+        dom.goSubtitle.textContent = "Inflation shocks and expenses dropped your retirement savings to ₹0. Protecting your savings with riders is critical!";
+      }
+      
+      dom.gameScreen.classList.add('hidden');
+      dom.gameOverScreen.classList.remove('hidden');
+    }
+
+    // ── LEAD SUBMISSION LOGIC ──
+    dom.btnLeadSubmit.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      sound.playClick();
+      
+      const name = dom.leadName.value.trim();
+      const mobile = dom.leadMobile.value.trim();
+      const email = dom.leadEmail.value.trim();
+      const tc = dom.leadTc.checked;
+      
+      if (!name || !/^[A-Za-z\s]+$/.test(name)) {
+        showLeadError("PLEASE ENTER A VALID NAME (LETTERS ONLY).");
+        return;
+      }
+      if (!mobile || !/^[6-9]\d{9}$/.test(mobile)) {
+        showLeadError("PLEASE ENTER A VALID 10-DIGIT MOBILE NUMBER.");
+        return;
+      }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showLeadError("PLEASE ENTER A VALID EMAIL ADDRESS.");
+        return;
+      }
+      if (!tc) {
+        showLeadError("YOU MUST AGREE AND CONSENT TO THE TERMS.");
+        return;
+      }
+      
+      hideLeadError();
+      
+      const originalText = dom.btnLeadSubmit.textContent;
+      dom.btnLeadSubmit.disabled = true;
+      dom.btnLeadSubmit.textContent = "REGISTERING LEAD...";
+      
+      state.leadName = name;
+      state.leadMobile = mobile;
+      
+      const userId = sessionStorage.getItem('gamification_userId') || '';
+      const gameID = sessionStorage.getItem('gamification_gameId') || 'RETIRE_RICH_CLICKER';
+      const referral = sessionStorage.getItem('gamification_referral') === 'Y' ? 'Referral' : 'Marketing Assist';
+      
+      const payload = {
+        cust_name: name,
+        mobile_no: mobile,
+        email_id: email,
+        dob: "",
+        gender: "M",
+        pincode: "",
+        life_goal_category: "",
+        investment_amount: "",
+        product_id: "",
+        p_source: referral,
+        p_data_source: "GAMIFICATION",
+        pasa_amount: "",
+        product_name: "",
+        pasa_product: "",
+        associated_rider: "",
+        customer_app_product: "",
+        p_data_medium: " GAMIFICATION ",
+        utmSource: "",
+        userId: userId,
+        gameID: gameID,
+        remarks: `Game: ${gameID} | Outcome: ${state.lastGameOutcome} | Savings: ${state.savings} | Age: ${state.age} | Passive Rate: ${state.passiveIncomeVal}`,
+        appointment_date: "",
+        appointment_time: ""
+      };
+      
+      try {
+        const response = await fetch(`${LMS_BASE_URL}/whatsappInhouse`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        
+        const responseData = await response.json().catch(() => ({}));
+        const leadNo = responseData?.leadNo || responseData?.LeadNo || responseData?.data?.leadNo || responseData?.data?.LeadNo || null;
+        
+        state.leadNo = leadNo;
+        if (leadNo) {
+          sessionStorage.setItem('retireRichLeadNo', leadNo);
+        }
+      } catch (error) {
+        console.warn("LMS API failed, proceeding with mock fallback:", error);
+        state.leadNo = `BALIC-${Math.floor(100000 + Math.random() * 900000)}`;
+      } finally {
+        dom.btnLeadSubmit.disabled = false;
+        dom.btnLeadSubmit.textContent = originalText;
+        
+        dom.gameOverScreen.classList.add('hidden');
+        showSlotBookingScreen();
+      }
+    });
+
+    function showLeadError(msg) {
+      dom.leadError.textContent = msg;
+      dom.leadError.classList.remove('hidden');
+    }
+    function hideLeadError() {
+      dom.leadError.classList.add('hidden');
+    }
+
+    // ── SLOT BOOKING FLOW ──
+    function showSlotBookingScreen() {
+      dom.slotScreen.classList.remove('hidden');
+      renderTimeSlots();
+    }
+
+    function renderTimeSlots() {
+      dom.slotTimesGrid.innerHTML = '';
+      TIME_SLOTS.forEach(time => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = "py-3 bg-[#0B1C3F] border border-gray-700 hover:border-[#D4AF37] text-white rounded-xl text-xs font-bold transition text-center";
+        button.textContent = time;
+        button.addEventListener('click', () => {
+          sound.playClick();
+          state.selectedSlot = time;
+          dom.slotTimesGrid.querySelectorAll('button').forEach(btn => {
+            btn.classList.remove('border-[#D4AF37]', 'bg-[#1e345f]');
+            btn.classList.add('border-gray-700', 'bg-[#0B1C3F]');
+          });
+          button.classList.add('border-[#D4AF37]', 'bg-[#1e345f]');
+        });
+        dom.slotTimesGrid.appendChild(button);
+      });
+    }
+
+    dom.btnSlotConfirm.addEventListener('click', async () => {
+      sound.playClick();
+      const dateVal = dom.slotDate.value;
+      
+      if (!dateVal) {
+        showSlotError("PLEASE PICK A CONSULTATION DATE.");
+        return;
+      }
+      if (!state.selectedSlot) {
+        showSlotError("PLEASE SELECT A TIME SLOT.");
+        return;
+      }
+      
+      hideSlotError();
+      
+      const originalText = dom.btnSlotConfirm.textContent;
+      dom.btnSlotConfirm.disabled = true;
+      dom.btnSlotConfirm.textContent = "BOOKING APPOINTMENT...";
+      
+      let formattedDate = '';
+      const parts = dateVal.split('-');
+      if (parts.length === 3) {
+        formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+      } else {
+        formattedDate = dateVal;
+      }
+      
+      const payload = {
+        leadNo: state.leadNo || sessionStorage.getItem('retireRichLeadNo') || 'BALIC-MOCK',
+        tpa_user_id: "",
+        miscObj1: {
+          stringval1: "",
+          stringval2: state.leadName,
+          stringval3: "",
+          stringval4: formattedDate,
+          stringval5: state.selectedSlot,
+          stringval6: `Retirement Session Appointment via Retire Rich Clicker`,
+          stringval7: "GAMIFICATION",
+          stringval9: state.leadMobile
+        }
+      };
+
+      try {
+        await fetch(`${LMS_UPDATE_BASE_URL}/updateLeadNew`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch (error) {
+        console.warn("LMS Slot update failed, proceeding with mock fallback:", error);
+      } finally {
+        dom.btnSlotConfirm.disabled = false;
+        dom.btnSlotConfirm.textContent = originalText;
+        
+        dom.slotScreen.classList.add('hidden');
+        dom.thankyouScreen.classList.remove('hidden');
+      }
+    });
+
+    dom.btnSlotSkip.addEventListener('click', () => {
+      sound.playClick();
+      dom.slotScreen.classList.add('hidden');
+      dom.thankyouScreen.classList.remove('hidden');
+    });
+
+    function showSlotError(msg) {
+      dom.slotError.textContent = msg;
+      dom.slotError.classList.remove('hidden');
+    }
+    function hideSlotError() {
+      dom.slotError.classList.add('hidden');
+    }
+
+    // Restart Journey from Thank You
+    dom.btnThankyouRestart.addEventListener('click', () => {
+      sound.playClick();
+      dom.thankyouScreen.classList.add('hidden');
+      dom.startScreen.classList.remove('hidden');
+    });
+
+    // ── TERMS & CONDITIONS MODAL ──
+    dom.linkTc.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sound.playClick();
+      dom.termsModal.classList.remove('hidden');
+    });
+    
+    dom.btnTermsClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.playClick();
+      dom.termsModal.classList.add('hidden');
+    });
+    
+    dom.btnTermsAgree.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.playClick();
+      dom.leadTc.checked = true;
+      dom.termsModal.classList.add('hidden');
+    });
+  </script>
+</body>
+</html>

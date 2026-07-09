@@ -1,129 +1,121 @@
-const LMS_BASE_URL = 'https://sales.bajajlife.com/BalicLmsUtil';
+// LMS lead-capture + slot-booking integration (mirrors life-goals-bubble-shooter/src/api.js).
+// `__LMS_BASE_URL__` and `__LMS_UPDATE_BASE_URL__` are injected at build time by vite.config.ts.
 
-export interface LMSLeadData {
-    name?: string;
-    fullName?: string;
-    mobile_no?: string;
-    email_id?: string;
-    date?: string;
-    timeSlot?: string;
-    score?: number;
-    summary_dtls?: string;
+export interface LeadPayload {
+  name?: string;
+  mobile?: string;
+  email?: string;
+  score?: number | null;
+  summaryDtls?: string;
 }
 
-export const submitToLMS = async (data: LMSLeadData): Promise<{ success: boolean; data?: any; error?: string }> => {
-    const UAT_URL = `${LMS_BASE_URL}/whatsappInhouse`;
-
-    const userId = sessionStorage.getItem('gamification_userId') || '';
-    const gameID = sessionStorage.getItem('gamification_gameId') || 'GAME_036';
-
-    let appointmentDate = "";
-    if (data.date) {
-        const d = new Date(data.date);
-        if (!isNaN(d.getTime())) {
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            appointmentDate = `${day}/${month}/${year}`;
-        }
-    }
-
-    const payload = {
-        cust_name: data.name || data.fullName || "",
-        mobile_no: data.mobile_no || "",
-        dob: "",
-        gender: "M",
-        pincode: "",
-        email_id: data.email_id || "",
-        life_goal_category: "",
-        investment_amount: "",
-        product_id: "",
-        p_source: sessionStorage.getItem('gamification_referral') === 'Y' ? 'Referral' : 'Marketing Assist',
-        p_data_source: "GAMIFICATION",
-        pasa_amount: "",
-        product_name: "",
-        pasa_product: "",
-        associated_rider: "",
-        customer_app_product: "",
-        p_data_medium: " GAMIFICATION ",
-        utmSource: "",
-        userId: userId,
-        gameID: gameID,
-        remarks: `Game: ${gameID}${data.score != null ? ` | Score: ${data.score}%` : ''} | ${data.summary_dtls || "Lead"}`,
-        appointment_date: appointmentDate,
-        appointment_time: data.timeSlot || ""
-    };
-
-    console.log("[API] Submitting lead to WhatsApp Inhouse API:", payload);
-
-    try {
-        const response = await fetch(UAT_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-        });
-
-        const responseData = await response.json().catch(() => ({}));
-
-        return {
-            success: response.ok,
-            data: responseData,
-            error: response.ok ? null : (responseData?.message || `API error: ${response.status}`)
-        };
-    } catch (error: any) {
-        console.error("LMS Submission Error Details:", error);
-        return { success: false, error: error.message };
-    }
-};
-
-export interface UpdateLeadData {
-    name?: string;
-    firstName?: string;
-    lastName?: string;
-    mobile?: string;
-    date?: string;
-    time?: string;
-    remarks?: string;
+export interface SlotPayload {
+  name?: string;
+  mobile?: string;
+  date?: string; // yyyy-mm-dd
+  time?: string;
+  remarks?: string;
 }
 
-export const updateLeadNew = async (leadNo: string, data: UpdateLeadData): Promise<{ success: boolean; error?: string; [key: string]: any }> => {
-    const UAT_URL = `${LMS_BASE_URL}/updateLeadNew`;
+export interface ApiResult {
+  success: boolean;
+  error?: string;
+  [key: string]: unknown;
+}
 
-    const payload = {
-        leadNo: leadNo,
-        tpa_user_id: "",
-        miscObj1: {
-            stringval1: "",
-            stringval2: data.name || data.firstName || "",
-            stringval3: data.lastName || "",
-            stringval4: data.date || "",
-            stringval5: data.time || "",
-            stringval6: data.remarks || "Slot Booking via Game",
-            stringval7: "GAMIFICATION",
-            stringval9: data.mobile || ""
-        }
-    };
+export async function submitToLMS({
+  name,
+  mobile,
+  email,
+  score,
+  summaryDtls = 'Guardian Archer Lead',
+}: LeadPayload): Promise<ApiResult> {
+  const userId = sessionStorage.getItem('gamification_userId') || '';
+  const gameID = sessionStorage.getItem('gamification_gameId') || '';
 
-    console.log("[API] Submitting slot booking to updateLeadNew API:", payload);
+  const payload = {
+    cust_name: name || '',
+    mobile_no: mobile || '',
+    dob: '',
+    gender: 'M',
+    pincode: '',
+    email_id: email || '',
+    life_goal_category: '',
+    investment_amount: '',
+    product_id: '',
+    p_source: sessionStorage.getItem('gamification_referral') === 'Y' ? 'Referral' : 'Marketing Assist',
+    p_data_source: 'GAMIFICATION',
+    pasa_amount: '',
+    product_name: '',
+    pasa_product: '',
+    associated_rider: '',
+    customer_app_product: '',
+    p_data_medium: ' GAMIFICATION ',
+    utmSource: '',
+    userId,
+    gameID,
+    remarks: `Game: ${gameID}${score != null ? ` | Score: ${score}` : ''} | ${summaryDtls}`,
+    appointment_date: '',
+    appointment_time: '',
+  };
 
-    try {
-        const response = await fetch(UAT_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-        });
+  try {
+    const res = await fetch(`${__LMS_BASE_URL__}/whatsappInhouse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    return { success: res.ok, ...json };
+  } catch (err) {
+    console.error('[api] submitToLMS failed', err);
+    return { success: false, error: (err as Error).message };
+  }
+}
 
-        const jsonResponse = await response.json().catch(() => ({}));
-        return {
-            success: response.ok,
-            ...jsonResponse
-        };
-    } catch (error: any) {
-        console.error("updateLeadNew Submission Error:", error);
-        return { success: false, error: error.message };
-    }
-};
+export async function updateLeadNew(
+  leadNo: string,
+  { name, mobile, date, time, remarks }: SlotPayload
+): Promise<ApiResult> {
+  let formattedDate = '';
+  if (date) {
+    const [year, month, day] = date.split('-');
+    formattedDate = day && month && year ? `${day}/${month}/${year}` : date;
+  }
+
+  const payload = {
+    leadNo,
+    tpa_user_id: '',
+    miscObj1: {
+      stringval1: '',
+      stringval2: name || '',
+      stringval3: '',
+      stringval4: formattedDate,
+      stringval5: time || '',
+      stringval6: remarks || 'Slot Booking via Guardian Archer',
+      stringval7: 'GAMIFICATION',
+      stringval9: mobile || '',
+    },
+  };
+
+  try {
+    const res = await fetch(`${__LMS_UPDATE_BASE_URL__}/updateLeadNew`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    return { success: res.ok, ...json };
+  } catch (err) {
+    console.error('[api] updateLeadNew failed', err);
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+export function extractLeadNo(result: ApiResult | null | undefined): string | null {
+  if (!result) return null;
+  const r = result as Record<string, any>;
+  return r.leadNo || r.LeadNo || (r.data && (r.data.leadNo || r.data.LeadNo)) || null;
+}
+
+export const LEAD_NO_KEY = 'coverageArcherLeadNo';

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>EduRise Jumper - Secure Child Education Goals</title>
+  <!-- Tailwind CSS CDN for quick and utility styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="/src/index.css" />
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bjBlue: '#005BAC',
+            bjBlueDark: '#003a70',
+            bjBlueLight: '#3B8DD4',
+            bjOrange: '#F26922',
+            bjOrangeLight: '#FF8533',
+            bjGold: '#FFD700',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- Game Canvas Container -->
+  <div id="canvas-container">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <!-- Main Game UI Layer -->
+  <div class="ui-layer">
+    
+    <!-- ── HUD Overlay ────────────────────────────────────── -->
+    <div id="game-hud" class="absolute top-4 left-4 right-4 flex justify-between items-center hidden">
+      <!-- Left side: Score and Height -->
+      <div class="flex gap-2">
+        <div class="hud-item">
+          <span class="hud-label">Altitude</span>
+          <span class="hud-value" id="hud-height">0m</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">Savings</span>
+          <span class="hud-value" id="hud-score">0</span>
+        </div>
+      </div>
+      
+      <!-- Center: Current Milestone Display -->
+      <div class="hud-item text-center min-w-[120px]">
+        <span class="hud-label">Current Stage</span>
+        <span class="hud-value text-bjGold text-sm" id="hud-stage">Primary</span>
+      </div>
+
+      <!-- Right side: Bajaj Child Protection Shields -->
+      <div class="hud-item items-end">
+        <span class="hud-label">Child Protection Shield</span>
+        <div class="flex gap-1 mt-1" id="hud-shields-container">
+          <!-- Active shield dots will be appended here -->
+          <div class="w-4 h-4 rounded-full bg-bjBlueLight border border-white animate-pulse"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Academic Milestone Side Progress Bar ───────────── -->
+    <div id="side-progress-bar" class="side-progress hidden">
+      <div class="progress-node" id="node-abroad" title="Study Abroad">A</div>
+      <div class="progress-node" id="node-grad" title="Graduation">G</div>
+      <div class="progress-node" id="node-college" title="College">C</div>
+      <div class="progress-node" id="node-high" title="High School">H</div>
+      <div class="progress-node" id="node-sec" title="Secondary">S</div>
+      <div class="progress-node active" id="node-pri" title="Primary">P</div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill-bar"></div>
+      </div>
+      <div class="text-[8px] font-bold text-gray-400 mt-1 uppercase tracking-tighter">Goal</div>
+    </div>
+
+    <!-- ── Mobile Touchpads / Controls ────────────────────── -->
+    <div id="mobile-controls" class="mobile-controls hidden">
+      <button id="btn-left" class="mobile-btn" aria-label="Move Left">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+        </svg>
+      </button>
+      <button id="btn-right" class="mobile-btn" aria-label="Move Right">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- ── START / INTRO SCREEN ───────────────────────────── -->
+    <div id="start-screen" class="screen-overlay interactive">
+      <!-- Top Brand and Title -->
+      <div class="text-center w-full max-w-sm mt-4">
+        <div class="flex justify-center items-center gap-2 mb-2">
+          <div class="w-5 h-5 rounded bg-bjBlue border border-bjOrange"></div>
+          <span class="text-xs font-semibold tracking-[0.2em] text-bjBlueLight uppercase">Bajaj Allianz Life</span>
+        </div>
+        <h1 class="text-4xl font-extrabold tracking-tight text-white mb-1">
+          EduRise <span class="text-bjOrange">Jumper</span>
+        </h1>
+        <p class="text-[10px] text-gray-400 tracking-wider uppercase">Secure Academic Dreams, Elevate Savings</p>
+      </div>
+
+      <!-- Hero Visual (Interactive student jump animation) -->
+      <div class="flex-1 flex flex-col justify-center items-center py-4 w-full">
+        <div class="w-24 h-24 rounded-full bg-bjBlueDark/50 border-2 border-bjBlueLight flex items-center justify-center mb-6 animate-float relative">
+          <!-- Hat illustration or icon -->
+          <svg class="w-12 h-12 text-bjGold" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 1.624 1 1 0 01-1.4-.002z" />
+          </svg>
+          <!-- Small shield representation orbiting -->
+          <div class="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-bjOrange border border-white flex items-center justify-center text-[10px] font-bold shadow-md">✓</div>
+        </div>
+        
+        <!-- Pitch Box -->
+        <div class="glass-panel p-4 text-center max-w-sm mx-4">
+          <h3 class="text-sm font-bold text-bjOrange mb-1">Education Goal: Study Abroad</h3>
+          <p class="text-xs text-gray-300 leading-relaxed">
+            Bounce through academic milestones! Collect <strong class="text-white">Savings (Coins)</strong> and <strong class="text-bjBlueLight">Bajaj Allianz Child Protection Shields</strong> to shield your child from academic falls.
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="w-full max-w-xs flex flex-col gap-3 mb-6">
+        <button id="btn-start-game" class="glass-btn py-4 text-base font-bold tracking-wide">
+          <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6V4z"/></svg>
+          Start Journey
+        </button>
+        <button id="btn-how-to" class="glass-btn-secondary py-3 text-xs">
+          How To Play
+        </button>
+        <div class="text-center text-[9px] text-gray-500 mt-2">
+          Bajaj Allianz Life Insurance Co. Ltd.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TUTORIAL SCREEN ────────────────────────────────── -->
+    <div id="tutorial-screen" class="screen-overlay interactive hidden">
+      <div class="text-center w-full max-w-sm mt-4">
+        <h2 class="text-2xl font-extrabold text-white">How To Play</h2>
+        <div class="h-1 w-12 bg-bjOrange mx-auto mt-1"></div>
+      </div>
+
+      <div class="flex-1 flex flex-col justify-center gap-4 w-full max-w-sm px-4">
+        <!-- Instruction Card 1 -->
+        <div class="glass-panel p-3 flex gap-3 items-center">
+          <div class="w-10 h-10 rounded-xl bg-bjOrange/20 border border-bjOrange flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-bjOrange" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H6A2.25 2.25 0 003.75 6v1.5M20.25 6v1.5m0 0v6M20.25 13.5A2.25 2.25 0 0118 15.75h-1.5M3.75 13.5v-1.5M16.5 20.25h-1.5M3.75 18v1.5a2.25 2.25 0 002.25 2.25H7.5M16.5 20.25v-1.5m0 1.5H18a2.25 2.25 0 002.25-2.25V18" />
+            </svg>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-white">Move Left & Right</h4>
+            <p class="text-[10px] text-gray-300">Tap left/right side buttons on mobile, or use Left/Right arrow keys on desktop.</p>
+          </div>
+        </div>
+
+        <!-- Instruction Card 2 -->
+        <div class="glass-panel p-3 flex gap-3 items-center">
+          <div class="w-10 h-10 rounded-xl bg-bjBlue/20 border border-bjBlue flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-bjBlueLight" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+            </svg>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-white">Education Plan Shields</h4>
+            <p class="text-[10px] text-gray-300">Collect shields to automatically rescue you from falls. Each shield activates a boost to carry you back up!</p>
+          </div>
+        </div>
+
+        <!-- Instruction Card 3 -->
+        <div class="glass-panel p-3 flex gap-3 items-center">
+          <div class="w-10 h-10 rounded-xl bg-bjGold/20 border border-bjGold flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-bjGold" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.214-.172a2.5 2.5 0 013.572 0c.98.981.98 2.567 0 3.549l-.214.172m-3-2.818l-.214-.172a2.5 2.5 0 00-3.572 0c-.98.981-.98 2.567 0 3.549l.214.172m-3-2.818v.09a3 3 0 003 3h4m0-12V3m0 3a3 3 0 00-3-3m3 3h1.5a3 3 0 013 3v.09a3 3 0 01-3 3h-1.5" />
+            </svg>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-white">Savings Goal</h4>
+            <p class="text-[10px] text-gray-300">Reach the high 'Study Abroad' Graduation gate (5,000m) to successfully fund your goal and secure victory.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full max-w-xs mb-6">
+        <button id="btn-close-tutorial" class="glass-btn py-4 w-full">
+          Got It, Play!
+        </button>
+      </div>
+    </div>
+
+    <!-- ── GAME OVER / VICTORY SCREEN ─────────────────────── -->
+    <div id="gameover-screen" class="screen-overlay interactive hidden">
+      
+      <!-- Victory Header / Lose Header -->
+      <div class="text-center w-full max-w-sm mt-4">
+        <h2 id="go-title" class="text-3xl font-extrabold text-white">Journey Complete!</h2>
+        <p id="go-subtitle" class="text-xs text-bjGold font-medium mt-1">You reached the Study Abroad Milestone!</p>
+      </div>
+
+      <!-- Result Card -->
+      <div class="glass-panel p-6 w-full max-w-sm text-center my-4 animate-slide-up">
+        <!-- Trophy Icon -->
+        <div id="go-icon-container" class="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4 bg-bjGold/20 border-2 border-bjGold text-bjGold">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-5.25c-.622 0-1.125.504-1.125 1.125v3.375m9 0h-9M9 6h6m-6 3h6m-6 3h6M9 3h6m-7.5 3.375a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm10.5 0a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0z" />
+          </svg>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mt-2">
+          <div class="flex flex-col items-center">
+            <span class="text-[9px] uppercase tracking-wider text-gray-400">Final Altitude</span>
+            <span id="go-height" class="text-2xl font-black text-white">4,820m</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="text-[9px] uppercase tracking-wider text-gray-400">Total Savings</span>
+            <span id="go-score" class="text-2xl font-black text-bjOrange">2,400</span>
+          </div>
+        </div>
+
+        <!-- Academic Stage Summary -->
+        <div class="mt-4 pt-3 border-t border-white/10 text-xs text-gray-300">
+          Highest Milestone Achieved: <strong class="text-white" id="go-stage">College</strong>
+        </div>
+      </div>
+
+      <!-- Bajaj Allianz Educational Pitch -->
+      <div class="glass-panel p-4 w-full max-w-sm text-center border-l-4 border-bjBlueLight bg-bjBlue/5">
+        <h4 class="text-xs font-bold text-white flex items-center justify-center gap-1">
+          <svg class="w-4 h-4 text-bjBlueLight" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M2.166 4.9L10 1.154l7.834 3.746A1 1 0 0118.5 5.79v5.35c0 3.86-2.583 7.23-6.244 8.288l-.756.22-.756-.22C6.583 18.37 4 15 4 11.14V5.79a1 1 0 01.666-.89zM10 3.328L5.5 5.48v5.66c0 3.12 1.95 5.86 4.5 6.78 2.55-.92 4.5-3.66 4.5-6.78V5.48L10 3.328z" clip-rule="evenodd" />
+          </svg>
+          Secure Your Child's Future
+        </h4>
+        <p id="go-pitch-text" class="text-[10px] text-gray-300 mt-1">
+          Academic heights need robust planning. Safeguard your child's major education milestones (Primary to Study Abroad) from financial risks with a Bajaj Allianz Child Protection Goal.
+        </p>
+      </div>
+
+      <!-- Action Area: Submit Details Button or Play Again -->
+      <div class="w-full max-w-xs flex flex-col gap-3 mb-6">
+        <button id="btn-show-lead" class="glass-btn py-4 text-sm font-bold">
+          Get Free Savings Advisory
+        </button>
+        <button id="btn-restart" class="glass-btn-secondary py-3 text-xs">
+          Try Journey Again
+        </button>
+        <!-- Share CTA -->
+        <button id="btn-share-game" class="text-center text-[11px] text-bjBlueLight font-semibold underline mt-1">
+          Share highscore with friends
+        </button>
+      </div>
+    </div>
+
+    <!-- ── LEAD CAPTURE SCREEN (PREMIUM OVERLAY) ──────────── -->
+    <div id="lead-screen" class="screen-overlay interactive hidden justify-center">
+      <div class="glass-panel p-6 w-full max-w-sm animate-scale-up">
+        <div class="text-center mb-6">
+          <h3 class="text-xl font-bold text-white tracking-wide uppercase">Secure Child's Career</h3>
+          <p class="text-xs text-gray-400 mt-1">Enter your details to calculate the required Study Abroad funding & receive a custom report.</p>
+        </div>
+
+        <form id="lead-form" class="flex flex-col gap-4">
+          <!-- Full Name -->
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1" for="user-name">Your Full Name</label>
+            <input type="text" id="user-name" class="premium-input" placeholder="e.g. Rahul Sharma" required />
+          </div>
+
+          <!-- Mobile Number -->
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1" for="user-mobile">Mobile Number</label>
+            <input type="tel" id="user-mobile" class="premium-input" placeholder="9876543210" pattern="^[6-9]\d{9}$" maxlength="10" inputmode="numeric" required />
+          </div>
+
+          <!-- Email Address -->
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1" for="user-email">Email Address</label>
+            <input type="email" id="user-email" class="premium-input" placeholder="name@domain.com" required />
+          </div>
+
+          <!-- T&C Checkbox -->
+          <label class="checkbox-container">
+            <input type="checkbox" id="user-tc" checked required />
+            <div class="checkbox-custom"></div>
+            <span>
+              I agree to the <a href="#" id="link-tc" class="text-bjBlueLight underline">Terms & Conditions</a> and authorize Bajaj Allianz Life to contact me via phone/SMS/WhatsApp.
+            </span>
+          </label>
+
+          <!-- Error Alert -->
+          <div id="lead-error" class="text-red-500 text-xs font-semibold hidden"></div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="btn-lead-submit" class="glass-btn py-4 mt-2">
+            Proceed to Book Slot
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── SLOT BOOKING SCREEN (PREMIUM OVERLAY) ──────────── -->
+    <div id="slot-screen" class="screen-overlay interactive hidden justify-center">
+      <div class="glass-panel p-6 w-full max-w-sm animate-scale-up">
+        <div class="text-center mb-4">
+          <h3 class="text-xl font-bold text-white tracking-wide uppercase">Pick Appointment Slot</h3>
+          <p class="text-xs text-gray-400 mt-1">Choose a convenient date & time to receive expert guidance on educational plans.</p>
+        </div>
+
+        <form id="slot-form" class="flex flex-col gap-4">
+          <!-- Preferred Date -->
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1" for="slot-date">Select Date</label>
+            <input type="date" id="slot-date" class="premium-input" required />
+          </div>
+
+          <!-- Time Slots Grid -->
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-2">Preferred Time</label>
+            <div id="timeslot-container" class="slot-grid">
+              <div class="slot-item selected" data-time="10:00 AM - 12:00 PM">10 AM - 12 PM</div>
+              <div class="slot-item" data-time="12:00 PM - 02:00 PM">12 PM - 2 PM</div>
+              <div class="slot-item" data-time="02:00 PM - 04:00 PM">2 PM - 4 PM</div>
+              <div class="slot-item" data-time="04:00 PM - 06:00 PM">4 PM - 6 PM</div>
+              <div class="slot-item" data-time="06:00 PM - 08:00 PM">6 PM - 8 PM</div>
+            </div>
+          </div>
+
+          <!-- Slot Error -->
+          <div id="slot-error" class="text-red-500 text-xs font-semibold hidden"></div>
+
+          <!-- Action Buttons -->
+          <div class="flex flex-col gap-2 mt-4">
+            <button type="submit" id="btn-slot-confirm" class="glass-btn py-4">
+              Confirm Appointment
+            </button>
+            <button type="button" id="btn-slot-skip" class="glass-btn-secondary py-3 text-xs">
+              Skip Slot Booking
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── THANK YOU SCREEN ───────────────────────────────── -->
+    <div id="thankyou-screen" class="screen-overlay interactive hidden justify-center">
+      <div class="glass-panel p-8 w-full max-w-sm text-center flex flex-col items-center">
+        <!-- Success Badge -->
+        <div class="w-16 h-16 rounded-full bg-green-500/20 border border-green-500 flex items-center justify-center text-green-500 mb-6">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+        </div>
+
+        <h3 class="text-2xl font-black text-white">Thank You!</h3>
+        <p class="text-xs text-gray-300 mt-2 leading-relaxed">
+          Your educational goal advisory session has been booked. A dedicated Bajaj Allianz Life relationship advisor will contact you shortly to plan your path.
+        </p>
+
+        <!-- Dynamic Appointment Info -->
+        <div id="appointment-summary" class="mt-4 p-3 bg-white/5 border border-white/10 rounded-xl w-full text-xs text-bjBlueLight font-semibold hidden">
+          Scheduled: <span id="summary-dt" class="text-white">Tomorrow at 10:00 AM</span>
+        </div>
+
+        <!-- Button to play again -->
+        <button id="btn-thankyou-restart" class="glass-btn py-4 w-full mt-6">
+          Play Again
+        </button>
+      </div>
+    </div>
+
+    <!-- ── TERMS & CONDITIONS MODAL ───────────────────────── -->
+    <div id="tc-modal" class="tc-modal hidden interactive">
+      <div class="glass-panel p-6 w-full max-w-sm relative">
+        <button id="btn-modal-close" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl font-bold">&times;</button>
+        <h3 class="text-base font-bold text-white tracking-wide mb-4">Terms & Conditions</h3>
+        
+        <div class="text-xs text-gray-300 h-64 overflow-y-auto pr-2 space-y-3 leading-relaxed">
+          <p>
+            I hereby authorize Bajaj Allianz Life Insurance Company Limited to contact me via phone, SMS, email, or WhatsApp, regardless of my DND (Do Not Disturb) status on NCPR (National Customer Preference Register), specifically in response to my request to receive quotes, financial advice, or brochure information.
+          </p>
+          <p>
+            The information shared by me will be processed in accordance with Bajaj Allianz Life's Privacy Policy. I confirm that all details provided are correct and belong to me.
+          </p>
+          <p>
+            The game scoring, savings milestones, and shields simulated in the game are strictly for educational and entertainment purposes and do not represent guaranteed investment returns, insurance payouts, or actual financial outcomes.
+          </p>
+        </div>
+
+        <button id="btn-modal-agree" class="glass-btn w-full py-3 mt-6">
+          I Agree & Accept
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Entry Script -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -190,11 +190,13 @@ export class UIManager {
     _handleLeadSubmit(btn) {
         const nameEl = document.getElementById('lead-name');
         const mobEl = document.getElementById('lead-mobile');
+        const emailEl = document.getElementById('lead-email');
         const tcEl = document.getElementById('lead-tc');
         const errEl = document.getElementById('lead-error');
 
         const name = (nameEl?.value || '').trim();
         const mobile = (mobEl?.value || '').trim();
+        const email = (emailEl?.value || '').trim();
         const tc = !!tcEl?.checked;
 
         if (!name) {
@@ -209,6 +211,10 @@ export class UIManager {
             if (errEl) errEl.textContent = 'INVALID 10-DIGIT MOBILE NUMBER.';
             return;
         }
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            if (errEl) errEl.textContent = 'INVALID EMAIL ADDRESS.';
+            return;
+        }
         if (!tc) {
             if (errEl) errEl.textContent = 'PLEASE AGREE TO TERMS.';
             return;
@@ -219,7 +225,7 @@ export class UIManager {
         btn.disabled = true;
         btn.textContent = 'SUBMITTING…';
 
-        Promise.resolve(this._onLeadSubmit({ name, mobile })).finally(() => {
+        Promise.resolve(this._onLeadSubmit({ name, mobile, email })).finally(() => {
             btn.disabled = false;
             btn.textContent = originalText;
         });
