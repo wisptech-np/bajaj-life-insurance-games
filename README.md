@@ -1,4 +1,4 @@
-# Babaj Life Insurance Games
+# Bajaj Life Insurance Games
 
 **Developed by Wisp Technologies**
 
