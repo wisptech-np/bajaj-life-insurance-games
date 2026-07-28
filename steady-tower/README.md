@@ -231,25 +231,51 @@ the game a formality.
 ### Pass 2: dynamic runs through the shipped integrator
 
 500 runs per scripted player. Same fixed 1/120 s step, same `createLeanSolver`,
-same `pullImpulse` the game calls.
+same `pullImpulse` the game calls — and, since the fidelity fix below, the same
+post-pull evaluation **at the live lean** that `SteadyTowerGame`'s `marginAfter`
+uses.
 
 | Player | Win | Topple | Winning run | Median score | Median avg stability |
 | --- | --- | --- | --- | --- | --- |
-| **Steady** — waits for settle, best-margin order, clean flick away from the lean | **100%** | 0% | 9.8–11.6 s | 2,594 | 56.2% |
-| **Casual** — settles between pulls, random order, slightly hard flick | **80.6%** | 19.4% | 11.3–13.5 s | 2,493 | 42.5% |
-| **Careless** — no settle, random order, random hard flicks | **16.8%** | 83.2% | 5.3 s | 2,525 | 49.2% |
+| **Steady** — waits for settle, best-margin order, clean flick away from the lean | **100%** | 0% | 9.8–10.8 s | 2,597 | 56.5% |
+| **Casual** — settles between pulls, random order, slightly hard flick | **89.0%** | 11.0% | 11.3–13.5 s | 2,494 | 41.5% |
+| **Careless** — no settle, random order, random hard flicks | **16.6%** | 83.4% | 5.3 s | 2,524 | 50.2% |
 
 Both outcomes are reachable and the gap between them is skill, not luck:
 patience and order take the win rate from 17% to 100%. That is the game.
 
-A winning run measures around 2,500–2,600, which is why the results ring is
-calibrated to `RESULT_TARGET_SCORE = 2600`.
+Read the casual row for what it is. That player waits for a **full** settle after
+every pull, which a human under a running clock will not do; it isolates the cost
+of a careless *order* with a slightly hard flick, and that alone is an 11% loss
+rate. The careless row — the one that also stops waiting — is where the risk
+actually lives.
+
+#### Fidelity fix (2026-07-28)
+
+The first published Pass 2 evaluated the post-pull state at `theta = 0` while
+reading the pre-pull state at the live lean. Because `pullImpulse`'s shift term
+is `(offAfter - offBefore) * 0.5`, that mismatch injected a phantom *restoring*
+impulse on every pull and the gate measured a gentler game than the one that
+ships. Corrected numbers are the table above; the previously published casual row
+read 80.6% / 19.4%. Pass 1 was never affected — it already evaluated at
+`lean.theta` throughout — so no winnability or topple-ability proof changed, and
+none of the tuning constants moved.
+
+A scripted winning run measures ~2,500–2,600, but note that its time bonus is a
+pacing artefact: the steady player finishes in 10.2 s and banks 109 s x 6 = ~657.
+A human at ~4-6 s per risk finishes around 35-50 s and banks ~420-510, landing
+nearer 2,400. `RESULT_TARGET_SCORE = 2600` is set just above the scripted
+ceiling so the ring reads as nearly full on a strong human session rather than
+pinning on every win.
 
 ### Corrections against the brief's literal reading
 
-1. **8 risk blocks, not "some".** A pull plus its settle is 2–3.5 s of real play,
-   so 8 is a 25–45 s core loop inside the 120 s cap. It also keeps the exhaustive
-   analyser at 256 states, which is what makes the mount-time proof affordable.
+1. **8 risk blocks, not "some".** The gate's scripted players clear a tower in
+   9.8–13.5 s, but that is a fixed 0.9–1.1 s pull gap, i.e. a physics measurement
+   rather than a play session; a human spends ~4–6 s per risk (find the block,
+   commit the flick, watch the meter come back), making 8 risks a **~35–50 s**
+   core loop inside the 120 s cap. 8 also keeps the exhaustive analyser at 256
+   states, which is what makes the mount-time proof affordable.
 2. **The lean is a shear, not a rigid rotation.** Under rigid rotation the
    internal interfaces never change and the tower is effectively untippable —
    measured, the worst reachable state sat at margin 0.345 and the careless player

@@ -88,16 +88,25 @@ the worst order, 500/500 stable in the final state, 0 fallbacks.** Final margin
 0.348–0.383, worst reachable margin 0.228–0.280, 32–50% of orders safe end to end
 (median 41.7%).
 
-Dynamic, 500 runs per scripted player through the same fixed 1/120 s step:
+Dynamic, 500 runs per scripted player through the same fixed 1/120 s step, with
+the post-pull state read at the **live lean** exactly as the game does:
 
 | Player | Win | Topple | Median score |
 | --- | --- | --- | --- |
-| Steady (settles, best-margin order, clean flick) | 100% | 0% | 2,594 |
-| Casual (settles, random order, hard flick) | 80.6% | 19.4% | 2,493 |
-| Careless (no settle, random order, random hard flicks) | 16.8% | 83.2% | 2,525 |
+| Steady (settles, best-margin order, clean flick) | 100% | 0% | 2,597 |
+| Casual (settles, random order, hard flick) | 89.0% | 11.0% | 2,494 |
+| Careless (no settle, random order, random hard flicks) | 16.6% | 83.4% | 2,524 |
 
 Patience and order move the win rate from 17% to 100%. Both outcomes reachable,
-the gap is skill.
+the gap is skill. The casual player waits for a *full* settle after every pull —
+something a human under a running clock will not do — so its 11% loss rate is the
+cost of a careless order alone; the careless row is where the real risk sits.
+
+An earlier revision of the gate read the post-pull state at theta = 0 while
+reading the pre-pull state at the live lean, which made pullImpulse's
+`(offAfter - offBefore)` shift term a phantom restoring impulse and published a
+gentler casual row (80.6% / 19.4%). Pass 1 was never affected — it already
+evaluated at `lean.theta` — so no proof or tuning constant changed.
 
 ## Solvability rules
 

@@ -155,7 +155,11 @@ function simulate(tower, policy, rand) {
     if (k < 0) break;
     const next = state & ~(1 << k);
     masksForState(tower, next, scratch2);
-    const evAfter = evaluateMasks(scratch2, cfg);
+    // At the LIVE lean, exactly as SteadyTowerGame's marginAfter() does. Reading
+    // the post-pull state at theta = 0 while `ev.off` above was read at the live
+    // lean makes pullImpulse's (offAfter - offBefore) shift term a phantom
+    // restoring impulse, and the gate then measures a gentler game than ships.
+    const evAfter = evaluateMasks(scratch2, cfg, lean.theta);
 
     lean.kick(pullImpulse({
       dir: policy.dir(lean, evAfter, rand),

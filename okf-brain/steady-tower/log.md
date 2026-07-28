@@ -46,8 +46,11 @@ timestamp: 2026-07-28
   the worst order, 500/500 stable in the final state, 0 fallbacks**, median 24
   generation attempts against a 600 budget. Final margin 0.348–0.383, worst
   reachable margin 0.228–0.280, 32.1–50.0% of orders safe end to end.
-  Dynamic, 500 runs per player: steady 100% win, casual 80.6%, careless 16.8%
-  (83.2% topple). Winning runs score ~2,500–2,600, so `RESULT_TARGET_SCORE = 2600`.
+  Dynamic, 500 runs per player: steady 100% win, casual 89.0% (11.0% topple),
+  careless 16.6% (83.4% topple). Scripted winning runs score ~2,500-2,600 with a
+  ~657 time bonus that is a pacing artefact (they finish in ~10 s); a human at
+  ~4-6 s per risk banks ~420-510 instead and lands nearer 2,400, so
+  `RESULT_TARGET_SCORE = 2600` sits just above the scripted ceiling.
 - Solvability rules confirmed rather than assumed: bottom two layers never red;
   at most one red per layer except one pinch layer (both edges red, middle blue,
   so the sole remaining support is always a BLUE block); no three consecutive
@@ -75,3 +78,29 @@ timestamp: 2026-07-28
   no emoji codepoints anywhere in `src/` except the T&C checkbox tick in
   `LeadCaptureModal.jsx`, which is HTML UI copy and is identical in every
   reference game (GAME_STANDARD §8.3 permits it).
+
+## [2026-07-28] Balance gate fidelity fix (review finding)
+
+- Pass 2 of `scripts/balance.mjs` evaluated the post-pull state at `theta = 0`
+  while reading the pre-pull state at the live lean. Since `pullImpulse`'s shift
+  term is `(offAfter - offBefore) * wobble.shiftKick`, that mismatch injected a
+  phantom *restoring* impulse on every pull, so the gate measured a gentler game
+  than the one that ships. Fixed by passing `lean.theta`, matching
+  `SteadyTowerGame`'s `marginAfter()`.
+- Pass 1 was never affected — the winnability enumeration and
+  `carelessOrderTopples` already evaluated at `lean.theta` — so no winnability
+  or topple-ability proof changed and no tuning constant moved. Pass 1 output is
+  byte-identical before and after.
+- Corrected Pass 2 (500 runs/player): steady 100% win, casual **89.0%** win /
+  11.0% topple (was published 80.6% / 19.4%), careless **16.6%** win / 83.4%
+  topple (was 16.8% / 83.2% — barely moved, since a careless run topples on
+  stacked kicks rather than on the shift term). Difficulty range preserved; no
+  retune required. Republished in `data.js`, `README.md` and `index.md`.
+- Also reconciled two caption inaccuracies found in the same review: the
+  `RESULT_TARGET_SCORE` decomposition (measured ~339 stability / ~657 time, not
+  ~450/~420) and the "25-45 s core loop" claim, which conflated the gate's
+  scripted 0.9-1.1 s pull gap (9.8-13.5 s per tower) with human pacing (~4-6 s
+  per risk, ~35-50 s per tower). Both now state the scripted and the expected
+  human figure explicitly.
+- Re-verified: `node scripts/balance.mjs 500 500` exit 0 (`GATE: PASS`),
+  `pnpm build` exit 0.

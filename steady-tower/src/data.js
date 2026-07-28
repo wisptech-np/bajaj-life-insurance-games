@@ -113,10 +113,14 @@ export const GAME_CONFIG = {
     layers: 12,
     // Fixed at 3 by the solver's 3-bit layer masks; kept here as documentation.
     perLayer: 3,
-    // 8 rather than "some" (CORRECTION). A pull plus its settle is 2.0-3.5 s of
-    // real play, so 8 risks is a 25-45 s core loop inside the 120 s cap — enough
-    // room to hesitate, not enough to grind. It also keeps the exhaustive
-    // analyser at 2^8 = 256 states, which runs in under a millisecond at mount.
+    // 8 rather than "some" (CORRECTION). Two pacings to keep apart. The balance
+    // gate's SCRIPTED players fire on a fixed 0.9-1.1 s gap and finish a whole
+    // tower in 9.8-13.5 s; that is a physics measurement, not a play session. A
+    // HUMAN spends roughly 4-6 s per risk — find the block, commit the flick,
+    // watch the meter come back — so 8 risks is a ~35-50 s core loop inside the
+    // 120 s cap: room to hesitate, not enough to grind. 8 also keeps the
+    // exhaustive analyser at 2^8 = 256 states, which is what makes the
+    // winnability proof affordable at mount.
     redCount: 8,
     // The bottom two layers are never red. This is the structural half of the
     // brief's solvability rule: the interface carrying the whole tower can never
@@ -321,9 +325,16 @@ export const GAME_CONFIG = {
   },
 };
 
-/** Score the Results ring treats as a full circle. A clean win measures
-    ~2,500: 1,600 (8 risks) + ~450 (stability average) + ~420 (time bonus).
-    See README "Balance notes". */
+/** Score the Results ring treats as a full circle.
+
+    Measured, the gate's steady player medians 2,597: 1,600 (8 risks) + ~339
+    (56.5% average stability x 600) + ~657 (109 s left x 6). That time bonus is
+    a scripted-pacing artefact — it finishes in 10.2 s. A human at ~4-6 s per
+    risk banks ~70-85 s instead, or ~420-510, for a realistic ~2,400.
+
+    2,600 therefore sits just above a perfect scripted run and comfortably above
+    a good human one: the ring reads as "nearly full" on a strong session rather
+    than pinning on every win. See README "Balance notes". */
 export const RESULT_TARGET_SCORE = 2600;
 
 /* ══════════════════════════════════════════════════════════════════════════
