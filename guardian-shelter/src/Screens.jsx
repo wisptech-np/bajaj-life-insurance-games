@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { COLORS } from './data.js';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
+import guardianBgImg from './guardian_shelter_bg.png';
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function PlayIcon({ size = 18 }) {
@@ -140,7 +141,9 @@ export function HomeScreen({ onStart }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '50px 24px 64px',
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(14, 79, 148, 0.55), rgba(5, 26, 58, 0.95) 70%), #051a3a',
+        backgroundImage: `linear-gradient(rgba(5, 26, 58, 0.45), rgba(5, 26, 58, 0.85)), url(${guardianBgImg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         overflow: 'hidden',
       }}
     >
@@ -291,7 +294,9 @@ export function HowToPlayScreen({ onPlay }) {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '24px',
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(14, 79, 148, 0.55), rgba(5, 26, 58, 0.95) 70%), #051a3a',
+        backgroundImage: `linear-gradient(rgba(5, 26, 58, 0.45), rgba(5, 26, 58, 0.85)), url(${guardianBgImg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         overflowY: 'auto',
       }}
     >
@@ -561,7 +566,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
         alignItems: 'center',
         padding: '40px 20px 24px',
         overflowY: 'auto',
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(14, 79, 148, 0.55), rgba(5, 26, 58, 0.95) 70%), #051a3a',
+        backgroundImage: `linear-gradient(rgba(5, 26, 58, 0.45), rgba(5, 26, 58, 0.85)), url(${guardianBgImg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         WebkitBackdropFilter: 'blur(8px)',
         backdropFilter: 'blur(8px)',
       }}

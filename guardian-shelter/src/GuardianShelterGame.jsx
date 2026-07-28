@@ -4,6 +4,11 @@ import React, { useRef, useEffect, useState } from 'react';
 import { COLORS, GAME_CONFIG, SHIELD_TYPES, MEMBER_TYPES, LEVELS } from './data.js';
 import { createGameLoop } from './kit/loop.js';
 import { haptic } from './kit/device.js';
+import guardianBgImg from './guardian_shelter_bg.png';
+import dadImg from './family_dad.png';
+import momImg from './family_mom.png';
+import kidImg from './family_kid.png';
+import grandpaImg from './family_grandpa.png';
 
 // Backing-store scale for the canvas. Capped at 2 because a 3x phone would
 // otherwise fill 2.09M pixels per frame for no visible gain on a 400px-wide
@@ -117,6 +122,64 @@ function playSound(type) {
 
 export default function GuardianShelterGame({ onWin, onLose }) {
   const canvasRef = useRef(null);
+
+  // Character and Background Image Refs
+  const bgImageRef = useRef(null);
+  const dadImageRef = useRef(null);
+  const momImageRef = useRef(null);
+  const kidImageRef = useRef(null);
+  const grandpaImageRef = useRef(null);
+
+  useEffect(() => {
+    // Load background
+    const bg = new Image();
+    bg.src = guardianBgImg;
+    bg.onload = () => {
+      bgImageRef.current = bg;
+    };
+
+    const cleanCharacterImage = (imgSrc, refObj) => {
+      const img = new Image();
+      img.src = imgSrc;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        try {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imgData.data;
+
+          const rBg = data[0];
+          const gBg = data[1];
+          const bBg = data[2];
+          const tolerance = 45;
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const dist = Math.sqrt((r - rBg) ** 2 + (g - gBg) ** 2 + (b - bBg) ** 2);
+            if (dist < tolerance || (r > 240 && g > 240 && b > 240) || (r < 15 && g < 15 && b < 15)) {
+              data[i + 3] = 0;
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+          refObj.current = canvas;
+        } catch (e) {
+          console.error("Failed to clean character image background", e);
+          refObj.current = img;
+        }
+      };
+    };
+
+    cleanCharacterImage(dadImg, dadImageRef);
+    cleanCharacterImage(momImg, momImageRef);
+    cleanCharacterImage(kidImg, kidImageRef);
+    cleanCharacterImage(grandpaImg, grandpaImageRef);
+  }, []);
   
   // React State for HUD & Screen UI
   const [levelIdx, setLevelIdx] = useState(0);
@@ -582,29 +645,33 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     const renderScale = canvas.width / GAME_CONFIG.fieldWidth;
     ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
 
-    // Clear Screen & Draw Deep Blue Sky Gradient
+    // Clear Screen & Draw Deep Blue Sky Gradient or Background Image
     ctx.clearRect(0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, GAME_CONFIG.fieldHeight);
-    bgGrad.addColorStop(0, COLORS.bgTop);
-    bgGrad.addColorStop(0.7, COLORS.bgMid);
-    bgGrad.addColorStop(1, '#001b38');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
+    if (bgImageRef.current) {
+      ctx.drawImage(bgImageRef.current, 0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
+    } else {
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, GAME_CONFIG.fieldHeight);
+      bgGrad.addColorStop(0, COLORS.bgTop);
+      bgGrad.addColorStop(0.7, COLORS.bgMid);
+      bgGrad.addColorStop(1, '#001b38');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
 
-    // Subtle background grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x < GAME_CONFIG.fieldWidth; x += 40) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, GAME_CONFIG.fieldHeight);
-      ctx.stroke();
-    }
-    for (let y = 0; y < GAME_CONFIG.fieldHeight; y += 40) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(GAME_CONFIG.fieldWidth, y);
-      ctx.stroke();
+      // Subtle background grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < GAME_CONFIG.fieldWidth; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, GAME_CONFIG.fieldHeight);
+        ctx.stroke();
+      }
+      for (let y = 0; y < GAME_CONFIG.fieldHeight; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(GAME_CONFIG.fieldWidth, y);
+        ctx.stroke();
+      }
     }
 
     // Draw Platforms
@@ -953,121 +1020,170 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     const cx = m.x + shakeX;
     const cy = m.y + shakeY;
 
-    if (m.status === 'infected') {
-      // Sick/infected look
-      ctx.fillStyle = '#64748B';
-      ctx.beginPath();
-      ctx.arc(cx, cy, m.r, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // X eyes
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(cx - 5, cy - 5); ctx.lineTo(cx - 1, cy - 1);
-      ctx.moveTo(cx - 1, cy - 5); ctx.lineTo(cx - 5, cy - 1);
-      ctx.moveTo(cx + 1, cy - 5); ctx.lineTo(cx + 5, cy - 1);
-      ctx.moveTo(cx + 5, cy - 5); ctx.lineTo(cx + 1, cy - 1);
-      ctx.stroke();
+    // Retrieve image ref
+    let imgRef = null;
+    if (m.type === 'dad') imgRef = dadImageRef.current;
+    else if (m.type === 'mom') imgRef = momImageRef.current;
+    else if (m.type === 'kid') imgRef = kidImageRef.current;
+    else if (m.type === 'grandpa') imgRef = grandpaImageRef.current;
 
-      // Sad mouth
-      ctx.strokeStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(cx, cy + 5, 3, Math.PI, 0, false);
-      ctx.stroke();
-    } else {
+    if (imgRef) {
+      // 1. Draw a premium semi-transparent glowing backplate circle so they stand out
+      ctx.save();
       // Glow
-      ctx.shadowColor = 'rgba(255,255,255,0.1)';
-      ctx.shadowBlur = 8;
-
-      // 1. Body Coat
-      ctx.fillStyle = typeInfo.body;
+      ctx.shadowColor = m.status === 'infected' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(59, 130, 246, 0.8)';
+      ctx.shadowBlur = 14;
+      
+      // Outer ring
+      ctx.strokeStyle = m.status === 'infected' ? '#EF4444' : '#3B82F6';
+      ctx.lineWidth = 2.5;
+      
+      // Semi-transparent dark blue/slate backing fill
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      
       ctx.beginPath();
-      ctx.arc(cx, cy + m.r/2, m.r, Math.PI, 0); // half circle body
+      ctx.arc(cx, cy, m.r * 1.35, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
+      ctx.restore();
 
-      // Accent collar / tie
-      ctx.fillStyle = typeInfo.accent;
-      ctx.beginPath();
-      ctx.moveTo(cx - 4, cy + m.r/2);
-      ctx.lineTo(cx + 4, cy + m.r/2);
-      ctx.lineTo(cx, cy + m.r/2 + 8);
-      ctx.closePath();
-      ctx.fill();
+      // 2. Draw character image scaled larger (W: 3.4 * m.r)
+      const sizeW = m.r * 3.4;
+      const sizeH = m.r * 3.4;
+      ctx.drawImage(imgRef, cx - sizeW/2, cy - sizeH/2, sizeW, sizeH);
 
-      // 2. Head
-      ctx.fillStyle = typeInfo.skin;
-      ctx.beginPath();
-      ctx.arc(cx, cy - m.r/4, m.r * 0.72, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 3. Hair details
-      ctx.fillStyle = m.type === 'grandpa' ? '#E2E8F0' : '#475569';
-      if (m.type === 'grandpa') {
-        // Balding hair ring
+      // If infected, draw overlay + X eyes
+      if (m.status === 'infected') {
+        ctx.fillStyle = 'rgba(100, 116, 139, 0.7)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, m.r * 1.35, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#fff';
         ctx.lineWidth = 3;
-        ctx.strokeStyle = '#E2E8F0';
         ctx.beginPath();
-        ctx.arc(cx, cy - m.r/4, m.r * 0.75, Math.PI * 0.9, Math.PI * 0.1, true);
+        ctx.moveTo(cx - 7, cy - 7); ctx.lineTo(cx + 7, cy + 7);
+        ctx.moveTo(cx + 7, cy - 7); ctx.lineTo(cx - 7, cy + 7);
         ctx.stroke();
-      } else if (m.type === 'mom') {
-        // Long hair shape
+      }
+    } else {
+      // Fallback to original vector code
+      if (m.status === 'infected') {
+        // Sick/infected look
+        ctx.fillStyle = '#64748B';
         ctx.beginPath();
-        ctx.arc(cx, cy - m.r/4, m.r * 0.78, Math.PI * 1.1, Math.PI * 1.9);
-        ctx.lineTo(cx + m.r * 0.78, cy + m.r * 0.3);
-        ctx.lineTo(cx - m.r * 0.78, cy + m.r * 0.3);
+        ctx.arc(cx, cy, m.r, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // X eyes
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 5, cy - 5); ctx.lineTo(cx - 1, cy - 1);
+        ctx.moveTo(cx - 1, cy - 5); ctx.lineTo(cx - 5, cy - 1);
+        ctx.moveTo(cx + 1, cy - 5); ctx.lineTo(cx + 5, cy - 1);
+        ctx.moveTo(cx + 5, cy - 5); ctx.lineTo(cx + 1, cy - 1);
+        ctx.stroke();
+
+        // Sad mouth
+        ctx.strokeStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(cx, cy + 5, 3, Math.PI, 0, false);
+        ctx.stroke();
+      } else {
+        // Glow
+        ctx.shadowColor = 'rgba(255,255,255,0.1)';
+        ctx.shadowBlur = 8;
+
+        // 1. Body Coat
+        ctx.fillStyle = typeInfo.body;
+        ctx.beginPath();
+        ctx.arc(cx, cy + m.r/2, m.r, Math.PI, 0); // half circle body
+        ctx.fill();
+
+        // Accent collar / tie
+        ctx.fillStyle = typeInfo.accent;
+        ctx.beginPath();
+        ctx.moveTo(cx - 4, cy + m.r/2);
+        ctx.lineTo(cx + 4, cy + m.r/2);
+        ctx.lineTo(cx, cy + m.r/2 + 8);
         ctx.closePath();
         ctx.fill();
-      } else {
-        // Standard cap/hair
-        ctx.beginPath();
-        ctx.arc(cx, cy - m.r/3, m.r * 0.6, Math.PI, 0);
-        ctx.fill();
-      }
 
-      // 4. Face Expressions
-      const isScared = stateRef.current.emitter.active;
-      
-      // Eyes
-      ctx.fillStyle = '#0F172A';
-      if (isScared) {
-        // Wide circle eyes
+        // 2. Head
+        ctx.fillStyle = typeInfo.skin;
         ctx.beginPath();
-        ctx.arc(cx - 4, cy - m.r/4 - 1, 2, 0, Math.PI*2);
-        ctx.arc(cx + 4, cy - m.r/4 - 1, 2, 0, Math.PI*2);
+        ctx.arc(cx, cy - m.r/4, m.r * 0.72, 0, Math.PI * 2);
         ctx.fill();
-      } else {
-        // Happy dots
-        ctx.beginPath();
-        ctx.arc(cx - 3, cy - m.r/4, 1.5, 0, Math.PI*2);
-        ctx.arc(cx + 3, cy - m.r/4, 1.5, 0, Math.PI*2);
-        ctx.fill();
-      }
 
-      // Glasses for grandpa
-      if (m.type === 'grandpa') {
-        ctx.strokeStyle = '#FBBF24';
+        // 3. Hair details
+        ctx.fillStyle = m.type === 'grandpa' ? '#E2E8F0' : '#475569';
+        if (m.type === 'grandpa') {
+          // Balding hair ring
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = '#E2E8F0';
+          ctx.beginPath();
+          ctx.arc(cx, cy - m.r/4, m.r * 0.75, Math.PI * 0.9, Math.PI * 0.1, true);
+          ctx.stroke();
+        } else if (m.type === 'mom') {
+          // Long hair shape
+          ctx.beginPath();
+          ctx.arc(cx, cy - m.r/4, m.r * 0.78, Math.PI * 1.1, Math.PI * 1.9);
+          ctx.lineTo(cx + m.r * 0.78, cy + m.r * 0.3);
+          ctx.lineTo(cx - m.r * 0.78, cy + m.r * 0.3);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          // Standard cap/hair
+          ctx.beginPath();
+          ctx.arc(cx, cy - m.r/3, m.r * 0.6, Math.PI, 0);
+          ctx.fill();
+        }
+
+        // 4. Face Expressions
+        const isScared = stateRef.current.emitter.active;
+        
+        // Eyes
+        ctx.fillStyle = '#0F172A';
+        if (isScared) {
+          // Wide circle eyes
+          ctx.beginPath();
+          ctx.arc(cx - 4, cy - m.r/4 - 1, 2, 0, Math.PI*2);
+          ctx.arc(cx + 4, cy - m.r/4 - 1, 2, 0, Math.PI*2);
+          ctx.fill();
+        } else {
+          // Happy dots
+          ctx.beginPath();
+          ctx.arc(cx - 3, cy - m.r/4, 1.5, 0, Math.PI*2);
+          ctx.arc(cx + 3, cy - m.r/4, 1.5, 0, Math.PI*2);
+          ctx.fill();
+        }
+
+        // Glasses for grandpa
+        if (m.type === 'grandpa') {
+          ctx.strokeStyle = '#FBBF24';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx - 4, cy - m.r/4, 3.5, 0, Math.PI*2);
+          ctx.arc(cx + 4, cy - m.r/4, 3.5, 0, Math.PI*2);
+          ctx.stroke();
+        }
+
+        // Mouth
+        ctx.strokeStyle = '#0F172A';
         ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(cx - 4, cy - m.r/4, 3.5, 0, Math.PI*2);
-        ctx.arc(cx + 4, cy - m.r/4, 3.5, 0, Math.PI*2);
+        if (isScared) {
+          // Scared wavy line
+          ctx.moveTo(cx - 3, cy + 3);
+          ctx.quadraticCurveTo(cx, cy + 1, cx + 3, cy + 3);
+        } else {
+          // Big smile
+          ctx.arc(cx, cy, 4, 0, Math.PI, false);
+        }
         ctx.stroke();
       }
-
-      // Mouth
-      ctx.strokeStyle = '#0F172A';
-      ctx.lineWidth = 1.5;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      if (isScared) {
-        // Scared wavy line
-        ctx.moveTo(cx - 3, cy + 3);
-        ctx.quadraticCurveTo(cx, cy + 1, cx + 3, cy + 3);
-      } else {
-        // Big smile
-        ctx.arc(cx, cy, 4, 0, Math.PI, false);
-      }
-      ctx.stroke();
     }
     ctx.restore();
   };
