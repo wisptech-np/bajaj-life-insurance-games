@@ -193,13 +193,18 @@ export const GAME_CONFIG = {
     // counts as a full hook. 0.5 rad (~29 degrees) is a deliberate arc — a
     // straight swipe with normal thumb wobble stays well under it.
     curlFullTurn: 0.5,
+    // Both halves of the swipe must be at least this long before the angle
+    // between them means anything.
+    curlMinSegmentPx: 9,
   },
 
   aim: {
     // The dotted line stops here, at the arrows: you aim at the arrows, not at
     // the pins. Showing the full path would remove the read entirely.
     previewFrac: 0.46,
-    previewStep: 1 / 45,
+    // 26 dots at 1/30 s covers ~0.87 s of travel, which reaches the arrow cap
+    // at any playable power — so the line's length also reads as its speed.
+    previewStep: 1 / 30,
     previewDots: 26,
   },
 

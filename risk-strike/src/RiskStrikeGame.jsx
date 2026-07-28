@@ -343,6 +343,7 @@ function drawLane(ctx, s, cfg, paints, time) {
 
 /** A pin, standing or tumbling, with its reflection in the lane gloss. */
 function drawPin(ctx, s, cfg, sprite, p, time) {
+  if (p.gone) return; // swept into the pit
   const k = projK(s, p.y);
   const sx = projX(s, p.x, k);
   const sy = projY(s, k);
@@ -946,16 +947,26 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       const angleRad = Math.atan2(dx, up);
 
       // Curl: how much the swipe turned between its first and last half. The
-      // sign is the direction of the turn, which is the direction of the hook.
+      // sign of the turn is the direction of the hook.
+      //
+      // Both halves need real length before an angle between them means
+      // anything: with two samples the "first half" is a zero-length vector,
+      // atan2(0,0) is 0, and every diagonal flick would read as a full hook.
       let curl = 0;
-      const mid = sampleAt(Math.max(1, Math.floor(Math.min(d.n, d.x.length) / 2)));
-      const a1 = Math.atan2(d.x[mid] - d.startX, -(d.y[mid] - d.startY));
-      const a2 = Math.atan2(d.x[iLast] - d.x[mid], -(d.y[iLast] - d.y[mid]));
-      if (Number.isFinite(a1) && Number.isFinite(a2)) {
-        let turn = a2 - a1;
-        while (turn > Math.PI) turn -= Math.PI * 2;
-        while (turn < -Math.PI) turn += Math.PI * 2;
-        curl = clamp(turn / cfg.flick.curlFullTurn, -1, 1);
+      const count = Math.min(d.n, d.x.length);
+      if (count >= 3) {
+        const mid = sampleAt(Math.floor(count / 2));
+        const v1x = d.x[mid] - d.startX;
+        const v1y = -(d.y[mid] - d.startY);
+        const v2x = d.x[iLast] - d.x[mid];
+        const v2y = -(d.y[iLast] - d.y[mid]);
+        if (Math.hypot(v1x, v1y) > cfg.flick.curlMinSegmentPx
+          && Math.hypot(v2x, v2y) > cfg.flick.curlMinSegmentPx) {
+          let turn = Math.atan2(v2x, v2y) - Math.atan2(v1x, v1y);
+          while (turn > Math.PI) turn -= Math.PI * 2;
+          while (turn < -Math.PI) turn += Math.PI * 2;
+          curl = clamp(turn / cfg.flick.curlFullTurn, -1, 1);
+        }
       }
       return { speedPx, angleRad, curl, dist, valid: dist >= cfg.flick.minDistancePx };
     };
