@@ -303,12 +303,12 @@ function drawOrb(ctx, sprite, o, time, safeSprite) {
   if (o.pop <= 0) return;
   const pop = o.pop >= 1 ? 1 : outBack(o.pop);
   const breathe = 1 + Math.sin(time * 2.4 + o.phase) * 0.05;
-  const s = pop * breathe;
+  const sc = pop * breathe;
   const spr = o.safe ? safeSprite : sprite;
 
   ctx.save();
   ctx.translate(o.x, o.y);
-  ctx.scale(s, s);
+  ctx.scale(sc, sc);
   ctx.drawImage(spr.cv, -spr.half, -spr.half, spr.size, spr.size);
   ctx.restore();
 

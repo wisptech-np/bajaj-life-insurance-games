@@ -143,10 +143,9 @@ export const GAME_CONFIG = {
     // A ripple that shrinks below this is spent and starts fading.
     minRadius: 30,
     // A virus caught by a ripple eats this much of its remaining reach. 26 px
-    // (a third of a chain radius) killed late waves outright — a wave-5 board
-    // has 13 viruses and a centre tap cleared only 41% of them; 18 px leaves
-    // the penalty legible without ending the cascade on first contact
-    // (CORRECTION).
+    // (a third of a chain radius) killed late waves outright — with 13 viruses
+    // on a wave-5 board a centre tap cleared only 41% of them; 18 px leaves the
+    // penalty legible without ending the cascade on first contact (CORRECTION).
     virusShrinkPx: 18,
     // Visual ring thickness, and the contact tolerance derived from it.
     bandPx: 9,
