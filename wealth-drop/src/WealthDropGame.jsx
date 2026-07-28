@@ -3,9 +3,10 @@
 // Drag along the rail at the top of the board to choose where a gold premium
 // coin enters, release to drop it. The coin falls through ten staggered rows of
 // glowing pegs — circle-vs-circle physics with restitution and a jittered
-// contact normal — and settles into one of nine goal pockets. Retirement pays
-// x5 on the outside, a red Market Risk pocket pays x0 either side of it, and
-// Savings x1 sits safely in the middle. Grazing a blue cover peg on the way down
+// contact normal — and settles into one of eleven goal pockets. Home x3 holds
+// the middle, a red Market Risk pocket sits either side of it, the Retirement x5
+// jackpots sit just beyond those, and a Savings x1 gutter runs along each wall.
+// Grazing a blue cover peg on the way down
 // shields the coin, so a Risk pocket pays x1 instead of x0: insurance does not
 // raise the ceiling, it lifts the floor. Ten coins or 90 seconds.
 //
@@ -119,9 +120,24 @@ export function buildBoard(cfg, W, H) {
     cx: wallL + pitch * (i + 0.5),
   }));
 
+  // Velocity scale: the board is played in board-relative units, not pixels.
+  //
+  // Gravity, the speed ceilings and the spawn velocities are all authored
+  // against a reference field height and then scaled by how tall this board's
+  // peg field actually is. Without it the coin keeps the same absolute sideways
+  // authority while the field shrinks with the screen, so a shorter phone gives
+  // the coin relatively more time to drift: measured, an 11-lane board went from
+  // a sigma ~2.2-lane bell at 407x612 to an almost flat distribution at
+  // 338x452 — the aim rail stopped doing anything on a small handset, and the
+  // wall-hugging win rate moved 20 points between the two sizes. Scaling every
+  // velocity term by `velScale` makes the trajectory geometrically similar, so
+  // the same drop reads the same way on every device.
+  const fieldH = rowGap * (b.pegRows - 1);
+  const velScale = fieldH / cfg.physics.refFieldPx;
+
   return {
     W, H, wallL, wallR, pitch, lanes,
-    coinR, pegR, dropY, rowGap, pegTopY,
+    coinR, pegR, dropY, rowGap, pegTopY, fieldH, velScale,
     pegBottomY: rows[rows.length - 1].y,
     bucketTopY, bucketFloorY, bucketH, buckets, rows,
   };
@@ -166,8 +182,8 @@ export function spawnCoin(board, cfg, x, rand) {
   return {
     x: clamp(x, lo, hi),
     y: board.dropY,
-    vx: (rand() - 0.5) * 2 * cfg.physics.dropVxJitter,
-    vy: cfg.physics.dropVy,
+    vx: (rand() - 0.5) * 2 * cfg.physics.dropVxJitter * board.velScale,
+    vy: cfg.physics.dropVy * board.velScale,
     state: 'falling', // falling | settling | landed
     bucket: -1,
     shielded: false,
@@ -197,15 +213,17 @@ export function stepCoin(coin, board, cfg, dt, rand, ev) {
   coin.age += dt;
   if (coin.squash > 0) coin.squash = Math.max(0, coin.squash - dt / cfg.fx.coinSquashSeconds);
 
-  coin.vy += P.gravity * dt;
+  const vs = board.velScale;
+  coin.vy += P.gravity * vs * dt;
   // Lateral damping and a hard sideways cap. A peg struck near its crown throws
   // the coin upward, and an upward arc with unchecked vx crosses two or three
   // lanes before it touches anything again — enough of those and the landing
   // pocket stops depending on where the coin was aimed at all. Bleeding vx
   // keeps every deflection local, which is what makes the rail worth dragging.
   coin.vx *= Math.exp(-P.lateralDrag * dt);
-  if (coin.vx > P.maxLateralSpeed) coin.vx = P.maxLateralSpeed;
-  else if (coin.vx < -P.maxLateralSpeed) coin.vx = -P.maxLateralSpeed;
+  const vLat = P.maxLateralSpeed * vs;
+  if (coin.vx > vLat) coin.vx = vLat;
+  else if (coin.vx < -vLat) coin.vx = -vLat;
 
   // Speed ceiling. The authored terminal velocity is the usual binding limit,
   // but on a narrow phone the peg field shrinks with the lane pitch, so the
@@ -213,7 +231,7 @@ export function stepCoin(coin, board, cfg, dt, rand, ev) {
   // per step. Whichever is lower wins, which makes tunnelling through a peg
   // impossible at any canvas size rather than only at the one it was tuned on.
   const vCap = Math.min(
-    P.terminalVelocity,
+    P.terminalVelocity * vs,
     ((board.coinR + board.pegR) * P.maxStepFraction) / dt,
   );
   const sp = Math.hypot(coin.vx, coin.vy);
@@ -312,8 +330,9 @@ export function stepCoin(coin, board, cfg, dt, rand, ev) {
     // A coin that lands dead-centre on a peg has no sideways component to
     // reflect and would balance there forever. Any near-vertical contact gets a
     // coin-flip kick instead — which is also how a real nail behaves.
-    if (Math.abs(coin.vx) < P.apexNudge) {
-      coin.vx += (rand() < 0.5 ? -1 : 1) * P.apexNudge * (0.6 + rand() * 0.6);
+    const nudge = P.apexNudge * vs;
+    if (Math.abs(coin.vx) < nudge) {
+      coin.vx += (rand() < 0.5 ? -1 : 1) * nudge * (0.6 + rand() * 0.6);
     }
 
     coin.pegHits += 1;
@@ -335,7 +354,8 @@ export function stepCoin(coin, board, cfg, dt, rand, ev) {
   if (coin.y + board.coinR >= board.bucketTopY || stalled) {
     coin.state = 'settling';
     coin.bucket = bucketIndexAt(board, coin.x);
-    if (coin.vy < 160) coin.vy = 160;
+    const entryVy = P.pocketEntryVy * vs;
+    if (coin.vy < entryVy) coin.vy = entryVy;
     if (ev.onEnter) ev.onEnter(coin);
   }
 
@@ -363,7 +383,7 @@ export function payoutFor(cfg, bucket, shielded, streakBefore) {
 /* PURE-PHYSICS:END */
 
 /* ─── Offscreen pre-render ───────────────────────────────────
-   The backdrop, the eighty-odd pegs and the nine pocket faces are static art
+   The backdrop, all 115 pegs and the eleven pocket faces are static art
    drawn every frame. Building them once per resize and blitting keeps the hot
    loop free of path construction and gradient allocation. */
 
@@ -493,8 +513,10 @@ function makeBucketBitmap(bucket, board, dpr, shadows) {
   c.roundRect(1.5, 1, w - 3, 4.5, 2);
   c.fill();
 
-  const multSize = Math.round(Math.min(h * 0.36, w * 0.42));
-  const labelSize = Math.round(Math.min(h * 0.19, w * 0.2));
+  // Eleven pockets make each face narrow, so both type sizes are driven by the
+  // pocket width rather than its height and the labels are the short forms.
+  const multSize = Math.round(Math.min(h * 0.36, w * 0.44));
+  const labelSize = Math.round(Math.min(h * 0.2, w * 0.29));
 
   c.textAlign = 'center';
   c.textBaseline = 'middle';

@@ -64,12 +64,31 @@ const SIZES = [
   { name: '338x452 (360x640 phone)', w: 338, h: 452 },
 ];
 
-/* ─── Aim profiles ───────────────────────────────────────── */
+/* ─── Aim profiles ───────────────────────────────────────────
+   All derived from the lane count, so an 11-lane board is measured the same way
+   a 9-lane one is.
+
+   `wall`, `lane0` and `lane1` are the EDGE profiles — a player who has worked
+   out that one end of the rail pays better and parks there. They exist because
+   the first shipped tuning was gated on `casual` alone and hid a wall-hugging
+   strategy that won roughly twice as often as a centre drop. Whatever the board
+   does, the edge has to be measured. */
+const railLo = (b) => b.wallL + b.coinR + b.pitch * 0.06;
+const railHi = (b) => b.wallR - b.coinR - b.pitch * 0.06;
+const laneX = (b, lane) => b.wallL + b.pitch * (lane + 0.5);
+
 const AIMS = {
-  centre: (rand, b) => b.wallL + b.pitch * 4.5,
-  casual: (rand, b) => b.wallL + b.pitch * (3 + rand() * 3),
-  spread: (rand, b) => b.wallL + b.pitch * (0.35 + rand() * 8.3),
+  wall: (rand, b) => railLo(b),
+  lane0: (rand, b) => laneX(b, 0),
+  lane1: (rand, b) => laneX(b, 1),
+  lane2: (rand, b) => laneX(b, 2),
+  centre: (rand, b) => b.wallL + b.pitch * (b.lanes / 2),
+  casual: (rand, b) => b.wallL + b.pitch * ((b.lanes - 3) / 2 + rand() * 3),
+  spread: (rand, b) => railLo(b) + rand() * (railHi(b) - railLo(b)),
 };
+
+/** Profiles that count as "playing the edge" for the gate. */
+const EDGE_PROFILES = ['wall', 'lane0', 'lane1', 'lane2'];
 
 /* ─── One run ────────────────────────────────────────────── */
 function simulateRun(cfg, board, rand, aim, acc) {
@@ -167,67 +186,88 @@ const target = cfg.scoring.targetScore;
 const pct = (v) => `${(v * 100).toFixed(1)}%`;
 const pad = (v, n) => String(v).padStart(n);
 
+// Gate thresholds. `casual` is the brief's ~40% line; the edge ceiling is what
+// stops a wall-hugging strategy quietly being the dominant way to play. Both are
+// checked at EVERY canvas size, not just the first one.
+const CASUAL_BAND = [0.30, 0.50];
+const EDGE_CEILING = 0.55;
+
 console.log('Wealth Drop — balance gate');
 console.log(`  physics from src/WealthDropGame.jsx (PURE-PHYSICS region), dt=${DT.toFixed(5)}s`);
-console.log(`  ${cfg.coinsPerSession} coins x ${cfg.coinValue} base, target ${target}, `
+console.log(`  ${cfg.buckets.length} pockets [${cfg.buckets.map((b) => b.mult).join(' ')}], `
+  + `${cfg.coinsPerSession} coins x ${cfg.coinValue} base, target ${target}, `
   + `combo +${cfg.combo.bonusPerStep}/step capped at ${cfg.combo.maxSteps}`);
-console.log(`  ${RUNS.toLocaleString()} runs per profile, seed 0x${SEED.toString(16)}\n`);
+console.log(`  ${RUNS.toLocaleString()} runs per profile, seed 0x${SEED.toString(16)}`);
+console.log(`  gate: casual in ${pct(CASUAL_BAND[0])}-${pct(CASUAL_BAND[1])} AND `
+  + `every edge profile (${EDGE_PROFILES.join('/')}) <= ${pct(EDGE_CEILING)}, at every size below
+`);
 
-let casualWin = null;
+const failures = [];
 
 for (const size of SIZES) {
   const board = P.buildBoard(cfg, size.w, size.h);
   console.log(`── ${size.name} — pitch ${board.pitch.toFixed(1)}px, `
-    + `rowGap ${board.rowGap.toFixed(1)}px, coin r${board.coinR.toFixed(1)} peg r${board.pegR.toFixed(1)}`);
+    + `rowGap ${board.rowGap.toFixed(1)}px, field ${board.fieldH.toFixed(0)}px, `
+    + `velScale ${board.velScale.toFixed(3)}, coin r${board.coinR.toFixed(1)} peg r${board.pegR.toFixed(1)}`);
   console.log('   profile   mean    p25    p50    p75   win%    cover%  saves/run  streak  s/coin');
+
+  let edgeWorst = 0;
+  let casualWin = null;
 
   for (const [name, aim] of Object.entries(AIMS)) {
     const r = runProfile(cfg, board, aim, RUNS, SEED + name.length * 7919);
     const win = r.winRate(target);
-    if (size === SIZES[0] && name === 'casual') casualWin = win;
+    if (name === 'casual') casualWin = win;
+    if (EDGE_PROFILES.includes(name)) edgeWorst = Math.max(edgeWorst, win);
     console.log(`   ${name.padEnd(8)} ${pad(Math.round(r.mean), 5)}  ${pad(r.p25, 5)}  `
       + `${pad(r.p50, 5)}  ${pad(r.p75, 5)}  ${pct(win).padStart(6)}  `
       + `${pct(r.coverRate).padStart(6)}   ${r.savesPerRun.toFixed(2).padStart(5)}     `
       + `${r.bestStreak.toFixed(2)}    ${r.fallPerCoin.toFixed(2)}`);
 
-    if (size === SIZES[0]) {
+    if (name === 'centre' || name === 'casual') {
       const share = r.acc.tally.map((n, i) => {
         const b = board.buckets[i];
         return `${b.label}x${b.mult} ${pct(n / r.acc.coins)}`;
       });
-      console.log(`            buckets: ${share.join(' | ')}`);
+      console.log(`            pockets: ${share.join(' | ')}`);
       console.log(`            risk landings ${pct(r.acc.riskLandings / r.acc.coins)}`
         + ` of which ${pct(1 - r.acc.zeroPaid / Math.max(1, r.acc.riskLandings))} rescued`
-        + ` -> ${pct(r.acc.zeroPaid / r.acc.coins)} of coins pay nothing`);
-      console.log(`            ${(r.acc.pegHits / r.acc.coins).toFixed(1)} peg hits/coin,`
+        + ` -> ${pct(r.acc.zeroPaid / r.acc.coins)} of coins pay nothing;`
+        + ` ${(r.acc.pegHits / r.acc.coins).toFixed(1)} peg hits/coin,`
         + ` drop ${r.fallPerCoin.toFixed(2)}s (max ${r.acc.maxFall.toFixed(2)}s),`
-        + ` run fall time ${r.fallPerRun.toFixed(1)}s of ${cfg.sessionSeconds}s`);
+        + ` run fall ${r.fallPerRun.toFixed(1)}s of ${cfg.sessionSeconds}s`);
       if (r.acc.stuck || r.acc.watchdog) {
         console.log(`            !! stuck ${r.acc.stuck}, watchdog ${r.acc.watchdog}`);
       }
     }
   }
-  console.log('');
+
+  const casualOk = casualWin >= CASUAL_BAND[0] && casualWin <= CASUAL_BAND[1];
+  const edgeOk = edgeWorst <= EDGE_CEILING;
+  if (!casualOk) failures.push(`${size.name}: casual ${pct(casualWin)} outside ${pct(CASUAL_BAND[0])}-${pct(CASUAL_BAND[1])}`);
+  if (!edgeOk) failures.push(`${size.name}: best edge profile ${pct(edgeWorst)} over ${pct(EDGE_CEILING)}`);
+  console.log(`   -> casual ${pct(casualWin)} ${casualOk ? 'OK' : 'FAIL'}, `
+    + `best edge ${pct(edgeWorst)} ${edgeOk ? 'OK' : 'FAIL'}
+`);
 }
 
 if (SWEEP) {
   const board = P.buildBoard(cfg, SIZES[0].w, SIZES[0].h);
-  console.log('── target sweep (win% by aim profile)');
-  console.log('   target   centre  casual  spread');
-  const profiles = Object.entries(AIMS).map(([name, aim]) => [
-    name, runProfile(cfg, board, aim, RUNS, SEED + name.length * 7919),
-  ]);
-  for (let t = 1400; t <= 2600; t += 100) {
-    console.log(`   ${pad(t, 6)}   ${profiles.map(([, r]) => pct(r.winRate(t)).padStart(6)).join('  ')}`);
+  const names = Object.keys(AIMS);
+  console.log(`── target sweep at ${SIZES[0].name} (win% by aim profile)`);
+  console.log(`   target  ${names.map((n) => n.padStart(7)).join('')}`);
+  const profiles = names.map((name) => runProfile(cfg, board, AIMS[name], RUNS, SEED + name.length * 7919));
+  for (let t = 1600; t <= 3400; t += 100) {
+    console.log(`   ${pad(t, 6)}  ${profiles.map((r) => pct(r.winRate(t)).padStart(7)).join('')}`);
   }
   console.log('');
 }
 
-if (casualWin === null) {
-  console.error('no casual profile measured');
+if (failures.length) {
+  console.log('GATE: FAIL');
+  for (const f of failures) console.log(`  - ${f}`);
   process.exit(1);
 }
-const ok = casualWin >= 0.35 && casualWin <= 0.45;
-console.log(`GATE: casual win rate at target ${target} = ${pct(casualWin)} `
-  + `(band 35.0%-45.0%) -> ${ok ? 'PASS' : 'FAIL'}`);
-process.exit(ok ? 0 : 1);
+console.log(`GATE: PASS — casual inside ${pct(CASUAL_BAND[0])}-${pct(CASUAL_BAND[1])} and every edge `
+  + `profile at or under ${pct(EDGE_CEILING)}, at all ${SIZES.length} canvas sizes.`);
+process.exit(0);

@@ -112,12 +112,12 @@ const SCREEN_CSS = `
 @keyframes wdGlow    { 0%,100% { opacity: 0.3; } 50% { opacity: 0.9; } }
 @keyframes wdChip    { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
 @keyframes wdHeroDrop {
-  0%      { transform: translate(88px, 34px); }
-  16%     { transform: translate(79px, 60px); }
-  32%     { transform: translate(95px, 86px); }
-  48%     { transform: translate(83px, 112px); }
-  64%     { transform: translate(98px, 138px); }
-  82%,100%{ transform: translate(104px, 160px); }
+  0%      { transform: translate(100px, 34px); }
+  16%     { transform: translate(90px, 60px); }
+  32%     { transform: translate(107px, 86px); }
+  48%     { transform: translate(95px, 112px); }
+  64%     { transform: translate(115px, 138px); }
+  82%,100%{ transform: translate(147px, 166px); }
 }
 @keyframes wdHeroPeg { 0%,58% { opacity: 0.55; } 66% { opacity: 1; } 100% { opacity: 0.55; } }
 @keyframes wdBeatAim { 0%,20% { transform: translateX(-15px); } 55%,100% { transform: translateX(13px); } }
@@ -169,20 +169,25 @@ function Confetti() {
 
 /* ─── Home ───────────────────────────────────────────────── */
 /**
- * Hero motif: the board itself — a staggered peg field, the nine pockets with
+ * Hero motif: the board itself — a staggered peg field, the eleven pockets with
  * their multipliers, one blue cover peg, and a gold coin picking its way down.
  * Same construction the canvas uses, so the screen previews the game rather
  * than illustrating it.
  */
 const HERO_PEG_ROWS = 5;
-const HERO_LANES = 9;
-const HERO_X0 = 16;
-const HERO_W = 168;
+const HERO_LANES = 11;
+const HERO_X0 = 14;
+const HERO_W = 172;
 const HERO_PITCH = HERO_W / HERO_LANES;
 const HERO_ROW_Y = 48;
 const HERO_ROW_GAP = 21;
-const HERO_MULTS = [5, 1, 0, 2, 3, 2, 0, 1, 5];
-const HERO_POCKET = ['#FFC845', '#4E7FB8', '#EF4444', '#3B8DD4', '#1E6BE0', '#3B8DD4', '#EF4444', '#4E7FB8', '#FFC845'];
+// Mirrors GAME_CONFIG.buckets: savings gutter, jackpot, risk band, then the
+// disciplined middle.
+const HERO_MULTS = [1, 1, 5, 0, 2, 3, 2, 0, 5, 1, 1];
+const HERO_POCKET = [
+  '#4E7FB8', '#4E7FB8', '#FFC845', '#EF4444', '#3B8DD4',
+  '#1E6BE0', '#3B8DD4', '#EF4444', '#FFC845', '#4E7FB8', '#4E7FB8',
+];
 
 function HeroPegs() {
   const pegs = [];
@@ -199,7 +204,7 @@ function HeroPegs() {
           className={cover ? undefined : 'wd-hero-peg'}
           cx={cx}
           cy={cy}
-          r={cover ? 3.6 : 2.4}
+          r={cover ? 3.2 : 2}
           fill={cover ? BLUE_LT : '#8FB8E8'}
           stroke={cover ? '#A6D0FF' : 'none'}
           strokeWidth={cover ? 1.2 : 0}
@@ -218,12 +223,12 @@ function HeroPockets() {
         const x = HERO_X0 + HERO_PITCH * i;
         return (
           <g key={i}>
-            <rect x={x + 0.6} y={158} width={HERO_PITCH - 1.2} height={22} rx="3"
+            <rect x={x + 0.4} y={158} width={HERO_PITCH - 0.8} height={22} rx="2.5"
               fill={m === 0 ? 'rgba(239,68,68,0.32)' : 'rgba(255,255,255,0.07)'}
-              stroke={m === 0 ? 'rgba(255,139,139,0.7)' : 'rgba(255,255,255,0.18)'} strokeWidth="0.8" />
-            <rect x={x + 0.6} y={158} width={HERO_PITCH - 1.2} height={2.6} rx="1.3" fill={HERO_POCKET[i]} />
+              stroke={m === 0 ? 'rgba(255,139,139,0.7)' : 'rgba(255,255,255,0.18)'} strokeWidth="0.7" />
+            <rect x={x + 0.4} y={158} width={HERO_PITCH - 0.8} height={2.4} rx="1.2" fill={HERO_POCKET[i]} />
             <text x={x + HERO_PITCH / 2} y={172} fill={m === 0 ? '#FF8B8B' : HERO_POCKET[i]}
-              fontSize="8.5" fontWeight="900" textAnchor="middle"
+              fontSize="7" fontWeight="900" textAnchor="middle"
               fontFamily="'Poppins', sans-serif">x{m}</text>
           </g>
         );
@@ -304,7 +309,7 @@ export function HomeScreen({ onStart }) {
             {/* Aim rail and drop marker. */}
             <line x1={HERO_X0} y1="30" x2={HERO_X0 + HERO_W} y2="30"
               stroke="rgba(255,255,255,0.18)" strokeWidth="2.4" strokeLinecap="round" />
-            <path d="M88 24 l-5 -1 l0 -7 l10 0 l0 7 z" fill={ORANGE} />
+            <path d="M100 24 l-5 -1 l0 -7 l10 0 l0 7 z" fill={ORANGE} />
 
             <HeroPegs />
             <HeroPockets />
