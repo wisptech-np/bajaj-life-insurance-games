@@ -28,12 +28,15 @@ CATALOG_NOTE = [
     ("This repo (approved scope)", "guardian-shelter (shield physics), secure-journey (rail shooter), "
      "smart-match-3d (triple match), risk-exit (arrow puzzle), life-soar (glider), "
      "coverage-archer (archery), tightrope-protection (balance runner), "
-     "swing-to-secure (rope-swing traversal), milestone-hopper (lane-hopper). "
+     "swing-to-secure (rope-swing traversal), milestone-hopper (lane-hopper), "
+     "portfolio-fit (1010 block fit — restored after sign-off), spiral-sprint (helix jump), "
+     "wealth-drop (plinko), ripple-shield (chain reaction), steady-tower (jenga de-risk), "
+     "goal-orbit (orbit hop), risk-strike (flick bowling). "
      "Approved but not yet scaffolded: balance-block-journey, shield-cascade"),
     ("Removed from repo", "Dropped by feedback: Compound Quest (compound-merge), Shield Spin (shield-spin) — "
      "'Already taken'. Removed for lacking BajajLife sign-off: life-goals-bubble-shooter, stackibility-stack, "
      "retire-rich-clicker, edurise-jumper, tax-save-maze, she-shield-protector, safe-stride-balancer, "
-     "portfolio-fit, premium-tiles, income-flow, shield-drop"),
+     "premium-tiles, income-flow, shield-drop. (portfolio-fit was later signed off and restored.)"),
     ("bajaj-game-store (do not repeat)", "snake, hangman, word scramble, match-3 x2, tetris, fruit-slice, "
      "runners/climbers x4, top-down shooter, bomberman, galaga, sudoku x2, whack-a-mole x2, brick-breaker, "
      "jigsaw x2, minesweeper, racing, tube-sorting, quiz x3, bubble shooter, peg solitaire, stacking, "
