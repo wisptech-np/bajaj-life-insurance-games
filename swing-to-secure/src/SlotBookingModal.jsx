@@ -1,5 +1,5 @@
 // SlotBookingModal.jsx — books a callback slot via updateLeadNew (or submitToLMS fallback).
-// Copied from the life-goals-bubble-shooter gold standard; copy restyled for Guardian Shelter.
+// Copied from the life-goals-bubble-shooter gold standard; copy restyled for Swing to Secure.
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { submitToLMS, updateLeadNew, LEAD_NO_KEY } from './api.js';
@@ -109,7 +109,7 @@ export default function SlotBookingModal({ initialName, initialMobile, score, on
     setSubmitting(true);
     try {
       const leadNo = sessionStorage.getItem(LEAD_NO_KEY);
-      const remarks = `Guardian Shelter Slot Booking | Score: ${score ?? 0}`;
+      const remarks = `Swing to Secure Slot Booking | Score: ${score ?? 0}`;
       if (leadNo) {
         await updateLeadNew(leadNo, { name: name.trim(), mobile, date, time, remarks });
       } else {

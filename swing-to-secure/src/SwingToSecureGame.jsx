@@ -830,26 +830,36 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
         coins: s.coins,
         milestones: s.milestonesHit,
       };
+      // The end beat is drawn in world space, but the dominant lose path fires
+      // once the guardian is already past the canyon floor — at least 60 px
+      // below the canvas — so an un-clamped burst explodes where nobody can see
+      // it and the fall reads as shake with no impact. Pull the beat back to the
+      // nearest visible point: for a fall that lands it on the danger band,
+      // which is exactly where the guardian was last seen.
+      const bx = clamp(s.player.x, s.camX + 30, s.camX + s.W - 30);
+      const by = clamp(s.player.y, 40, s.paints ? s.paints.floorTop : s.H - cfg.world.dangerBandPx);
+
       if (won) {
         audio.victory();
         haptic('success');
         fx.burst({
-          x: s.player.x, y: s.player.y, count: cfg.fx.winParticles, color: COLORS.gold,
+          x: bx, y: by, count: cfg.fx.winParticles, color: COLORS.gold,
           speed: 320, spread: Math.PI * 2, size: 5, life: 1.1, gravity: 500, drag: 0.93,
         });
         fx.burst({
-          x: s.player.x, y: s.player.y, count: cfg.fx.winParticles, color: COLORS.greenLt,
+          x: bx, y: by, count: cfg.fx.winParticles, color: COLORS.greenLt,
           speed: 220, spread: Math.PI * 2, size: 4, life: 1.2, gravity: 420, drag: 0.94,
         });
-        fx.floatText(s.player.x, s.player.y - 46, 'VAULT SECURED', COLORS.goldLt, 20);
+        fx.floatText(bx, Math.max(30, by - 46), 'VAULT SECURED', COLORS.goldLt, 20);
       } else {
         audio.failure();
         haptic('failure');
         fx.addShake(cfg.fx.damageShake * 1.4);
         fx.burst({
-          x: s.player.x, y: s.player.y, count: cfg.fx.hitParticles, color: COLORS.danger,
+          x: bx, y: by, count: cfg.fx.hitParticles, color: COLORS.danger,
           speed: 260, spread: Math.PI * 2, size: 4, life: 0.8, gravity: 700, drag: 0.9,
         });
+        fx.floatText(bx, Math.max(30, by - 40), 'RUN ENDED', COLORS.danger, 18);
       }
       endTimerRef.current = setTimeout(() => {
         (won ? winRef.current : loseRef.current)?.(stats);

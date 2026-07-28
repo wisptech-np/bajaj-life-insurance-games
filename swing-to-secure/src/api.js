@@ -61,7 +61,7 @@ export async function updateLeadNew(leadNo, { name, mobile, date, time, remarks 
       stringval3: '',
       stringval4: formattedDate,
       stringval5: time || '',
-      stringval6: remarks || 'Slot Booking via Guardian Shelter',
+      stringval6: remarks || 'Slot Booking via Swing to Secure',
       stringval7: 'GAMIFICATION',
       stringval9: mobile || '',
     },
