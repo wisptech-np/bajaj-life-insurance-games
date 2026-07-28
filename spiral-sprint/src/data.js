@@ -86,11 +86,13 @@ export const GAME_CONFIG = {
     // Slab thickness — the darker front face that sells the pseudo-3D read.
     thicknessPx: 13,
     // Drag sensitivity (CORRECTION: spec 0.55). At 0.55 deg/px a half-turn needs
-    // 327 px of drag, which is wider than the play area on a 360 px phone, so the
-    // worst-case alignment took two swipes. At 0.70 a half-turn — the largest
-    // rotation ever required — is 257 px, inside one thumb swipe on every
-    // supported width, while the tightest 42 deg gap is still a 60 px drag
-    // target (five times the kit's 12 px tap threshold, so precision is intact).
+    // 327 px of drag — essentially the entire play area on a 360 px phone (a
+    // ~340 px stage) — so the worst-case alignment meant one edge-to-edge swipe
+    // with nothing to spare, or two swipes in practice. At 0.70 a half-turn, the
+    // largest rotation ever required, is 257 px: comfortably inside one thumb
+    // swipe on every supported width, while the tightest 42 deg gap is still a
+    // 60 px drag target (five times the kit's 12 px tap threshold, so precision
+    // is intact).
     degPerPx: 0.7,
   },
 
@@ -139,6 +141,11 @@ export const GAME_CONFIG = {
 
   fever: {
     ringsPerStreak: 3,
+    // Smashes allowed per fever. Enforced together with the component's
+    // one-fever-per-fall latch: without the latch, spending the fever on a smash
+    // and then passing the ring re-satisfies the streak test while the clock is
+    // momentarily zero, so every crash arc for the rest of the fall would smash
+    // for free. A safe landing is what re-arms the fever.
     smashLimit: 1,
     // CORRECTION: the spec ends fever "after one smash or a normal bounce".
     // Measured against the physics, the fall that grants fever has at most one

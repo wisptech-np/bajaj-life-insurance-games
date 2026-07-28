@@ -7,6 +7,41 @@ timestamp: 2026-07-28
 
 # Spiral Sprint Change Log
 
+## [2026-07-28] Review fix — fever relight exploit
+
+- **Fixed (Important, from review):** `fever.smashLimit: 1` was not enforced
+  during an uninterrupted fall. `smashThrough()` zeroed the fever clock and then
+  called `passRing()`, which incremented the streak past `ringsPerStreak` while
+  `fever <= 0` was momentarily true, so `lightFever()` fired again and reset both
+  the 3 s clock and `feverSmashes`. Once a fall reached streak 3, every crash arc
+  for the rest of that fall smashed for +100 with the clock resetting each time —
+  a live score exploit that contradicted `data.js`, the README and the OKF index.
+- The fix is a one-fever-per-fall latch (`s.feverLitThisFall`), set in
+  `lightFever()`, required to be false by the relight test in `passRing()`, and
+  cleared in `landOn()` — a safe landing is what ends a fall, so it is what
+  re-arms the fever. Guarding only "the pass was not itself a smash" would not
+  have been enough: the *next* gap pass in the same fall would still have
+  relit it.
+- Verified with an isolated trace of the fever state machine driven by scripted
+  contact verdicts. Reviewer's path (3 gaps then two crash arcs in one fall):
+  before the fix `smashes=2` and the run survived; after the fix `smashes=1` and
+  the second crash ends the run. A four-crash fall went from `smashes=4` to
+  `smashes=1` plus death. A safe landing between two falls still allows one smash
+  each (`smashes=2`, run survives). 9/9 assertions pass.
+- The balance simulation was updated to mirror the latch and re-run: output is
+  byte-identical to the pre-fix run (the simulated players never steer onto a
+  crash arc, so the smash path never executes) — win/loss profile and all timings
+  unchanged.
+- Also in this pass: removed the two per-frame string allocations the sibling
+  games do not have (the ring-pulse `rgba()` is now a module-level 21-entry alpha
+  ramp; milestone label and uppercase-tag strings are resolved into Maps once at
+  mount instead of being rebuilt by `drawRing` every frame), and softened the
+  `degPerPx` justification in `data.js` and the README — 327 px of drag is
+  essentially the whole play area on a 360 px phone rather than literally wider
+  than it.
+- Re-verified: `pnpm build` exit 0; state-field cross-check 0/0; no template
+  strings left in the per-frame draw path.
+
 ## [2026-07-28] Scaffold + gameplay implementation
 
 - Scaffolded from the `guardian-shelter/` gold standard: `index.html`,

@@ -235,6 +235,17 @@ function countFallPathViolations(rings, halfDeg) {
    Draw calls translate the context instead of rebuilding a gradient at the
    entity's position — no per-frame allocation in the hot loop. */
 
+/**
+ * Alpha ramp for the landing-pulse rim, pre-built at module load. Composing an
+ * rgba() string inside the draw loop allocates once per pulsing ring per frame,
+ * which is exactly the kind of hot-loop garbage the effect pool exists to avoid.
+ * Index = round(pulse * 20); the stored alpha is index / 40, i.e. pulse * 0.5.
+ */
+const PULSE_RAMP = Array.from(
+  { length: 21 },
+  (_, i) => `rgba(255,255,255,${(i / 40).toFixed(3)})`,
+);
+
 const FOG_STEPS = 6;
 const FOG_KEYS = [
   'safeTop', 'safeBot', 'safeFront',
@@ -406,6 +417,7 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       squashT: 0,
       fever: 0,
       feverSmashes: 0,
+      feverLitThisFall: false,
       streak: 0,
       bestStreak: 0,
       smashes: 0,
@@ -507,6 +519,18 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
     s.ballVY = -BOUNCE_SPEED;
     s.rot = norm360(90 - tower[0].gapCenter + 150); // start clear of the first gap
 
+    // Milestone copy, resolved once. milestoneFor() builds a template string, and
+    // drawRing() would otherwise call it — plus .toUpperCase() — for every
+    // milestone ring on screen on every frame.
+    const milestoneLabels = new Map();
+    const milestoneTags = new Map();
+    for (let i = 0; i <= N; i++) {
+      const label = milestoneFor(i);
+      if (!label) continue;
+      milestoneLabels.set(i, label);
+      milestoneTags.set(i, label.toUpperCase());
+    }
+
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
     ro?.observe(wrap);
     window.addEventListener('orientationchange', fit);
@@ -587,6 +611,15 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
     const lightFever = () => {
       s.fever = cfg.fever.seconds;
       s.feverSmashes = 0;
+      // Fever is lit at most ONCE per fall. Without this latch the fall that
+      // spends its fever on a smash immediately relights it: smashThrough()
+      // zeroes the clock and then passes the ring, which bumps the streak past
+      // the threshold again while `fever <= 0` is momentarily true. The result
+      // was every crash arc for the rest of the fall smashing for +100 with the
+      // clock resetting each time — a score exploit, and the opposite of the
+      // documented "one smash consumes it". Cleared on a safe landing, which is
+      // what ends a fall.
+      s.feverLitThisFall = true;
       if (!s.shownFever) {
         s.shownFever = true;
         setFeverOn(true);
@@ -617,9 +650,11 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       });
       audio.combo(Math.min(s.streak, 8));
 
-      if (s.streak >= cfg.fever.ringsPerStreak && s.fever <= 0) lightFever();
+      if (s.streak >= cfg.fever.ringsPerStreak && s.fever <= 0 && !s.feverLitThisFall) {
+        lightFever();
+      }
 
-      const label = milestoneFor(s.depth);
+      const label = milestoneLabels.get(s.depth);
       if (label) {
         audio.powerUp();
         showBanner(label);
@@ -653,6 +688,8 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
         s.shownFever = false;
         setFeverOn(false);
       }
+      // passRing() runs last and cannot relight the fever it just spent:
+      // `feverLitThisFall` stays latched until the ball lands safely.
       passRing();
     };
 
@@ -662,6 +699,8 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       s.squashT = cfg.ball.squashSeconds;
       s.landRing = s.depth;
       s.streak = 0;
+      // A safe landing is what ends a fall, so it is what re-arms the fever.
+      s.feverLitThisFall = false;
       ring.pulse = 1;
       haptic('light');
       audio.tick();
@@ -832,7 +871,7 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
               }
               if (pulse > 0.02) {
                 strokeRim(ctx, s.cx, cy, R, ry, start, end,
-                  `rgba(255,255,255,${(pulse * 0.5).toFixed(3)})`, 2.4);
+                  PULSE_RAMP[Math.round(pulse * 20)], 2.4);
               }
             }
             start = end;
@@ -841,8 +880,8 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       }
 
       // Milestone rule + tag: gold band around the ring, label above its far edge.
-      const label = milestoneFor(i);
-      if (label) {
+      const tag = milestoneTags.get(i);
+      if (tag) {
         ctx.save();
         ctx.globalAlpha = clamp(1 - (i - s.depth) / (cfg.view.fogRings + 1), 0.25, 1);
         ctx.strokeStyle = COLORS.gold;
@@ -859,9 +898,9 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.fillStyle = 'rgba(6,16,34,0.6)';
-        ctx.fillText(label.toUpperCase(), s.cx, cy - ry - 6 + 1.4);
+        ctx.fillText(tag, s.cx, cy - ry - 6 + 1.4);
         ctx.fillStyle = COLORS.goldLt;
-        ctx.fillText(label.toUpperCase(), s.cx, cy - ry - 6);
+        ctx.fillText(tag, s.cx, cy - ry - 6);
         ctx.restore();
       }
     };

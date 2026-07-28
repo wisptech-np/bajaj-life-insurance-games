@@ -82,7 +82,10 @@ verbatim (see the game README's "Balance notes"):
    360 px phone, while the tightest 42° gap is still a 60 px target.
 4. `fever.seconds: 3.0` replaces "fever ends on the next normal bounce". The fall
    that grants fever has at most 0.13 s left to run, so the spec's reward expired
-   before it could be used; a single smash still consumes it.
+   before it could be used; a single smash still consumes it. Fever is lit at
+   most once per fall (latched in the component, cleared on a safe landing) —
+   without that latch the smash re-satisfies the streak test while the clock is
+   momentarily zero and `smashLimit: 1` is not enforced at all.
 
 Measured with the shipped values across 400 generated towers and 1,200 simulated
 runs: 0 unpassable rings in 16,400 generated rings, every run lit the fever (mean

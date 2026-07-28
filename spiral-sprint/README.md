@@ -125,10 +125,12 @@ whole tower (up to five times) if its own check ever disagrees.
    the 3 needed for fever.
 
 3. **`tower.degPerPx: 0.7`** (spec: 0.55). At 0.55 a half-turn takes 327 px of
-   drag, wider than the play area on a 360 px phone, so the worst-case alignment
-   needed two swipes. At 0.70 a half-turn is 257 px — one swipe on every
-   supported width — while the tightest 42° gap is still a 60 px drag target,
-   five times the kit's 12 px tap threshold, so precision is unaffected.
+   drag — essentially the entire play area on a 360 px phone (a ~340 px stage) —
+   so the worst-case alignment was one edge-to-edge swipe with nothing to spare,
+   or two swipes in practice. At 0.70 a half-turn is 257 px, comfortably inside
+   one thumb swipe on every supported width, while the tightest 42° gap is still
+   a 60 px drag target, five times the kit's 12 px tap threshold, so precision is
+   unaffected.
 
 A fourth reading is a mechanic change rather than a constant. The spec ends the
 fever "after one smash or a normal bounce", but the fall that grants fever has at
@@ -136,6 +138,12 @@ most one more ring to run (0.06–0.13 s), so the reward would expire before the
 player could steer into anything: fever would be a particle effect, not a
 mechanic. **`fever.seconds: 3.0`** gives about six bounces of steering room, and
 a single smash still consumes it.
+
+Fever is lit **at most once per fall**, and a safe landing is what re-arms it, so
+`fever.smashLimit: 1` really does mean one smash per fall: the second crash arc
+in an uninterrupted fall ends the run. (Without that latch the smash itself
+re-satisfies the streak test while the fever clock is momentarily zero, and every
+crash arc for the rest of the fall smashes for free.)
 
 ### Measured with the shipped values (300 runs per profile)
 
