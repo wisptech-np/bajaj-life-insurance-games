@@ -23,6 +23,13 @@ const GAMES = [
   'life-soar',
   'coverage-archer',
   'tightrope-protection',
+  'portfolio-fit',
+  'spiral-sprint',
+  'wealth-drop',
+  'ripple-shield',
+  'steady-tower',
+  'goal-orbit',
+  'risk-strike',
   'swing-to-secure',
   'milestone-hopper',
 ];

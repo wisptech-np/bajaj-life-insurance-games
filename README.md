@@ -39,6 +39,13 @@ Only BajajLife-approved concepts are kept in this repository.
 | `tightrope-protection/` | Tightrope Protection | — |
 | `swing-to-secure/` | Swing to Secure | 5037 |
 | `milestone-hopper/` | Milestone Hopper | 5038 |
+| `wealth-drop/` | Wealth Drop | 5039 |
+| `portfolio-fit/` | Portfolio Fit | 5044 |
+| `ripple-shield/` | Ripple Shield | 5046 |
+| `steady-tower/` | Steady Tower | 5047 |
+| `spiral-sprint/` | Spiral Sprint | 5048 |
+| `goal-orbit/` | Goal Orbit | 5050 |
+| `risk-strike/` | Risk Strike | 5054 |
 
 Approved but not yet scaffolded: `balance-block-journey` (5031), `shield-cascade` (5036).
 
