@@ -342,6 +342,16 @@ export function stepThrow(state, dt, cfg, emit) {
   }
 }
 
+/**
+ * Was this a gutter ball in the sense that shames you?
+ * A ball that leaves the lane short of the deck never had a chance; one that
+ * drifts into the channel level with the pins has already hit them. Shared by
+ * the game (banner, float text, haptic) and the balance sim (gutter rate), so
+ * the shipped rule and the measured rule are the same rule.
+ */
+export const isShameGutter = (cfg, gutterY) =>
+  gutterY < cfg.lane.length - cfg.lane.gutterShameMargin;
+
 /** True once nothing is moving and the throw can be tallied. */
 export function isSettled(state, cfg) {
   if (state.ball.active) return false;
@@ -438,7 +448,14 @@ export function buildScorecard(rolls, framesCount) {
         marks[1] = a === 10 ? (b === 10 ? 'X' : String(b)) : (a + b === 10 ? '/' : String(b));
       }
       if (c !== undefined) {
-        marks[2] = c === 10 ? 'X' : (b !== undefined && b !== 10 && b + c === 10 ? '/' : String(c));
+        // The third box can only be a spare when the FIRST ball was a strike:
+        // that is the only case where b and c are a fresh pair against a full
+        // rack. After a spare (a + b === 10) the fill ball stands alone and is
+        // always written as its own count — without the `a === 10` guard a
+        // 3 / 7 / 3 finish renders as "3 / /".
+        marks[2] = c === 10
+          ? 'X'
+          : (a === 10 && b !== undefined && b !== 10 && b + c === 10 ? '/' : String(c));
       }
       const needed = lastFrameRolls(a, b);
       const have = rolls.length - i;

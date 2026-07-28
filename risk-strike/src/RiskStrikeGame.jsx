@@ -21,8 +21,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { COLORS, GAME_CONFIG } from './data.js';
 import {
   buildScorecard, clamp, createRack, createThrowState, flickToShot, isSettled,
-  lastFrameRolls, launch, lerp, mulberry32, predictPath, scoreGame,
-  standingCount, stepThrow,
+  isShameGutter, lastFrameRolls, launch, lerp, mulberry32, predictPath,
+  scoreGame, standingCount, stepThrow,
 } from './physics.js';
 import { BALANCE } from './kit/config.js';
 import { createGameLoop } from './kit/loop.js';
@@ -1043,7 +1043,7 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       } else if (type === 'gutter') {
         // Only a ball that leaves the lane short of the deck is a shame; one
         // that drifts into the channel level with the pins has done its work.
-        if (y < cfg.lane.length - 60) {
+        if (isShameGutter(cfg, y)) {
           s.gutterShame = true;
           audio.hit();
           haptic('failure');

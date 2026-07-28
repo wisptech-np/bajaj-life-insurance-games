@@ -90,6 +90,12 @@ export const GAME_CONFIG = {
     gutterWidth: 24,
     // Where the arrows sit, as a fraction of the lane length.
     arrowFrac: 0.34,
+    // How far short of the head pin a gutter still counts as a gutter ball.
+    // A ball that drifts into the channel level with the deck has already done
+    // its work; one that leaves the lane before this line has not. Consumed
+    // through physics.js `isShameGutter()` by both the game and the balance sim,
+    // so the shipped rule and the measured rule cannot drift apart.
+    gutterShameMargin: 60,
   },
 
   ball: {

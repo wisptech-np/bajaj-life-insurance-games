@@ -17,7 +17,7 @@
 import { GAME_CONFIG as CFG } from '../src/data.js';
 import {
   createThrowState, createRack, flickToShot, launch, stepThrow, isSettled,
-  standingCount, scoreGame, lastFrameRolls, mulberry32,
+  isShameGutter, standingCount, scoreGame, lastFrameRolls, mulberry32,
 } from '../src/physics.js';
 
 const DT = 1 / 120;
@@ -49,7 +49,8 @@ function rollBall(pins, flick, rand) {
   for (let i = pins.length - 1; i >= 0; i--) if (!pins[i].standing) pins.splice(i, 1);
   // Only a ball that leaves the lane short of the deck is a gutter ball; one
   // that drifts into the channel level with the pins has already hit them.
-  const gutter = state.ball.gutter !== 0 && state.ball.gutterY < CFG.lane.length - 60;
+  // Same predicate the game uses for the shame banner — shared, not copied.
+  const gutter = state.ball.gutter !== 0 && isShameGutter(CFG, state.ball.gutterY);
   return { knocked: before - pins.length, seconds: t, gutter };
 }
 
