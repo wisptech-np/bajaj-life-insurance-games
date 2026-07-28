@@ -1,5 +1,5 @@
 // ThankYouScreen.jsx — confirmation after details are shared.
-// Copied from the life-goals-bubble-shooter gold standard; copy restyled for Guardian Shelter.
+// Copied from the life-goals-bubble-shooter gold standard; copy restyled for Swing to Secure.
 import React from 'react';
 
 export default function ThankYouScreen({ details, onPlayAgain }) {
