@@ -117,8 +117,12 @@ export const GAME_CONFIG = {
     pegGapBelowFrac: 0.5,
     coinRadiusFrac: 0.175,
     pegRadiusFrac: 0.1,
-    // Row spacing floor on very short screens, x pitch.
+    // Row spacing band, x pitch. The floor keeps the field legible on a short
+    // screen; the ceiling stops a very tall one stretching the rows apart far
+    // enough to change the landing distribution (measured 1.54x pitch at
+    // 430x900 before the clamp).
     minRowGapFrac: 0.5,
+    maxRowGapFrac: 1.15,
   },
 
   /* -- Coin physics -------------------------------------------------------

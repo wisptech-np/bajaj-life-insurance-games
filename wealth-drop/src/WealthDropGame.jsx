@@ -72,9 +72,21 @@ export function buildBoard(cfg, W, H) {
   const bucketFloorY = H - b.bottomMarginPx;
   const bucketTopY = bucketFloorY - bucketH;
 
-  const pegTopY = H * b.pegTopFrac;
-  const pegBottomY = bucketTopY - pitch * b.pegGapBelowFrac;
-  const rowGap = Math.max(pitch * b.minRowGapFrac, (pegBottomY - pegTopY) / (b.pegRows - 1));
+  // Row spacing is whatever height is left between the aim rail and the pocket
+  // mouths, but clamped to a band around the lane pitch. Uncapped, a 430x900
+  // handset gives rowGap = 1.5x pitch, and the extra airtime between rows lets
+  // the coin drift far enough that the landing pocket stops tracking the
+  // release point — a different game on a taller phone. When the clamp bites,
+  // the shortened field is re-centred in the space rather than left at the top.
+  const railTopY = H * b.pegTopFrac;
+  const fieldBottomY = bucketTopY - pitch * b.pegGapBelowFrac;
+  const rowGap = clamp(
+    (fieldBottomY - railTopY) / (b.pegRows - 1),
+    pitch * b.minRowGapFrac,
+    pitch * b.maxRowGapFrac,
+  );
+  const pegTopY = railTopY
+    + Math.max(0, (fieldBottomY - railTopY - rowGap * (b.pegRows - 1)) * 0.55);
 
   const rows = [];
   for (let r = 0; r < b.pegRows; r++) {
@@ -730,7 +742,6 @@ export default function WealthDropGame({ config, onWin, onLose }) {
   const endTimerRef = useRef(null);
   const bannerTimerRef = useRef(null);
   const scoreElRef = useRef(null);
-  const payoutElRef = useRef(null);
   const barElRef = useRef(null);
 
   const [timeLeft, setTimeLeft] = useState(cfg.sessionSeconds);
@@ -767,11 +778,9 @@ export default function WealthDropGame({ config, onWin, onLose }) {
       score: 0,
       scoreShown: 0,
       shownScore: -1,
-      shownPayout: -1,
       coinsDropped: 0,
       coinsResolved: 0,
       coverSaves: 0,
-      coversTaken: 0,
       streak: 0,
       bestStreak: 0,
       shownStreak: -1,
@@ -976,7 +985,6 @@ export default function WealthDropGame({ config, onWin, onLose }) {
       },
       onWall: () => audio.tick(),
       onCover: (coin, px, py) => {
-        s.coversTaken += 1;
         audio.powerUp();
         haptic('medium');
         fx.burst({
@@ -1171,7 +1179,6 @@ export default function WealthDropGame({ config, onWin, onLose }) {
       if (shown !== s.shownScore) {
         s.shownScore = shown;
         if (scoreElRef.current) scoreElRef.current.textContent = shown.toLocaleString();
-        if (payoutElRef.current) payoutElRef.current.textContent = shown.toLocaleString();
         if (barElRef.current) {
           barElRef.current.style.width = `${clamp((shown / cfg.scoring.targetScore) * 100, 0, 100)}%`;
         }
@@ -1274,8 +1281,8 @@ export default function WealthDropGame({ config, onWin, onLose }) {
         <div style={styles.progressWrap}>
           <div style={styles.progressPill}>
             <span style={styles.progressText}>
-              <span ref={payoutElRef}>0</span>
-              <span style={{ opacity: 0.55 }}> / {cfg.scoring.targetScore.toLocaleString()} target</span>
+              <span style={{ opacity: 0.55 }}>Target </span>
+              {cfg.scoring.targetScore.toLocaleString()}
             </span>
             <div style={styles.track}>
               <div ref={barElRef} style={styles.trackFill} />
