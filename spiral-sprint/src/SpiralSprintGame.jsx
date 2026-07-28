@@ -603,12 +603,13 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
 
     /** Descend past the ring plane the ball is on. */
     const passRing = () => {
+      const planeY = s.depth * gapPx; // the plane being crossed, before the step
       s.depth += 1;
       s.streak += 1;
       if (s.streak > s.bestStreak) s.bestStreak = s.streak;
       s.score += cfg.scoring.ring;
 
-      const p = burstPoint(sampleDeg(), s.depth * gapPx);
+      const p = burstPoint(sampleDeg(), planeY);
       fx.burst({
         x: p.x, y: p.y, count: cfg.fx.passParticles, color: 'rgba(180,214,255,0.9)',
         speed: 130, spread: Math.PI, angle: -Math.PI / 2, size: 2.6, life: 0.34,
@@ -781,6 +782,16 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       const segs = ring.segs;
 
       for (let pass = 0; pass < 3; pass++) {
+        if (pass === 1) {
+          // Re-lay the core column over the far half before the near half goes
+          // down. The back of a platform sits behind an opaque cylinder: with a
+          // 20-degree view elevation, every far-half point whose screen x falls
+          // inside the column is hidden by it, and that region is exactly this
+          // rectangle. Without the patch the tower reads as a flat ring stack
+          // with a stripe painted on, not as discs threaded onto a column.
+          ctx.fillStyle = s.paints.core;
+          ctx.fillRect(s.cx - s.innerR, cy - ry - 1, s.innerR * 2, ry + 1);
+        }
         for (let k = 0; k < segs.length; k++) {
           const seg = segs[k];
           if (seg.type === 'gap') continue;
@@ -829,7 +840,7 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
         }
       }
 
-      // Milestone rule + tag: gold band on the ring, label above its far edge.
+      // Milestone rule + tag: gold band around the ring, label above its far edge.
       const label = milestoneFor(i);
       if (label) {
         ctx.save();
@@ -839,6 +850,11 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
         ctx.beginPath();
         ctx.ellipse(s.cx, cy, R * 1.045, ry * 1.045, 0, 0, TAU);
         ctx.stroke();
+        // Same column occlusion as the platform itself.
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = s.paints.core;
+        ctx.fillRect(s.cx - s.innerR, cy - ry * 1.05 - 2, s.innerR * 2, ry * 1.05 + 2);
+        ctx.globalAlpha = clamp(1 - (i - s.depth) / (cfg.view.fogRings + 1), 0.25, 1);
         ctx.font = s.fontTag;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
