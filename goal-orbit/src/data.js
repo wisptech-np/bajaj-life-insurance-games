@@ -329,7 +329,9 @@ export function planetLabel(i) {
 }
 
 /** Score the Results ring treats as a full circle.
-    A clean 20-planet run measures ~4,700: 2,000 (planets) + ~900 (45 of 60
-    coins) + ~850 (17 perfects) + 1,000 (4 milestones) + ~240 (time bonus).
-    Measured by tools/balance-sim.mjs — see README "Balance notes". */
+    A clean 20-planet run measures ~4,730: 2,000 (planets) + ~730 (36 of 60
+    coins) + ~780 (15.6 perfects) + 1,000 (4 milestones) + ~220 (time bonus at
+    ~64 s of the 120 s used). Measured by `node tools/balance-sim.mjs 250`:
+    the well-timed agent means 4,731 and maxes 4,980 — see README
+    "Balance notes" for the full tables. */
 export const RESULT_TARGET_SCORE = 4800;
