@@ -24,16 +24,57 @@ Each game is stored in its own folder.
 
    The production files will be available in the dist/ folder of that game.
 
+## Games
+
+Only BajajLife-approved concepts are kept in this repository.
+
+| Directory | Game | Dev port |
+|---|---|---|
+| `guardian-shelter/` | Guardian Shelter | 5030 |
+| `secure-journey/` | Secure Journey | 5032 |
+| `smart-match-3d/` | Smart Match 3D | 5033 |
+| `risk-exit/` | Risk Exit | 5034 |
+| `life-soar/` | Life Soar | 5035 |
+| `coverage-archer/` | Guardian Archer | — |
+| `tightrope-protection/` | Tightrope Protection | — |
+
+Approved but not yet scaffolded: `balance-block-journey` (5031), `shield-cascade` (5036).
+
 ## Project Structure
 
 babaj-life-insurance-games/
-├── game-one/
-├── game-two/
-├── game-three/
+├── guardian-shelter/     # one Vite app per game
+├── secure-journey/
 ├── ...
+├── shared/game-kit/      # canonical shared game-feel systems
+├── scripts/              # tracker + game-kit sync tooling
+├── docs/                 # audit, polish plan, asset and testing docs
 └── README.md
 
 Note: node_modules are not included in this repository. Run pnpm install inside each game folder to generate them.
+
+## Shared game systems
+
+`shared/game-kit/` holds the loop, input, effects, audio, device-tier and balance-config modules
+used across games. The games are isolated pnpm projects (deliberately — no workspace), so the kit
+is **copied** into each game rather than imported:
+
+    node scripts/sync-game-kit.mjs          # distribute to every game
+    node scripts/sync-game-kit.mjs --check  # fail if any copy is stale
+
+Edit `shared/game-kit/` — never a game's `src/kit/` copy.
+
+`shared/game-kit/config.js` is the central balance configuration: physics, difficulty, scoring
+weights and effect intensity all live there.
+
+## Documentation
+
+- [Game Quality Audit](docs/GAME_QUALITY_AUDIT.md) — current defects, root causes, priority
+- [Game Polish Plan](docs/GAME_POLISH_PLAN.md) — critical / high-value / optional work
+- [Asset Inventory](docs/ASSET_INVENTORY.md) — every asset, and what to do with it
+- [Asset Generation Prompts](docs/ASSET_GENERATION_PROMPTS.md) — specs for replacement assets
+- [Testing Checklist](docs/TESTING_CHECKLIST.md) — devices, scenarios, acceptance criteria
+- [Build Standard](okf-brain/GAME_STANDARD.md) — scaffold every game must follow
 
 ---
 

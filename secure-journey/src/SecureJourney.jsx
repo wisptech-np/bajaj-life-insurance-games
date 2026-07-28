@@ -346,7 +346,8 @@ export default function SecureJourney({ config, onWin, onLose }) {
 
     const width = Math.min(container.clientWidth, 430);
     const height = container.clientHeight;
-    const dpr = window.devicePixelRatio || 1;
+    // Capped at 2 — a 3x phone triples the fill cost for no visible gain.
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     canvas.width = width * dpr;
     canvas.height = height * dpr;
@@ -912,6 +913,13 @@ export default function SecureJourney({ config, onWin, onLose }) {
       waterRipples.current = waterRipples.current.filter((r) => r.y < height + 20);
 
       // ─── Render Canvas ────────────────────────────────────
+      // Map logical units onto the DPR-scaled backing store. Without this the
+      // scene draws into the top-left 1/dpr of the canvas on every retina
+      // phone, while touch input (which uses logical units) stays correct —
+      // so visuals and controls disagree.
+      const renderScale = canvas.width / width;
+      ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+
       ctx.clearRect(0, 0, width, height);
 
       // Screen Shake

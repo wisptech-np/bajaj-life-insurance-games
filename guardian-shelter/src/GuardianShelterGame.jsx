@@ -2,6 +2,13 @@
 // 2D physics engine: gravity, AABB/circle collisions, stacking, bouncing virus storm.
 import React, { useRef, useEffect, useState } from 'react';
 import { COLORS, GAME_CONFIG, SHIELD_TYPES, MEMBER_TYPES, LEVELS } from './data.js';
+import { createGameLoop } from './kit/loop.js';
+import { haptic } from './kit/device.js';
+
+// Backing-store scale for the canvas. Capped at 2 because a 3x phone would
+// otherwise fill 2.09M pixels per frame for no visible gain on a 400px-wide
+// playfield — a measurable cost on mid-range Android.
+const RENDER_DPR = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2);
 
 /* ─── Web Audio API Sound Synthesizer ───────────────── */
 let audioCtx = null;
@@ -118,6 +125,10 @@ export default function GuardianShelterGame({ onWin, onLose }) {
   const [gameState, setGameState] = useState('placement'); // placement | storm | failed | cleared | gameover
   const [trayShields, setTrayShields] = useState([]);
   const [placedCount, setPlacedCount] = useState(0);
+  // Auto-pause when the tab/app loses focus, so the session clock cannot drain
+  // while the player is away.
+  const [paused, setPaused] = useState(false);
+  const loopRef = useRef(null);
   
   // Game Loop Refs
   const stateRef = useRef({
@@ -143,36 +154,42 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     initLevel(levelIdx);
   }, [levelIdx]);
 
-  // Global Session Timer Countdown
+  // Single loop owns both gameplay and the session clock. Previously these were
+  // separate (rAF + setInterval), which let the countdown keep draining while
+  // the tab was backgrounded and rAF was halted — the player could return to a
+  // lost game they never saw play out.
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (stateRef.current.gameState !== 'cleared' && stateRef.current.gameState !== 'gameover') {
-        stateRef.current.timeLeft = Math.max(0, stateRef.current.timeLeft - 1);
-        setTimeLeft(stateRef.current.timeLeft);
-        if (stateRef.current.timeLeft <= 0) {
-          triggerGameOver(false);
-          clearInterval(timer);
-        }
-      }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const loop = createGameLoop({
+      sessionSeconds: GAME_CONFIG.sessionSeconds,
 
-  // Main Animation Game Loop
-  useEffect(() => {
-    let animFrame;
-    const loop = (timestamp) => {
-      if (!stateRef.current.lastTime) stateRef.current.lastTime = timestamp;
-      const dt = Math.min((timestamp - stateRef.current.lastTime) / 1000, 0.03); // Cap lag frames
-      stateRef.current.lastTime = timestamp;
+      update: (dt) => {
+        const gs = stateRef.current.gameState;
+        if (gs === 'cleared' || gs === 'gameover') return;
+        updatePhysics(dt);
+      },
 
-      updatePhysics(dt);
-      drawGame();
+      render: () => drawGame(),
 
-      animFrame = requestAnimationFrame(loop);
+      onTick: (remaining) => {
+        stateRef.current.timeLeft = remaining;
+        setTimeLeft(remaining);
+      },
+
+      onExpire: () => {
+        const gs = stateRef.current.gameState;
+        if (gs === 'cleared' || gs === 'gameover') return;
+        triggerGameOver(false);
+      },
+
+      onPause: (isPaused) => setPaused(isPaused),
+    });
+
+    loopRef.current = loop;
+    loop.start();
+    return () => {
+      loop.stop();
+      loopRef.current = null;
     };
-    animFrame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(animFrame);
   }, []);
 
   const initLevel = (idx) => {
@@ -544,6 +561,12 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     const ctx = canvas.getContext('2d');
     const ref = stateRef.current;
     const lvl = LEVELS[ref.currentLevelIdx];
+
+    // Map the logical 400x580 playfield onto the full backing store. Without
+    // this the drawing lands in the top-left corner of a DPR-scaled canvas and
+    // the whole game renders at 1/dpr scale on every retina phone.
+    const renderScale = canvas.width / GAME_CONFIG.fieldWidth;
+    ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
 
     // Clear Screen & Draw Deep Blue Sky Gradient
     ctx.clearRect(0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
@@ -1154,6 +1177,10 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     ref.gameState = 'gameover';
     setGameState('gameover');
 
+    // Freeze the session clock so the HUD does not keep counting down behind
+    // the results screen.
+    loopRef.current?.setPaused(true);
+
     let finalScore = ref.score;
     if (didWin) {
       // Apply time bonus
@@ -1162,9 +1189,11 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ref.score = finalScore;
       setScore(finalScore);
       if (!ref.soundMuted) playSound('win');
+      haptic('success');
       onWin({ score: finalScore });
     } else {
       if (!ref.soundMuted) playSound('lose');
+      haptic('failure');
       onLose({ score: finalScore });
     }
   };
@@ -1258,8 +1287,8 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       >
         <canvas
           ref={canvasRef}
-          width={400 * (window.devicePixelRatio || 1)}
-          height={580 * (window.devicePixelRatio || 1)}
+          width={400 * RENDER_DPR}
+          height={580 * RENDER_DPR}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -1269,6 +1298,33 @@ export default function GuardianShelterGame({ onWin, onLose }) {
             height: '100%',
           }}
         />
+
+        {/* Auto-pause veil. Shown whenever the tab/app loses focus so the
+            player understands why the game stopped, and returns to the exact
+            state they left rather than a drained clock. */}
+        {paused && gameState !== 'gameover' && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              background: 'rgba(5, 26, 58, 0.82)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              zIndex: 5,
+            }}
+          >
+            <div style={{ fontSize: 34, lineHeight: 1 }} aria-hidden="true">⏸</div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 18 }}>Paused</div>
+            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', maxWidth: 240 }}>
+              Your timer is safe. Tap anywhere to keep protecting your family.
+            </div>
+          </div>
+        )}
 
         {/* Audio Mute toggle absolute inside Canvas */}
         <button
