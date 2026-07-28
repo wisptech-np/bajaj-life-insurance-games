@@ -4,7 +4,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import introBg from './canyon_bg.svg';
+import introBg from './canyon_bg.png';
+import gliderImg from './hang_glider.png';
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function HelpIcon({ size = 16 }) {
@@ -28,6 +29,68 @@ function CalendarIcon({ size = 18 }) {
   );
 }
 
+function CleanGliderImage({ style }) {
+  const [cleanedSrc, setCleanedSrc] = React.useState(null);
+
+  React.useEffect(() => {
+    const img = new Image();
+    img.src = gliderImg;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      try {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+
+        const rBg = data[0];
+        const gBg = data[1];
+        const bBg = data[2];
+        const tolerance = 45;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const dist = Math.sqrt((r - rBg) ** 2 + (g - gBg) ** 2 + (b - bBg) ** 2);
+          if (dist < tolerance || (r > 240 && g > 240 && b > 240) || (r < 15 && g < 15 && b < 15)) {
+            data[i + 3] = 0;
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        setCleanedSrc(canvas.toDataURL());
+      } catch (e) {
+        console.error("Failed to clean preview glider", e);
+        setCleanedSrc(gliderImg);
+      }
+    };
+  }, []);
+
+  if (!cleanedSrc) {
+    // Fallback: original vector SVG glider
+    return (
+      <svg width="44" height="28" viewBox="0 0 44 28" fill="none" style={style}>
+        <path d="M 2 22 L 22 2 L 42 22 L 22 16 Z" fill="url(#gliderGrad)" stroke="#fff" strokeWidth="1" />
+        <path d="M 12 20 L 22 26 L 32 20" stroke="#E2E8F0" strokeWidth="1.5" />
+        <circle cx="22" cy="22" r="2.5" fill="#F59E0B" />
+        <defs>
+          <linearGradient id="gliderGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#60A5FA" />
+            <stop offset="100%" stopColor="#005BAC" />
+          </linearGradient>
+        </defs>
+      </svg>
+    );
+  }
+
+  return (
+    <img src={cleanedSrc} alt="Glider" style={{ ...style, objectFit: 'contain' }} />
+  );
+}
+
 /* ─── Decorative glider illustration for the home screen ────────── */
 function GliderPreview() {
   const containerW = 240;
@@ -43,7 +106,9 @@ function GliderPreview() {
         margin: '0 auto',
         borderRadius: 22,
         overflow: 'hidden',
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(14,79,148,0.55), rgba(5,26,58,0.85) 70%), #051a3a',
+        backgroundImage: `linear-gradient(rgba(5, 26, 58, 0.45), rgba(5, 26, 58, 0.85)), url(${introBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         animation: 'ls-float 4s ease-in-out infinite',
         filter: 'drop-shadow(0 22px 26px rgba(0, 0, 0, 0.4))',
         border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -90,19 +155,11 @@ function GliderPreview() {
         position: 'absolute', left: 40, top: '45%',
         width: 44, height: 28,
         animation: 'glider-soar 4s ease-in-out infinite',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}>
-        {/* Draw Glider SVG */}
-        <svg width="44" height="28" viewBox="0 0 44 28" fill="none">
-          <path d="M 2 22 L 22 2 L 42 22 L 22 16 Z" fill="url(#gliderGrad)" stroke="#fff" strokeWidth="1" />
-          <path d="M 12 20 L 22 26 L 32 20" stroke="#E2E8F0" strokeWidth="1.5" />
-          <circle cx="22" cy="22" r="2.5" fill="#F59E0B" />
-          <defs>
-            <linearGradient id="gliderGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#60A5FA" />
-              <stop offset="100%" stopColor="#005BAC" />
-            </linearGradient>
-          </defs>
-        </svg>
+        <CleanGliderImage style={{ width: '100%', height: '100%' }} />
       </div>
 
       {/* Wind trail lines */}
@@ -568,7 +625,9 @@ function TutGliderAnimation() {
         height: 180,
         borderRadius: 16,
         overflow: 'hidden',
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(14,79,148,0.55), rgba(5,26,58,0.85) 70%), #051a3a',
+        backgroundImage: `linear-gradient(rgba(5, 26, 58, 0.45), rgba(5, 26, 58, 0.85)), url(${introBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         border: '1px solid rgba(255, 255, 255, 0.1)',
         display: 'flex',
         alignItems: 'center',
@@ -606,18 +665,11 @@ function TutGliderAnimation() {
         position: 'absolute', left: 40, top: '40%',
         width: 44, height: 28,
         animation: 'tut-glider 4s linear infinite',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}>
-        <svg width="44" height="28" viewBox="0 0 44 28" fill="none">
-          <path d="M 2 22 L 22 2 L 42 22 L 22 16 Z" fill="url(#gliderGrad2)" stroke="#fff" strokeWidth="1" />
-          <path d="M 12 20 L 22 26 L 32 20" stroke="#E2E8F0" strokeWidth="1.5" />
-          <circle cx="22" cy="22" r="2.5" fill="#F59E0B" />
-          <defs>
-            <linearGradient id="gliderGrad2" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#60A5FA" />
-              <stop offset="100%" stopColor="#005BAC" />
-            </linearGradient>
-          </defs>
-        </svg>
+        <CleanGliderImage style={{ width: '100%', height: '100%' }} />
       </div>
 
       {/* Gesture Finger overlay */}
@@ -676,13 +728,13 @@ export function HowToPlayScreen({ onPlay }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px',
+        justifyContent: 'flex-start', // Fix: allow scroll to top
+        padding: '32px 24px',
         background: 'radial-gradient(ellipse at 50% 30%, rgba(14, 79, 148, 0.55), rgba(5, 26, 58, 0.85) 70%), #051a3a',
         overflowY: 'auto',
       }}
     >
-      <div className="tutorial-card" style={{ width: '100%', maxWidth: 360 }}>
+      <div className="tutorial-card" style={{ width: '100%', maxWidth: 360, margin: 'auto 0' }}>
         {/* Title */}
         <h2 style={{ fontSize: 26, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.02em', margin: '0 0 16px 0', color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center' }}>
           How to Play

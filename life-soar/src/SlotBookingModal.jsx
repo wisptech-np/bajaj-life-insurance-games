@@ -137,7 +137,7 @@ export default function SlotBookingModal({ initialName, initialMobile, score, on
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="modal-overlay">
-      <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: 'spring', damping: 22, stiffness: 200 }} className="ls-card" style={{ position: 'relative' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: 'spring', damping: 22, stiffness: 200 }} className="ls-card" style={{ position: 'relative', margin: 'auto 0' }}>
         <div className="ls-card-icon" aria-hidden="true">
           <CalendarIcon />
         </div>

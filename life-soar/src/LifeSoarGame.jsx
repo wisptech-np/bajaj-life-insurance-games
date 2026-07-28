@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import canyonBgImg from './canyon_bg.png';
+import gliderImg from './hang_glider.png';
 
 // Game Configuration
 const WORLD_M_TO_PX = 12; // 1m = 12 pixels
@@ -108,7 +110,7 @@ export default function LifeSoarGame({ onWin, onLose }) {
   const stateRef = useRef({
     isDiving: false,
     x: 100,
-    y: 250,
+    y: 320,
     vx: 6,
     vy: 0,
     coinsCollected: 0,
@@ -139,6 +141,61 @@ export default function LifeSoarGame({ onWin, onLose }) {
     return height - (Math.sin(x / 300) * 45 + Math.cos(x / 180) * 20 + 90);
   };
 
+  // Load generated images
+  const canyonBgRef = useRef(null);
+  const gliderImgRef = useRef(null);
+
+  useEffect(() => {
+    const bg = new Image();
+    bg.src = canyonBgImg;
+    bg.onload = () => {
+      canyonBgRef.current = bg;
+    };
+    const gld = new Image();
+    gld.src = gliderImg;
+    gld.onload = () => {
+      // Create offscreen canvas to remove the solid white/black background
+      const canvas = document.createElement('canvas');
+      canvas.width = gld.width;
+      canvas.height = gld.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(gld, 0, 0);
+
+      try {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+
+        // Get chroma key from top-left pixel (0,0)
+        const rBg = data[0];
+        const gBg = data[1];
+        const bBg = data[2];
+        const tolerance = 45;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+
+          const dist = Math.sqrt(
+            (r - rBg) ** 2 +
+            (g - gBg) ** 2 +
+            (b - bBg) ** 2
+          );
+
+          // Clear pixels that match key color, or are close to pure white/pure black
+          if (dist < tolerance || (r > 240 && g > 240 && b > 240) || (r < 15 && g < 15 && b < 15)) {
+            data[i + 3] = 0; // Alpha = 0 (Transparent)
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        gliderImgRef.current = canvas; // Store transparent canvas as the glider drawable
+      } catch (e) {
+        console.error("Failed to make glider transparent, falling back to original", e);
+        gliderImgRef.current = gld;
+      }
+    };
+  }, []);
+
   // Generate game layout once
   useEffect(() => {
     const state = stateRef.current;
@@ -146,46 +203,53 @@ export default function LifeSoarGame({ onWin, onLose }) {
     const shieldsList = [];
     const hazardsList = [];
 
-    // Pre-generate coins in waves and arcs
-    for (let x = 300; x < WORLD_WIDTH - 500; x += 150) {
+    // Pre-generate coins and shields in gaps between spikes, with spacing
+    const baseHeight = 660;
+    for (let x = 400; x < WORLD_WIDTH - 500; x += 550) {
       // Don't place right on milestones to prevent overlapping
-      const nearestMilestone = state.milestones.find(m => Math.abs(m.m * WORLD_M_TO_PX - x) < 300);
+      const nearestMilestone = state.milestones.find(m => Math.abs(m.m * WORLD_M_TO_PX - x) < 250);
       if (nearestMilestone) continue;
 
-      // Arc shape
-      const arcType = Math.floor((x / 150) % 3);
-      const count = 4;
-      for (let i = 0; i < count; i++) {
-        const cx = x + i * 25;
-        let cy = 250;
-        if (arcType === 0) {
-          // Sine arc
-          cy = 220 + Math.sin((i / (count - 1)) * Math.PI) * -60;
-        } else if (arcType === 1) {
-          // Bottom arc
-          cy = 280 + Math.sin((i / (count - 1)) * Math.PI) * 60;
-        } else {
-          // Diagonal
-          cy = 200 + i * 20;
-        }
-        coinsList.push({ x: cx, y: cy, radius: 10, collected: false });
-      }
-    }
+      const cyCeiling = getCeilingY(x, baseHeight);
+      const fyFloor = getFloorY(x, baseHeight);
+      const centerY = (cyCeiling + fyFloor) / 2; // ~320px
 
-    // Pre-generate shields every ~1500px
-    for (let x = 800; x < WORLD_WIDTH - 600; x += 1400) {
-      shieldsList.push({ x, y: 220 + Math.sin(x) * 40, radius: 12, collected: false });
+      // Spawn a shield instead of a coin cluster at periodic intervals (approx. 2200px)
+      if (x % 2200 === 0 || (x - 400) % 2200 === 0 && x > 800) {
+        shieldsList.push({ x, y: centerY + Math.sin(x) * 40, radius: 12, collected: false });
+      } else {
+        // Spawn small 3-coin cluster safely inside the navigable zone (around centerY)
+        const count = 3;
+        const pattern = Math.floor((x / 550) % 3); // 0: wave, 1: diagonal, 2: straight horizontal
+        
+        for (let i = 0; i < count; i++) {
+          const cx = x + i * 35;
+          let cy = centerY;
+          if (pattern === 0) {
+            cy = centerY - Math.sin((i / (count - 1)) * Math.PI) * 55;
+          } else if (pattern === 1) {
+            cy = centerY - 50 + i * 35;
+          } else {
+            cy = centerY;
+          }
+          coinsList.push({ x: cx, y: cy, radius: 10, collected: false });
+        }
+      }
     }
 
     // Pre-generate static ceiling/floor spikes & floating hazards
     for (let x = 500; x < WORLD_WIDTH - 300; x += 380) {
+      const cyCeiling = getCeilingY(x, baseHeight);
+      const fyFloor = getFloorY(x, baseHeight);
+      const centerY = (cyCeiling + fyFloor) / 2;
+
       // Bobbing floating virus
       if (x % 760 === 0) {
         hazardsList.push({
           type: 'float',
           x,
-          baseY: 250,
-          y: 250,
+          baseY: centerY,
+          y: centerY,
           bobSpeed: 0.03 + (x % 3) * 0.01,
           bobRange: 50 + (x % 2) * 20,
           radius: 14,
@@ -286,50 +350,61 @@ export default function LifeSoarGame({ onWin, onLose }) {
       const delta = timestamp - state.lastTime;
       state.lastTime = timestamp;
 
+      const GRACE_PERIOD_FRAMES = 120; // 2 seconds at 60fps
+
       if (!state.gameOver) {
         // --- 1. GLIDER PHYSICS ---
-        // Gravity
-        state.vy += 0.13;
-
-        if (state.isDiving) {
-          // Hold to Dive
-          state.vy += 0.28; // gain down momentum
-          state.vx = Math.min(state.vx + 0.16, 11); // gain horizontal speed
-          
-          // Spawn dive trail particles
-          if (Math.random() < 0.3) {
-            state.particles.push({
-              x: state.x - 15,
-              y: state.y + (Math.random() - 0.5) * 8,
-              vx: -state.vx * 0.4 + (Math.random() - 0.5),
-              vy: (Math.random() - 0.5) * 2,
-              color: 'rgba(242, 105, 34, 0.65)',
-              size: 3 + Math.random() * 4,
-              life: 1.0,
-              decay: 0.05
-            });
-          }
+        if (state.elapsedTime < GRACE_PERIOD_FRAMES && !state.isDiving) {
+          state.vy = 0;
+          state.vx = 6.0;
+          const cyCeiling = getCeilingY(state.x, height);
+          const fyFloor = getFloorY(state.x, height);
+          state.y = (cyCeiling + fyFloor) / 2; // lock to center
         } else {
-          // Release to lift (Convert speed to lift)
-          const excessSpeed = Math.max(0, state.vx - 5);
-          const lift = excessSpeed * 0.26;
-          state.vy -= lift;
-          
-          // Drag decelerates glider back to baseline speed
-          state.vx = Math.max(state.vx - 0.06, 4.8);
+          // Gravity
+          state.vy += 0.13;
 
-          // Spawn wind trail particles
-          if (Math.random() < 0.2) {
-            state.particles.push({
-              x: state.x - 15,
-              y: state.y + (Math.random() - 0.5) * 6,
-              vx: -state.vx * 0.5,
-              vy: state.vy * 0.2,
-              color: 'rgba(255, 255, 255, 0.45)',
-              size: 2 + Math.random() * 3,
-              life: 0.8,
-              decay: 0.04
-            });
+          if (state.isDiving) {
+            // Hold to Dive
+            state.vy += 0.28; // gain down momentum
+            state.vx = Math.min(state.vx + 0.16, 11); // gain horizontal speed
+            
+            // Spawn dive trail particles
+            if (Math.random() < 0.3) {
+              state.particles.push({
+                x: state.x - 15,
+                y: state.y + (Math.random() - 0.5) * 8,
+                vx: -state.vx * 0.4 + (Math.random() - 0.5),
+                vy: (Math.random() - 0.5) * 2,
+                color: 'rgba(242, 105, 34, 0.65)',
+                size: 3 + Math.random() * 4,
+                life: 1.0,
+                decay: 0.05
+              });
+            }
+          } else {
+            // Release to lift (Convert speed to lift)
+            const excessSpeed = Math.max(0, state.vx - 5.0);
+            const cruiseLift = 0.04; // small baseline (gravity is 0.13, so it naturally falls if slow)
+            const lift = cruiseLift + excessSpeed * 0.28;
+            state.vy -= lift;
+            
+            // Drag decelerates glider back to baseline speed
+            state.vx = Math.max(state.vx - 0.05, 4.8);
+
+            // Spawn wind trail particles
+            if (Math.random() < 0.2) {
+              state.particles.push({
+                x: state.x - 15,
+                y: state.y + (Math.random() - 0.5) * 6,
+                vx: -state.vx * 0.5,
+                vy: state.vy * 0.2,
+                color: 'rgba(255, 255, 255, 0.45)',
+                size: 2 + Math.random() * 3,
+                life: 0.8,
+                decay: 0.04
+              });
+            }
           }
         }
 
@@ -352,63 +427,66 @@ export default function LifeSoarGame({ onWin, onLose }) {
         }
 
         // --- 2. COLLISION WITH CANYON BOUNDS ---
-        const cy = getCeilingY(state.x, height);
-        const fy = getFloorY(state.x, height);
-        const gliderRadius = 14;
+        if (state.elapsedTime >= GRACE_PERIOD_FRAMES) {
+          const cy = getCeilingY(state.x, height);
+          const fy = getFloorY(state.x, height);
+          const gliderRadius = 14;
 
-        if (state.y - gliderRadius < cy || state.y + gliderRadius > fy) {
-          // Collision!
-          if (state.hasShield) {
-            // Shield protects from 1 crash
-            state.hasShield = false;
-            setHasShield(false);
-            playSynthSound('shield_break');
-            state.screenShake = 16;
-            
-            // Push player away from boundary
-            if (state.y - gliderRadius < cy) {
-              state.y = cy + gliderRadius + 5;
-              state.vy = 2;
+          if (state.y - gliderRadius < cy || state.y + gliderRadius > fy) {
+            // Collision!
+            if (state.hasShield) {
+              // Shield protects from 1 crash
+              state.hasShield = false;
+              setHasShield(false);
+              playSynthSound('shield_break');
+              state.screenShake = 16;
+              
+              // Push player away from boundary
+              if (state.y - gliderRadius < cy) {
+                state.y = cy + gliderRadius + 5;
+                state.vy = 2;
+              } else {
+                state.y = fy - gliderRadius - 5;
+                state.vy = -3;
+              }
+
+              // Create blast particles
+              for (let i = 0; i < 15; i++) {
+                state.particles.push({
+                  x: state.x,
+                  y: state.y,
+                  vx: (Math.random() - 0.5) * 8,
+                  vy: (Math.random() - 0.5) * 8,
+                  color: 'rgba(59, 141, 212, 0.8)',
+                  size: 4 + Math.random() * 5,
+                  life: 1.0,
+                  decay: 0.04
+                });
+              }
             } else {
-              state.y = fy - gliderRadius - 5;
-              state.vy = -3;
+              // Crash!
+              state.screenShake = 22;
+              playSynthSound('hit');
+              // Create explosion particles
+              for (let i = 0; i < 20; i++) {
+                state.particles.push({
+                  x: state.x,
+                  y: state.y,
+                  vx: (Math.random() - 0.5) * 10,
+                  vy: (Math.random() - 0.5) * 10,
+                  color: 'rgba(239, 68, 68, 0.85)',
+                  size: 5 + Math.random() * 6,
+                  life: 1.0,
+                  decay: 0.03
+                });
+              }
+              triggerEnd(false);
             }
-
-            // Create blast particles
-            for (let i = 0; i < 15; i++) {
-              state.particles.push({
-                x: state.x,
-                y: state.y,
-                vx: (Math.random() - 0.5) * 8,
-                vy: (Math.random() - 0.5) * 8,
-                color: 'rgba(59, 141, 212, 0.8)',
-                size: 4 + Math.random() * 5,
-                life: 1.0,
-                decay: 0.04
-              });
-            }
-          } else {
-            // Crash!
-            state.screenShake = 22;
-            playSynthSound('hit');
-            // Create explosion particles
-            for (let i = 0; i < 20; i++) {
-              state.particles.push({
-                x: state.x,
-                y: state.y,
-                vx: (Math.random() - 0.5) * 10,
-                vy: (Math.random() - 0.5) * 10,
-                color: 'rgba(239, 68, 68, 0.85)',
-                size: 5 + Math.random() * 6,
-                life: 1.0,
-                decay: 0.03
-              });
-            }
-            triggerEnd(false);
           }
         }
 
         // --- 3. ENTITY INTERACTIONS ---
+        const gliderRadius = 14;
         // Coin collection
         state.coins.forEach(c => {
           if (!c.collected && Math.hypot(state.x - c.x, state.y - c.y) < c.radius + gliderRadius) {
@@ -457,74 +535,76 @@ export default function LifeSoarGame({ onWin, onLose }) {
           }
         });
 
-        // Hazard Collision
-        state.hazards.forEach(h => {
-          // Compute dynamic coordinate for spikes
-          let hx = h.x;
-          let hy = h.y;
-          let hr = h.radius || 15;
+        // Hazard Collision (Disabled during grace period)
+        if (state.elapsedTime >= GRACE_PERIOD_FRAMES) {
+          state.hazards.forEach(h => {
+            // Compute dynamic coordinate for spikes
+            let hx = h.x;
+            let hy = h.y;
+            let hr = h.radius || 15;
 
-          if (h.type === 'ceiling_spike') {
-            hy = getCeilingY(hx, height);
-          } else if (h.type === 'floor_spike') {
-            hy = getFloorY(hx, height);
-          } else if (h.type === 'float') {
-            h.angle += h.bobSpeed;
-            h.y = h.baseY + Math.sin(h.angle) * h.bobRange;
-            hy = h.y;
-          }
-
-          // Simple distance check for float, or bbox/line for spikes
-          let collided = false;
-          if (h.type === 'float') {
-            collided = Math.hypot(state.x - hx, state.y - hy) < hr + gliderRadius;
-          } else {
-            // Triangle approximation spike collision
-            const distToSpikeTip = Math.hypot(state.x - hx, state.y - hy);
-            collided = distToSpikeTip < gliderRadius + 18;
-          }
-
-          if (collided) {
-            // Remove hazard to avoid multi-hitting
-            state.hazards = state.hazards.filter(item => item !== h);
-            
-            if (state.hasShield) {
-              state.hasShield = false;
-              setHasShield(false);
-              playSynthSound('shield_break');
-              state.screenShake = 14;
-              for (let i = 0; i < 12; i++) {
-                state.particles.push({
-                  x: state.x,
-                  y: state.y,
-                  vx: (Math.random() - 0.5) * 7,
-                  vy: (Math.random() - 0.5) * 7,
-                  color: 'rgba(59, 141, 212, 0.75)',
-                  size: 3 + Math.random() * 4,
-                  life: 1.0,
-                  decay: 0.06
-                });
-              }
-            } else {
-              // Crash
-              state.screenShake = 22;
-              playSynthSound('hit');
-              for (let i = 0; i < 18; i++) {
-                state.particles.push({
-                  x: state.x,
-                  y: state.y,
-                  vx: (Math.random() - 0.5) * 9,
-                  vy: (Math.random() - 0.5) * 9,
-                  color: 'rgba(220, 38, 38, 0.85)',
-                  size: 4.5 + Math.random() * 5.5,
-                  life: 1.0,
-                  decay: 0.04
-                });
-              }
-              triggerEnd(false);
+            if (h.type === 'ceiling_spike') {
+              hy = getCeilingY(hx, height);
+            } else if (h.type === 'floor_spike') {
+              hy = getFloorY(hx, height);
+            } else if (h.type === 'float') {
+              h.angle += h.bobSpeed;
+              h.y = h.baseY + Math.sin(h.angle) * h.bobRange;
+              hy = h.y;
             }
-          }
-        });
+
+            // Simple distance check for float, or bbox/line for spikes
+            let collided = false;
+            if (h.type === 'float') {
+              collided = Math.hypot(state.x - hx, state.y - hy) < hr + gliderRadius;
+            } else {
+              // Triangle approximation spike collision
+              const distToSpikeTip = Math.hypot(state.x - hx, state.y - hy);
+              collided = distToSpikeTip < gliderRadius + 18;
+            }
+
+            if (collided) {
+              // Remove hazard to avoid multi-hitting
+              state.hazards = state.hazards.filter(item => item !== h);
+              
+              if (state.hasShield) {
+                state.hasShield = false;
+                setHasShield(false);
+                playSynthSound('shield_break');
+                state.screenShake = 14;
+                for (let i = 0; i < 12; i++) {
+                  state.particles.push({
+                    x: state.x,
+                    y: state.y,
+                    vx: (Math.random() - 0.5) * 7,
+                    vy: (Math.random() - 0.5) * 7,
+                    color: 'rgba(59, 141, 212, 0.75)',
+                    size: 3 + Math.random() * 4,
+                    life: 1.0,
+                    decay: 0.06
+                  });
+                }
+              } else {
+                // Crash
+                state.screenShake = 22;
+                playSynthSound('hit');
+                for (let i = 0; i < 18; i++) {
+                  state.particles.push({
+                    x: state.x,
+                    y: state.y,
+                    vx: (Math.random() - 0.5) * 9,
+                    vy: (Math.random() - 0.5) * 9,
+                    color: 'rgba(220, 38, 38, 0.85)',
+                    size: 4.5 + Math.random() * 5.5,
+                    life: 1.0,
+                    decay: 0.04
+                  });
+                }
+                triggerEnd(false);
+              }
+            }
+          });
+        }
 
         // --- 4. MILESTONES DETECTION ---
         state.milestones.forEach(m => {
@@ -602,29 +682,41 @@ export default function LifeSoarGame({ onWin, onLose }) {
       ctx.fill();
       ctx.shadowBlur = 0; // reset
 
-      // Parallax Background Rock Layer 1 (Slowest)
-      ctx.fillStyle = 'rgba(10, 31, 74, 0.4)';
-      ctx.beginPath();
-      ctx.moveTo(0, height);
-      for (let px = 0; px <= width; px += 40) {
-        const worldX = px + state.cameraX * 0.2;
-        const py = height - 180 + Math.sin(worldX / 500) * 45 + Math.cos(worldX / 300) * 15;
-        ctx.lineTo(px, py);
-      }
-      ctx.lineTo(width, height);
-      ctx.fill();
+      // Draw background image
+      if (canyonBgRef.current) {
+        const bg = canyonBgRef.current;
+        const bgWidth = height * (bg.width / bg.height);
+        const bgScrollX = (state.cameraX * 0.3) % bgWidth;
+        ctx.save();
+        ctx.globalAlpha = 0.85; // nicely blends with the sky gradient and sun
+        ctx.drawImage(bg, -bgScrollX, 0, bgWidth, height);
+        ctx.drawImage(bg, -bgScrollX + bgWidth, 0, bgWidth, height);
+        ctx.restore();
+      } else {
+        // Fallback: Parallax Background Rock Layer 1 (Slowest)
+        ctx.fillStyle = 'rgba(10, 31, 74, 0.4)';
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        for (let px = 0; px <= width; px += 40) {
+          const worldX = px + state.cameraX * 0.2;
+          const py = height - 180 + Math.sin(worldX / 500) * 45 + Math.cos(worldX / 300) * 15;
+          ctx.lineTo(px, py);
+        }
+        ctx.lineTo(width, height);
+        ctx.fill();
 
-      // Parallax Background Rock Layer 2 (Mid-speed)
-      ctx.fillStyle = 'rgba(16, 48, 107, 0.6)';
-      ctx.beginPath();
-      ctx.moveTo(0, height);
-      for (let px = 0; px <= width; px += 30) {
-        const worldX = px + state.cameraX * 0.5;
-        const py = height - 130 + Math.sin(worldX / 300) * 35 + Math.cos(worldX / 160) * 10;
-        ctx.lineTo(px, py);
+        // Parallax Background Rock Layer 2 (Mid-speed)
+        ctx.fillStyle = 'rgba(16, 48, 107, 0.6)';
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        for (let px = 0; px <= width; px += 30) {
+          const worldX = px + state.cameraX * 0.5;
+          const py = height - 130 + Math.sin(worldX / 300) * 35 + Math.cos(worldX / 160) * 10;
+          ctx.lineTo(px, py);
+        }
+        ctx.lineTo(width, height);
+        ctx.fill();
       }
-      ctx.lineTo(width, height);
-      ctx.fill();
 
       // Draw Milestone Flags / Markers in background
       state.milestones.forEach(m => {
@@ -866,38 +958,45 @@ export default function LifeSoarGame({ onWin, onLose }) {
           ctx.shadowBlur = 0; // reset
         }
 
-        // Draw Glider Structure (Hang glider triangle shape)
-        // Main wing
-        ctx.beginPath();
-        ctx.moveTo(-22, 6);
-        ctx.lineTo(0, -16);
-        ctx.lineTo(22, 6);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
+        // Draw Glider (use loaded generated image or vector fallback)
+        if (gliderImgRef.current) {
+          // Draw generated hang glider sprite centered at (0, -4).
+          // The dimensions are scaled to preserve detail but fit the gameplay collision circle.
+          ctx.drawImage(gliderImgRef.current, -26, -20, 52, 34);
+        } else {
+          // Fallback: Draw Glider Structure (Hang glider triangle shape)
+          // Main wing
+          ctx.beginPath();
+          ctx.moveTo(-22, 6);
+          ctx.lineTo(0, -16);
+          ctx.lineTo(22, 6);
+          ctx.lineTo(0, 0);
+          ctx.closePath();
 
-        const gliderGrad = ctx.createLinearGradient(0, -16, 0, 6);
-        gliderGrad.addColorStop(0, '#60A5FA'); // Light blue
-        gliderGrad.addColorStop(1, '#005BAC'); // Deep brand blue
-        ctx.fillStyle = gliderGrad;
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
-        ctx.fill();
-        ctx.stroke();
+          const gliderGrad = ctx.createLinearGradient(0, -16, 0, 6);
+          gliderGrad.addColorStop(0, '#60A5FA'); // Light blue
+          gliderGrad.addColorStop(1, '#005BAC'); // Deep brand blue
+          ctx.fillStyle = gliderGrad;
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1.5;
+          ctx.fill();
+          ctx.stroke();
 
-        // Control bar & pilot
-        ctx.strokeStyle = '#E2E8F0';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-10, 4);
-        ctx.lineTo(0, 12);
-        ctx.lineTo(10, 4);
-        ctx.stroke();
+          // Control bar & pilot
+          ctx.strokeStyle = '#E2E8F0';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-10, 4);
+          ctx.lineTo(0, 12);
+          ctx.lineTo(10, 4);
+          ctx.stroke();
 
-        // Pilot body (head and backpack)
-        ctx.beginPath();
-        ctx.arc(0, 7, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#F59E0B'; // Orange helmet
-        ctx.fill();
+          // Pilot body (head and backpack)
+          ctx.beginPath();
+          ctx.arc(0, 7, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#F59E0B'; // Orange helmet
+          ctx.fill();
+        }
 
         ctx.restore();
       }
@@ -942,12 +1041,15 @@ export default function LifeSoarGame({ onWin, onLose }) {
       style={{
         position: 'relative',
         width: '100%',
-        height: '100%',
         maxWidth: 430,
-        margin: '0 auto',
+        aspectRatio: '430/660',
+        margin: 'auto',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
+        borderRadius: 20,
+        boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+        border: '1.5px solid rgba(255, 255, 255, 0.12)',
       }}
     >
       {/* Canvas */}
@@ -1056,44 +1158,40 @@ export default function LifeSoarGame({ onWin, onLose }) {
         </div>
       </div>
 
-      {/* --- MILESTONE POPUP BANNER --- */}
+      {/* --- MILESTONE COMPACT TOAST --- */}
       {activeMilestone && (
         <div
           style={{
             position: 'absolute',
-            top: '25%',
+            top: 78,
             left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '85%',
-            maxWidth: 320,
-            background: 'rgba(5, 26, 58, 0.85)',
-            WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-            backdropFilter: 'blur(20px) saturate(160%)',
-            border: `2px solid ${activeMilestone.color}`,
-            borderRadius: 18,
-            padding: '16px 14px',
+            transform: 'translateX(-50%)',
+            width: '90%',
+            maxWidth: 270,
+            background: 'rgba(5, 20, 48, 0.9)',
+            WebkitBackdropFilter: 'blur(12px) saturate(140%)',
+            backdropFilter: 'blur(12px) saturate(140%)',
+            border: `1.5px solid ${activeMilestone.color}`,
+            borderRadius: 14,
+            padding: '8px 12px',
             textAlign: 'center',
-            boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4), 0 0 16px ${activeMilestone.color}55`,
-            animation: 'ls-rise 300ms cubic-bezier(.2, .8, .2, 1) both',
+            boxShadow: `0 8px 24px rgba(0, 0, 0, 0.3), 0 0 8px ${activeMilestone.color}44`,
+            animation: 'ls-rise 250ms cubic-bezier(.2, .8, .2, 1) both',
             pointerEvents: 'none',
             zIndex: 20,
           }}
         >
           <div style={{
-            display: 'inline-flex', padding: '4px 10px', borderRadius: 999,
-            backgroundColor: `${activeMilestone.color}33`, color: activeMilestone.color,
-            fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: 6
+            display: 'inline-flex', padding: '2px 8px', borderRadius: 999,
+            backgroundColor: `${activeMilestone.color}22`, color: activeMilestone.color,
+            fontSize: 8, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 2
           }}>
             Stage Cleared
           </div>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 900, color: '#fff' }}>
-            {activeMilestone.name}
+          <h3 style={{ margin: '0 0 2px 0', fontSize: 13, fontWeight: 800, color: '#fff' }}>
+            {activeMilestone.name} <span style={{ fontWeight: 'normal', fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>({activeMilestone.m}m)</span>
           </h3>
-          <p style={{ margin: '0 0 8px 0', fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-            Reached at {activeMilestone.m}m!
-          </p>
-          <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.12)', margin: '0 12px 8px 12px' }} />
-          <p style={{ margin: 0, fontSize: 11, fontStyle: 'italic', color: '#60A5FA', fontWeight: 600 }}>
+          <p style={{ margin: 0, fontSize: 9.5, color: '#93C5FD', fontWeight: 500, lineHeight: 1.25 }}>
             💡 {activeMilestone.tip}
           </p>
         </div>

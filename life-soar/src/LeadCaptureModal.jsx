@@ -74,7 +74,7 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
   return (
     <>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="sl-lead-overlay">
-        <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: 'spring', damping: 22, stiffness: 200 }} className="sl-lead-card">
+        <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: 'spring', damping: 22, stiffness: 200 }} className="sl-lead-card" style={{ margin: 'auto 0' }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <h2 className="sl-lead-title">
               Enter Details

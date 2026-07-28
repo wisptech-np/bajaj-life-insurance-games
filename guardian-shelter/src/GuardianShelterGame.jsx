@@ -4,6 +4,11 @@ import React, { useRef, useEffect, useState } from 'react';
 import { COLORS, GAME_CONFIG, SHIELD_TYPES, MEMBER_TYPES, LEVELS } from './data.js';
 import { createGameLoop } from './kit/loop.js';
 import { haptic } from './kit/device.js';
+import guardianBgImg from './guardian_shelter_bg.png';
+import dadImg from './family_dad.png';
+import momImg from './family_mom.png';
+import kidImg from './family_kid.png';
+import grandpaImg from './family_grandpa.png';
 
 // Backing-store scale for the canvas. Capped at 2 because a 3x phone would
 // otherwise fill 2.09M pixels per frame for no visible gain on a 400px-wide
@@ -117,6 +122,64 @@ function playSound(type) {
 
 export default function GuardianShelterGame({ onWin, onLose }) {
   const canvasRef = useRef(null);
+
+  // Character and Background Image Refs
+  const bgImageRef = useRef(null);
+  const dadImageRef = useRef(null);
+  const momImageRef = useRef(null);
+  const kidImageRef = useRef(null);
+  const grandpaImageRef = useRef(null);
+
+  useEffect(() => {
+    // Load background
+    const bg = new Image();
+    bg.src = guardianBgImg;
+    bg.onload = () => {
+      bgImageRef.current = bg;
+    };
+
+    const cleanCharacterImage = (imgSrc, refObj) => {
+      const img = new Image();
+      img.src = imgSrc;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        try {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imgData.data;
+
+          const rBg = data[0];
+          const gBg = data[1];
+          const bBg = data[2];
+          const tolerance = 45;
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const dist = Math.sqrt((r - rBg) ** 2 + (g - gBg) ** 2 + (b - bBg) ** 2);
+            if (dist < tolerance || (r > 240 && g > 240 && b > 240) || (r < 15 && g < 15 && b < 15)) {
+              data[i + 3] = 0;
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+          refObj.current = canvas;
+        } catch (e) {
+          console.error("Failed to clean character image background", e);
+          refObj.current = img;
+        }
+      };
+    };
+
+    cleanCharacterImage(dadImg, dadImageRef);
+    cleanCharacterImage(momImg, momImageRef);
+    cleanCharacterImage(kidImg, kidImageRef);
+    cleanCharacterImage(grandpaImg, grandpaImageRef);
+  }, []);
   
   // React State for HUD & Screen UI
   const [levelIdx, setLevelIdx] = useState(0);
@@ -145,7 +208,13 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     lastTime: 0,
     roundWon: false,
     soundMuted: false,
+    trayShields: [],   // Added to prevent closure issues in game loop
   });
+
+  const updateTrayShields = (newShields) => {
+    setTrayShields(newShields);
+    stateRef.current.trayShields = newShields;
+  };
 
   const level = LEVELS[levelIdx];
 
@@ -232,7 +301,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       };
     });
 
-    setTrayShields([...lvl.shields]);
+    updateTrayShields([...lvl.shields]);
     setPlacedCount(0);
     setGameState('placement');
     ref.gameState = 'placement';
@@ -508,7 +577,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
 
         // Calculate score
         const savedCount = ref.family.filter(m => m.status === 'safe').length;
-        const unusedCount = trayShields.length;
+        const unusedCount = ref.trayShields.length;
         const added = (savedCount * GAME_CONFIG.scorePerMemberSaved) + (unusedCount * GAME_CONFIG.scorePerUnusedShield);
         ref.score += added;
         setScore(ref.score);
@@ -576,29 +645,33 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     const renderScale = canvas.width / GAME_CONFIG.fieldWidth;
     ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
 
-    // Clear Screen & Draw Deep Blue Sky Gradient
+    // Clear Screen & Draw Deep Blue Sky Gradient or Background Image
     ctx.clearRect(0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, GAME_CONFIG.fieldHeight);
-    bgGrad.addColorStop(0, COLORS.bgTop);
-    bgGrad.addColorStop(0.7, COLORS.bgMid);
-    bgGrad.addColorStop(1, '#001b38');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
+    if (bgImageRef.current) {
+      ctx.drawImage(bgImageRef.current, 0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
+    } else {
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, GAME_CONFIG.fieldHeight);
+      bgGrad.addColorStop(0, COLORS.bgTop);
+      bgGrad.addColorStop(0.7, COLORS.bgMid);
+      bgGrad.addColorStop(1, '#001b38');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
 
-    // Subtle background grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x < GAME_CONFIG.fieldWidth; x += 40) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, GAME_CONFIG.fieldHeight);
-      ctx.stroke();
-    }
-    for (let y = 0; y < GAME_CONFIG.fieldHeight; y += 40) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(GAME_CONFIG.fieldWidth, y);
-      ctx.stroke();
+      // Subtle background grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < GAME_CONFIG.fieldWidth; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, GAME_CONFIG.fieldHeight);
+        ctx.stroke();
+      }
+      for (let y = 0; y < GAME_CONFIG.fieldHeight; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(GAME_CONFIG.fieldWidth, y);
+        ctx.stroke();
+      }
     }
 
     // Draw Platforms
@@ -759,18 +832,38 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ctx.fillText("DRAG SHIELDS ONTO STAGE TO SHELTER FAMILY", GAME_CONFIG.fieldWidth / 2, GAME_CONFIG.trayY + 18);
 
       // Buttons
-      const count = trayShields.length;
-      trayShields.forEach((type, idx) => {
+      const count = ref.trayShields.length;
+      ref.trayShields.forEach((type, idx) => {
         const x = GAME_CONFIG.fieldWidth / 2 + (idx - (count - 1) / 2) * 80;
         const y = GAME_CONFIG.trayY + 50;
 
-        // Button background
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 1.5;
+        // Premium Button styling with glowing pulsing rings
+        const timeFactor = Date.now() / 1000;
+        const pulse = 24 + Math.sin(timeFactor * 5) * 1.5;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(30, 107, 224, 0.5)';
+        ctx.shadowBlur = 8 + Math.sin(timeFactor * 5) * 3;
+
+        const slotGrad = ctx.createRadialGradient(x, y, 2, x, y, 24);
+        slotGrad.addColorStop(0, 'rgba(30, 107, 224, 0.25)');
+        slotGrad.addColorStop(0.8, 'rgba(15, 23, 42, 0.9)');
+        slotGrad.addColorStop(1, 'rgba(30, 107, 224, 0.4)');
+
+        ctx.fillStyle = slotGrad;
+        ctx.strokeStyle = '#1E6BE0';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(x, y, 24, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // Extra pulsing outer ring
+        ctx.strokeStyle = 'rgba(30, 107, 224, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(x, y, pulse, 0, Math.PI * 2);
         ctx.stroke();
 
         // Mini preview inside button
@@ -927,121 +1020,170 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     const cx = m.x + shakeX;
     const cy = m.y + shakeY;
 
-    if (m.status === 'infected') {
-      // Sick/infected look
-      ctx.fillStyle = '#64748B';
-      ctx.beginPath();
-      ctx.arc(cx, cy, m.r, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // X eyes
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(cx - 5, cy - 5); ctx.lineTo(cx - 1, cy - 1);
-      ctx.moveTo(cx - 1, cy - 5); ctx.lineTo(cx - 5, cy - 1);
-      ctx.moveTo(cx + 1, cy - 5); ctx.lineTo(cx + 5, cy - 1);
-      ctx.moveTo(cx + 5, cy - 5); ctx.lineTo(cx + 1, cy - 1);
-      ctx.stroke();
+    // Retrieve image ref
+    let imgRef = null;
+    if (m.type === 'dad') imgRef = dadImageRef.current;
+    else if (m.type === 'mom') imgRef = momImageRef.current;
+    else if (m.type === 'kid') imgRef = kidImageRef.current;
+    else if (m.type === 'grandpa') imgRef = grandpaImageRef.current;
 
-      // Sad mouth
-      ctx.strokeStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(cx, cy + 5, 3, Math.PI, 0, false);
-      ctx.stroke();
-    } else {
+    if (imgRef) {
+      // 1. Draw a premium semi-transparent glowing backplate circle so they stand out
+      ctx.save();
       // Glow
-      ctx.shadowColor = 'rgba(255,255,255,0.1)';
-      ctx.shadowBlur = 8;
-
-      // 1. Body Coat
-      ctx.fillStyle = typeInfo.body;
+      ctx.shadowColor = m.status === 'infected' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(59, 130, 246, 0.8)';
+      ctx.shadowBlur = 14;
+      
+      // Outer ring
+      ctx.strokeStyle = m.status === 'infected' ? '#EF4444' : '#3B82F6';
+      ctx.lineWidth = 2.5;
+      
+      // Semi-transparent dark blue/slate backing fill
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      
       ctx.beginPath();
-      ctx.arc(cx, cy + m.r/2, m.r, Math.PI, 0); // half circle body
+      ctx.arc(cx, cy, m.r * 1.35, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
+      ctx.restore();
 
-      // Accent collar / tie
-      ctx.fillStyle = typeInfo.accent;
-      ctx.beginPath();
-      ctx.moveTo(cx - 4, cy + m.r/2);
-      ctx.lineTo(cx + 4, cy + m.r/2);
-      ctx.lineTo(cx, cy + m.r/2 + 8);
-      ctx.closePath();
-      ctx.fill();
+      // 2. Draw character image scaled larger (W: 3.4 * m.r)
+      const sizeW = m.r * 3.4;
+      const sizeH = m.r * 3.4;
+      ctx.drawImage(imgRef, cx - sizeW/2, cy - sizeH/2, sizeW, sizeH);
 
-      // 2. Head
-      ctx.fillStyle = typeInfo.skin;
-      ctx.beginPath();
-      ctx.arc(cx, cy - m.r/4, m.r * 0.72, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 3. Hair details
-      ctx.fillStyle = m.type === 'grandpa' ? '#E2E8F0' : '#475569';
-      if (m.type === 'grandpa') {
-        // Balding hair ring
+      // If infected, draw overlay + X eyes
+      if (m.status === 'infected') {
+        ctx.fillStyle = 'rgba(100, 116, 139, 0.7)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, m.r * 1.35, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#fff';
         ctx.lineWidth = 3;
-        ctx.strokeStyle = '#E2E8F0';
         ctx.beginPath();
-        ctx.arc(cx, cy - m.r/4, m.r * 0.75, Math.PI * 0.9, Math.PI * 0.1, true);
+        ctx.moveTo(cx - 7, cy - 7); ctx.lineTo(cx + 7, cy + 7);
+        ctx.moveTo(cx + 7, cy - 7); ctx.lineTo(cx - 7, cy + 7);
         ctx.stroke();
-      } else if (m.type === 'mom') {
-        // Long hair shape
+      }
+    } else {
+      // Fallback to original vector code
+      if (m.status === 'infected') {
+        // Sick/infected look
+        ctx.fillStyle = '#64748B';
         ctx.beginPath();
-        ctx.arc(cx, cy - m.r/4, m.r * 0.78, Math.PI * 1.1, Math.PI * 1.9);
-        ctx.lineTo(cx + m.r * 0.78, cy + m.r * 0.3);
-        ctx.lineTo(cx - m.r * 0.78, cy + m.r * 0.3);
+        ctx.arc(cx, cy, m.r, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // X eyes
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 5, cy - 5); ctx.lineTo(cx - 1, cy - 1);
+        ctx.moveTo(cx - 1, cy - 5); ctx.lineTo(cx - 5, cy - 1);
+        ctx.moveTo(cx + 1, cy - 5); ctx.lineTo(cx + 5, cy - 1);
+        ctx.moveTo(cx + 5, cy - 5); ctx.lineTo(cx + 1, cy - 1);
+        ctx.stroke();
+
+        // Sad mouth
+        ctx.strokeStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(cx, cy + 5, 3, Math.PI, 0, false);
+        ctx.stroke();
+      } else {
+        // Glow
+        ctx.shadowColor = 'rgba(255,255,255,0.1)';
+        ctx.shadowBlur = 8;
+
+        // 1. Body Coat
+        ctx.fillStyle = typeInfo.body;
+        ctx.beginPath();
+        ctx.arc(cx, cy + m.r/2, m.r, Math.PI, 0); // half circle body
+        ctx.fill();
+
+        // Accent collar / tie
+        ctx.fillStyle = typeInfo.accent;
+        ctx.beginPath();
+        ctx.moveTo(cx - 4, cy + m.r/2);
+        ctx.lineTo(cx + 4, cy + m.r/2);
+        ctx.lineTo(cx, cy + m.r/2 + 8);
         ctx.closePath();
         ctx.fill();
-      } else {
-        // Standard cap/hair
-        ctx.beginPath();
-        ctx.arc(cx, cy - m.r/3, m.r * 0.6, Math.PI, 0);
-        ctx.fill();
-      }
 
-      // 4. Face Expressions
-      const isScared = stateRef.current.emitter.active;
-      
-      // Eyes
-      ctx.fillStyle = '#0F172A';
-      if (isScared) {
-        // Wide circle eyes
+        // 2. Head
+        ctx.fillStyle = typeInfo.skin;
         ctx.beginPath();
-        ctx.arc(cx - 4, cy - m.r/4 - 1, 2, 0, Math.PI*2);
-        ctx.arc(cx + 4, cy - m.r/4 - 1, 2, 0, Math.PI*2);
+        ctx.arc(cx, cy - m.r/4, m.r * 0.72, 0, Math.PI * 2);
         ctx.fill();
-      } else {
-        // Happy dots
-        ctx.beginPath();
-        ctx.arc(cx - 3, cy - m.r/4, 1.5, 0, Math.PI*2);
-        ctx.arc(cx + 3, cy - m.r/4, 1.5, 0, Math.PI*2);
-        ctx.fill();
-      }
 
-      // Glasses for grandpa
-      if (m.type === 'grandpa') {
-        ctx.strokeStyle = '#FBBF24';
+        // 3. Hair details
+        ctx.fillStyle = m.type === 'grandpa' ? '#E2E8F0' : '#475569';
+        if (m.type === 'grandpa') {
+          // Balding hair ring
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = '#E2E8F0';
+          ctx.beginPath();
+          ctx.arc(cx, cy - m.r/4, m.r * 0.75, Math.PI * 0.9, Math.PI * 0.1, true);
+          ctx.stroke();
+        } else if (m.type === 'mom') {
+          // Long hair shape
+          ctx.beginPath();
+          ctx.arc(cx, cy - m.r/4, m.r * 0.78, Math.PI * 1.1, Math.PI * 1.9);
+          ctx.lineTo(cx + m.r * 0.78, cy + m.r * 0.3);
+          ctx.lineTo(cx - m.r * 0.78, cy + m.r * 0.3);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          // Standard cap/hair
+          ctx.beginPath();
+          ctx.arc(cx, cy - m.r/3, m.r * 0.6, Math.PI, 0);
+          ctx.fill();
+        }
+
+        // 4. Face Expressions
+        const isScared = stateRef.current.emitter.active;
+        
+        // Eyes
+        ctx.fillStyle = '#0F172A';
+        if (isScared) {
+          // Wide circle eyes
+          ctx.beginPath();
+          ctx.arc(cx - 4, cy - m.r/4 - 1, 2, 0, Math.PI*2);
+          ctx.arc(cx + 4, cy - m.r/4 - 1, 2, 0, Math.PI*2);
+          ctx.fill();
+        } else {
+          // Happy dots
+          ctx.beginPath();
+          ctx.arc(cx - 3, cy - m.r/4, 1.5, 0, Math.PI*2);
+          ctx.arc(cx + 3, cy - m.r/4, 1.5, 0, Math.PI*2);
+          ctx.fill();
+        }
+
+        // Glasses for grandpa
+        if (m.type === 'grandpa') {
+          ctx.strokeStyle = '#FBBF24';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx - 4, cy - m.r/4, 3.5, 0, Math.PI*2);
+          ctx.arc(cx + 4, cy - m.r/4, 3.5, 0, Math.PI*2);
+          ctx.stroke();
+        }
+
+        // Mouth
+        ctx.strokeStyle = '#0F172A';
         ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(cx - 4, cy - m.r/4, 3.5, 0, Math.PI*2);
-        ctx.arc(cx + 4, cy - m.r/4, 3.5, 0, Math.PI*2);
+        if (isScared) {
+          // Scared wavy line
+          ctx.moveTo(cx - 3, cy + 3);
+          ctx.quadraticCurveTo(cx, cy + 1, cx + 3, cy + 3);
+        } else {
+          // Big smile
+          ctx.arc(cx, cy, 4, 0, Math.PI, false);
+        }
         ctx.stroke();
       }
-
-      // Mouth
-      ctx.strokeStyle = '#0F172A';
-      ctx.lineWidth = 1.5;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      if (isScared) {
-        // Scared wavy line
-        ctx.moveTo(cx - 3, cy + 3);
-        ctx.quadraticCurveTo(cx, cy + 1, cx + 3, cy + 3);
-      } else {
-        // Big smile
-        ctx.arc(cx, cy, 4, 0, Math.PI, false);
-      }
-      ctx.stroke();
     }
     ctx.restore();
   };
@@ -1066,11 +1208,12 @@ export default function GuardianShelterGame({ onWin, onLose }) {
 
   // Drag Handlers
   const handlePointerDown = (e) => {
+    const ref = stateRef.current;
     if (gameState !== 'placement') return;
     const coords = getLogicalCoords(e);
     
     // Check if clicked in tray buttons
-    const count = trayShields.length;
+    const count = ref.trayShields.length;
     let clickedIdx = -1;
 
     for (let idx = 0; idx < count; idx++) {
@@ -1087,14 +1230,14 @@ export default function GuardianShelterGame({ onWin, onLose }) {
 
     if (clickedIdx !== -1) {
       // Start Dragging
-      const type = trayShields[clickedIdx];
-      stateRef.current.dragState = {
+      const type = ref.trayShields[clickedIdx];
+      ref.dragState = {
         type,
         x: coords.x,
         y: coords.y - 40, // Offset to prevent finger covering it
         index: clickedIdx
       };
-      if (!stateRef.current.soundMuted) playSound('click');
+      if (!ref.soundMuted) playSound('click');
     }
   };
 
@@ -1130,9 +1273,9 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     ref.shields.push(newShield);
     
     // Remove from tray list
-    const updatedTray = [...trayShields];
+    const updatedTray = [...ref.trayShields];
     updatedTray.splice(drag.index, 1);
-    setTrayShields(updatedTray);
+    updateTrayShields(updatedTray);
     setPlacedCount(prev => prev + 1);
 
     ref.dragState = null;
@@ -1160,7 +1303,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     if (gameState !== 'placement' || ref.shields.length === 0) return;
 
     const last = ref.shields.pop();
-    setTrayShields(prev => [...prev, last.type]);
+    updateTrayShields([...ref.trayShields, last.type]);
     setPlacedCount(prev => Math.max(0, prev - 1));
     if (!ref.soundMuted) playSound('click');
   };
@@ -1230,44 +1373,56 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       <div style={{
         width: '100%',
         maxWidth: 400,
-        height: 60,
+        height: 64,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: 'rgba(15, 23, 42, 0.45)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: 14,
-        padding: '0 16px',
+        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
+        border: '1.5px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+        borderRadius: 16,
+        padding: '0 18px',
         boxSizing: 'border-box',
-        marginBottom: 10,
-        backdropFilter: 'blur(10px)'
+        marginBottom: 12,
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)'
       }}>
         {/* Level and Storm Warn */}
         <div>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: '#94A3B8', letterSpacing: '0.1em' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: '#94A3B8', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
             Round {levelIdx + 1} of {GAME_CONFIG.totalRounds}
           </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#fff' }}>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', marginTop: 1 }}>
             {level.name}
           </div>
         </div>
 
         {/* Timer Countdown */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', color: '#FF8A3D', letterSpacing: '0.12em' }}>
-            TIME REMAINING
+          <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', color: '#FF8A3D', letterSpacing: '0.12em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            Time Remaining
           </div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', marginTop: 1 }}>
             {timeLeft}s
           </div>
         </div>
 
         {/* Score Counter */}
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', color: '#1E6BE0', letterSpacing: '0.12em' }}>
-            TOTAL SCORE
+          <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', color: '#1E6BE0', letterSpacing: '0.12em', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            Total Score
           </div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: '#28A745', fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: '#28A745', fontVariantNumeric: 'tabular-nums', marginTop: 1 }}>
             {score.toLocaleString()}
           </div>
         </div>
@@ -1536,18 +1691,32 @@ export default function GuardianShelterGame({ onWin, onLose }) {
           disabled={gameState !== 'placement' || placedCount === 0}
           style={{
             flex: 1,
-            height: 50,
-            borderRadius: 12,
-            background: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
-            border: '1.5px solid rgba(255,255,255,0.15)',
-            color: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.3)' : '#fff',
-            fontSize: 15,
+            height: 52,
+            borderRadius: 14,
+            background: placedCount === 0 || gameState !== 'placement' 
+              ? 'rgba(15, 23, 42, 0.3)' 
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
+            border: placedCount === 0 || gameState !== 'placement'
+              ? '1.5px solid rgba(255, 255, 255, 0.05)'
+              : '1.5px solid rgba(255, 255, 255, 0.18)',
+            color: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.22)' : '#fff',
+            fontSize: 14,
             fontWeight: 800,
+            letterSpacing: '0.05em',
             textTransform: 'uppercase',
             cursor: placedCount === 0 || gameState !== 'placement' ? 'not-allowed' : 'pointer',
-            transition: 'all 0.15s ease'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
           }}
+          className="undo-btn"
         >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7v6h6" />
+            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+          </svg>
           Undo
         </button>
 
@@ -1557,23 +1726,31 @@ export default function GuardianShelterGame({ onWin, onLose }) {
           disabled={gameState !== 'placement' || placedCount === 0}
           style={{
             flex: 2,
-            height: 50,
+            height: 52,
             border: 'none',
-            borderRadius: 12,
+            borderRadius: 14,
             background: placedCount === 0 || gameState !== 'placement'
-              ? 'rgba(239, 68, 68, 0.2)' 
-              : 'linear-gradient(180deg, #EF4444 0%, #C2470F 100%)',
+              ? 'rgba(239, 68, 68, 0.15)' 
+              : 'linear-gradient(135deg, #EF4444 0%, #D97706 100%)',
             boxShadow: placedCount === 0 || gameState !== 'placement'
               ? 'none' 
-              : '0 4px 15px rgba(239, 68, 68, 0.4)',
+              : '0 6px 20px rgba(239, 68, 68, 0.35)',
             color: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.3)' : '#fff',
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: 900,
+            letterSpacing: '0.07em',
             textTransform: 'uppercase',
             cursor: placedCount === 0 || gameState !== 'placement' ? 'not-allowed' : 'pointer',
-            transition: 'all 0.15s ease'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
           }}
+          className="storm-btn"
         >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
           Start Storm
         </button>
       </div>
