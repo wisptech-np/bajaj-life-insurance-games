@@ -2010,5 +2010,28 @@ body,
   }
 }
 
+/* Guardian Shelter premium button interactions */
+.undo-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.undo-btn:not(:disabled):hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25) !important;
+}
+.undo-btn:not(:disabled):active {
+  transform: translateY(0);
+}
 
-
+.storm-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.storm-btn:not(:disabled):hover {
+  background: linear-gradient(135deg, #FF5555 0%, #EA880A 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.55) !important;
+}
+.storm-btn:not(:disabled):active {
+  transform: translateY(0);
+}

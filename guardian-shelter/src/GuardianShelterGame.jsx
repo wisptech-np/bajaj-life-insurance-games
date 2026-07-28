@@ -145,7 +145,13 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     lastTime: 0,
     roundWon: false,
     soundMuted: false,
+    trayShields: [],   // Added to prevent closure issues in game loop
   });
+
+  const updateTrayShields = (newShields) => {
+    setTrayShields(newShields);
+    stateRef.current.trayShields = newShields;
+  };
 
   const level = LEVELS[levelIdx];
 
@@ -232,7 +238,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       };
     });
 
-    setTrayShields([...lvl.shields]);
+    updateTrayShields([...lvl.shields]);
     setPlacedCount(0);
     setGameState('placement');
     ref.gameState = 'placement';
@@ -508,7 +514,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
 
         // Calculate score
         const savedCount = ref.family.filter(m => m.status === 'safe').length;
-        const unusedCount = trayShields.length;
+        const unusedCount = ref.trayShields.length;
         const added = (savedCount * GAME_CONFIG.scorePerMemberSaved) + (unusedCount * GAME_CONFIG.scorePerUnusedShield);
         ref.score += added;
         setScore(ref.score);
@@ -759,18 +765,38 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ctx.fillText("DRAG SHIELDS ONTO STAGE TO SHELTER FAMILY", GAME_CONFIG.fieldWidth / 2, GAME_CONFIG.trayY + 18);
 
       // Buttons
-      const count = trayShields.length;
-      trayShields.forEach((type, idx) => {
+      const count = ref.trayShields.length;
+      ref.trayShields.forEach((type, idx) => {
         const x = GAME_CONFIG.fieldWidth / 2 + (idx - (count - 1) / 2) * 80;
         const y = GAME_CONFIG.trayY + 50;
 
-        // Button background
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 1.5;
+        // Premium Button styling with glowing pulsing rings
+        const timeFactor = Date.now() / 1000;
+        const pulse = 24 + Math.sin(timeFactor * 5) * 1.5;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(30, 107, 224, 0.5)';
+        ctx.shadowBlur = 8 + Math.sin(timeFactor * 5) * 3;
+
+        const slotGrad = ctx.createRadialGradient(x, y, 2, x, y, 24);
+        slotGrad.addColorStop(0, 'rgba(30, 107, 224, 0.25)');
+        slotGrad.addColorStop(0.8, 'rgba(15, 23, 42, 0.9)');
+        slotGrad.addColorStop(1, 'rgba(30, 107, 224, 0.4)');
+
+        ctx.fillStyle = slotGrad;
+        ctx.strokeStyle = '#1E6BE0';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(x, y, 24, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // Extra pulsing outer ring
+        ctx.strokeStyle = 'rgba(30, 107, 224, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(x, y, pulse, 0, Math.PI * 2);
         ctx.stroke();
 
         // Mini preview inside button
@@ -1066,11 +1092,12 @@ export default function GuardianShelterGame({ onWin, onLose }) {
 
   // Drag Handlers
   const handlePointerDown = (e) => {
+    const ref = stateRef.current;
     if (gameState !== 'placement') return;
     const coords = getLogicalCoords(e);
     
     // Check if clicked in tray buttons
-    const count = trayShields.length;
+    const count = ref.trayShields.length;
     let clickedIdx = -1;
 
     for (let idx = 0; idx < count; idx++) {
@@ -1087,14 +1114,14 @@ export default function GuardianShelterGame({ onWin, onLose }) {
 
     if (clickedIdx !== -1) {
       // Start Dragging
-      const type = trayShields[clickedIdx];
-      stateRef.current.dragState = {
+      const type = ref.trayShields[clickedIdx];
+      ref.dragState = {
         type,
         x: coords.x,
         y: coords.y - 40, // Offset to prevent finger covering it
         index: clickedIdx
       };
-      if (!stateRef.current.soundMuted) playSound('click');
+      if (!ref.soundMuted) playSound('click');
     }
   };
 
@@ -1130,9 +1157,9 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     ref.shields.push(newShield);
     
     // Remove from tray list
-    const updatedTray = [...trayShields];
+    const updatedTray = [...ref.trayShields];
     updatedTray.splice(drag.index, 1);
-    setTrayShields(updatedTray);
+    updateTrayShields(updatedTray);
     setPlacedCount(prev => prev + 1);
 
     ref.dragState = null;
@@ -1160,7 +1187,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     if (gameState !== 'placement' || ref.shields.length === 0) return;
 
     const last = ref.shields.pop();
-    setTrayShields(prev => [...prev, last.type]);
+    updateTrayShields([...ref.trayShields, last.type]);
     setPlacedCount(prev => Math.max(0, prev - 1));
     if (!ref.soundMuted) playSound('click');
   };
@@ -1230,44 +1257,56 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       <div style={{
         width: '100%',
         maxWidth: 400,
-        height: 60,
+        height: 64,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: 'rgba(15, 23, 42, 0.45)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: 14,
-        padding: '0 16px',
+        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
+        border: '1.5px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+        borderRadius: 16,
+        padding: '0 18px',
         boxSizing: 'border-box',
-        marginBottom: 10,
-        backdropFilter: 'blur(10px)'
+        marginBottom: 12,
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)'
       }}>
         {/* Level and Storm Warn */}
         <div>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: '#94A3B8', letterSpacing: '0.1em' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: '#94A3B8', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
             Round {levelIdx + 1} of {GAME_CONFIG.totalRounds}
           </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#fff' }}>
+          <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', marginTop: 1 }}>
             {level.name}
           </div>
         </div>
 
         {/* Timer Countdown */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', color: '#FF8A3D', letterSpacing: '0.12em' }}>
-            TIME REMAINING
+          <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', color: '#FF8A3D', letterSpacing: '0.12em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            Time Remaining
           </div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', marginTop: 1 }}>
             {timeLeft}s
           </div>
         </div>
 
         {/* Score Counter */}
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', color: '#1E6BE0', letterSpacing: '0.12em' }}>
-            TOTAL SCORE
+          <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', color: '#1E6BE0', letterSpacing: '0.12em', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            Total Score
           </div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: '#28A745', fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: '#28A745', fontVariantNumeric: 'tabular-nums', marginTop: 1 }}>
             {score.toLocaleString()}
           </div>
         </div>
@@ -1536,18 +1575,32 @@ export default function GuardianShelterGame({ onWin, onLose }) {
           disabled={gameState !== 'placement' || placedCount === 0}
           style={{
             flex: 1,
-            height: 50,
-            borderRadius: 12,
-            background: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
-            border: '1.5px solid rgba(255,255,255,0.15)',
-            color: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.3)' : '#fff',
-            fontSize: 15,
+            height: 52,
+            borderRadius: 14,
+            background: placedCount === 0 || gameState !== 'placement' 
+              ? 'rgba(15, 23, 42, 0.3)' 
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
+            border: placedCount === 0 || gameState !== 'placement'
+              ? '1.5px solid rgba(255, 255, 255, 0.05)'
+              : '1.5px solid rgba(255, 255, 255, 0.18)',
+            color: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.22)' : '#fff',
+            fontSize: 14,
             fontWeight: 800,
+            letterSpacing: '0.05em',
             textTransform: 'uppercase',
             cursor: placedCount === 0 || gameState !== 'placement' ? 'not-allowed' : 'pointer',
-            transition: 'all 0.15s ease'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
           }}
+          className="undo-btn"
         >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7v6h6" />
+            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+          </svg>
           Undo
         </button>
 
@@ -1557,23 +1610,31 @@ export default function GuardianShelterGame({ onWin, onLose }) {
           disabled={gameState !== 'placement' || placedCount === 0}
           style={{
             flex: 2,
-            height: 50,
+            height: 52,
             border: 'none',
-            borderRadius: 12,
+            borderRadius: 14,
             background: placedCount === 0 || gameState !== 'placement'
-              ? 'rgba(239, 68, 68, 0.2)' 
-              : 'linear-gradient(180deg, #EF4444 0%, #C2470F 100%)',
+              ? 'rgba(239, 68, 68, 0.15)' 
+              : 'linear-gradient(135deg, #EF4444 0%, #D97706 100%)',
             boxShadow: placedCount === 0 || gameState !== 'placement'
               ? 'none' 
-              : '0 4px 15px rgba(239, 68, 68, 0.4)',
+              : '0 6px 20px rgba(239, 68, 68, 0.35)',
             color: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.3)' : '#fff',
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: 900,
+            letterSpacing: '0.07em',
             textTransform: 'uppercase',
             cursor: placedCount === 0 || gameState !== 'placement' ? 'not-allowed' : 'pointer',
-            transition: 'all 0.15s ease'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
           }}
+          className="storm-btn"
         >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
           Start Storm
         </button>
       </div>
