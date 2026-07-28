@@ -12,7 +12,7 @@ const IntroScreen: React.FC<Props> = ({ onPlay }) => {
     <div
       className="relative flex h-full w-full flex-col justify-between px-6 py-8"
       style={{
-        backgroundImage: "url('/landing_bg.png')",
+        backgroundImage: "url('/landing_bg.svg')",
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}

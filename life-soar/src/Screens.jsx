@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import introBg from './bb_bg.webp';
+import introBg from './canyon_bg.svg';
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function HelpIcon({ size = 16 }) {

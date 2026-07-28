@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" preserveAspectRatio="xMidYMid slice" width="1080" height="1920" role="img" aria-label="Golden hour canyon vista">
+  <title>Life Soar — intro backdrop</title>
+  <desc>Flat vector canyon at golden hour. Three parallax canyon wall bands with warm rim light, open sky in the upper portion for the title. No glider: it is drawn at runtime on canvas.</desc>
+
+  <defs>
+    <!-- Open sky: deep blue overhead falling to warm gold at the horizon. -->
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#062043"/>
+      <stop offset="0.28" stop-color="#0A3170"/>
+      <stop offset="0.55" stop-color="#1A56A8"/>
+      <stop offset="0.78" stop-color="#7A86A8"/>
+      <stop offset="0.92" stop-color="#E8A05C"/>
+      <stop offset="1"    stop-color="#F5C07A"/>
+    </linearGradient>
+
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#FFE2B0" stop-opacity="0.95"/>
+      <stop offset="0.35" stop-color="#F5A85A" stop-opacity="0.5"/>
+      <stop offset="1"   stop-color="#F26522" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Canyon walls: hazy blue far, warm and saturated near. -->
+    <linearGradient id="wallFar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6E86B4"/>
+      <stop offset="1" stop-color="#4A5F8E"/>
+    </linearGradient>
+    <linearGradient id="wallMid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B4703C"/>
+      <stop offset="0.5" stop-color="#7C4526"/>
+      <stop offset="1" stop-color="#43241A"/>
+    </linearGradient>
+    <linearGradient id="wallNear" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5E2F1C"/>
+      <stop offset="0.45" stop-color="#331A12"/>
+      <stop offset="1" stop-color="#140A08"/>
+    </linearGradient>
+
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8A5A34" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#2A1710" stop-opacity="0.9"/>
+    </linearGradient>
+
+    <radialGradient id="vignette" cx="0.5" cy="0.42" r="0.8">
+      <stop offset="0"    stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.6"  stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#000000" stop-opacity="0.5"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Open sky. Upper 45% stays clear for the title. -->
+  <rect width="1080" height="1920" fill="url(#sky)"/>
+  <ellipse cx="540" cy="1520" rx="620" ry="430" fill="url(#sun)"/>
+
+  <!-- Canyon floor haze at the vanishing point -->
+  <path d="M0 1560 L400 1400 L680 1400 L1080 1560 L1080 1920 L0 1920 Z" fill="url(#floor)"/>
+
+  <!-- Far walls — hazy, low contrast, receding to the horizon -->
+  <g fill="url(#wallFar)" opacity="0.65">
+    <path d="M0 1180 L96 1240 L188 1204 L286 1288 L372 1320 L432 1394 L400 1400 L0 1560 Z"/>
+    <path d="M1080 1160 L992 1228 L900 1188 L802 1276 L716 1312 L654 1392 L680 1400 L1080 1560 Z"/>
+  </g>
+
+  <!-- Mid walls — warm rock, the main colour statement -->
+  <g fill="url(#wallMid)">
+    <path d="M0 1268 L74 1330 L150 1296 L238 1372 L318 1400 L392 1470 L436 1560 L0 1740 Z"/>
+    <path d="M1080 1244 L1012 1312 L936 1276 L846 1356 L768 1390 L692 1462 L648 1556 L1080 1736 Z"/>
+  </g>
+
+  <!-- Near walls — darkest, framing the composition -->
+  <g fill="url(#wallNear)">
+    <path d="M0 1420 L58 1486 L128 1450 L206 1534 L272 1580 L330 1668 L360 1780 L338 1920 L0 1920 Z"/>
+    <path d="M1080 1396 L1026 1468 L954 1430 L874 1518 L806 1566 L748 1656 L718 1772 L742 1920 L1080 1920 Z"/>
+  </g>
+
+  <!-- Warm rim light catching the nearest canyon edges -->
+  <g stroke="#F26522" fill="none" opacity="0.5" stroke-linecap="round">
+    <path d="M0 1420 L58 1486 L128 1450 L206 1534 L272 1580 L330 1668" stroke-width="5"/>
+    <path d="M1080 1396 L1026 1468 L954 1430 L874 1518 L806 1566 L748 1656" stroke-width="5"/>
+  </g>
+  <g stroke="#F5A85A" fill="none" opacity="0.32" stroke-linecap="round">
+    <path d="M0 1268 L74 1330 L150 1296 L238 1372 L318 1400" stroke-width="3.5"/>
+    <path d="M1080 1244 L1012 1312 L936 1276 L846 1356 L768 1390" stroke-width="3.5"/>
+  </g>
+
+  <rect width="1080" height="1920" fill="url(#vignette)"/>
+</svg>

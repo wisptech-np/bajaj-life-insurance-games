@@ -16,10 +16,19 @@ import { BALANCE } from './config.js';
 
 /**
  * @param {object} opts
- * @param {(dt:number)=>void}    opts.update       Fixed-step physics tick. dt is always fixedStep.
+ * @param {(dt:number)=>void}    opts.update       Physics tick.
  * @param {(alpha:number)=>void} opts.render       Draw. alpha = 0..1 interpolation into the next step.
+ * @param {'fixed'|'variable'} [opts.stepMode='fixed']
+ *        'fixed'    — update() is called 0..n times per frame with dt === fixedStep.
+ *                     Deterministic; use for new physics written against it.
+ *        'variable' — update() is called exactly once per frame with the clamped
+ *                     frame delta. Use for physics that was tuned per-frame:
+ *                     forcing it to a different rate silently changes any term
+ *                     that is not dt-scaled (damping, friction, iteration counts).
  * @param {number}  [opts.sessionSeconds]          Session length. Omit for an untimed loop.
  * @param {(remaining:number)=>void} [opts.onTick] Called when the whole-second countdown changes.
+ * @param {()=>boolean} [opts.shouldTickClock]     Return false to hold the session clock
+ *                                                 (e.g. while a round-complete panel is open).
  * @param {()=>void} [opts.onExpire]               Called once when the session clock hits zero.
  * @param {(paused:boolean)=>void} [opts.onPause]  Called when auto-pause engages or releases.
  * @param {(tier:string)=>void} [opts.onSlow]      Called if sustained frame times suggest a downgrade.
@@ -27,8 +36,10 @@ import { BALANCE } from './config.js';
 export function createGameLoop({
   update,
   render,
+  stepMode = 'fixed',
   sessionSeconds = null,
   onTick = null,
+  shouldTickClock = null,
   onExpire = null,
   onPause = null,
   onSlow = null,
@@ -62,6 +73,9 @@ export function createGameLoop({
       // Keep the timestamp fresh so the first frame after resume has a normal
       // delta instead of a multi-second jump.
       lastTime = timestamp;
+      // Still draw. Skipping render leaves the last frame on screen, which is
+      // indistinguishable from a crash if anything pauses unexpectedly.
+      render(0);
       return;
     }
 
@@ -86,8 +100,9 @@ export function createGameLoop({
       }
     }
 
-    // Session clock advances with real gameplay time only.
-    if (remaining !== null && !expired) {
+    // Session clock advances with real gameplay time only, and only while the
+    // game says it should (a round-complete panel holds it).
+    if (remaining !== null && !expired && (shouldTickClock === null || shouldTickClock())) {
       remaining = Math.max(0, remaining - elapsed);
       const whole = Math.ceil(remaining);
       if (whole !== lastWholeSecond) {
@@ -98,6 +113,12 @@ export function createGameLoop({
         expired = true;
         onExpire?.();
       }
+    }
+
+    if (stepMode === 'variable') {
+      update(elapsed);
+      render(0);
+      return;
     }
 
     accumulator += elapsed;
@@ -122,19 +143,20 @@ export function createGameLoop({
     onPause?.(isPaused());
   };
 
-  // blur/pagehide catch cases visibilitychange misses (iOS app switcher, some
-  // Android launchers) where the page stays "visible" but stops compositing.
-  const handleBlur = () => {
+  // Deliberately NOT pausing on window blur.
+  //
+  // blur fires for entirely benign desktop reasons — opening devtools, clicking
+  // another window or a second monitor, focusing the address bar — none of which
+  // stop requestAnimationFrame. Pausing on blur makes the game appear frozen
+  // during normal use and, if a matching focus event never arrives (focus landed
+  // in devtools or another frame), it never resumes.
+  //
+  // visibilitychange is the signal that actually corresponds to rAF halting, so
+  // it is the only auto-pause trigger. pagehide is kept purely for teardown.
+  const handlePageHide = () => {
     if (hidden) return;
     hidden = true;
     onPause?.(true);
-  };
-  const handleFocus = () => {
-    if (document.visibilityState === 'hidden') return;
-    if (!hidden) return;
-    hidden = false;
-    accumulator = 0;
-    onPause?.(isPaused());
   };
 
   return {
@@ -144,9 +166,7 @@ export function createGameLoop({
       lastTime = performance.now();
       accumulator = 0;
       document.addEventListener('visibilitychange', handleVisibility);
-      window.addEventListener('blur', handleBlur);
-      window.addEventListener('focus', handleFocus);
-      window.addEventListener('pagehide', handleBlur);
+      window.addEventListener('pagehide', handlePageHide);
       rafId = requestAnimationFrame(frame);
     },
 
@@ -155,9 +175,7 @@ export function createGameLoop({
       if (rafId !== null) cancelAnimationFrame(rafId);
       rafId = null;
       document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('pagehide', handleBlur);
+      window.removeEventListener('pagehide', handlePageHide);
     },
 
     /** Player-facing pause (pause button, modal open). */

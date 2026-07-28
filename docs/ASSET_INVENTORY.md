@@ -15,20 +15,31 @@ governed by *rendering code*, and the biggest visual defect found was a missing 
 
 ## Binary assets
 
-| File | Size | Used? | Bundled? | Verdict | Target |
-|---|---|---|---|---|---|
-| `tightrope-protection/public/thumbnail.png` | 853 KB | **No code reference** | **Yes** — `public/` copies to `dist/` regardless | **Confirm then remove** | — |
-| `tightrope-protection/public/landing_bg.png` | 532 KB | Yes — `components/IntroScreen.tsx:15` | Yes | **Replace with WebP** | WebP q80, ≤160 KB, 1080×1920 |
-| `life-soar/src/bb_bg.webp` | 201 KB | Yes — `src/Screens.jsx:7` | Yes | **Optimise + rename** | WebP q75, ≤120 KB; rename off the `bb_` bubble-shooter prefix |
-| `life-soar/src/game_background.webp` | 79 KB | **No** | **No** — unimported files in `src/` are not bundled | **Delete (hygiene only)** | — |
+### Resolved in this pass
 
-Notes on the two "remove" rows:
+| File | Was | Now | Saving |
+|---|---|---|---|
+| `tightrope-protection/public/landing_bg.png` | 532 KB PNG | **`landing_bg.svg`** — hand-authored flat-vector dusk skyline | ~529 KB |
+| `life-soar/src/bb_bg.webp` | 201 KB WebP | **`canyon_bg.svg`** — hand-authored golden-hour canyon | 201 KB → 4.24 KB raw / **1.37 KB gzip** |
+| `life-soar/src/game_background.webp` | 79 KB, unreferenced | deleted | repo hygiene (was never bundled) |
 
-- `thumbnail.png` is the only real payload win (853 KB shipped for nothing *in this repo*). It is
-  **not** deleted in this pass: a file served at `/thumbnail.png` is exactly what an external game-store
-  listing or OG card would point at, and that reference would live outside this repository. Confirm with
-  whoever owns the listing, then delete.
-- `game_background.webp` costs nothing at runtime. Removing it is tidiness, not optimisation.
+Both replacements are SVG rather than raster. For flat-vector art of this kind that is strictly
+better: resolution-independent at every DPR (no retina blur), a fraction of the bytes, no
+`@1x/@2x` variants to maintain, and editable in-repo. References updated in
+`components/IntroScreen.tsx` and `src/Screens.jsx`. Both games rebuild clean.
+
+The `bb_` prefix — inherited from the deleted bubble-shooter — is gone with the rename.
+
+### Outstanding
+
+| File | Size | Used? | Bundled? | Verdict |
+|---|---|---|---|---|
+| `tightrope-protection/public/thumbnail.png` | 853 KB | **No code reference** | **Yes** — `public/` copies to `dist/` regardless | **Confirm then remove** |
+
+`thumbnail.png` is now the only remaining raster and the largest single payload item. It is
+deliberately **not** deleted: a file served at `/thumbnail.png` is exactly what an external
+game-store listing or OG card would point at, and that reference would live outside this
+repository. Confirm with whoever owns the listing, then delete for a further 853 KB.
 
 ## Procedural / code-drawn assets
 

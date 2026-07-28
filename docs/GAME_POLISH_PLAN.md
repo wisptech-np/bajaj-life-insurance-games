@@ -37,14 +37,14 @@ following the `guardian-shelter` diff as the worked example.
 | 9 | Add `env(safe-area-inset-*)` padding to HUD containers | Needed in guardian-shelter, risk-exit, life-soar, coverage-archer, tightrope-protection. |
 | 10 | Wire `haptic()` into scoring, collision, win, lose | Done in guardian-shelter; trivially portable. |
 | 11 | Fixed-step physics via `createGameLoop` | Removes the slow-motion-on-slow-device behaviour (H2). |
-| 12 | Convert `landing_bg.png` (532 KB) to WebP | tightrope-protection. Est. 60–75% saving. |
+| 12 | Replace `landing_bg.png` (532 KB) and `bb_bg.webp` (201 KB) | **Done** — both re-authored as SVG (`landing_bg.svg`, `canyon_bg.svg`). 201 KB → 1.37 KB gzip. |
 
 ## Optional — worth doing, not blocking
 
 | # | Change | Detail |
 |---|---|---|
 | 13 | Resolve `public/thumbnail.png` (853 KB) | Confirm whether an external page references `/thumbnail.png`; delete if not. |
-| 14 | Remove dead `life-soar/src/game_background.webp` | Repo hygiene only — not bundled, so no runtime gain. |
+| 14 | Remove dead `life-soar/src/game_background.webp` | **Done.** |
 | 15 | Remove the no-op ref callback in guardian-shelter | Readability. |
 | 16 | Tier-aware effect downgrade | `createGameLoop({ onSlow })` already detects sustained slow frames; wire it to `downgradeTier()` + `effects.refreshBudget()`. |
 | 17 | Automated tests for scoring | No test infrastructure exists in any game today; see `TESTING_CHECKLIST.md`. |

@@ -2,7 +2,14 @@
 
 Specifications for assets that cannot practically be produced in code. Because the games are
 overwhelmingly code-drawn (see `ASSET_INVENTORY.md`), this list is deliberately short — only two
-raster assets and one optional audio pack are genuinely needed.
+background assets and one optional audio pack were genuinely needed.
+
+> **Status: A1 and A2 are delivered.** Both were authored directly as SVG
+> (`tightrope-protection/public/landing_bg.svg`, `life-soar/src/canyon_bg.svg`) rather than
+> generated as raster. For flat-vector art this is the better outcome — resolution-independent
+> at every DPR, ~1.4 KB gzip instead of 201–532 KB, and editable in-repo. The prompts below are
+> retained so the art direction can be reproduced or handed to a designer, and in case a
+> photoreal raster treatment is ever preferred.
 
 **Constraints that apply to every prompt below**
 

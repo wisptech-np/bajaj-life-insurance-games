@@ -1,0 +1,8 @@
+{
+  "name": "@bajaj/game-kit",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Shared game-feel systems (loop, input, effects, audio, device, balance config). Canonical source; copied into each game by scripts/sync-game-kit.mjs.",
+  "type": "module",
+  "main": "index.js"
+}

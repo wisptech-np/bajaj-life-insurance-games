@@ -162,13 +162,21 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     const loop = createGameLoop({
       sessionSeconds: GAME_CONFIG.sessionSeconds,
 
-      update: (dt) => {
-        const gs = stateRef.current.gameState;
-        if (gs === 'cleared' || gs === 'gameover') return;
-        updatePhysics(dt);
-      },
+      // This physics was written and tuned to run once per frame with a clamped
+      // delta (ground friction at v.vx *= 0.95 is per-call, not dt-scaled).
+      // Driving it at a fixed 120 Hz doubles the call rate and silently changes
+      // the feel, so it stays on variable stepping until it is re-tuned.
+      stepMode: 'variable',
 
+      update: (dt) => updatePhysics(dt),
       render: () => drawGame(),
+
+      // Matches the original countdown, which held while a round-complete or
+      // game-over panel was on screen.
+      shouldTickClock: () => {
+        const gs = stateRef.current.gameState;
+        return gs !== 'cleared' && gs !== 'gameover';
+      },
 
       onTick: (remaining) => {
         stateRef.current.timeLeft = remaining;
