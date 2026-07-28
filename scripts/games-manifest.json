@@ -82,6 +82,28 @@
       "feedback": "Reference not opening - rebuilt from concept description",
       "port": 5036,
       "brief": "Physics artillery puzzle: a fixed cannon at bottom-left; drag to aim (trajectory dots preview) and release to fire a glowing shield orb. Levels are structures of wooden planks/crates with green virus blobs perched on them. Shield orb + collapsing debris destroy viruses on contact; gravity + simple rigid-body tumble (rect bodies, rotation) makes structures cascade. Limited shots per level (3-5). 5 levels in a 2-minute session. Score = viruses cleared x150 + shots remaining x100 + demolition bonus. Squash-and-stretch on impacts, dust particles, slow-mo 0.3s on final virus of each level."
+    },
+    {
+      "dir": "swing-to-secure",
+      "bajajName": "Swing to Secure",
+      "gameName": "Rope Swing",
+      "concept": "Tarzan rope-swing physics traversal (original, rope-swing-style)",
+      "reference": null,
+      "financialConcept": "Bridging life's gaps - momentum of continuous protection",
+      "feedback": "Approved - new original concept",
+      "port": 5037,
+      "brief": "Side-scrolling rope-swing traversal over a dusk canyon (parallax SVG backdrop layers). One-touch control: press-and-hold throws a rope to the nearest glowing shield anchor ahead and the guardian swings as a pendulum under gravity with light damping; release lets go, carrying the tangential speed into a projectile arc toward the next anchor. A generous auto-target radius, input buffering, and an assisted reach while falling keep near-misses connecting without steering input. Single 105-second run scrolling right toward the Retirement Vault at 2,000 m, with banner popups at Graduation 200m, First Job 500m, Marriage 900m, Home 1400m. Green virus orbs drift in the gaps (an unshielded touch knocks the guardian off the rope); blue shield tokens grant 1-hit protection; gold coins are laid along the ideal swing arcs, rewarding good release timing. Anchor spacing widens and virus density rises as the run progresses. Win: reach the vault. Lose: fall past the canyon floor, or the session timer expires. Score = coins x25 + milestones x300 + Perfect Release x50 (releasing on the forward low arc). Rope renders as a tapered curve with sag and a snap-taut animation on grab; synth audio for grab/release/coin/shield/win; no emoji sprites."
+    },
+    {
+      "dir": "milestone-hopper",
+      "bajajName": "Milestone Hopper",
+      "gameName": "Life Crossing",
+      "concept": "Crossy Road / Frogger lane-hopping (original, Crossy-Road-style)",
+      "reference": null,
+      "financialConcept": "Navigating life's risks to reach each life milestone",
+      "feedback": "Approved - new original concept",
+      "port": 5038,
+      "brief": "Portrait top-down lane-hopper rendered as flat-shaded pseudo-3D rows (top + front face gradients, soft drop shadows, no emoji sprites) on a fixed 48-row course from Start to Retirement, 7 columns wide. Tap hops forward one row; swipe left/right/down hops sideways or back; each hop is a ~120ms tween with a small arc, squash-and-stretch landing, and dust particles. Safe pavement rows carry occasional planter obstacles; risk roads stream green virus blobs across at lane-specific speeds and directions (unshielded contact ends the run, a shield token saves once); uncertainty rivers introduced after the Marriage milestone are crossable only by hopping onto drifting glowing coverage platforms. Six milestone rows (Graduation 8, First Job 16, Marriage 24, Home 32, Child 40, Retirement 48) are full-width safe bands with a banner popup and fanfare on first touch. A rising risk-tide fog from below punishes standing still, keeping the session moving alongside the 2-minute cap. Win: reach the Retirement row within the session. Lose: unshielded virus hit, river/fog, the tide, or timeout. Score = furthest row x10 + coins x25 + milestones x300 + time bonus on win (5 per second remaining)."
     }
   ],
   "revamps": [

@@ -37,6 +37,8 @@ Only BajajLife-approved concepts are kept in this repository.
 | `life-soar/` | Life Soar | 5035 |
 | `coverage-archer/` | Guardian Archer | — |
 | `tightrope-protection/` | Tightrope Protection | — |
+| `swing-to-secure/` | Swing to Secure | 5037 |
+| `milestone-hopper/` | Milestone Hopper | 5038 |
 
 Approved but not yet scaffolded: `balance-block-journey` (5031), `shield-cascade` (5036).
 

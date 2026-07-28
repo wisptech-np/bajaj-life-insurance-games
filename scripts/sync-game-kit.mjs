@@ -23,6 +23,8 @@ const GAMES = [
   'life-soar',
   'coverage-archer',
   'tightrope-protection',
+  'swing-to-secure',
+  'milestone-hopper',
 ];
 
 const checkOnly = process.argv.includes('--check');
