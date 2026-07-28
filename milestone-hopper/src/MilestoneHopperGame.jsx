@@ -1046,6 +1046,10 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         audio.failure();
         haptic('failure');
         fx.addShake(cfg.fx.damageShake * 1.4);
+        // Splat: reuse the landing squash so the guardian visibly takes the hit
+        // rather than simply stopping.
+        s.landT = cfg.player.landSquashSeconds;
+        s.hurtFlash = cfg.hud.endBeatMs / 1000;
         const tint = cause === 'virus' ? COLORS.virus
           : cause === 'timeout' ? COLORS.orangeLt : COLORS.greenLt;
         fx.burst({
