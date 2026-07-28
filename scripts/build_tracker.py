@@ -27,7 +27,8 @@ ORANGE = "F26522"
 CATALOG_NOTE = [
     ("This repo (approved scope)", "guardian-shelter (shield physics), secure-journey (rail shooter), "
      "smart-match-3d (triple match), risk-exit (arrow puzzle), life-soar (glider), "
-     "coverage-archer (archery), tightrope-protection (balance runner). "
+     "coverage-archer (archery), tightrope-protection (balance runner), "
+     "swing-to-secure (rope-swing traversal), milestone-hopper (lane-hopper). "
      "Approved but not yet scaffolded: balance-block-journey, shield-cascade"),
     ("Removed from repo", "Dropped by feedback: Compound Quest (compound-merge), Shield Spin (shield-spin) — "
      "'Already taken'. Removed for lacking BajajLife sign-off: life-goals-bubble-shooter, stackibility-stack, "
