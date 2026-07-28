@@ -70,7 +70,12 @@ export const GAME_CONFIG = {
      different games (the taller screen has 30% lower density, and the chain
      stops percolating). So every length below is authored against this
      reference playfield and multiplied at runtime by sqrt(area / refArea),
-     which holds orbs-per-ripple exactly constant on every screen. */
+     which holds orbs-per-ripple exactly constant on every screen.
+
+     The gate reproduces this: `node scripts/balance-sim.mjs 300 382x665` runs
+     the whole table on that playfield, and the default run ends with a
+     cross-device sweep over four real ones. Measured centre-tap clear rates
+     stay within a few points of the reference board on all of them. */
   reference: { width: 382, height: 496 },
 
   // Playfield inset inside the canvas, in CSS px. The top inset keeps orbs out
@@ -82,24 +87,45 @@ export const GAME_CONFIG = {
      many family orbs the single tap must protect. `drift` is the orb speed
      range in reference px/s.
 
-     Measured centre-tap clear rate with the values below, 600 boards per wave:
-     72.5 / 60.8 / 66.8 / 62.3 / 59.3%, i.e. every wave sits in the intended
-     50-70% band with wave 1 as a deliberate on-ramp. A uniformly random tap
-     manages 52 / 41 / 41 / 42 / 31%, and replaying every board from an 8x11
-     grid of candidate taps clears 99-100% of them — so the gap between a lazy
-     tap and a read of the board is real, and the ceiling is skill, not luck.
+     Numbers below are the shipped gate's DEFAULT run — `pnpm balance`, i.e.
+     `node scripts/balance-sim.mjs`, 300 boards per wave per strategy (40 for
+     the oracle). Re-running resamples, so each rate moves by a couple of points
+     and the five-wave product by ~2.
 
-     The virus ramp is what makes later waves hard, and it is why the target
-     ladder rises by only one orb per wave (CORRECTION): a flat 62.5%-of-total
-     target as in the spec's example ("Protect 25 of 40") gets harder every wave
-     on its own, because each extra virus eats ripple reach — the same literal
-     target cleared 66% of wave-1 boards but only 38% of wave-5 boards. */
+       centre    80.0 / 73.0 / 72.3 / 71.0 / 66.3   full run 19.9%
+       centroid  79.7 / 69.3 / 78.3 / 81.0 / 72.0   full run 25.2%
+       random    62.3 / 47.0 / 48.3 / 50.3 / 47.0   full run  3.3%
+       oracle     100 /  100 /  100 / 97.5 / 97.5   full run 95.1%
+
+     A second default run measured 23.9% centre / 26.0% centroid full-run, which
+     is the size of the sampling band on a five-wave product.
+
+     `oracle` replays the whole cascade from a 6x8 grid of candidate taps on the
+     same board and takes the best: a winning tap exists on essentially every
+     board, so the ceiling is a read of the board, not luck, and the gap to a
+     uniformly random tap (3.3% for the run) is the size of the skill.
+
+     Two things set the ladder (CORRECTION):
+
+     1. Five waves compound. A run needs ALL five targets, so a per-wave rate of
+        r gives r^5 overall: the batch norm of ~40% casual completion is out of
+        reach here (it would need 83% per wave), and the controller's bar of 20%
+        needs ~73% per wave. That is why the ladder sits at the top of the sane
+        band rather than the middle, and why it plateaus (25/25/26/26/27) rather
+        than rising by one every wave — a strictly rising ladder measured 12.9%
+        full-run for a centroid tap, half the bar.
+     2. Difficulty still rises, just not through the target. Each wave adds orbs,
+        viruses and drift speed, so the same-looking target is harder: holding
+        the target at 26 costs a centre tap 73% on wave 3 but only 71% on wave 4
+        with two more viruses. The target's share of the board falls across the
+        run (71% of the family orbs on wave 1, 57% on wave 5) precisely because
+        the board is fighting back harder. */
   waves: [
-    { orbs: 40, viruses: 5, target: 27, drift: [10, 26] },
-    { orbs: 46, viruses: 8, target: 28, drift: [14, 34] },
-    { orbs: 50, viruses: 9, target: 29, drift: [18, 42] },
-    { orbs: 56, viruses: 11, target: 30, drift: [22, 50] },
-    { orbs: 60, viruses: 13, target: 31, drift: [26, 58] },
+    { orbs: 40, viruses: 5, target: 25, drift: [10, 26] },
+    { orbs: 46, viruses: 8, target: 25, drift: [14, 34] },
+    { orbs: 50, viruses: 9, target: 26, drift: [18, 42] },
+    { orbs: 56, viruses: 11, target: 26, drift: [22, 50] },
+    { orbs: 60, viruses: 13, target: 27, drift: [26, 58] },
   ],
 
   orb: {
@@ -122,30 +148,48 @@ export const GAME_CONFIG = {
   },
 
   ripple: {
-    // The tap's own ripple is wider than a chained one: the first shield is the
-    // policy you buy, the chain is what it passes on.
-    //
-    // These two radii are the single most sensitive numbers in the game
-    // (CORRECTION). A chain reaction is continuum percolation: what matters is
-    // the mean number of orbs inside one ripple, k = n*pi*(R+orbR)^2/area. The
-    // 2D percolation threshold is k ~ 4.5, so an "obvious" 104 px chain radius
-    // (k ~ 7.9) covers nearly the whole board from any tap and the game has no
-    // decisions in it; below ~68 px (k ~ 4.2) the chain dies wherever it starts
-    // and the game is a coin flip. 76 px puts k at 5.4 — just above threshold,
-    // where WHERE you tap decides the cascade.
+    /* The tap's ripple, and the ONLY authored radius in the game: a chained
+       ripple is not sized from a constant of its own, it inherits its parent's
+       CURRENT maximum minus `chainDecayPx` (and minus `virusShrinkPx` for every
+       virus that parent caught). So `rootRadius` seeds the reach of the entire
+       cascade, which makes it the most sensitive number here (CORRECTION).
+
+       A chain reaction is continuum percolation: what decides it is the mean
+       number of orbs inside one ripple,
+
+           k = n * pi * (R + orbRadius)^2 / area,     threshold k ~ 4.5
+
+       with area = 382 x 496 = 189,472 reference px^2. At the root, R = 98 gives
+       R+orbRadius = 110.5 and therefore k = 7.1 on wave 1 (35 family orbs),
+       7.7 / 8.3 / 9.1 / 9.5 on waves 2-5 — comfortably above threshold, which
+       is what makes the first hop of a cascade reliable.
+
+       The cascade's shape is the walk back DOWN from there. Every generation
+       costs 2 px and every virus 18 px, so a branch loses reach until it falls
+       through the threshold and stops: on a wave-3 board k is 5.3 by R = 76
+       (eleven clean generations, or one virus and two hops) and 3.6 by R = 60,
+       where the branch is finished. Measured mean depth is 6.3 generations,
+       max 20 — exactly the walk this arithmetic predicts.
+
+       Both ends of the range were measured and rejected: rootRadius 126 keeps
+       every branch above threshold for its whole life (k = 13 at the root), so
+       a centre tap cleared the board from anywhere and the game had no
+       decisions in it; rootRadius 76 makes even the first hop unreliable and
+       clear rates fell to 31-40%. */
     rootRadius: 98,
-    chainRadius: 76,
     growSpeed: 250,
     fadeSeconds: 0.3,
-    // Each generation loses a little reach, so a chain terminates on its own
-    // instead of running until it happens to hit empty space.
+    // Reach a chained ripple loses per generation. This, not a separate chain
+    // radius, is what terminates a cascade instead of letting it run until it
+    // happens to hit empty space.
     chainDecayPx: 2,
     // A ripple that shrinks below this is spent and starts fading.
     minRadius: 30,
-    // A virus caught by a ripple eats this much of its remaining reach. 26 px
-    // (a third of a chain radius) killed late waves outright — with 13 viruses
-    // on a wave-5 board a centre tap cleared only 41% of them; 18 px leaves the
-    // penalty legible without ending the cascade on first contact (CORRECTION).
+    // A virus caught by a ripple eats this much of its remaining reach — nine
+    // generations' worth of decay in one contact. 26 px killed late waves
+    // outright: with 13 viruses on a wave-5 board a centre tap cleared only 41%
+    // of them. 18 px leaves the penalty legible without ending the cascade on
+    // first contact (CORRECTION).
     virusShrinkPx: 18,
     // Visual ring thickness, and the contact tolerance derived from it.
     bandPx: 9,
@@ -198,7 +242,8 @@ export const WAVE_LIST = GAME_CONFIG.waves.map((w, i) => ({
 export const MAX_PROTECTED = WAVE_LIST.reduce((sum, w) => sum + w.family, 0);
 
 /** Score the Results ring treats as a full circle.
-    A winning run measures ~7,600: ~150 orbs protected x 40 (6,000) + 5 wave
-    clears (1,000) + ~6.3 mean chain depth x 20 x 5 (630). See README
-    "Balance notes". */
-export const RESULT_TARGET_SCORE = 7600;
+    A winning run measures ~7,400: the gate's mean protected count for a centre
+    tap is 28.5 / 27.4 / 29.6 / 30.0 / 29.4 = ~145 orbs x 40 (5,800), plus 5
+    wave clears (1,000), plus a mean chain depth of ~6.2 x 20 x 5 (620). See
+    README "Balance notes". */
+export const RESULT_TARGET_SCORE = 7400;

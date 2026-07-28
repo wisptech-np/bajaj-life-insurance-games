@@ -36,11 +36,11 @@ well as a quick one. Further presses during the cascade are refused with a tick.
 
 | Wave | Orbs | Viruses | Family | Target | Drift (ref px/s) |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 40 | 5 | 35 | 27 | 10-26 |
-| 2 | 46 | 8 | 38 | 28 | 14-34 |
-| 3 | 50 | 9 | 41 | 29 | 18-42 |
-| 4 | 56 | 11 | 45 | 30 | 22-50 |
-| 5 | 60 | 13 | 47 | 31 | 26-58 |
+| 1 | 40 | 5 | 35 | 25 | 10-26 |
+| 2 | 46 | 8 | 38 | 25 | 14-34 |
+| 3 | 50 | 9 | 41 | 26 | 18-42 |
+| 4 | 56 | 11 | 45 | 26 | 22-50 |
+| 5 | 60 | 13 | 47 | 27 | 26-58 |
 
 A wave ends when the **last ripple has expired**, not when the last orb is
 caught — a ring still in flight can still reach one. The wave-clear banner holds
@@ -58,7 +58,8 @@ orb dodge a ripple that had already reached it.
 | Wave cleared | 200 |
 | Chain-depth bonus (per wave) | 20 x deepest generation reached |
 
-A winning run measures around 7,600, which is what the results ring treats as a
+A winning run measures around 7,400 (~145 orbs protected, five wave clears, a
+mean chain depth of ~6.2 per wave), which is what the results ring treats as a
 full circle. The results screen reports `{ score, protected, waves, chain }` —
 total orbs protected, waves cleared, and the deepest chain generation of the run.
 
@@ -81,55 +82,89 @@ files.
 
 ## Balance notes
 
-The gate is `pnpm balance` (`node scripts/balance-sim.mjs [boards]`), a headless
-simulation that **imports the shipped `src/data.js`** and replays the component's
-exact chain resolution: same 1/120 s fixed step, same crossing test, same virus
-shrink, same per-generation decay, same bouncing drift. Numbers below are 600
-boards per wave per strategy.
+The gate is `pnpm balance` (`node scripts/balance-sim.mjs [boards] [WxH]`), a
+headless simulation that **imports the shipped `src/data.js`** and replays the
+component's exact chain resolution: same 1/120 s fixed step, same crossing test,
+same virus shrink, same per-generation decay seeded from `rootRadius`, same
+bouncing drift.
 
-**Centre-tap clear rate: 72.5 / 60.8 / 66.8 / 62.3 / 59.3%** — every wave inside
-the intended 50-70% band, with wave 1 as an on-ramp. A uniformly random tap
-manages 52 / 41 / 41 / 42 / 31%; replaying each board from an 8x11 grid of
-candidate taps clears 99-100% of them. So a lazy tap loses roughly half its
-waves, a read of the board wins nearly all of them, and the full-run win
-probability is 10.9% for a centre-tapper against a ceiling that is essentially
-100% for a perfect eye. Mega-chains (15+) fire on 88-95% of centre taps: the
-slow-motion beat is the payoff for a good tap, not a rarity.
+**Every number in this section is printed by the default run** — `pnpm balance`,
+300 boards per wave per strategy (40 for the oracle). It resamples each time, so
+expect a couple of points of movement per wave and ~2 points on the five-wave
+product.
 
-Three readings differ from the spec's literal values:
+| Tap profile | W1 | W2 | W3 | W4 | W5 | Full run |
+| --- | --- | --- | --- | --- | --- | --- |
+| random (uniform) | 62.3% | 47.0% | 48.3% | 50.3% | 47.0% | 3.3% |
+| **centre** | **80.0%** | **73.0%** | **72.3%** | **71.0%** | **66.3%** | **19.9%** |
+| **centroid of the family orbs** | **79.7%** | **69.3%** | **78.3%** | **81.0%** | **72.0%** | **25.2%** |
+| cluster heuristic | 75.3% | 73.7% | 83.0% | 80.7% | 77.7% | 28.9% |
+| oracle (best of a 6x8 grid replay) | 100% | 100% | 100% | 97.5% | 97.5% | 95.1% |
 
-1. **Ripple radii are the whole balance** (`rootRadius: 98`, `chainRadius: 76`).
-   A chain reaction is continuum percolation: what decides it is the mean number
-   of orbs inside one ripple, `k = n·π(R+r)²/area`, and the 2D threshold is
-   k ≈ 4.5. An "obvious" 104 px chain radius puts k at 7.9 — every tap covers
-   nearly the whole board and the game has no decisions in it (measured: a
-   centre tap protected 31 of 35 orbs on wave 1). Below about 68 px the chain
-   dies wherever it starts. 76 px puts k at 5.4, just above threshold, which is
-   the only regime where *where you tap* changes the outcome.
+The `oracle` row is not a playable strategy: it replays the whole cascade from
+every point of a 6x8 grid on the same board and takes the best outcome, which
+answers "did a winning tap exist at all". It did, on essentially every board —
+so the ceiling is a read of the board, not luck, and the distance from the
+random row (3.3% for a run) is the size of the skill. Mega-chains (15+) fire on
+88-94% of centre taps: the slow-motion beat is the payoff for a good tap, not a
+rarity. Mean chain depth is ~6.2 generations, deepest seen 17.
+
+Four readings differ from the spec's literal values:
+
+1. **`rootRadius: 98` is the whole balance, and it is the only radius.** A
+   chained ripple has no radius constant of its own: it inherits its parent's
+   *current* maximum minus `chainDecayPx`, so this one number seeds the reach of
+   the entire cascade. A chain reaction is continuum percolation — what decides
+   it is the mean number of orbs inside one ripple,
+   `k = n·π(R + orbRadius)²/area`, against a 2D threshold of k ≈ 4.5. The gate
+   prints these: at the root, k runs 7.1 / 7.7 / 8.3 / 9.1 / 9.5 across the five
+   waves, comfortably above threshold, which is what makes the first hop
+   reliable. The cascade's shape is the walk back down — 2 px per generation,
+   18 px per virus — so on a wave-3 board k is 5.3 by R = 76, 4.5 by R = 69, and
+   3.6 by R = 60 where the branch is finished. Both ends were measured and
+   rejected: at `rootRadius: 126` every branch stays above threshold for its
+   whole life and a centre tap clears the board from anywhere; at 76 even the
+   first hop is unreliable and clear rates fall to 31-40%.
 2. **`virusShrinkPx: 18`, not a third of a radius.** At 26 px a wave-5 board's
    13 viruses ended cascades on contact and the centre-tap clear rate collapsed
-   to 41%. 18 px keeps the penalty legible without killing the chain outright.
-3. **The target ladder rises by one orb per wave (27→31), not by a flat share.**
-   The spec's example target is 62.5% of the orbs on screen; held flat, that
-   gets harder every wave on its own, because each extra virus eats reach — the
-   same literal target cleared 66% of wave-1 boards and 38% of wave-5 boards.
-   The one-orb ladder produces a smooth 72→59% ramp instead.
+   to 41%. 18 px — nine generations' worth of decay in one contact — keeps the
+   penalty legible without killing the chain outright.
+3. **The target ladder plateaus (25/25/26/26/27) instead of rising every wave.**
+   Five waves compound: a run needs all five targets, so a per-wave rate of `r`
+   gives `r⁵` overall and a 20% full-run bar needs ~73% per wave. A strictly
+   rising ladder measured 12.9% full-run for a centroid tap — half the bar — so
+   the ladder sits at the top of the sane band and steps every other wave.
+4. **Difficulty still rises, through the board rather than the target.** Each
+   wave adds orbs, viruses and drift, so the same number is harder to reach:
+   holding the target at 26 costs a centre tap 72.3% on wave 3 and 71.0% on
+   wave 4. The target's share of the family orbs falls across the run (71% on
+   wave 1, 57% on wave 5) precisely because the board is fighting back harder.
 
 **Cross-device balance.** Every authored length is a reference-playfield length
 (382x496) scaled at runtime by `sqrt(area / refArea)`, because orb *density* —
-not radius — is what a chain reaction depends on. Re-running the simulation on
-four real playfields confirms it holds:
+not radius — is what a chain reaction depends on. The default run ends with this
+sweep, and `pnpm balance 300 382x665` runs the full table on any one playfield:
 
 | Playfield | Scale | Centre-tap clear per wave |
 | --- | --- | --- |
-| 382x496 (reference) | 1.000 | 70 / 56 / 62 / 61 / 60% |
-| 382x665 (375x812 device) | 1.158 | 65 / 56 / 58 / 64 / 54% |
-| 344x520 (small phone) | 0.972 | 69 / 64 / 63 / 62 / 55% |
-| 400x760 (tall phone) | 1.267 | 69 / 53 / 61 / 64 / 51% |
+| 382x496 (reference) | 1.000 | 78 / 72 / 68 / 75 / 70% |
+| 382x665 (375x812 device) | 1.158 | 74 / 64 / 65 / 73 / 64% |
+| 344x520 (small phone) | 0.972 | 77 / 68 / 71 / 75 / 64% |
+| 400x760 (tall phone) | 1.267 | 71 / 68 / 70 / 73 / 67% |
 
-**Pacing.** Worst observed cascade takes 3.5 s to resolve; with the 1.35 s
-banner that is 24 s of the 120 s session across five waves, leaving ~19 s per
-wave to aim. A player who dawdles runs out of clock and loses on timeout.
+The reference row is an independent 300-board sample of the same rates as the
+centre row in the table above, so the two differ by a few points of sampling
+noise rather than by anything real.
+
+**Reproducibility.** A second default run measured 23.9% centre / 26.0% centroid
+for the full run (per-wave centre 79.3 / 73.3 / 72.0 / 79.3 / 72.0%), which is
+the size of the sampling band on a five-wave product. Pass a bigger board count
+(`pnpm balance 1000`) to narrow it.
+
+**Pacing.** Worst observed cascade takes 3.3-4.0 s to resolve (a max statistic,
+so it moves between runs); at 4.0 s, with the 1.35 s banner, that is 26.5 s of
+the 120 s session across five waves, leaving ~18.7 s per wave to aim. A player
+who dawdles runs out of clock and loses on timeout.
 
 ## Performance
 
@@ -160,7 +195,9 @@ pnpm build          # uat (the gate)
 pnpm build:preprod
 pnpm build:prod
 pnpm preview
-pnpm balance        # headless balance simulation, 400 boards per wave
+pnpm balance             # balance gate: 300 boards/wave + cross-device sweep
+pnpm balance 600         # more boards
+pnpm balance 300 382x665 # the whole table on a specific playfield
 ```
 
 ## Layout
