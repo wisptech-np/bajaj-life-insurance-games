@@ -37,19 +37,36 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 /* ─── Geometry ───────────────────────────────────────────────
    One object describing where every block sits, rebuilt only on resize. Layer 0
    is the bottom; `heightOf` is the height of a layer's centre above the base
-   plate, which is the moment arm the shear uses. */
+   plate, which is the moment arm the shear uses.
+
+   The block aspect ratio is NOT a free layout choice. `solver.layerHeight` is
+   the layer pitch expressed in block widths, and the statics model multiplies it
+   by the layer index to get the arm the shear acts on. Sizing the blocks to fill
+   whatever height happened to be available would silently retune the physics per
+   device — a short phone would play a measurably different game from a tall one.
+   So width is chosen from whichever of the two limits binds, and height follows
+   from the ratio; any leftover height becomes sky. */
 function buildGeometry(cfg, W, H) {
   const L = cfg.tower.layers;
   const lay = cfg.layout;
-  const towerW = W * lay.towerWidthFrac;
-  const blockW = (towerW - 2 * lay.blockGapPx) / 3;
-  const baseY = H * lay.baseYFrac;
-  const stackH = baseY - H * lay.topMarginFrac;
-  const blockH = (stackH - (L - 1) * lay.layerGapPx) / L;
+  const ratio = cfg.solver.layerHeight;
+
+  const bandTop = Math.max(H * lay.topMarginFrac, lay.hudReservePx);
+  const bandBottom = H * lay.baseYFrac;
+
+  const fromWidth = (W * lay.towerWidthFrac - 2 * lay.blockGapPx) / 3;
+  const fromHeight = Math.max(0, bandBottom - bandTop) / (L * ratio);
+  const blockW = Math.max(12, Math.min(fromWidth, fromHeight));
+
+  const pitchY = blockW * ratio;
+  const blockH = Math.max(8, pitchY - lay.layerGapPx);
+  const stackH = L * pitchY;
+  const slack = Math.max(0, (bandBottom - bandTop) - stackH);
+  const baseY = bandBottom - slack * lay.verticalSlackFrac;
+
   const pitchX = blockW + lay.blockGapPx;
-  const pitchY = blockH + lay.layerGapPx;
   return {
-    towerW,
+    towerW: blockW * 3 + lay.blockGapPx * 2,
     blockW,
     blockH,
     pitchX,
@@ -259,11 +276,11 @@ function makeBlockSprite({ block, w, h, dpr, endGrain }) {
   c.stroke();
 
   // Virus mark + label.
-  const markR = Math.min(h * 0.2, w * 0.07);
-  const markX = red ? markR * 1.8 + 3 : 0;
+  const markR = Math.min(h * 0.19, w * 0.055);
+  const markX = red ? markR * 1.9 + 3 : 0;
   if (red) drawVirusMark(c, markX, h * 0.54, markR);
 
-  const textLeft = red ? markX + markR * 1.5 + 2 : 4;
+  const textLeft = red ? markX + markR * 1.5 + 3 : 5;
   const avail = w - textLeft - 4;
   const size = fitFont(c, block.label, avail, Math.min(10, h * 0.34));
   c.font = `900 ${size}px 'Plus Jakarta Sans', 'Poppins', system-ui, sans-serif`;
@@ -378,6 +395,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       state: 0,
       margin: 1,
       off: 0,
+      visualTheta: 0,
       stability: 1,
       stabSum: 0,
       stabTime: 0,
@@ -502,7 +520,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       if (s.collapsed) return;
       s.collapsed = true;
       const geom = s.geom;
-      const shear = Math.tan(s.lean.theta);
+      const shear = Math.tan(s.visualTheta);
       const rate = s.lean.omega;
       const dir = Math.sign(s.lean.theta) || 1;
       for (let layer = 0; layer < s.tower.layers.length; layer++) {
@@ -556,7 +574,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       // The end beat is drawn in world space. On a topple the tower is already
       // spread across the floor, so an un-clamped burst at the last block
       // position can land off-canvas; pull it back to the nearest visible point.
-      const bx = clamp(s.geom.pivotX + Math.tan(s.lean.theta) * s.geom.blockH * 6, 40, s.W - 40);
+      const bx = clamp(s.geom.pivotX + Math.tan(s.visualTheta) * s.geom.blockH * 6, 40, s.W - 40);
       const by = clamp(s.geom.baseY - s.geom.pitchY * 6, 60, s.H - 80);
 
       if (won) {
@@ -602,7 +620,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       s.lean.kick(pullImpulse({ dir, speed, offBefore: before.off, offAfter: after.off }, cfg));
 
       const geom = s.geom;
-      const p = blockCenter(geom, block.layer, block.slot, Math.tan(s.lean.theta));
+      const p = blockCenter(geom, block.layer, block.slot, Math.tan(s.visualTheta));
       s.flying.push({
         sprite: s.sprites[block.layer][block.slot],
         x: p.x + grab.dx * cfg.flick.dragRubber,
@@ -632,7 +650,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       // A foundation block does not come out — but tugging it still shakes the
       // tower, so "just try everything" is not a free strategy.
       const geom = s.geom;
-      const p = blockCenter(geom, grab.block.layer, grab.block.slot, Math.tan(s.lean.theta));
+      const p = blockCenter(geom, grab.block.layer, grab.block.slot, Math.tan(s.visualTheta));
       s.lean.kick((grab.dx >= 0 ? 1 : -1) * cfg.wobble.lockedKick);
       audio.tick();
       haptic('light');
@@ -647,7 +665,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
     /* --- hit test -------------------------------------------------------- */
     const pick = (px, py) => {
       const geom = s.geom;
-      const shear = Math.tan(s.lean.theta);
+      const shear = Math.tan(s.visualTheta);
       const pad = cfg.layout.hitPadPx;
       const hx = geom.blockW / 2 + pad;
       const hy = geom.blockH / 2 + pad;
@@ -722,7 +740,15 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       s.stabSum += s.stability * dt;
       s.stabTime += dt;
 
+      // Ambient breathing sway, folded in once per tick so the renderer, the hit
+      // test and the pull feedback all agree on where a block actually is.
+      // Deliberately never fed back into the integrator: a shaky reading should
+      // look shaky without being able to accumulate into a topple by itself.
+      s.visualTheta = s.lean.theta
+        + Math.sin(s.time * Math.PI * 2 * cfg.wobble.idleHz) * cfg.wobble.idleSwayRad * (1 - s.stability);
+
       if (s.lean.step(dt, ev.margin, ev.off)) {
+        s.visualTheta = s.lean.theta;
         collapse();
         endRun(false, 'topple');
         return;
@@ -735,7 +761,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
         if (s.dustClock >= cfg.fx.dustIntervalSeconds) {
           s.dustClock = 0;
           const layer = Math.floor(Math.random() * cfg.tower.layers);
-          const p = blockCenter(s.geom, layer, 1, Math.tan(s.lean.theta));
+          const p = blockCenter(s.geom, layer, 1, Math.tan(s.visualTheta));
           fx.burst({
             x: p.x + (Math.random() * 2 - 1) * s.geom.towerW * 0.45,
             y: p.y + s.geom.blockH * 0.5,
@@ -785,11 +811,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
 
       fx.beginCamera(ctx);
 
-      // Ambient breathing sway, render-only: a shaky reading should look shaky
-      // without ever being able to accumulate into a topple.
-      const sway = s.ended ? 0 : Math.sin(s.time * Math.PI * 2 * cfg.wobble.idleHz)
-        * cfg.wobble.idleSwayRad * (1 - s.stability);
-      const theta = s.lean.theta + sway;
+      const theta = s.ended ? s.lean.theta : s.visualTheta;
       const shear = Math.tan(theta);
       const tilt = theta * cfg.layout.blockTiltFrac;
 
@@ -957,7 +979,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
         if (!grab) return;
         if (!grab.fired && grab.block.red && Math.abs(grab.dx) < cfg.flick.minPx) {
           const geom = s.geom;
-          const p = blockCenter(geom, grab.block.layer, grab.block.slot, Math.tan(s.lean.theta));
+          const p = blockCenter(geom, grab.block.layer, grab.block.slot, Math.tan(s.visualTheta));
           fx.floatText(p.x, p.y - geom.blockH * 0.9, 'FLICK SIDEWAYS', COLORS.orangeLt, 13);
         }
         s.grab = null;

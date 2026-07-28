@@ -80,7 +80,7 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
               Enter Details
             </h2>
             <p className="sl-lead-sub">
-              To see your shelter score
+              To see your tower score
             </p>
           </div>
 

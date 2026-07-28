@@ -250,13 +250,24 @@ export const GAME_CONFIG = {
     holdSeconds: 2.4,
   },
 
-  /* -- layout (fractions of the canvas) ----------------------------------- */
+  /* -- layout (fractions of the canvas) -----------------------------------
+     Block WIDTH is chosen here; block HEIGHT is not. The layer pitch is always
+     blockW * solver.layerHeight, because that ratio is the moment arm the shear
+     model uses: draw the tower at a different aspect and the game stops behaving
+     like the thing the balance gate measured. */
   layout: {
-    towerWidthFrac: 0.58,
+    towerWidthFrac: 0.78,
     blockGapPx: 3,
     layerGapPx: 2,
     baseYFrac: 0.88,
-    topMarginFrac: 0.2,
+    topMarginFrac: 0.21,
+    // Hard floor on the top margin: the score pills and the stability meter own
+    // the first ~120 px whatever the stage height is.
+    hudReservePx: 122,
+    // When the tower is width-limited it does not fill the play band. Drop it
+    // this far into the slack so it still reads as standing on the floor rather
+    // than hovering in the middle of the frame.
+    verticalSlackFrac: 0.38,
     plinthHeightPx: 16,
     plinthOverhangPx: 26,
     // Blocks tilt with a fraction of the shear angle. At 0 the tower reads as a
@@ -264,7 +275,7 @@ export const GAME_CONFIG = {
     // rather than a racked stack.
     blockTiltFrac: 0.45,
     // Forgiveness padding on the block hit test, in px.
-    hitPadPx: 5,
+    hitPadPx: 7,
   },
 
   /* -- effects ------------------------------------------------------------ */
