@@ -18,7 +18,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { COLORS, GAME_CONFIG } from './data.js';
 import {
-  TAU, buildChain, clamp, lerp, mulberry32, releaseDir, ringPoint, asteroidAt, windowFor,
+  TAU, buildChain, clamp, lerp, mulberry32, releaseDir, asteroidAt, windowFor,
 } from './orbit.js';
 import { BALANCE } from './kit/config.js';
 import { createGameLoop } from './kit/loop.js';
@@ -26,6 +26,16 @@ import { createInput } from './kit/input.js';
 import { createEffects, damp } from './kit/effects.js';
 import { createAudio } from './kit/audio.js';
 import { detectTier, effectBudget, fitCanvas, haptic } from './kit/device.js';
+
+/* ─── Hot-loop scratch ───────────────────────────────────────
+   asteroidAt() allocates a fresh {x,y} unless it is handed an `out` object, and
+   both the collision scan (120 Hz x ~2 rocks) and the draw pass (per visible
+   rock, ~12) call it every frame. Two module-scope scratch vectors keep those
+   two scans out of the allocator entirely, per GAME_STANDARD §6 ("no per-frame
+   allocations in hot loops"). They are separate objects rather than one so the
+   update phase and the draw phase can never alias each other's read. */
+const A_POS_UPDATE = { x: 0, y: 0 };
+const A_POS_DRAW = { x: 0, y: 0 };
 
 /* ─── Offscreen pre-render ───────────────────────────────────
    Planets, the gravity well, the star field and the virus rocks are static art
@@ -566,9 +576,20 @@ export default function GoalOrbitGame({ config, onWin, onLose }) {
     const N = cfg.planets.count;
     const planets = chain.planets;
 
+    // A planet's release window is a property of the static chain — positions,
+    // orbit radii and spins never change — so windowFor()'s object is computed
+    // once per planet and reused. The hint pass draws it every frame while the
+    // comet sits on one of the opening planets, which would otherwise allocate
+    // a fresh window 60 times a second.
+    const winCache = [];
+    const windowAt = (i) => {
+      if (winCache[i] === undefined) winCache[i] = windowFor(cfg, chain, i);
+      return winCache[i];
+    };
+
     // Opening pose: on Home, a little before the first release window, so the
     // very first thing the player sees is the window sliding into reach.
-    const startWin = windowFor(cfg, chain, 0);
+    const startWin = windowAt(0);
     s.idx = 0;
     s.theta = startWin.phi + startWin.entryPsi - planets[0].spin * 1.1;
     s.radius = planets[0].orbitR;
@@ -817,7 +838,7 @@ export default function GoalOrbitGame({ config, onWin, onLose }) {
 
     const respawn = () => {
       const p = planets[s.idx];
-      const win = windowFor(cfg, chain, s.idx);
+      const win = windowAt(s.idx);
       s.mode = 'orbit';
       // Back on the ring a little before the release window, so the respawn is
       // a fresh attempt rather than a second death.
@@ -876,7 +897,7 @@ export default function GoalOrbitGame({ config, onWin, onLose }) {
         if (s.invuln <= 0) {
           for (let i = 0; i < gap.asteroids.length; i++) {
             const a = gap.asteroids[i];
-            const ap = asteroidAt(a, s.time);
+            const ap = asteroidAt(a, s.time, A_POS_UPDATE);
             if (Math.hypot(s.x - ap.x, s.y - ap.y) <= a.r + cometR) {
               loseLife('asteroid');
               return;
@@ -1055,7 +1076,7 @@ export default function GoalOrbitGame({ config, onWin, onLose }) {
       // permanent aim assist.
       if (s.mode === 'orbit' && s.idx < cfg.view.windowHintPlanets && !s.ended) {
         const p = planets[s.idx];
-        const win = windowFor(cfg, chain, s.idx);
+        const win = windowAt(s.idx);
         if (win && win.ok) {
           drawWindowHint(
             ctx, SX(p.x), SY(p.y), p.orbitR * s.scale, win.phi,
@@ -1069,7 +1090,7 @@ export default function GoalOrbitGame({ config, onWin, onLose }) {
         if (!gap) continue;
         for (let k = 0; k < gap.asteroids.length; k++) {
           const a = gap.asteroids[k];
-          const ap = asteroidAt(a, time);
+          const ap = asteroidAt(a, time, A_POS_DRAW);
           const ay = SY(ap.y);
           if (ay < -40 || ay > H + 40) continue;
           drawRock(ctx, s.rock, SX(ap.x), ay, a.r * s.scale, time, a.wobble, s.shadows);
