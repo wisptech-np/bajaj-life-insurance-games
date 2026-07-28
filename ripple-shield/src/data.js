@@ -82,12 +82,12 @@ export const GAME_CONFIG = {
      many family orbs the single tap must protect. `drift` is the orb speed
      range in reference px/s.
 
-     Measured centre-tap clear rate with the values below: 73 / 72 / 64 / 66 /
-     55% (600 boards per wave), i.e. every wave sits in the intended 50-70%
-     band with the first two waves as a deliberate on-ramp. A player who taps
-     the best cell of the board instead of its middle clears essentially every
-     board (98.8% over an 8x11 candidate sweep), so the ceiling is skill, not
-     luck.
+     Measured centre-tap clear rate with the values below, 600 boards per wave:
+     72.5 / 60.8 / 66.8 / 62.3 / 59.3%, i.e. every wave sits in the intended
+     50-70% band with wave 1 as a deliberate on-ramp. A uniformly random tap
+     manages 52 / 41 / 41 / 42 / 31%, and replaying every board from an 8x11
+     grid of candidate taps clears 99-100% of them — so the gap between a lazy
+     tap and a read of the board is real, and the ceiling is skill, not luck.
 
      The virus ramp is what makes later waves hard, and it is why the target
      ladder rises by only one orb per wave (CORRECTION): a flat 62.5%-of-total
@@ -96,7 +96,7 @@ export const GAME_CONFIG = {
      target cleared 66% of wave-1 boards but only 38% of wave-5 boards. */
   waves: [
     { orbs: 40, viruses: 5, target: 27, drift: [10, 26] },
-    { orbs: 46, viruses: 7, target: 28, drift: [14, 34] },
+    { orbs: 46, viruses: 8, target: 28, drift: [14, 34] },
     { orbs: 50, viruses: 9, target: 29, drift: [18, 42] },
     { orbs: 56, viruses: 11, target: 30, drift: [22, 50] },
     { orbs: 60, viruses: 13, target: 31, drift: [26, 58] },

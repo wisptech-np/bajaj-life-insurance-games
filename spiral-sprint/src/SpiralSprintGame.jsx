@@ -299,23 +299,6 @@ function buildPaints(ctx, cfg, W, H, R, innerR, ballR) {
 
 /* ─── Pseudo-3D arc drawing (all programmatic — no emoji, no images) ── */
 
-/**
- * Walk a screen-space arc in pieces that never straddle the ellipse's left or
- * right extreme, reporting whether each piece is on the near (lower, visible
- * front face) or far (upper) half. That split is the whole pseudo-3D read: only
- * near pieces get an extruded front wall.
- */
-function eachHalf(a0, a1, cb) {
-  let start = a0;
-  let guard = 0;
-  while (start < a1 - 1e-6 && guard++ < 8) {
-    const k = Math.floor(start / Math.PI);
-    const end = Math.min(a1, (k + 1) * Math.PI);
-    cb(start, end, k % 2 === 0);
-    start = end;
-  }
-}
-
 function fillSector(ctx, cx, cy, R, ry, iR, iRy, a0, a1, fill) {
   ctx.beginPath();
   ctx.ellipse(cx, cy, R, ry, 0, a0, a1, false);
@@ -775,13 +758,16 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       return s.paints.fog[Math.round(k * FOG_STEPS)];
     };
 
-    const paintFor = (seg, level) => {
-      if (seg.type === 'vault') return [level.vaultTop, level.vaultBot, level.vaultFront];
-      if (seg.type === 'crash') return [level.crashTop, level.crashBot, level.crashFront];
-      if (seg.landing) return [level.landTop, level.landBot, level.landFront];
-      return [level.safeTop, level.safeBot, level.safeFront];
-    };
-
+    /**
+     * One ring, in three passes over its segments:
+     *   0 — the far half of every arc (upper on screen, no visible front face);
+     *   1 — the extruded front wall of every near arc;
+     *   2 — the near top faces, rims, virus pips and landing pulse.
+     * Splitting walls and tops into separate passes is what stops a back arc's
+     * wall painting over the arc in front of it. The half split happens inline
+     * rather than through a callback, and the paints are read into locals rather
+     * than returned in a tuple, so a frame of this allocates nothing.
+     */
     const drawRing = (i) => {
       const ring = s.tower[i];
       const cy = ringY(i);
@@ -791,37 +777,55 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       const ry = s.ry * (1 + pulse * 0.028);
       const th = s.thickness;
       const pipStep = s.pipDeg * D2R;
+      const pipSize = Math.max(2, s.R * 0.021);
+      const segs = ring.segs;
 
-      // Two passes: every far piece first, then every near piece with its front
-      // wall, so near platforms correctly overlap the far side of the same ring.
-      for (let pass = 0; pass < 2; pass++) {
-        const wantNear = pass === 1;
-        for (let k = 0; k < ring.segs.length; k++) {
-          const seg = ring.segs[k];
+      for (let pass = 0; pass < 3; pass++) {
+        for (let k = 0; k < segs.length; k++) {
+          const seg = segs[k];
           if (seg.type === 'gap') continue;
+
+          let top;
+          let bot;
+          let front;
+          if (seg.type === 'vault') {
+            top = level.vaultTop; bot = level.vaultBot; front = level.vaultFront;
+          } else if (seg.type === 'crash') {
+            top = level.crashTop; bot = level.crashBot; front = level.crashFront;
+          } else if (seg.landing) {
+            top = level.landTop; bot = level.landBot; front = level.landFront;
+          } else {
+            top = level.safeTop; bot = level.safeBot; front = level.safeFront;
+          }
+
           const a0 = norm2pi((seg.start + s.rot) * D2R);
           const a1 = a0 + seg.span * D2R;
-          const [top, bot, front] = paintFor(seg, level);
+          let start = a0;
+          let guard = 0;
+          while (start < a1 - 1e-6 && guard++ < 8) {
+            const half = Math.floor(start / Math.PI);
+            const end = Math.min(a1, (half + 1) * Math.PI);
+            const near = half % 2 === 0;
 
-          eachHalf(a0, a1, (b0, b1, isNear) => {
-            if (isNear !== wantNear) return;
-            if (isNear) {
-              fillWall(ctx, s.cx, cy, R, ry, th, b0, b1, front);
-            }
-            fillSector(ctx, s.cx, cy, R, ry, s.innerR, s.innerRy, b0, b1, isNear ? top : bot);
-            if (isNear) {
-              strokeRim(ctx, s.cx, cy, R, ry, b0, b1, level.edge, 1.4);
+            if (pass === 0 && !near) {
+              fillSector(ctx, s.cx, cy, R, ry, s.innerR, s.innerRy, start, end, bot);
+            } else if (pass === 1 && near) {
+              fillWall(ctx, s.cx, cy, R, ry, th, start, end, front);
+            } else if (pass === 2 && near) {
+              fillSector(ctx, s.cx, cy, R, ry, s.innerR, s.innerRy, start, end, top);
+              strokeRim(ctx, s.cx, cy, R, ry, start, end, level.edge, 1.4);
               if (seg.type === 'crash') {
                 drawCrashPips(ctx, s.cx, cy, (R + s.innerR) * 0.5, (ry + s.innerRy) * 0.5,
-                  b0, b1, pipStep, level.pip, COLORS.virusCore, Math.max(2, s.R * 0.021));
-                strokeRim(ctx, s.cx, cy - th * 0.1, R, ry, b0, b1, level.warn, 2.2);
+                  start, end, pipStep, level.pip, COLORS.virusCore, pipSize);
+                strokeRim(ctx, s.cx, cy - th * 0.1, R, ry, start, end, level.warn, 2.2);
               }
               if (pulse > 0.02) {
-                strokeRim(ctx, s.cx, cy, R, ry, b0, b1,
+                strokeRim(ctx, s.cx, cy, R, ry, start, end,
                   `rgba(255,255,255,${(pulse * 0.5).toFixed(3)})`, 2.4);
               }
             }
-          });
+            start = end;
+          }
         }
       }
 

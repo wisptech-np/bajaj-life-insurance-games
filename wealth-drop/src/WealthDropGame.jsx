@@ -9,8 +9,8 @@
 // shields the coin, so a Risk pocket pays x1 instead of x0: insurance does not
 // raise the ceiling, it lifts the floor. Ten coins or 90 seconds.
 //
-// Structure mirrors GuardianShelterGame.jsx, SwingToSecureGame.jsx and
-// MilestoneHopperGame.jsx: one canvas component whose mutable state lives in
+// Structure mirrors SwingToSecureGame.jsx and MilestoneHopperGame.jsx: one
+// canvas component whose mutable state lives in
 // refs (never React state — a 120 Hz physics tick must not re-render), plus
 // module-level pure helpers and draw functions. All tunables come from data.js;
 // the kit owns the loop, input, effects, audio and device profiling.

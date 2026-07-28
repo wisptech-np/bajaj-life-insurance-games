@@ -11,8 +11,7 @@
    Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745, dark bg #0B1221.
 
    Colour grammar, kept identical to the rest of the catalog: green is ALWAYS
-   risk (the crash arcs are green virus-styled bands, matching the risk blobs in
-   Milestone Hopper and the risk tide in Swing to Secure), blue is ALWAYS
+   risk (here the crash arcs, drawn as virus-styled bands), blue is ALWAYS
    protection (safe landing arcs, the shield ball, the tower core), gold is
    wealth (the retirement vault, milestone rules, fever flame).
 

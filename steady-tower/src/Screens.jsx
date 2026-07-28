@@ -381,32 +381,48 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(14, 79, 148, 0.55), rgba(5, 26, 58, 0.95) 70%), #051a3a',
+        padding: 22,
+        background: 'radial-gradient(ellipse at 50% 28%, rgba(14, 79, 148, 0.55), rgba(11, 18, 33, 0.96) 72%), #0B1221',
         overflowY: 'auto',
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
+
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <linearGradient id="stBlueB" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2C6BC8" />
+            <stop offset="65%" stopColor="#154B94" />
+            <stop offset="100%" stopColor="#0B2F6A" />
+          </linearGradient>
+          <linearGradient id="stRedB" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E8563F" />
+            <stop offset="65%" stopColor="#B32B2B" />
+            <stop offset="100%" stopColor="#7C1522" />
+          </linearGradient>
+        </defs>
+      </svg>
+
       <div style={{
-        background: 'rgba(0, 30, 70, 0.65)',
+        background: 'rgba(11, 18, 33, 0.72)',
         border: '1px solid rgba(255, 255, 255, 0.14)',
         borderRadius: 24,
-        padding: '30px 24px 24px',
+        padding: '26px 20px 22px',
         width: '100%',
         maxWidth: 360,
-        boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
+        boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         {/* Title */}
         <h2 style={{
-          fontSize: 26,
+          fontSize: 25,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 20px 0',
+          margin: '0 0 16px 0',
           color: '#fff',
-          textShadow: '0 2px 4px rgba(0,0,0,0.5)'
         }}>
           How to Play
         </h2>
@@ -481,8 +497,34 @@ export function HowToPlayScreen({ onPlay }) {
   );
 }
 
-export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
+/* ─── Results ────────────────────────────────────────────── */
+function StatTile({ label, value, accent }) {
+  return (
+    <div style={{
+      flex: 1,
+      padding: '10px 6px',
+      borderRadius: 14,
+      background: 'rgba(255,255,255,0.05)',
+      border: '1px solid rgba(255,255,255,0.12)',
+      textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 19, fontWeight: 900, color: accent, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLabel }) {
+  // The stats contract this game reports: { score, risks, stability, time }.
   const score = stats?.score || 0;
+  const risks = stats?.risks || 0;
+  const stability = stats?.stability || 0;
+  const timeLeft = stats?.time || 0;
+  const totalRisks = GAME_CONFIG.tower.redCount;
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
@@ -493,12 +535,10 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
     const end = score;
     if (start === end) {
       setAnimatedScore(end);
-      return;
+      return undefined;
     }
-    const duration = 1200;
     const stepTime = 16;
-    const steps = duration / stepTime;
-    const increment = end / steps;
+    const increment = end / (1200 / stepTime);
     const timer = setInterval(() => {
       start += increment;
       if (start >= end) {
@@ -514,14 +554,13 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
   async function handleShare() {
     const rawShareUrl = buildShareUrl() || window.location.href;
     const shareUrl = await shortenUrl(rawShareUrl);
-    const shareMessage = `Hi,\nI secured ${score} points in the Guardian Shelter challenge.\nPreemptive risk protection makes all the difference! Protect your family here: ${shareUrl}`.trim();
+    const shareMessage = `Hi,
+I pulled ${risks} of ${totalRisks} risks out of the ${GAME_TITLE} challenge at ${stability}% average stability, scoring ${score} points.
+De-risk your portfolio without destabilising your life plan. Take your run here: ${shareUrl}`.trim();
 
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: 'Guardian Shelter',
-          text: shareMessage,
-        });
+        await navigator.share({ title: GAME_TITLE, text: shareMessage });
       } catch { /* dismissed */ }
     } else {
       try {
@@ -533,10 +572,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
 
   const radius = 75;
   const circumference = 2 * Math.PI * radius;
-  const targetScore = 1500;
-  const progress = (Math.min(score, targetScore) / targetScore) * circumference;
-  const strokeColor = score < 500 ? "#ef4444" : "#28A745";
-  const glowColor = score < 500 ? "rgba(239, 68, 68, 0.4)" : "rgba(40, 167, 69, 0.4)";
+  const progress = (Math.min(score, RESULT_TARGET_SCORE) / RESULT_TARGET_SCORE) * circumference;
+  const strokeColor = won ? '#28A745' : score < 600 ? '#EF4444' : '#FFC845';
+  const glowColor = won ? 'rgba(40,167,69,0.45)' : score < 600 ? 'rgba(239,68,68,0.4)' : 'rgba(255,200,69,0.4)';
 
   return (
     <motion.div
@@ -550,223 +588,192 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '40px 20px 24px',
+        padding: '34px 20px 24px',
         overflowY: 'auto',
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(14, 79, 148, 0.55), rgba(5, 26, 58, 0.95) 70%), #051a3a',
-        WebkitBackdropFilter: 'blur(8px)',
-        backdropFilter: 'blur(8px)',
+        background: 'radial-gradient(ellipse at 50% 28%, rgba(14, 79, 148, 0.55), rgba(11, 18, 33, 0.96) 72%), #0B1221',
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
       {won && <Confetti />}
 
-      {/* Header / Top Bar */}
-      <div style={{ textAlign: 'center', marginBottom: 20, width: '100%', maxWidth: 360 }}>
-        <p style={{ color: '#fff', fontSize: 24, fontWeight: 900, lineHeight: 1.2, margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-          Hi <span style={{ color: '#3b82f6', fontWeight: 950 }}>{leadName || 'Friend'}!</span><br />
-          <span style={{ fontSize: 20, color: 'rgba(255, 255, 255, 0.85)', fontWeight: 800 }}>Your Score</span>
+      {/* Outcome header */}
+      <div style={{ textAlign: 'center', marginBottom: 14, width: '100%', maxWidth: 360, zIndex: 2 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 9,
+          padding: '7px 16px', borderRadius: 999,
+          background: won ? 'rgba(40,167,69,0.22)' : 'rgba(239,68,68,0.18)',
+          border: `1px solid ${won ? 'rgba(40,167,69,0.5)' : 'rgba(239,68,68,0.45)'}`,
+          marginBottom: 10,
+        }}>
+          {won ? <TrophyIcon size={20} /> : <ToppleIcon size={20} />}
+          <span style={{ fontSize: 13, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            {won ? 'Tower secured' : 'Run ended'}
+          </span>
+        </div>
+        <p style={{ color: '#fff', fontSize: 21, fontWeight: 900, lineHeight: 1.25, margin: 0 }}>
+          Hi <span style={{ color: '#1E6BE0' }}>{leadName || 'Friend'}!</span>{' '}
+          <span style={{ color: 'rgba(255,255,255,0.85)' }}>Here&rsquo;s your run.</span>
         </p>
       </div>
 
-      {/* Circular Progress Ring */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}>
-        <div style={{ width: 170, height: 170, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+      {/* Score ring */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, zIndex: 2 }}>
+        <div style={{ width: 162, height: 162, position: 'relative' }}>
           <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 200 200">
-            {/* Background ring */}
+            <circle cx="100" cy="100" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
             <circle
-              cx="100"
-              cy="100"
-              r={radius}
-              fill="none"
-              stroke="#0f172a"
-              strokeWidth="10"
-            />
-            {/* Outline border decor */}
-            <circle
-              cx="100"
-              cy="100"
-              r={radius + 6}
-              fill="none"
-              stroke="#1e293b"
-              strokeWidth="1"
-              opacity="0.3"
-            />
-            {/* Progress circle */}
-            <circle
-              cx="100"
-              cy="100"
-              r={radius}
-              fill="none"
-              stroke={strokeColor}
-              strokeWidth="12"
-              strokeLinecap="round"
+              cx="100" cy="100" r={radius} fill="none"
+              stroke={strokeColor} strokeWidth="12" strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={circumference - progress}
-              style={{
-                filter: `drop-shadow(0 0 8px ${glowColor})`,
-                transition: 'stroke-dashoffset 1.2s ease-out',
-              }}
+              style={{ filter: `drop-shadow(0 0 8px ${glowColor})`, transition: 'stroke-dashoffset 1.2s ease-out' }}
             />
           </svg>
-          {/* Inner Text */}
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-            <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 30, fontWeight: 900, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
               {animatedScore.toLocaleString()}
             </span>
-            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255, 255, 255, 0.6)', marginTop: 4, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.55)', marginTop: 5, letterSpacing: '0.16em' }}>
               POINTS
             </span>
           </div>
         </div>
       </div>
 
-      {/* Motivational Message */}
-      <div style={{ textAlign: 'center', marginBottom: 24, padding: '0 16px' }}>
-        <h2 style={{ fontSize: 18, fontWeight: 900, color: '#fff', lineHeight: 1.35, margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-          Preemptive protection shields your family's future from unexpected storms.
-        </h2>
+      {/* Run stats — the { score, risks, stability, time } contract, on screen */}
+      <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 12, zIndex: 2 }}>
+        <StatTile label="Risks out" value={`${risks}/${totalRisks}`} accent="#FF7A6E" />
+        <StatTile label="Avg stability" value={`${stability}%`} accent="#28A745" />
+        <StatTile label="Time left" value={`${timeLeft}s`} accent="#FFC845" />
       </div>
 
-      {/* Primary Action */}
+      {/* One chip per risk block, cleared or left standing */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6,
+        width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2,
+      }}>
+        {Array.from({ length: totalRisks }).map((_, i) => {
+          const cleared = i < risks;
+          return (
+            <span
+              key={i}
+              className="st-chip"
+              style={{
+                animationDelay: `${180 + i * 70}ms`,
+                fontSize: 10.5,
+                fontWeight: 800,
+                padding: '5px 11px',
+                borderRadius: 999,
+                color: cleared ? '#fff' : 'rgba(255,255,255,0.45)',
+                background: cleared ? 'rgba(40,167,69,0.85)' : 'rgba(239,68,68,0.18)',
+                border: `1px solid ${cleared ? 'rgba(255,255,255,0.3)' : 'rgba(239,68,68,0.4)'}`,
+              }}
+            >
+              {cleared ? 'Cleared' : 'Left'}
+            </span>
+          );
+        })}
+      </div>
+
       <button
         onClick={handleShare}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 10,
-          backgroundColor: '#1E6BE0',
-          color: '#fff',
-          fontWeight: 900,
-          height: 52,
-          borderRadius: '12px',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: 18,
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          boxShadow: '0 4px 20px rgba(30, 107, 224, 0.4)',
-          width: '100%',
-          maxWidth: 280,
-          marginBottom: 24,
-          flexShrink: 0,
-          whiteSpace: 'nowrap',
-          boxSizing: 'border-box',
-          transition: 'background 0.2s',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          background: '#1E6BE0', color: '#fff', fontWeight: 900,
+          height: 50, borderRadius: 12, border: 'none', cursor: 'pointer',
+          fontSize: 17, textTransform: 'uppercase', letterSpacing: '0.05em',
+          boxShadow: '0 4px 18px rgba(30,107,224,0.4)',
+          width: '100%', maxWidth: 300, marginBottom: 18, zIndex: 2,
         }}
       >
         <ShareIcon />
         <span>Share Score</span>
       </button>
 
-      {/* Action Card Section */}
+      {/* Lead / booking card */}
       <div style={{
-        width: '100%',
-        maxWidth: 360,
-        background: 'rgba(15, 23, 42, 0.75)',
+        width: '100%', maxWidth: 360,
+        background: 'rgba(255,255,255,0.05)',
         WebkitBackdropFilter: 'blur(12px)',
         backdropFilter: 'blur(12px)',
-        borderRadius: '24px',
-        padding: '20px 18px',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        textAlign: 'center',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-        marginBottom: 20,
+        borderRadius: 22, padding: '18px 16px',
+        border: '1px solid rgba(255,255,255,0.12)',
+        textAlign: 'center', marginBottom: 16, zIndex: 2,
       }}>
-        <p style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', lineHeight: 1.35, margin: '0 0 18px 0' }}>
-          Consult a specialist to shield your goals against potential risks.
+        <p style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.35, margin: '0 0 16px 0' }}>
+          You cleared the risks on screen. A specialist can help you take the real
+          ones out without destabilising your plan.
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', display: 'flex' }}>
+            <button
+              onClick={onBookSlot}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(180deg, #FF8A3D 0%, #F26522 100%)',
+                color: '#fff', fontWeight: 900, padding: '15px 20px', borderRadius: 12,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                fontSize: 17, border: 'none', cursor: 'pointer', textTransform: 'uppercase',
+                boxShadow: '0 4px 16px rgba(242,101,34,0.35)',
+              }}
+            >
+              <CalendarIcon size={18} />
+              <span>Book a Slot</span>
+            </button>
+          </motion.div>
+
           {empPhone && (
             <a
               href={`tel:${empPhone}`}
               style={{
-                background: '#FF8A3D',
-                color: '#fff',
-                fontWeight: 900,
-                padding: '15px 20px',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                fontSize: 17,
-                textDecoration: 'none',
-                textTransform: 'uppercase',
-                border: '1px solid #FF8A3D',
-                boxShadow: '0 4px 12px rgba(255, 138, 61, 0.25)',
+                background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: 900,
+                padding: '14px 20px', borderRadius: 12,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                fontSize: 16, textDecoration: 'none', textTransform: 'uppercase',
+                border: '1px solid rgba(255,255,255,0.18)',
               }}
             >
               <PhoneIcon />
               <span>Call Specialist</span>
             </a>
           )}
-
-          {empPhone && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
-              <div style={{ height: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-              <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 'bold', fontSize: 9, letterSpacing: '0.15em' }}>OR</span>
-              <div style={{ height: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-            </div>
-          )}
-
-          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-            <button
-              onClick={onBookSlot}
-              style={{
-                width: '100%',
-                background: '#28A745',
-                color: '#fff',
-                fontWeight: 900,
-                padding: '15px 20px',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                fontSize: 17,
-                border: 'none',
-                cursor: 'pointer',
-                textTransform: 'uppercase',
-                boxShadow: '0 4px 12px rgba(40, 167, 69, 0.25)',
-              }}
-            >
-              <CalendarIcon size={18} />
-              <span>Book Consultation</span>
-            </button>
-          </motion.div>
         </div>
       </div>
 
-      {/* Play again action */}
-      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+      {/* Retry / Home */}
+      <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 360, marginBottom: 16, zIndex: 2 }}>
         <button
           onClick={onRetry}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10,
-            background: 'none',
-            border: 'none',
-            color: 'rgba(255, 255, 255, 0.5)',
-            cursor: 'pointer',
-            fontSize: 16,
-            fontWeight: 'bold',
-            letterSpacing: '0.05em',
-            padding: '12px 24px',
-            textTransform: 'uppercase',
-            transition: 'color 0.2s',
-            marginBottom: 16,
+            flex: 2, height: 48, borderRadius: 12, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
+            color: '#fff', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
         >
           <RotateIcon />
-          <span>Play again</span>
+          <span>{retryLabel || 'Play again'}</span>
         </button>
-      </motion.div>
+        <button
+          onClick={onHome}
+          style={{
+            flex: 1, height: 48, borderRadius: 12, cursor: 'pointer',
+            background: 'transparent', border: '1px solid rgba(255,255,255,0.18)',
+            color: 'rgba(255,255,255,0.72)', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          <HomeIcon />
+          <span>Home</span>
+        </button>
+      </div>
 
       {/* Disclaimer */}
-      <div style={{ width: '100%', maxWidth: 360, opacity: 0.4, padding: '0 12px 20px' }}>
+      <div style={{ width: '100%', maxWidth: 360, opacity: 0.4, padding: '0 12px 20px', zIndex: 2 }}>
         <p style={{ fontSize: 8, textAlign: 'center', color: '#fff', lineHeight: 1.4, fontWeight: 'bold', margin: 0 }}>
           <span style={{ opacity: 0.7, marginRight: 4 }}>Disclaimer:</span>
           The results shown in this game are indicative and based solely on the information provided by the participant. They are intended for engagement and awareness purposes only and do not constitute financial advice or a recommendation to purchase any life insurance product. Participants should seek independent professional advice before making any financial or insurance decisions. While due care has been taken in designing the game, Bajaj Life Insurance Ltd. assumes no liability for its outcomes.

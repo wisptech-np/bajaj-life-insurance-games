@@ -440,9 +440,11 @@ function drawPinLabel(ctx, s, cfg, p, offset, font) {
 }
 
 /** The shield ball: trail, reflection, body, emblem. */
-function drawBall(ctx, s, cfg, paints, b, trail, trailN, time, wobble) {
+function drawBall(ctx, s, cfg, paints, b, trail, trailN, time, wobble, ready) {
   const k = projK(s, b.y);
-  const r = cfg.ball.radius * s.pxPerU * k;
+  // A ball waiting to be thrown breathes, so the thing you are meant to touch
+  // is the thing that is moving.
+  const r = cfg.ball.radius * s.pxPerU * k * (ready ? 1 + Math.sin(time * 3) * 0.035 : 1);
   const wob = wobble ? Math.sin(time * 24) * r * 0.34 : 0;
   const sx = projX(s, b.x, k) + wob;
   const sy = projY(s, k);
@@ -664,7 +666,10 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       startY: 0,
     };
     s.throwState = createThrowState(cfg, s.rand);
-    for (const p of s.throwState.pins) p.dropT = 0;
+    // Open on the rack dropping in rather than on a static deck.
+    for (const p of s.throwState.pins) p.dropT = 1;
+    s.phase = 'racking';
+    s.phaseT = cfg.rackDropSeconds;
 
     /* --- canvas sizing --------------------------------------------------- */
     const fit = () => {
@@ -823,8 +828,6 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
     const tallyThrow = () => {
       const pins = s.throwState.pins;
       const standing = standingCount(pins);
-      const knocked = 10 - s.rackStanding0 - 0 + 0; // placeholder, set below
-      void knocked;
       const down = s.rackStanding0 - standing;
       s.rackBalls += 1;
       s.rolls.push(down);
@@ -1156,9 +1159,9 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       for (let i = 0; i < n; i++) drawPin(ctx, s, cfg, s.pinSprite, pins[s.order[i]], time);
 
       const b = s.throwState.ball;
-      const rolling = s.phase === 'rolling';
-      if (rolling || s.phase === 'ready' || s.phase === 'tally') {
-        drawBall(ctx, s, cfg, paints, b, s.trail, s.trailN, time, b.gutter !== 0);
+      const inPit = b.y > cfg.lane.length + cfg.lane.deckDepth * 0.55;
+      if (!inPit && s.phase !== 'racking') {
+        drawBall(ctx, s, cfg, paints, b, s.trail, s.trailN, time, b.gutter !== 0, s.phase === 'ready');
       }
 
       // Labels sit above everything on the deck so a falling pin cannot hide

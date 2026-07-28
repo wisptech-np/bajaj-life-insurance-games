@@ -244,6 +244,10 @@ export const GAME_CONFIG = {
     bucketFlashSeconds: 0.5,
     bucketPopSeconds: 0.42,
     pegFlashSeconds: 0.32,
+    // Recovery time for the coin's squash-and-stretch after a peg hit. Read by
+    // the pure physics step (it owns the coin's presentation timers) and fed to
+    // the kit's elastic squash curve.
+    coinSquashSeconds: 0.22,
   },
 
   hud: {

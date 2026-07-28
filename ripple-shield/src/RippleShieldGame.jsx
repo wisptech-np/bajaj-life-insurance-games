@@ -854,18 +854,23 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
         rp.prev = rp.r;
         rp.r += grow * dt;
 
-        for (let j = 0; j < s.orbCount; j++) {
-          const o = s.orbs[j];
-          if (o.safe) continue; // a protected orb is out of the simulation
-          const dx = o.x - rp.x;
-          const dy = o.y - rp.y;
-          const d = Math.sqrt(dx * dx + dy * dy) - o.r;
-          // The ring only ever grows and always outruns the drift, so this
-          // crossing test fires exactly once per (ripple, orb) pair: no flags,
-          // no per-ripple hit sets, no allocation.
-          if (!(rp.r >= d && rp.prev < d)) continue;
-          if (o.virus) strikeVirus(o, rp);
-          else protectOrb(o, rp);
+        // Once the run is over the rings keep expanding through the ending
+        // beat, but they stop scoring: the stats object was snapshotted at
+        // endRun, and a HUD that kept climbing past it would be lying.
+        if (!s.ended) {
+          for (let j = 0; j < s.orbCount; j++) {
+            const o = s.orbs[j];
+            if (o.safe) continue; // a protected orb is out of the simulation
+            const dx = o.x - rp.x;
+            const dy = o.y - rp.y;
+            const d = Math.sqrt(dx * dx + dy * dy) - o.r;
+            // The ring only ever grows and always outruns the drift, so this
+            // crossing test fires exactly once per (ripple, orb) pair: no
+            // flags, no per-ripple hit sets, no allocation.
+            if (!(rp.r >= d && rp.prev < d)) continue;
+            if (o.virus) strikeVirus(o, rp);
+            else protectOrb(o, rp);
+          }
         }
 
         if (rp.r >= rp.maxR || rp.maxR <= minR) rp.fade = cfg.ripple.fadeSeconds;
