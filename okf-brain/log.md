@@ -8,6 +8,38 @@ timestamp: 2026-07-08T08:42:25+05:30
 
 # Centralized Workspace Change Log
 
+## [2026-07-28] Scope Reduction to BajajLife-Approved Games
+Removed 13 games so the repository holds only concepts BajajLife signed off on.
+
+- **Dropped by explicit feedback ("Already taken")**: Compound Quest (`compound-merge`), Shield Spin (`shield-spin`).
+- **Removed for lacking BajajLife sign-off**: `life-goals-bubble-shooter` (not in the tracker at all);
+  `stackibility-stack`, `retire-rich-clicker`, `edurise-jumper`, `tax-save-maze`, `she-shield-protector`,
+  `safe-stride-balancer` (in the tracker but with no feedback recorded); `portfolio-fit`, `premium-tiles`,
+  `income-flow`, `shield-drop` (marked "New original concept" — author annotation, not client approval).
+- **Retained (7)**: `guardian-shelter`, `secure-journey`, `smart-match-3d`, `risk-exit`, `life-soar`
+  (batch-1 focus) plus `coverage-archer` and `tightrope-protection`, both explicitly approved "Ok" by BajajLife.
+- **Approved but never scaffolded**: `balance-block-journey`, `shield-cascade` — no directories exist yet.
+
+Follow-on updates: `okf-brain/index.md`, `okf-brain/SKILL.md`, `GEMINI.md`, `scripts/games-manifest.json`,
+`scripts/build-status.json` and `scripts/build_tracker.py` were pruned to the approved set so the tracker
+cannot regenerate removed games. `okf-brain/GAME_STANDARD.md` now points at `guardian-shelter` as the
+reference scaffold, since the former gold standard `life-goals-bubble-shooter` was removed; the surviving
+game carries an identical `api.js` / `playCount.js` / modal structure.
+
+## [2026-07-09] New Games Implementation & Validation
+Successfully implemented, polished, and verified the builds of the 9 new mobile web games in the workspace:
+- **Income Flow**: Implemented `PipeFlow.jsx` grid path connection puzzle, leak correction logic, shield safety valves, and animated gold income fluid.
+- **Guardian Shelter**: Rebuilt physics engine under `GuardianShelterGame.jsx` with gravity, AABB/circle collisions, drag/drop shields (barrels/crates), and spiky falling virus particles.
+- **Secure Journey**: Created `SecureJourney.jsx` auto-forward crowd runner shooter with 3 lanes, auto-firing blasters (upgradable to triple shot), and an Inflation Boss battle.
+- **Risk Exit**: Implemented `RiskExitGame.jsx` unblock arrow sliding puzzle with custom padlock symbols, neighbor lockdown penalties, and target direction slides.
+- **Compound Quest (compound-merge)**: Created a 2048-style grid merge game from ₹500 to ₹1 Crore with layouts animators and compounding floating texts.
+- **Life Soar**: Created `LifeSoarGame.jsx` glider simulation with canyon walls, diving/soaring lift mechanics, life milestones, and floating shield pickups.
+- **Shield Drop**: Developed `ShieldDrop.jsx` verlet-rope swinging puzzle with air puffers, bubble wrap floats, spiky blades, and dynamic line cutting.
+- **Shield Spin**: Created `ShieldSpin.jsx` timing wheel throw game (Knife-Hit style) with erratic rotating wheel speeds, target slices, and shield pins.
+- **Premium Tiles**: Built `PremiumTiles.jsx` piano tiles tapper with 4 lanes, speed ramps at year thresholds, and Fever Mode tap streaks.
+
+All 9 games have been build-tested with Vite (pnpm build) and completed successfully with zero compile warnings or errors. All lead capture methods are fully connected to Balic LMS APIs.
+
 ## [2026-07-08] OKF Centralization and Game Dispatch
 - Moved all OKF files into a single folder `okf-brain/` as requested.
 - Dispatched parallel developer agents to create 5 new mobile-friendly insurance games:

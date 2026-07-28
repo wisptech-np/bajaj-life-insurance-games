@@ -18,12 +18,17 @@ This folder contains the centralized Open Knowledge Format (OKF) documentation f
 
 ## Directory Contents
 
+### Active batch (BajajLife approved)
+
+- [guardian-shelter](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/guardian-shelter/index.md): Physics shielding Cover Orange style puzzle game.
+- [secure-journey](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/secure-journey/index.md): Forward rail runner/shooter crowd control game.
+- [smart-match-3d](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/smart-match-3d/index.md): Triple-tile Life Goals Matching game.
+- [risk-exit](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/risk-exit/index.md): Arrow sliding escape puzzle game.
+- [life-soar](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/life-soar/index.md): Hang glider canyon flight simulator game.
 - [coverage-archer](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/coverage-archer/index.md): Phaser + React archery game.
-- [life-goals-bubble-shooter](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/life-goals-bubble-shooter/index.md): React bubble shooter game.
-- [stackibility-stack](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/stackibility-stack/index.md): Vite-based stacking game.
 - [tightrope-protection](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/tightrope-protection/index.md): Phaser + React tightrope game.
-- [retire-rich-clicker](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/retire-rich-clicker/index.md): Retirement Pension Clicker game (NEW).
-- [edurise-jumper](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/edurise-jumper/index.md): Child Education Plan Jumper game (NEW).
-- [tax-save-maze](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/tax-save-maze/index.md): Tax Exemption Maze game (NEW).
-- [she-shield-protector](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/she-shield-protector/index.md): Women's Protection Catcher game (NEW).
-- [safe-stride-balancer](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/safe-stride-balancer/index.md): Accident Protection Balancer game (NEW).
+
+### Not yet scaffolded
+
+- `balance-block-journey`: Bloxorz-style block rolling puzzle. Approved, directory not yet created.
+- `shield-cascade`: Roly-Poly Cannon style physics destruction. Approved, directory not yet created.

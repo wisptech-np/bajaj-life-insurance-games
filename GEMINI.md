@@ -9,18 +9,17 @@ This workspace uses the **Open Knowledge Format (OKF)** to structure repository 
 The workspace is organized as follows:
 - [Workspace Root index.md](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/index.md): Entry point for workspace-level concepts.
 - [Workspace Root log.md](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/log.md): Workspace chronological changes.
-- Individual games:
-  - **Original Games**:
-    - [Coverage Archer](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/coverage-archer/index.md) - Phaser + React game.
-    - [Life Goals Bubble Shooter](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/life-goals-bubble-shooter/index.md) - React game.
-    - [Stackibility Stack](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/stackibility-stack/index.md) - HTML5 Canvas + TailwindCSS game.
-    - [Tightrope Protection](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/tightrope-protection/index.md) - Phaser + React game.
-  - **New Mobile-Polished Games**:
-    - [Retire-Rich Clicker](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/retire-rich-clicker/index.md) - Clicker game themed around Annuity and Pension.
-    - [EduRise Jumper](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/edurise-jumper/index.md) - Vertical jumper themed around Child Education Plans.
-    - [Tax-Save Maze](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/tax-save-maze/index.md) - Path-finding maze themed around Section 80C/80D Tax Savings.
-    - [SheShield Protector](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/she-shield-protector/index.md) - Falling catcher themed around Women's Critical Illness Cover.
-    - [SafeStride Balancer](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/safe-stride-balancer/index.md) - Physics balancer themed around Personal Accident Plans.
+- Individual games (all BajajLife-approved; every other game was removed from this repo):
+  - **Batch 1 — new builds**:
+    - [Guardian Shelter](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/guardian-shelter/index.md) - Cover Orange style shield-placement physics puzzle.
+    - [Secure Journey](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/secure-journey/index.md) - Forward-rail shooter against virus waves.
+    - [Smart Match 3D](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/smart-match-3d/index.md) - Triple-tile life-goal matching.
+    - [Risk Exit](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/risk-exit/index.md) - Arrow sliding escape puzzle.
+    - [Life Soar](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/life-soar/index.md) - Hang-glider canyon flight.
+  - **Revamps of existing games**:
+    - [Coverage Archer](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/coverage-archer/index.md) - Phaser + React archery game (single-player virus targets).
+    - [Tightrope Protection](file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/okf-brain/tightrope-protection/index.md) - Phaser + React balance runner.
+  - **Approved, not yet scaffolded**: `balance-block-journey`, `shield-cascade`.
 
 ## Guidelines for AI Agents
 

@@ -7,17 +7,14 @@ import sys
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-GAMES = [
-    "coverage-archer",
-    "edurise-jumper",
-    "life-goals-bubble-shooter",
-    "retire-rich-clicker",
-    "safe-stride-balancer",
-    "she-shield-protector",
-    "stackibility-stack",
-    "tax-save-maze",
-    "tightrope-protection"
-]
+WORKSPACE_ROOT = r"c:\Users\Diwakar.Adhikari01\Desktop\bajaj-life-insurance-games"
+
+GAMES = []
+for entry in os.listdir(WORKSPACE_ROOT):
+    full_path = os.path.join(WORKSPACE_ROOT, entry)
+    if os.path.isdir(full_path) and os.path.exists(os.path.join(full_path, "package.json")):
+        GAMES.append(entry)
+GAMES.sort()
 
 WORKSPACE_ROOT = r"c:\Users\Diwakar.Adhikari01\Desktop\bajaj-life-insurance-games"
 

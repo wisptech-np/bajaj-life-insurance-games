@@ -23,15 +23,15 @@ Read the centralized OKF index for a full sitemap of all projects:
 ### Game Directories
 | Game | Directory | OKF Brain |
 |---|---|---|
+| Guardian Shelter | `guardian-shelter/` | [index.md](../okf-brain/guardian-shelter/index.md) |
+| Secure Journey | `secure-journey/` | [index.md](../okf-brain/secure-journey/index.md) |
+| Smart Match 3D | `smart-match-3d/` | [index.md](../okf-brain/smart-match-3d/index.md) |
+| Risk Exit | `risk-exit/` | [index.md](../okf-brain/risk-exit/index.md) |
+| Life Soar | `life-soar/` | [index.md](../okf-brain/life-soar/index.md) |
 | Coverage Archer | `coverage-archer/` | [index.md](../okf-brain/coverage-archer/index.md) |
-| Life Goals Bubble Shooter | `life-goals-bubble-shooter/` | [index.md](../okf-brain/life-goals-bubble-shooter/index.md) |
-| Stackibility Stack | `stackibility-stack/` | [index.md](../okf-brain/stackibility-stack/index.md) |
 | Tightrope Protection | `tightrope-protection/` | [index.md](../okf-brain/tightrope-protection/index.md) |
-| Retire-Rich Clicker | `retire-rich-clicker/` | [index.md](../okf-brain/retire-rich-clicker/index.md) |
-| EduRise Jumper | `edurise-jumper/` | [index.md](../okf-brain/edurise-jumper/index.md) |
-| Tax-Save Maze | `tax-save-maze/` | [index.md](../okf-brain/tax-save-maze/index.md) |
-| SheShield Protector | `she-shield-protector/` | [index.md](../okf-brain/she-shield-protector/index.md) |
-| SafeStride Balancer | `safe-stride-balancer/` | [index.md](../okf-brain/safe-stride-balancer/index.md) |
+
+Approved but not yet scaffolded: `balance-block-journey`, `shield-cascade`.
 
 ---
 

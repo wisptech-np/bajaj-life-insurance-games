@@ -25,10 +25,14 @@ BLUE = "003DA6"
 ORANGE = "F26522"
 
 CATALOG_NOTE = [
-    ("This repo (existing)", "coverage-archer (archery), life-goals-bubble-shooter (bubble shooter — GOLD STANDARD), "
-     "stackibility-stack (stacking), tightrope-protection (wire balance), retire-rich-clicker (clicker), "
-     "edurise-jumper (vertical jumper), tax-save-maze (maze), she-shield-protector (catcher), "
-     "safe-stride-balancer (balance)"),
+    ("This repo (approved scope)", "guardian-shelter (shield physics), secure-journey (rail shooter), "
+     "smart-match-3d (triple match), risk-exit (arrow puzzle), life-soar (glider), "
+     "coverage-archer (archery), tightrope-protection (balance runner). "
+     "Approved but not yet scaffolded: balance-block-journey, shield-cascade"),
+    ("Removed from repo", "Dropped by feedback: Compound Quest (compound-merge), Shield Spin (shield-spin) — "
+     "'Already taken'. Removed for lacking BajajLife sign-off: life-goals-bubble-shooter, stackibility-stack, "
+     "retire-rich-clicker, edurise-jumper, tax-save-maze, she-shield-protector, safe-stride-balancer, "
+     "portfolio-fit, premium-tiles, income-flow, shield-drop"),
     ("bajaj-game-store (do not repeat)", "snake, hangman, word scramble, match-3 x2, tetris, fruit-slice, "
      "runners/climbers x4, top-down shooter, bomberman, galaga, sudoku x2, whack-a-mole x2, brick-breaker, "
      "jigsaw x2, minesweeper, racing, tube-sorting, quiz x3, bubble shooter, peg solitaire, stacking, "
@@ -69,11 +73,6 @@ def main() -> None:
         add_row(g, "New")
     for g in data["revamps"]:
         add_row(g, "Revamp")
-    ws.append([
-        "Bubble shooter (Puzzle Bobble style)", "", "Life goals via goal-linked play",
-        "Life Goals Bubble Shooter", "Life Goals Bubble Shooter", "", "Gold standard — untouched",
-        "life-goals-bubble-shooter", "Standard", "Done (reference)", 5018,
-    ])
 
     widths = [34, 40, 38, 24, 22, 44, 30, 24, 10, 14, 10]
     for i, w in enumerate(widths, start=1):

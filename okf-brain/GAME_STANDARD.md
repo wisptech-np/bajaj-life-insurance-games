@@ -1,7 +1,12 @@
-# Bajaj Life Insurance Games — Build Standard (v2, 2026-07-09)
+# Bajaj Life Insurance Games — Build Standard (v2, 2026-07-09; reference updated 2026-07-28)
 
 > **Read this fully before building or revamping any game.** The gold standard is
-> `life-goals-bubble-shooter/` — every game must match its polish, structure, and lead-capture flow.
+> `guardian-shelter/` — every game must match its polish, structure, and lead-capture flow.
+>
+> **Note (2026-07-28):** the original gold standard `life-goals-bubble-shooter/` was removed when
+> the repo was cut down to BajajLife-approved games only. `guardian-shelter/` carries the identical
+> scaffold (same `api.js`, `playCount.js`, `crypto.js`, `shortener.js`, modal and screen structure)
+> and is now the reference to copy from.
 
 ## 1. Project scaffold (new games)
 
@@ -11,8 +16,8 @@ Each game is a standalone Vite + React app in its own kebab-case folder at the r
 ```
 <game-dir>/
   index.html            # viewport meta (see §6), Google Font link (Plus Jakarta Sans or Poppins)
-  package.json          # copy shape from life-goals-bubble-shooter/package.json (react 18.3.1, vite 5)
-  vite.config.js        # copy from life-goals-bubble-shooter/vite.config.js — keep __LMS_BASE_URL__ /
+  package.json          # copy shape from guardian-shelter/package.json (react 18.3.1, vite 5)
+  vite.config.js        # copy from guardian-shelter/vite.config.js — keep __LMS_BASE_URL__ /
                         #   __LMS_UPDATE_BASE_URL__ defines; change rollup output name + assign YOUR port
   src/
     main.jsx            # mounts <App/>; imports './index.css'
@@ -20,13 +25,13 @@ Each game is a standalone Vite + React app in its own kebab-case folder at the r
     App.jsx             # screen flow (see §2) — copy structure from bubble shooter App.jsx
     Game.jsx            # the canvas game component (name it after the game)
     Screens.jsx         # HomeScreen, HowToPlayScreen, ResultsScreen
-    LeadCaptureModal.jsx  # COPY from life-goals-bubble-shooter/src/, adjust title/summary text only
-    SlotBookingModal.jsx  # COPY from life-goals-bubble-shooter/src/
-    ThankYouScreen.jsx    # COPY from life-goals-bubble-shooter/src/
-    api.js              # COPY from life-goals-bubble-shooter/src/api.js — change LEAD_NO_KEY to
+    LeadCaptureModal.jsx  # COPY from guardian-shelter/src/, adjust title/summary text only
+    SlotBookingModal.jsx  # COPY from guardian-shelter/src/
+    ThankYouScreen.jsx    # COPY from guardian-shelter/src/
+    api.js              # COPY from guardian-shelter/src/api.js — change LEAD_NO_KEY to
                         #   '<camelCaseGameName>LeadNo' and default summaryDtls to '<Game Title> Lead'
     data.js             # GAME_CONFIG: tunables (durations, speeds, scoring) in one place
-    services/playCount.js  # COPY verbatim from life-goals-bubble-shooter/src/services/playCount.js
+    services/playCount.js  # COPY verbatim from guardian-shelter/src/services/playCount.js
     utils/crypto.js        # COPY verbatim
     utils/shortener.js     # COPY verbatim
 ```
