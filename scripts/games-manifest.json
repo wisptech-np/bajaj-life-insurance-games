@@ -291,6 +291,61 @@
       "feedback": "Approved - new original concept",
       "port": 5064,
       "brief": "A life timeline from age 25 to 60 in 12 stages, each a premium due date (Age 28 - first job raise, Age 35 - home loan, ...). A marker sweeps the bar; TAP to lock it. Green zone = premium paid, gold center sliver = PERFECT (x2 and +1 combo, up to x4); missing consumes one of 3 grace periods and repeats the stage. Sweep speed +7% and green width 24% -> 9% per stage, zone position re-randomised, every 4th stage bends the bar into an arc. Occasional narrow gold top-up zone banks +150 without advancing. Win: clear all 12 stages to retirement fireworks; lose on 3 misses or the 100s clock."
+    },
+    {
+      "dir": "steady-wings",
+      "bajajName": "Steady Wings",
+      "gameName": "Steady Wings",
+      "concept": "One-tap impulse flight through gates (flappy-style)",
+      "reference": "Original concept",
+      "financialConcept": "Life's expenses keep coming - keep your cover airborne and glide through every one",
+      "feedback": "Approved - new original concept",
+      "port": 5065,
+      "brief": "Portrait side-scroller: a shield-glider carrying the family's cover flies right under gravity; TAP gives a fixed upward impulse. Paired expense-wall pillars scroll in, each labelled as a life expense (School fees, Medical bill, EMI hike); passing the gap = a premium kept on time. Gold coins line the flight path; a blue shield token every ~8 gates absorbs one collision. Gap narrows 34% -> 24%, scroll speed steps up at gates 9 and 17, later gaps drift on a telegraphed sine. Win: 24 gates inside 100s; lose on unshielded contact or the clock. Near-miss bonus pays for brave lines; gate proves every generated gap sequence is physically passable."
+    },
+    {
+      "dir": "premium-pulse",
+      "bajajName": "Premium Pulse",
+      "gameName": "Premium Pulse",
+      "concept": "Beat-synchronised rhythm tapping (radial go/no-go)",
+      "reference": "Original concept",
+      "financialConcept": "A premium on every beat - stay in rhythm, skip the temptations, and cover never misses",
+      "feedback": "Approved - new original concept",
+      "port": 5066,
+      "brief": "Rhythm game synced to a synth metronome groove: rings contract from the screen edge toward a glowing policy badge in exact beat time. TAP when a blue ring (premium due) reaches the badge - within 45ms is PERFECT, 110ms GOOD; red spiky rings (impulse buys) must be let through WITHOUT tapping. Three movements at BPM 96 -> 112 -> 126 across 90s with ~64 scored rings and half-beat bonus doubles every 8th beat. 8 misses = cover lapsed. Taps are stamped at pointerdown against the audio clock with a documented device-latency allowance - the timing model is honest, sim-verified with human jitter."
+    },
+    {
+      "dir": "smart-recall",
+      "bajajName": "Smart Recall",
+      "gameName": "Smart Recall",
+      "concept": "Simon-style serial sequence recall (ordered memory)",
+      "reference": "Original concept",
+      "financialConcept": "A financial plan only works if you remember every step - recall it in order, skip the risky detours",
+      "feedback": "Approved - new original concept",
+      "port": 5067,
+      "brief": "A 3x3 grid of premium vector goal tiles (Health, Home, Education, Retirement, Travel, Family, Savings, Wedding, Emergency), each with its own synth pitch so sequences play as melodies. The family's plan lights up tiles in order (length 3 -> 9 across 7 rounds, playback speeding 460 -> 300ms); reproduce it by tapping. From round 4 one step is a red risk flash that must be SKIPPED during recall. Wrong tile or 5s idle = a slip; 3 slips = the plan is forgotten. Ordered recall only - no card flipping, no pair matching. Win: complete round 7 inside 110s."
+    },
+    {
+      "dir": "goal-juggler",
+      "bajajName": "Goal Juggler",
+      "gameName": "Goal Juggler",
+      "concept": "Tap-to-bounce juggling keep-ups (multi-body physics)",
+      "reference": "Original concept",
+      "financialConcept": "Real life means keeping every goal in the air at once - cover is what catches the one you miss",
+      "feedback": "Approved - new original concept",
+      "port": 5068,
+      "brief": "Keep-ups: glowing goal orbs (Education, Home, Health, Retirement - distinct silhouettes) fall under gravity in a walled playfield. TAP an orb to knock it upward; tap offset steers it. Orb count grows 1 -> 4 (at 15/35/60s); a floor hit shatters the orb (1 of 3 covers lost, respawns in 2s); from 40s a telegraphed risk gust pushes orbs sideways. Bounces pay x live-orb count, all-4-airborne streaks pay +200. Corner-cradling and tap-spam are neutralised by design (loiter nudge, impulse decay) and adversarially gated. Win: survive the 80s run under 3 drops with score >= 1500."
+    },
+    {
+      "dir": "life-rush",
+      "bajajName": "Life Rush",
+      "gameName": "Life Rush",
+      "concept": "WarioWare-style microgame rush (3-5s one-verb challenges)",
+      "reference": "Original concept",
+      "financialConcept": "Life comes at you fast - pay, protect, pick and plan in seconds; that is what good cover feels like",
+      "feedback": "Approved - new original concept",
+      "port": 5069,
+      "brief": "12 rapid micro-challenges per run, drawn from a pool of 14+, each a single verb in 3.5s shrinking to 2.6s under a one-word command banner: PAY! (tap the premium before the due stamp slams), SWAT! (swipe away the scam call), PICK! (tap the right cover card), SHIELD! (drag the umbrella over the family), GROW! (hold-fill the SIP jar to the line), SIGN!, CATCH!, SNOOZE!, STAMP!, SPLIT!, LOCK!, TOP-UP!, GIFT!, WAKE!. 3 lives; speed-up jingle every 4th game; difficulty tiers easy -> hard. Win: clear all 12 in a ~75-100s run. Every microgame is individually gate-proven clearable at the hardest tier."
     }
   ],
   "revamps": [
