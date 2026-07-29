@@ -32,6 +32,16 @@ const GAMES = [
   'risk-strike',
   'swing-to-secure',
   'milestone-hopper',
+  'premium-pinball',
+  'cover-drive',
+  'goal-keeper',
+  'wealth-carrom',
+  'wealth-balloon',
+  'income-pipeline',
+  'smart-sorter',
+  'safe-crossing',
+  'slide-to-safety',
+  'perfect-premium',
 ];
 
 const checkOnly = process.argv.includes('--check');

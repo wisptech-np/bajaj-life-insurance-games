@@ -46,6 +46,16 @@ Only BajajLife-approved concepts are kept in this repository.
 | `spiral-sprint/` | Spiral Sprint | 5048 |
 | `goal-orbit/` | Goal Orbit | 5050 |
 | `risk-strike/` | Risk Strike | 5054 |
+| `premium-pinball/` | Premium Pinball | 5055 |
+| `cover-drive/` | Cover Drive | 5056 |
+| `goal-keeper/` | Goal Keeper | 5057 |
+| `wealth-carrom/` | Wealth Carrom | 5058 |
+| `wealth-balloon/` | Wealth Balloon | 5059 |
+| `income-pipeline/` | Income Pipeline | 5060 |
+| `smart-sorter/` | Smart Sorter | 5061 |
+| `safe-crossing/` | Safe Crossing | 5062 |
+| `slide-to-safety/` | Slide to Safety | 5063 |
+| `perfect-premium/` | Perfect Premium | 5064 |
 
 Approved but not yet scaffolded: `balance-block-journey` (5031), `shield-cascade` (5036).
 

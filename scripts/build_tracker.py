@@ -31,7 +31,12 @@ CATALOG_NOTE = [
      "swing-to-secure (rope-swing traversal), milestone-hopper (lane-hopper), "
      "portfolio-fit (1010 block fit — restored after sign-off), spiral-sprint (helix jump), "
      "wealth-drop (plinko), ripple-shield (chain reaction), steady-tower (jenga de-risk), "
-     "goal-orbit (orbit hop), risk-strike (flick bowling). "
+     "goal-orbit (orbit hop), risk-strike (flick bowling), "
+     "premium-pinball (pinball flippers), cover-drive (cricket batting timing), "
+     "goal-keeper (penalty-save reaction), wealth-carrom (carrom flick-pocket), "
+     "wealth-balloon (press-your-luck inflate), income-pipeline (pipe-rotation flow routing), "
+     "smart-sorter (conveyor swipe-sorting), safe-crossing (traffic-control tap go/stop), "
+     "slide-to-safety (ice-slide pathing), perfect-premium (stop-the-marker precision). "
      "Approved but not yet scaffolded: balance-block-journey, shield-cascade"),
     ("Removed from repo", "Dropped by feedback: Compound Quest (compound-merge), Shield Spin (shield-spin) — "
      "'Already taken'. Removed for lacking BajajLife sign-off: life-goals-bubble-shooter, stackibility-stack, "

@@ -181,6 +181,116 @@
       "feedback": "Approved - new original concept",
       "port": 5054,
       "brief": "Bowling: pseudo-3D lane (perspective trapezoid with gloss reflections); 10 pins styled as green virus bottles (front pins labelled Illness, Accident, Debt, Inflation). Flick the glowing shield ball - flick speed sets power, angle sets direction, small post-flick curve via swipe curl. Ball-pin and pin-pin 2D collisions on the lane plane projected to perspective. 5 frames, 2 throws each with strike/spare bonuses and a simplified scorecard; 2-minute cap. Win = total pins above a tuned target. Pin explosion into particle shards on strike + STRIKE banner, gutter wobble, ball trail, crowd-cheer synth swell."
+    },
+    {
+      "dir": "premium-pinball",
+      "bajajName": "Premium Pinball",
+      "gameName": "Premium Pinball",
+      "concept": "Pinball flippers (portrait single-screen table)",
+      "reference": "Original concept",
+      "financialConcept": "Keeping the family's cover in play - every save at the flippers is a premium paid on time",
+      "feedback": "Approved - new original concept",
+      "port": 5055,
+      "brief": "Portrait pinball: hold-to-charge plunger launches the ball; tap-and-hold left/right screen halves for the flippers (rotating capsules with angular impulse). Table: 3 goal bumpers (Education / Home / Retirement), slingshot bulges on the funnel walls, 3 rollover lanes up top - lighting all 3 arms Bonus Secure (2x scoring, 8s). Circle-vs-segment physics with >=4 substeps at terminal speed (sim-proven no tunneling), restitution 0.55 walls / 1.15 bumpers with a 1500 px/s energy clamp. 3 balls, 120s clock; win at 3000 points. Anti-camp is pure geometry: a held flipper opens an outlane, so cradling scores worse than honest tapping."
+    },
+    {
+      "dir": "cover-drive",
+      "bajajName": "Cover Drive",
+      "gameName": "Cover Drive",
+      "concept": "Cricket batting timing (tap-to-swing chase)",
+      "reference": "Original concept",
+      "financialConcept": "Every ball is a life event - cover it with the right timing",
+      "feedback": "Approved - new original concept",
+      "port": 5056,
+      "brief": "Cricket chase: 40 runs in 18 balls with 3 wickets. Bowler run-up telegraphs speed/length via a marker (3 speeds, +8% every 6 balls, slower balls from ball 7). One control: TAP to swing; timing error vs ideal contact gives PERFECT (boundary 4/6), GOOD (1-2 runs), EDGE (35% wicket chance) or MISS (wicket on stump-line balls). Deliveries themed as life events (Medical emergency yorker, Inflation bouncer); a PERFECT on every 6th Cover ball grants a one-wicket shield. Side-on ground with programmatic batter/bowler rigs, ball trail, boundary rope, FOUR!/SIX! floating text. Fixed-timestep render interpolation keeps judged timing jitter-free."
+    },
+    {
+      "dir": "goal-keeper",
+      "bajajName": "Goal Keeper",
+      "gameName": "Goal Keeper",
+      "concept": "Penalty-save reaction (swipe-to-dive zones)",
+      "reference": "Original concept",
+      "financialConcept": "Cover standing between risk and the family's goals - every save is cover doing its job",
+      "feedback": "Approved - new original concept",
+      "port": 5057,
+      "brief": "Penalty shootout from the keeper's side: 10 shots defending family milestone banners. The striker's 400ms run-up cue is truthful 80% of the time (20% feints); during ball flight (550ms shrinking to 380ms by shot 10) SWIPE toward one of 6 zones (3 columns x 2 heights, magnitude picks height) to dive. Every 4th shot is a double-value Risk shot; 3 consecutive saves earn a one-goal Shield glove auto-save. Win at 6+ saves of 10, lose at 5 conceded. Balance gate models honest human latency (grace + swipe allowance + device lag) and includes a look-ahead canary so reaction-exploit strategies stay unprofitable."
+    },
+    {
+      "dir": "wealth-carrom",
+      "bajajName": "Wealth Carrom",
+      "gameName": "Wealth Carrom",
+      "concept": "Carrom flick-pocket physics (drag striker, pull to aim)",
+      "reference": "Original concept",
+      "financialConcept": "Pocket every goal - the Queen of Protection only stays yours if you cover her",
+      "feedback": "Approved - new original concept",
+      "port": 5058,
+      "brief": "Top-down carrom with 4 corner pockets: drag the striker along the baseline, pull back to aim (aim line + power meter), release to flick. 9 gold wealth coins (+100), 1 red Queen of Protection (+500, must be covered by pocketing a gold coin on the very next strike or she returns to center) and 2 dark risk discs (-150 and a foul). Exponential friction decay (half-life ~0.45s), disc-disc restitution 0.92, striker returns each strike. 8 strikes, 120s; win at 6+ gold-equivalent coins, lose on 3 fouls. Physics hardened by a multi-seed gate: 17 seeds / 26k runs with zero pieces ever escaping the felt."
+    },
+    {
+      "dir": "wealth-balloon",
+      "bajajName": "Wealth Balloon",
+      "gameName": "Wealth Balloon",
+      "concept": "Press-your-luck inflate (hold to grow, release to bank)",
+      "reference": "Original concept",
+      "financialConcept": "Grow wealth as far as you dare - a Term Shield absorbs the one burst you never saw coming",
+      "feedback": "Approved - new original concept",
+      "port": 5059,
+      "brief": "6 rounds of press-your-luck: HOLD to inflate the wealth balloon - banked value climbs superlinearly (10 x t^1.6) toward a hidden burst threshold (uniform 2.2-4.6s) with an honest-but-noisy wobble/hue tell from 70% of threshold. RELEASE to bank; burst loses the round value. One auto-applied Term Shield absorbs the first burst and banks half its value. Needle drones drift across from round 4 - releasing while one overlaps the balloon pops it regardless. Compounding streak bonus rewards disciplined banking (sim-proven: greed loses, discipline wins); win on total banked >= 500 across 6 rounds."
+    },
+    {
+      "dir": "income-pipeline",
+      "bajajName": "Income Pipeline",
+      "gameName": "Income Pipeline",
+      "concept": "Pipe-rotation flow routing puzzle",
+      "reference": "Original concept",
+      "financialConcept": "Route every rupee of income to the goals that matter - seal the leaks before payday flows",
+      "feedback": "Approved - new original concept",
+      "port": 5060,
+      "brief": "3 pipe-grid levels (4x4, 5x5, 6x6): tap tiles (straight / elbow / tee / cross) to rotate 90 degrees and connect the Salary tap on the left edge to Education / Home / Retirement tanks on the right before the payday timer (18/22/26s) triggers the flow. Money animates cell-to-cell; every open pipe end on the path leaks -25, each tank filled +150, early-finish bonus for connecting before the timer. Levels are generated from a solved layout and scrambled within proven bands; solvability and par (<= 14 rotations) are verified by a Steiner-tree DP in the gate. Win by filling all tanks on all 3 levels inside 120s."
+    },
+    {
+      "dir": "smart-sorter",
+      "bajajName": "Smart Sorter",
+      "gameName": "Smart Sorter",
+      "concept": "Conveyor swipe-sorting (protect / grow / bin)",
+      "reference": "Original concept",
+      "financialConcept": "Protect it, grow it, or bin it - sort your money life before it scrolls past",
+      "feedback": "Approved - new original concept",
+      "port": 5061,
+      "brief": "Items ride a conveyor into a sorting head: SWIPE LEFT = Protect shelf (term plan, health cover, critical illness, accident shield), SWIPE RIGHT = Grow shelf (SIP, mutual fund, bonds, gold), SWIPE DOWN = bin (scam call, impulse buy, lottery ticket). Cards are programmatic with distinct icon families - shield vs chart vs hazard. Missort or a missed item = 1 of 3 mistakes; conveyor speeds up 6% every 5 items; every 10th item is a glowing 2x urgent at 1.5x speed. Combo multiplier x1 to x5 on consecutive correct sorts. Win: survive the 90s run under 3 mistakes with score >= 1200."
+    },
+    {
+      "dir": "safe-crossing",
+      "bajajName": "Safe Crossing",
+      "gameName": "Safe Crossing",
+      "concept": "Traffic-control tap go/stop (junction management)",
+      "reference": "Original concept",
+      "financialConcept": "Life's traffic never stops - one Claim Cushion, and after that timing is everything",
+      "feedback": "Approved - new original concept",
+      "port": 5062,
+      "brief": "Top-down 4-way junction: family vehicles (car / scooter / school van) spawn on four approaches at ramping frequency; TAP a vehicle to brake-hold it, tap again to release. Unstoppable risk trucks (10% of spawns, horn + flash) never brake - time everyone else around them. Two vehicles overlapping in the junction crash; the first crash is forgiven by the single Claim Cushion, the second ends the run. Each driver has a cumulative run-wide patience budget (telegraphed by a draining arc) so parking traffic forever backfires - the park exploit is sim-proven dead (96% to 5%). Win: 20 vehicles safely through within 110s; near-misses pay a smart-timing bonus."
+    },
+    {
+      "dir": "slide-to-safety",
+      "bajajName": "Slide to Safety",
+      "gameName": "Slide to Safety",
+      "concept": "Ice-slide pathing puzzle (swipe, glide to wall)",
+      "reference": "Original concept",
+      "financialConcept": "One swipe at a time, glide your shield past thin ice and bring it home to the family",
+      "feedback": "Approved - new original concept",
+      "port": 5063,
+      "brief": "5 handcrafted frozen-grid levels (7x9): swipe and the shield token glides until it hits a wall, rock or edge, collecting coins it passes over; reach the family tile to clear the level. Crack tiles break when slid ONTO (fall = level restart, -1 of 3 retries) but are safe to cross at speed once, visibly deepening; later levels add a telegraphed wind gust that shifts the token one cell sideways. Levels are ASCII maps in levels.js with BFS-proven pars, coins on optimal lines, and no reachable dead-end states (crack breaks can never make a level unsolvable). Win: all 5 levels inside 120s and retries; par-move finishes pay a bonus."
+    },
+    {
+      "dir": "perfect-premium",
+      "bajajName": "Perfect Premium",
+      "gameName": "Perfect Premium",
+      "concept": "Stop-the-marker precision timing",
+      "reference": "Original concept",
+      "financialConcept": "Pay every premium right on time from 25 to 60 - discipline today is a pension tomorrow",
+      "feedback": "Approved - new original concept",
+      "port": 5064,
+      "brief": "A life timeline from age 25 to 60 in 12 stages, each a premium due date (Age 28 - first job raise, Age 35 - home loan, ...). A marker sweeps the bar; TAP to lock it. Green zone = premium paid, gold center sliver = PERFECT (x2 and +1 combo, up to x4); missing consumes one of 3 grace periods and repeats the stage. Sweep speed +7% and green width 24% -> 9% per stage, zone position re-randomised, every 4th stage bends the bar into an arc. Occasional narrow gold top-up zone banks +150 without advancing. Win: clear all 12 stages to retirement fireworks; lose on 3 misses or the 100s clock."
     }
   ],
   "revamps": [
