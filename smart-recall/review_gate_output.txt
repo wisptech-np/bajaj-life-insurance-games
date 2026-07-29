@@ -1,0 +1,97 @@
+﻿Smart Recall — generator proof + session/wall budget + balance gate
+  rules from src/sequence.js, constants from src/data.js
+  7 rounds, lengths 3,4,5,6,7,8,9, risk steps 0,0,0,1,2,2,2, taps 3,4,5,5,5,6,7
+  clock 110s (wall cap 120s), 3 slips, idle timeout 5s, playback 460ms -> 300ms per step
+  perfect score 5650
+
+── playback (clock TICKS through this)
+   R1 len 3  risk 0  taps 3  step 460.0ms  lit 285.2ms  dark 174.8ms  playback 1.38s
+   R2 len 4  risk 0  taps 4  step 433.3ms  lit 268.7ms  dark 164.7ms  playback 1.73s
+   R3 len 5  risk 0  taps 5  step 406.7ms  lit 252.1ms  dark 154.5ms  playback 2.03s
+   R4 len 6  risk 1  taps 5  step 380.0ms  lit 235.6ms  dark 144.4ms  playback 2.28s
+   R5 len 7  risk 2  taps 5  step 353.3ms  lit 213.3ms  dark 140.0ms  playback 2.47s
+   R6 len 8  risk 2  taps 6  step 326.7ms  lit 186.7ms  dark 140.0ms  playback 2.61s
+   R7 len 9  risk 2  taps 7  step 300.0ms  lit 160.0ms  dark 140.0ms  playback 2.70s
+   min dark gap 140.0ms (floor 140ms)
+
+── budgets
+   CLOCK ticks through: playback 15.21s + 3 slip beats 1.80s = fixed 17.01s
+   CLOCK held through: intro 0.6s + 7x(banner 0.75s + lead 0.2s + clear 0.35s) = held 9.70s
+   35 taps at budget pace 0.7s = 24.50s
+   budget-pace run: clock 41.51s of 110s, wall 51.21s
+   WORST-CASE WALL (clock fully burned) 119.70s of 120s cap
+   PACE CLIFF: affordable mean tap 2.657s (floor 2.5s; geometric ceiling for ANY config 2.994s = (wallCap - playback)/taps)
+
+── pace cliff sweep (never-wrong bot, FIXED pace, 400 runs each)
+   1.80s/tap  WIN  100.0%  clock used 78.2s  wall 87.9s
+   2.20s/tap  WIN  100.0%  clock used 92.2s  wall 101.9s
+   2.40s/tap  WIN  100.0%  clock used 99.2s  wall 108.9s
+   2.50s/tap  WIN  100.0%  clock used 102.7s  wall 112.4s
+   2.60s/tap  WIN  100.0%  clock used 106.2s  wall 115.9s
+   2.65s/tap  WIN  100.0%  clock used 108.0s  wall 117.7s
+   2.70s/tap  WIN  100.0%  clock used 109.7s  wall 119.4s
+   2.80s/tap  LOSE 0.0%  clock used 110.0s  wall 119.3s
+   3.00s/tap  LOSE 0.0%  clock used 110.0s  wall 119.3s
+   cliff between 2.70s and 2.80s/tap (arithmetic says 2.657s)
+
+── block 1 (0x5ec0de11)
+   generator: 6000 runs (42000 plans). max identical-in-a-row 2 (cap 2); min distinct R1=2 R2=3 R3=4 R4=5 R5=5 R6=5 R7=5; min union rounds 1-4 = 5; tile share 10.96%..11.22% (even 11.11%)
+   honest    p=0.015xlen @0.62s : 193/500 = 38.6%  [slips 61.4% clock 0.0%]  rounds/run 5.59  median win 5250  wall<=50.2s
+   sharp     p=0.002xlen @0.62s : 99.4%  wall<=49.8s
+   CAREFUL   p=0.002xlen @2.2s+/-0.45s : 496/500 = 99.2%  [slips 0.8% clock 0.0%]  clock<=101.2s  wall<=110.9s
+   deliberate @2.6s (reported) : 87.8%  [clock 10.8%]  min pace-warning lead 103.6s
+   idle : 0/60 wins, dies at 19.7s wall
+   spam : 0/200 wins, dies at 11.1s wall
+
+── block 2 (0xc0ffee01)
+   generator: 6000 runs (42000 plans). max identical-in-a-row 2 (cap 2); min distinct R1=2 R2=3 R3=4 R4=5 R5=5 R6=5 R7=5; min union rounds 1-4 = 5; tile share 10.98%..11.20% (even 11.11%)
+   honest    p=0.015xlen @0.62s : 174/500 = 34.8%  [slips 65.2% clock 0.0%]  rounds/run 5.57  median win 5275  wall<=50.4s
+   sharp     p=0.002xlen @0.62s : 99.8%  wall<=50.0s
+   CAREFUL   p=0.002xlen @2.2s+/-0.45s : 496/500 = 99.2%  [slips 0.8% clock 0.0%]  clock<=102.6s  wall<=112.3s
+   deliberate @2.6s (reported) : 87.8%  [clock 10.8%]  min pace-warning lead 98.9s
+   idle : 0/60 wins, dies at 19.7s wall
+   spam : 0/200 wins, dies at 11.1s wall
+
+── block 3 (0x3039)
+   generator: 6000 runs (42000 plans). max identical-in-a-row 2 (cap 2); min distinct R1=2 R2=3 R3=4 R4=5 R5=5 R6=5 R7=5; min union rounds 1-4 = 5; tile share 10.99%..11.21% (even 11.11%)
+   honest    p=0.015xlen @0.62s : 174/500 = 34.8%  [slips 65.2% clock 0.0%]  rounds/run 5.50  median win 5325  wall<=50.2s
+   sharp     p=0.002xlen @0.62s : 99.2%  wall<=49.8s
+   CAREFUL   p=0.002xlen @2.2s+/-0.45s : 497/500 = 99.4%  [slips 0.6% clock 0.0%]  clock<=99.9s  wall<=109.6s
+   deliberate @2.6s (reported) : 88.3%  [clock 10.3%]  min pace-warning lead 100.9s
+   idle : 0/60 wins, dies at 19.7s wall
+   spam : 0/200 wins, dies at 11.6s wall
+
+── block 4 (0xf3fa3)
+   generator: 6000 runs (42000 plans). max identical-in-a-row 2 (cap 2); min distinct R1=2 R2=3 R3=4 R4=5 R5=5 R6=5 R7=5; min union rounds 1-4 = 5; tile share 11.02%..11.24% (even 11.11%)
+   honest    p=0.015xlen @0.62s : 138/500 = 27.6%  [slips 72.4% clock 0.0%]  rounds/run 5.30  median win 5300  wall<=49.9s
+   sharp     p=0.002xlen @0.62s : 99.4%  wall<=49.8s
+   CAREFUL   p=0.002xlen @2.2s+/-0.45s : 497/500 = 99.4%  [slips 0.6% clock 0.0%]  clock<=100.5s  wall<=110.2s
+   deliberate @2.6s (reported) : 88.8%  [clock 10.0%]  min pace-warning lead 103.1s
+   idle : 0/60 wins, dies at 19.7s wall
+   spam : 0/200 wins, dies at 11.6s wall
+
+── block 5 (0xbde31)
+   generator: 6000 runs (42000 plans). max identical-in-a-row 2 (cap 2); min distinct R1=2 R2=3 R3=4 R4=5 R5=5 R6=5 R7=5; min union rounds 1-4 = 5; tile share 11.02%..11.19% (even 11.11%)
+   honest    p=0.015xlen @0.62s : 179/500 = 35.8%  [slips 64.2% clock 0.0%]  rounds/run 5.55  median win 5275  wall<=50.3s
+   sharp     p=0.002xlen @0.62s : 98.6%  wall<=50.6s
+   CAREFUL   p=0.002xlen @2.2s+/-0.45s : 492/500 = 98.4%  [slips 1.6% clock 0.0%]  clock<=99.9s  wall<=109.6s
+   deliberate @2.6s (reported) : 86.8%  [clock 12.3%]  min pace-warning lead 98.4s
+   idle : 0/60 wins, dies at 19.7s wall
+   spam : 0/200 wins, dies at 11.4s wall
+
+── block 6 (0x1a2b3c4d)
+   generator: 6000 runs (42000 plans). max identical-in-a-row 2 (cap 2); min distinct R1=2 R2=3 R3=4 R4=5 R5=5 R6=5 R7=5; min union rounds 1-4 = 5; tile share 11.06%..11.23% (even 11.11%)
+   honest    p=0.015xlen @0.62s : 173/500 = 34.6%  [slips 65.4% clock 0.0%]  rounds/run 5.57  median win 5250  wall<=50.1s
+   sharp     p=0.002xlen @0.62s : 99.0%  wall<=49.7s
+   CAREFUL   p=0.002xlen @2.2s+/-0.45s : 496/500 = 99.2%  [slips 0.8% clock 0.0%]  clock<=101.7s  wall<=111.4s
+   deliberate @2.6s (reported) : 88.8%  [clock 10.5%]  min pace-warning lead 77.4s
+   idle : 0/60 wins, dies at 19.7s wall
+   spam : 0/200 wins, dies at 12.1s wall
+
+── across 6 seed blocks x 500 runs
+   honest  38.6%  34.8%  34.8%  27.6%  35.8%  34.6%   min 27.6% max 38.6% (band 25.0%-45.0%)
+   sharp   99.4%  99.8%  99.2%  99.4%  98.6%  99.0%   min 98.6% (floor 90.0%)
+   careful 99.2%  99.2%  99.4%  99.4%  98.4%  99.2%   min 98.4% (floor 85.0%), clock losses 0
+   longest wall observed 112.3s of the 120s cap
+
+GATE: PASS — generator clean over 252000 plans, min dark gap 140ms, pace cliff 2.66s/tap, worst-case wall 119.7s <= 120s, honest 27.6%-38.6%, sharp >= 98.6%, careful >= 98.4% with zero clock losses, idle and spam lose every run.
