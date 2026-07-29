@@ -56,6 +56,11 @@ Only BajajLife-approved concepts are kept in this repository.
 | `safe-crossing/` | Safe Crossing | 5062 |
 | `slide-to-safety/` | Slide to Safety | 5063 |
 | `perfect-premium/` | Perfect Premium | 5064 |
+| `steady-wings/` | Steady Wings | 5065 |
+| `premium-pulse/` | Premium Pulse | 5066 |
+| `smart-recall/` | Smart Recall | 5067 |
+| `goal-juggler/` | Goal Juggler | 5068 |
+| `life-rush/` | Life Rush | 5069 |
 
 Approved but not yet scaffolded: `balance-block-journey` (5031), `shield-cascade` (5036).
 

@@ -36,7 +36,10 @@ CATALOG_NOTE = [
      "goal-keeper (penalty-save reaction), wealth-carrom (carrom flick-pocket), "
      "wealth-balloon (press-your-luck inflate), income-pipeline (pipe-rotation flow routing), "
      "smart-sorter (conveyor swipe-sorting), safe-crossing (traffic-control tap go/stop), "
-     "slide-to-safety (ice-slide pathing), perfect-premium (stop-the-marker precision). "
+     "slide-to-safety (ice-slide pathing), perfect-premium (stop-the-marker precision), "
+     "steady-wings (one-tap impulse flight), premium-pulse (beat-synced rhythm tapping), "
+     "smart-recall (Simon serial sequence recall), goal-juggler (tap-to-bounce juggling keep-ups), "
+     "life-rush (rapid-fire microgame rush). "
      "Approved but not yet scaffolded: balance-block-journey, shield-cascade"),
     ("Removed from repo", "Dropped by feedback: Compound Quest (compound-merge), Shield Spin (shield-spin) — "
      "'Already taken'. Removed for lacking BajajLife sign-off: life-goals-bubble-shooter, stackibility-stack, "
