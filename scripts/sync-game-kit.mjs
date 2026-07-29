@@ -47,6 +47,11 @@ const GAMES = [
   'smart-recall',
   'goal-juggler',
   'life-rush',
+  'guardian-arena',
+  'premium-tiles',
+  'wealth-merge',
+  'risk-slash',
+  'sip-stack',
 ];
 
 const checkOnly = process.argv.includes('--check');

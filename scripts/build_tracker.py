@@ -41,6 +41,10 @@ CATALOG_NOTE = [
      "smart-recall (Simon serial sequence recall), goal-juggler (tap-to-bounce juggling keep-ups), "
      "life-rush (rapid-fire microgame rush). "
      "Approved but not yet scaffolded: balance-block-journey, shield-cascade"),
+    ("This repo (proposed, pending sign-off)", "Batch 6 (2026-07-29): guardian-arena (Archero-style arena survivor), "
+     "premium-tiles (piano-tiles melody lane tapper), wealth-merge (suika drop-merge collector), "
+     "risk-slash (swipe slicer with protect-the-shield rule; note game-store has fruit-slice), "
+     "sip-stack (stack timing tower with SIP framing; note game-store has stacking)"),
     ("Removed from repo", "Dropped by feedback: Compound Quest (compound-merge), Shield Spin (shield-spin) — "
      "'Already taken'. Removed for lacking BajajLife sign-off: life-goals-bubble-shooter, stackibility-stack, "
      "retire-rich-clicker, edurise-jumper, tax-save-maze, she-shield-protector, safe-stride-balancer, "

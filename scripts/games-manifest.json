@@ -346,6 +346,61 @@
       "feedback": "Approved - new original concept",
       "port": 5069,
       "brief": "12 rapid micro-challenges per run, drawn from a pool of 14+, each a single verb in 3.5s shrinking to 2.6s under a one-word command banner: PAY! (tap the premium before the due stamp slams), SWAT! (swipe away the scam call), PICK! (tap the right cover card), SHIELD! (drag the umbrella over the family), GROW! (hold-fill the SIP jar to the line), SIGN!, CATCH!, SNOOZE!, STAMP!, SPLIT!, LOCK!, TOP-UP!, GIFT!, WAKE!. 3 lives; speed-up jingle every 4th game; difficulty tiers easy -> hard. Win: clear all 12 in a ~75-100s run. Every microgame is individually gate-proven clearable at the hardest tier."
+    },
+    {
+      "dir": "guardian-arena",
+      "bajajName": "Guardian Arena",
+      "gameName": "Guardian Arena",
+      "concept": "Archero-style arena survivor (stop-to-shoot, wave upgrades)",
+      "reference": "https://apps.apple.com/app/archero/id1453651052",
+      "financialConcept": "Layered protection - every upgrade between waves is another rider on the family's cover",
+      "feedback": "Proposed 2026-07-29 - pending BajajLife sign-off",
+      "port": 5070,
+      "brief": "Arena survivor: blue guardian auto-fires at the nearest green virus ONLY while stationary - moving stops firing (stutter-step tension is the whole game). Floating joystick, 400x600 arena. Enemy archetypes: chaser (65% player speed), shooter (450ms telegraphed wind-up, projectile slower than player), splitter (2 minis on death, 300ms harmless scatter). 4 waves over 90s ending in a telegraphed 3-shot-fan mini-boss; between waves pick 1 of 3 glassmorphic rider cards (multishot, ricochet, pierce, fire rate 'Auto-Pay', damage 'Top-Up', Health Rider, 'Claim Settled' heal, move speed). 4 HP, 900ms i-frames, spawns >=150px away and harmless for 600ms, quadrant-biased spawns + flanking to kill corner camping. Win: survive all 4 waves. Lose: HP 0. Score = kills x tier + wave bonuses. Re-acquire 3-2-1 countdown on visibility resume with the session clock held."
+    },
+    {
+      "dir": "premium-tiles",
+      "bajajName": "Premium Tiles",
+      "gameName": "Premium Tiles",
+      "concept": "Piano Tiles-style 4-lane melody tapper",
+      "reference": "https://apps.apple.com/app/piano-tiles-2/id1027688889",
+      "financialConcept": "A premium on every note - never miss a payment and the family's plan plays like music",
+      "feedback": "Proposed 2026-07-29 - pending BajajLife sign-off. Note: an earlier premium-tiles concept was removed in the 2026-07-28 scope cut for lacking sign-off; this is a fresh implementation of the explicitly requested piano-tiles genre",
+      "port": 5071,
+      "brief": "4-lane tile tapper where each successful tap plays the next note of a hand-composed 160-note pentatonic melody - the player performs the song, and breaking flow breaks the music. ~90s chart of 160 scorable tiles: HOLD tiles (sustained note, banked score per 200ms), DOUBLE tiles (two lanes within a 100ms pairing window), and red risk tiles (IMPULSE BUY / SCAM CALL, exactly 10%) that must NOT be tapped. 3 lives; empty-lane tap, red tap, or an expired blue tile costs one; 120ms late grace; double-taps never punished. Speed +10% every 15s (announced SPEED UP steps, cap 1.7x). Combo x2/x3/x4 at 25/50/75. Win: finish the chart with a life left; stars by Perfect %. Anti-spam: >8 taps/s under 50% accuracy counts extras as misses; hits require discrete pointerdown. Frozen-clock 3-2-1 re-acquire on resume."
+    },
+    {
+      "dir": "wealth-merge",
+      "bajajName": "Wealth Merge",
+      "gameName": "Wealth Merge",
+      "concept": "Suika-style drop-and-merge collector (physics jar)",
+      "reference": "https://apps.apple.com/app/suika-game-aladdin-x/id6444114954",
+      "financialConcept": "Compounding in your hands - small savings merge into life goals",
+      "feedback": "Proposed 2026-07-29 - pending BajajLife sign-off",
+      "port": 5072,
+      "brief": "Drop-merge jar: drag to aim, release to drop wealth tokens; two same-tier tokens merge into the next tier at the contact midpoint with a pop that jostles neighbours into chain cascades. 8 hand-drawn vector tiers (radius x1.35): Rupee Coin -> Coin Stack -> Gold Ingot -> Piggy Bank -> SIP Jar -> Gold Shield -> Home -> glowing Retirement Corpus. Hand-rolled deterministic circle physics (gravity 1500, restitution 0.15, fixed-step substeps, headless-verified). Danger line at 18% from the top arms only when a resting token sits above it for a continuous 2.0s (flashing line + heartbeat) - transient bounces never lose, enabling last-second merge-out comebacks. Chain multipliers x1/x1.5/x2/x3; triangular tier scores 1..36. 100s session; win by creating the Corpus or score >=300; 5s auto-drop kills timer-stalling. Frozen-clock re-acquire countdown on resume."
+    },
+    {
+      "dir": "risk-slash",
+      "bajajName": "Risk Slash",
+      "gameName": "Risk Slash",
+      "concept": "Fruit Ninja-style swipe slicer (slash risks, spare shields)",
+      "reference": "https://apps.apple.com/app/fruit-ninja/id362949845",
+      "financialConcept": "Cut the risks out of the family's life - cover is the blade",
+      "feedback": "Proposed 2026-07-29 - pending BajajLife sign-off. Note: bajaj-game-store catalog lists a fruit-slice game; this differentiates via the protect-the-Family-Shield rule (slicing blue shield orbs is the penalty) and risk-labelled targets",
+      "port": 5073,
+      "brief": "Swipe slicer: green spiky risk orbs (Scam Call, Hidden Fees, Debt Trap, Inflation, Medical Bill, Impulse Buy) are lobbed up in readable ballistic arcs; a glowing tapering blade trail slices them into two spinning halves with goo bursts. Slices register only at blade speed >=400 px/s (slow drags cut nothing); 1.15x forgiving hitboxes. Blue Family Shield orbs must NOT be sliced (calm glow + chime + telegraph puff, enforced >=1.2x path separation from every risk so nothing is un-sliceable): -10 and a 1s stun each, 3 sliced = lose. Combos 3+ per gesture (+2x(N-2), cap 8), 5+ in one swipe = 1s slow-mo. FRENZY windows: x3 spawns, zero shields. 90s ramp from 1-2 orbs/1.6s to 3-5/0.9s + finale frenzy. Win: score >=120. Frozen-clock 3-2-1 re-acquire on resume with stale blade trail cleared."
+    },
+    {
+      "dir": "sip-stack",
+      "bajajName": "SIP Stack",
+      "gameName": "SIP Stack",
+      "concept": "Ketchapp Stack-style timing tower (trim on miss, regrow on perfects)",
+      "reference": "https://apps.apple.com/app/stack/id1080487957",
+      "financialConcept": "Every layer is a monthly SIP - discipline compounds, and consistency repairs old mistakes",
+      "feedback": "Proposed 2026-07-29 - pending BajajLife sign-off. Note: bajaj-game-store catalog lists a stacking game; this differentiates via SIP milestone framing and the perfect-streak width-regrowth loop",
+      "port": 5074,
+      "brief": "Timing tower: a pseudo-3D slab slides linearly above the tower (constant speed, alternating entry side, random phase); tap to drop, judged at the pointerdown timestamp so latency never eats a perfect. Overlap survives, overhang shears off as a physics chunk; total miss or width <8px = lose. PERFECT window max(12px, 10% width) snaps with an expanding ring + rising pitch ladder; from the 3rd consecutive perfect the slab regrows +12% of original width per perfect - skilled play visibly undoes past mistakes. Speed steps at layers 11 and 21; camera rises with a 250ms lerp; background hue drifts 3 deg/layer; SIP milestone banners every 6th layer (Year 1, Year 5, Home, Education, Retirement Corpus). Win: 30 layers = summit zoom-out + confetti; ~60-100s untimed session. Best score persisted with a delta line to fuel one-more-try. Resume re-randomises slab phase/direction behind a 3-2-1 countdown so pausing yields zero aiming info."
     }
   ],
   "revamps": [

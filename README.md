@@ -61,8 +61,17 @@ Only BajajLife-approved concepts are kept in this repository.
 | `smart-recall/` | Smart Recall | 5067 |
 | `goal-juggler/` | Goal Juggler | 5068 |
 | `life-rush/` | Life Rush | 5069 |
+| `guardian-arena/` | Guardian Arena | 5070 |
+| `premium-tiles/` | Premium Tiles | 5071 |
+| `wealth-merge/` | Wealth Merge | 5072 |
+| `risk-slash/` | Risk Slash | 5073 |
+| `sip-stack/` | SIP Stack | 5074 |
 
 Approved but not yet scaffolded: `balance-block-journey` (5031), `shield-cascade` (5036).
+
+Batch 6 (`guardian-arena` through `sip-stack`, ports 5070–5074) is **proposed and pending
+BajajLife sign-off** — viral-genre concepts (arena survivor, piano tiles, drop-merge, slicer,
+stack tower) built to the full GAME_STANDARD scaffold.
 
 ## Project Structure
 
