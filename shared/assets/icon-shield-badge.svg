@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00A3E0"/>
+      <stop offset="50%" stop-color="#00529B"/>
+      <stop offset="100%" stop-color="#061826"/>
+    </linearGradient>
+    <linearGradient id="goldRim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE699"/>
+      <stop offset="100%" stop-color="#FFB800"/>
+    </linearGradient>
+    <filter id="shieldGlow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#00A3E0" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <path d="M32 4 L56 14 V28 C56 44 44 54 32 60 C20 54 8 44 8 28 V14 Z" fill="url(#shieldGrad)" stroke="url(#goldRim)" stroke-width="3" filter="url(#shieldGlow)"/>
+  <path d="M32 10 L50 18 V28 C50 40 40 48 32 53 C24 48 14 40 14 28 V18 Z" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+  <polyline points="24,30 30,36 42,22" fill="none" stroke="#FFB800" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

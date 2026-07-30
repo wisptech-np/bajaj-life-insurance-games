@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="goldClock" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF3C4"/>
+      <stop offset="50%" stop-color="#FFB800"/>
+      <stop offset="100%" stop-color="#B97907"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="34" r="24" fill="#061826" stroke="url(#goldClock)" stroke-width="4"/>
+  <rect x="28" y="4" width="8" height="6" rx="2" fill="url(#goldClock)"/>
+  <path d="M22 6 L14 12" stroke="url(#goldClock)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M42 6 L50 12" stroke="url(#goldClock)" stroke-width="3" stroke-linecap="round"/>
+  <polyline points="32,20 32,34 40,34" fill="none" stroke="#FFB800" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="34" r="3" fill="#FFF3C4"/>
+</svg>
