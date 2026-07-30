@@ -44,7 +44,10 @@ CATALOG_NOTE = [
     ("This repo (proposed, pending sign-off)", "Batch 6 (2026-07-29): guardian-arena (Archero-style arena survivor), "
      "premium-tiles (piano-tiles melody lane tapper), wealth-merge (suika drop-merge collector), "
      "risk-slash (swipe slicer with protect-the-shield rule; note game-store has fruit-slice), "
-     "sip-stack (stack timing tower with SIP framing; note game-store has stacking)"),
+     "sip-stack (stack timing tower with SIP framing; note game-store has stacking). "
+     "Batch 7 (2026-07-30): legacy-echo (time-loop past-self co-op), time-shield (time moves only when you move), "
+     "ring-fence (Qix territory capture), risk-radar (darkness + sonar pulse navigation), "
+     "dual-cover (Duet twin-orbit dodger)"),
     ("Removed from repo", "Dropped by feedback: Compound Quest (compound-merge), Shield Spin (shield-spin) — "
      "'Already taken'. Removed for lacking BajajLife sign-off: life-goals-bubble-shooter, stackibility-stack, "
      "retire-rich-clicker, edurise-jumper, tax-save-maze, she-shield-protector, safe-stride-balancer, "

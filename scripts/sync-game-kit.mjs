@@ -52,6 +52,11 @@ const GAMES = [
   'wealth-merge',
   'risk-slash',
   'sip-stack',
+  'legacy-echo',
+  'time-shield',
+  'ring-fence',
+  'risk-radar',
+  'dual-cover',
 ];
 
 const checkOnly = process.argv.includes('--check');

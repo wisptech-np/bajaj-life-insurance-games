@@ -401,6 +401,61 @@
       "feedback": "Proposed 2026-07-29 - pending BajajLife sign-off. Note: bajaj-game-store catalog lists a stacking game; this differentiates via SIP milestone framing and the perfect-streak width-regrowth loop",
       "port": 5074,
       "brief": "Timing tower: a pseudo-3D slab slides linearly above the tower (constant speed, alternating entry side, random phase); tap to drop, judged at the pointerdown timestamp so latency never eats a perfect. Overlap survives, overhang shears off as a physics chunk; total miss or width <8px = lose. PERFECT window max(12px, 10% width) snaps with an expanding ring + rising pitch ladder; from the 3rd consecutive perfect the slab regrows +12% of original width per perfect - skilled play visibly undoes past mistakes. Speed steps at layers 11 and 21; camera rises with a 250ms lerp; background hue drifts 3 deg/layer; SIP milestone banners every 6th layer (Year 1, Year 5, Home, Education, Retirement Corpus). Win: 30 layers = summit zoom-out + confetti; ~60-100s untimed session. Best score persisted with a delta line to fuel one-more-try. Resume re-randomises slab phase/direction behind a 3-2-1 countdown so pausing yields zero aiming info."
+    },
+    {
+      "dir": "legacy-echo",
+      "bajajName": "Legacy Echo",
+      "gameName": "Legacy Echo",
+      "concept": "Time-loop past-self co-op (previous runs replay as live ghost helpers)",
+      "reference": null,
+      "financialConcept": "Your past contributions keep working for you - every premium your past self paid protects the family today",
+      "feedback": "Proposed 2026-07-30 - pending BajajLife sign-off",
+      "port": 5075,
+      "brief": "5 loops x 18s on one hand-authored vault map: each finished loop replays as a live echo (max 4, hue-shifted, badge) whose recorded positions still hold pressure plates, block hazard beams and sync twin levers. Doors need 1/2/3 distinct bodies simultaneously; the final run carries the policy chest through doors your ghosts hold open. Ghost replay is a 60Hz state track (Float32Array of x,y,actionBits - pure playback, divergence-proof); world events keyed to a single master loop clock + session seed so every loop is bit-identical. Win: chest delivered before loop 5 ends. Score = 1000 delivery + 400 x unused loops + 60/coin - plate-redundancy penalty. AFK loops burn early at 4s. Gate-proven: expert plan wins in 4 loops on 5 seeds, idle bot never wins, replay timelines byte-identical, pause freezes the one clock."
+    },
+    {
+      "dir": "time-shield",
+      "bajajName": "Time Shield",
+      "gameName": "Time Shield",
+      "concept": "Time moves only when you move (SUPERHOT rule)",
+      "reference": null,
+      "financialConcept": "Good cover buys you time to think - slow life down and pick your path",
+      "feedback": "Proposed 2026-07-30 - pending BajajLife sign-off",
+      "port": 5076,
+      "brief": "World simulation speed proportional to the guardian's own motion: timeScale = 0.06 + 0.94 x (v/860)^0.85 with EMA-smoothed character speed and critically damped finger-follow - hold still and bullet lattices hang in the air, move and they fly. 5 stacked zones bottom-to-top under a 105s REAL-TIME clock plus a rising fog wall (studying is free, the run is spending). Volleys 620 px/s with 500ms real-time telegraphs, laser fans zone 3+, sweep walls zone 4+. 2 hits = lose. Score: 300/zone + near-miss 25 (only while timeScale > 0.3) + style bonus for moving boldly + time remaining. Audio LPF and playback rate bound directly to timeScale. Gate-proven: competent bot 8/8 seeds, freeze-camper always loses, jitter bot earns floor timeScale (0.061) while honest movement earns 0.465."
+    },
+    {
+      "dir": "ring-fence",
+      "bajajName": "Ring-Fence",
+      "gameName": "Ring-Fence",
+      "concept": "Qix/JezzBall territory capture (claim ground, wall risks out)",
+      "reference": null,
+      "financialConcept": "Ring-fence the family's wealth - a real asset-protection term made playable",
+      "feedback": "Proposed 2026-07-30 - pending BajajLife sign-off",
+      "port": 5077,
+      "brief": "6px-cell grid (65x117): ride the claimed boundary at 300 px/s, cut into open field with 90-degree turns; sealing flood-fills every hazard-free component behind a 900 px/s color wave. 2 green risk orbs (250 to 300 px/s ramp) reflect in unclaimed space - touching your unfinished trail or body costs 1 of 3 lives; a 3rd orb spawns at 65% claimed or t=55s with a warning ring. Big single cuts pay multipliers (>=10% x1.5, >=20% x2.5, >=30% x4) priced by trail exposure. Anti-stall fuse chases a stopped trail; orbs speed up if you never claim. Win: 70% claimed within 90s. Score = cells + multipliers + time + lives + near-misses. Gate-proven: strip bot >=70% on 6/6 seeds, idle and boundary-camper never win, 106 seals with zero wrong-side claims and monotonic claimed %."
+    },
+    {
+      "dir": "risk-radar",
+      "bajajName": "Risk Radar",
+      "gameName": "Risk Radar",
+      "concept": "Darkness + sonar pulse navigation (perception as a resource)",
+      "reference": null,
+      "financialConcept": "You cannot see risks coming - your cover can; send the radar, read the danger, walk the family home",
+      "feedback": "Proposed 2026-07-30 - pending BajajLife sign-off",
+      "port": 5078,
+      "brief": "Pitch-black maze: hidden geometry is never rendered at any alpha - a tapped sonar pulse (460 px/s ring, 1.6s cooldown) lights only wavefront-intersected wall segments for ~1.7s (walls white, hazards red, exit gold). Noise has a price: a lurker within 320px of a pulse stalks the pulse ORIGIN, so reposition after pinging. Escort 2 family followers through a ~2600px maze (3 gate checkpoints, corridors narrowing 72/56/48px) in 100s with 3 hearts. Fairness invariant enforced in code: nothing hits you unrevealed - lurkers self-ring inside 250px, cruise slower than you, and shriek 500ms before every lunge. Score = hearts + time + hidden orbs + quiet bonus (<=18 pulses). Pause blacks out all revealed geometry instantly (no pause-scouting), 3-2-1 re-acquire on resume. Gate: bot completes with hearts to spare; 10k random walks show every heart loss was telegraphed; pulse-spam scores worse than quiet play."
+    },
+    {
+      "dir": "dual-cover",
+      "bajajName": "Dual Cover",
+      "gameName": "Dual Cover",
+      "concept": "Duet-style twin-orbit dodger (one input, two coupled avatars)",
+      "reference": null,
+      "financialConcept": "Protection and growth are two sides of one plan - steer them together; losing either loses the future",
+      "feedback": "Proposed 2026-07-30 - pending BajajLife sign-off",
+      "port": 5079,
+      "brief": "Blue Protection and orange Growth orbs locked 180 degrees apart on a ring; hold left/right screen halves to rotate (780 deg/s^2 accel, 330 deg/s cap, 80ms release decay - surgical stops). ~30 obstacles descend over 90s (walls, center bars, staggered gates, previewing spinners, held-diagonal squeezes; descent 330 to 470 px/s) and BOTH orbs must survive; 3 shields, 4th hit loses. Every hit leaves a paint splat in the dead orb's color on the obstacle as it scrolls away - death is legible history. Generator enforces a reachability constraint (required rotation x 1.6 safety <= approach time, never >170 degrees between consecutive obstacles) and the gate re-proves it on 12 seeds: optimal bot survives all with 0 hits, idle bot always dies. Resume rewinds obstacles 250ms behind a 3-2-1 countdown. Score = passes x combo + near-misses + phase bonuses + no-hit finish."
     }
   ],
   "revamps": [

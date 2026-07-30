@@ -66,12 +66,22 @@ Only BajajLife-approved concepts are kept in this repository.
 | `wealth-merge/` | Wealth Merge | 5072 |
 | `risk-slash/` | Risk Slash | 5073 |
 | `sip-stack/` | SIP Stack | 5074 |
+| `legacy-echo/` | Legacy Echo | 5075 |
+| `time-shield/` | Time Shield | 5076 |
+| `ring-fence/` | Ring-Fence | 5077 |
+| `risk-radar/` | Risk Radar | 5078 |
+| `dual-cover/` | Dual Cover | 5079 |
 
 Approved but not yet scaffolded: `balance-block-journey` (5031), `shield-cascade` (5036).
 
 Batch 6 (`guardian-arena` through `sip-stack`, ports 5070–5074) is **proposed and pending
 BajajLife sign-off** — viral-genre concepts (arena survivor, piano tiles, drop-merge, slicer,
 stack tower) built to the full GAME_STANDARD scaffold.
+
+Batch 7 (`legacy-echo` through `dual-cover`, ports 5075–5079) is **proposed and pending
+BajajLife sign-off** — rare-mechanic concepts (time-loop ghost co-op, SUPERHOT time rule,
+Qix territory capture, sonar darkness navigation, twin-orbit dodger), each with a headless
+`gate.mjs` fairness/solvability proof.
 
 ## Project Structure
 
