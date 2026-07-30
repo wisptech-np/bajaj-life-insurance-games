@@ -83,14 +83,13 @@ export default class MainScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Setup Wires (responsive vertical positions in middle of screen)
-    const yOffset = height * 0.28;
-    const wireGap = height * 0.15;
+    // Setup Flat Ground Lanes (responsive positions on ground level)
+    const groundBase = height * 0.64;
+    const laneGap = height * 0.08;
     this.wires = [
-      yOffset,
-      yOffset + wireGap,
-      yOffset + wireGap * 2,
-      yOffset + wireGap * 3,
+      groundBase,
+      groundBase + laneGap,
+      groundBase + laneGap * 2,
     ];
 
     // Enable Phaser physics
@@ -302,24 +301,33 @@ export default class MainScene extends Phaser.Scene {
 
   private drawWires() {
     const width = this.cameras.main.width;
+    const height = this.cameras.main.height;
     this.wireGraphics.clear();
-    this.wires.forEach((wireY) => {
-      // Glow neon shadow
-      this.wireGraphics.lineStyle(6, 0x00aeef, 0.25);
+
+    // 1. Solid Flat Ground Base (Pavement Runway)
+    const groundTop = this.wires[0] - 16;
+    const groundHeight = height - groundTop;
+    this.wireGraphics.fillStyle(0x061826, 0.95);
+    this.wireGraphics.fillRect(0, groundTop, width, groundHeight);
+
+    // Ground top border highlight
+    this.wireGraphics.lineStyle(3, 0x00AEEF, 0.9);
+    this.wireGraphics.strokeLineShape(
+      new Phaser.Geom.Line(0, groundTop, width, groundTop)
+    );
+
+    // 2. Lane Marking Strips
+    this.wires.forEach((laneY) => {
+      // Glow lane guide
+      this.wireGraphics.lineStyle(4, 0x10B981, 0.3);
       this.wireGraphics.strokeLineShape(
-        new Phaser.Geom.Line(0, wireY, width, wireY),
+        new Phaser.Geom.Line(0, laneY + 8, width, laneY + 8)
       );
 
-      // Main cable
-      this.wireGraphics.lineStyle(2, 0x00aeef, 0.85);
+      // Dashed lane center
+      this.wireGraphics.lineStyle(1.5, 0x34D399, 0.8);
       this.wireGraphics.strokeLineShape(
-        new Phaser.Geom.Line(0, wireY, width, wireY),
-      );
-
-      // White core
-      this.wireGraphics.lineStyle(0.8, 0xffffff, 0.95);
-      this.wireGraphics.strokeLineShape(
-        new Phaser.Geom.Line(0, wireY, width, wireY),
+        new Phaser.Geom.Line(0, laneY + 8, width, laneY + 8)
       );
     });
   }

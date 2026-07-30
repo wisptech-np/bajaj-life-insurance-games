@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="ballGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="50%" stop-color="#00529B"/>
+      <stop offset="100%" stop-color="#061826"/>
+    </linearGradient>
+    <filter id="ballGlow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#00A3E0" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="54" fill="url(#ballGrad)" stroke="#38BDF8" stroke-width="3" filter="url(#ballGlow)"/>
+  <!-- Finger Holes / Bajaj Shield Emblem -->
+  <path d="M64 28 L80 38 V54 C80 68 70 76 64 80 C58 76 48 68 48 54 V38 Z" fill="none" stroke="#FDE047" stroke-width="3"/>
+  <circle cx="52" cy="44" r="4" fill="#061826"/>
+  <circle cx="76" cy="44" r="4" fill="#061826"/>
+  <circle cx="64" cy="62" r="4" fill="#061826"/>
+</svg>

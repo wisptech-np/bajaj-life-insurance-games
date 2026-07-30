@@ -172,7 +172,7 @@ export default class PreloadScene extends Phaser.Scene {
     texture.refresh();
   }
 
-  // Draw 3 frames of flying crow (flapping wings) onto 192x64 canvas texture
+  // Draw 3 frames of Green Virus Risk hazard onto 192x64 canvas texture
   private createBirdFlyTexture() {
     const frameSize = 64;
     const numFrames = 3;
@@ -183,86 +183,62 @@ export default class PreloadScene extends Phaser.Scene {
       const ox = f * frameSize + frameSize / 2;
       const oy = frameSize / 2;
 
-      // 1. Draw Red "Risk/Debt" Tag hanging behind/underneath the bird
-      ctx.fillStyle = '#EF4444';
-      ctx.strokeStyle = '#B91C1C';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      // Draw rectangular banner tag
-      ctx.rect(ox - 24, oy + 4, 18, 10);
-      ctx.fill();
-      ctx.stroke();
+      // 1. Spiky Green Virus Body (Vibrant Emerald / Toxic Green)
+      const numSpikes = 8;
+      const pulseRadius = 14 + (f % 2) * 2;
+      ctx.fillStyle = '#10B981';
+      ctx.strokeStyle = '#047857';
+      ctx.lineWidth = 2;
 
-      // Write 'RISK' or 'DEBT' in tiny white letters
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 7px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('RISK', ox - 15, oy + 9);
-
-      // Thread from bird claws to tag
-      ctx.strokeStyle = '#B91C1C';
-      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(ox - 6, oy + 6);
-      ctx.lineTo(ox - 10, oy + 6);
-      ctx.stroke();
-
-      // 2. Crow Body (Charcoal/Black vector style)
-      ctx.fillStyle = '#1F2937';
-      ctx.beginPath();
-      ctx.ellipse(ox, oy, 14, 9, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Beak (Yellow-orange)
-      ctx.fillStyle = '#F59E0B';
-      ctx.beginPath();
-      ctx.moveTo(ox + 12, oy - 2);
-      ctx.lineTo(ox + 22, oy);
-      ctx.lineTo(ox + 11, oy + 2);
+      for (let i = 0; i < numSpikes; i++) {
+        const angle = (i * Math.PI * 2) / numSpikes + (f * 0.2);
+        const spikeLen = pulseRadius + 6;
+        const sx = ox + Math.cos(angle) * spikeLen;
+        const sy = oy + Math.sin(angle) * spikeLen;
+        const bx = ox + Math.cos(angle + 0.2) * pulseRadius;
+        const by = oy + Math.sin(angle + 0.2) * pulseRadius;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+        ctx.lineTo(bx, by);
+      }
       ctx.closePath();
       ctx.fill();
-
-      // Head (Black)
-      ctx.fillStyle = '#111827';
-      ctx.beginPath();
-      ctx.arc(ox + 10, oy - 2, 6, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Angry eye
-      ctx.fillStyle = '#F59E0B';
-      ctx.beginPath();
-      ctx.arc(ox + 11, oy - 4, 1.8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#000000';
-      ctx.beginPath();
-      ctx.arc(ox + 11.5, oy - 4, 0.8, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 3. Wings (Flapping states based on frame)
-      ctx.fillStyle = '#111827';
-      ctx.beginPath();
-      if (f === 0) {
-        // Wings pointing UP
-        ctx.ellipse(ox - 4, oy - 14, 6, 12, -Math.PI / 8, 0, Math.PI * 2);
-      } else if (f === 1) {
-        // Wings flat horizontal
-        ctx.ellipse(ox - 4, oy, 12, 5, 0, 0, Math.PI * 2);
-      } else {
-        // Wings pointing DOWN
-        ctx.ellipse(ox - 4, oy + 12, 6, 12, Math.PI / 8, 0, Math.PI * 2);
-      }
-      ctx.fill();
-
-      // Claws (Yellow)
-      ctx.strokeStyle = '#F59E0B';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(ox - 4, oy + 8);
-      ctx.lineTo(ox - 6, oy + 12);
-      ctx.moveTo(ox - 2, oy + 8);
-      ctx.lineTo(ox - 3, oy + 12);
       ctx.stroke();
+
+      // 2. Central Core Sphere
+      ctx.fillStyle = '#059669';
+      ctx.beginPath();
+      ctx.arc(ox, oy, 12, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 3. Menacing Glow Eyes
+      ctx.fillStyle = '#FEF08A';
+      ctx.beginPath();
+      ctx.arc(ox - 4, oy - 3, 2.5, 0, Math.PI * 2);
+      ctx.arc(ox + 4, oy - 3, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#065F46';
+      ctx.beginPath();
+      ctx.arc(ox - 3.5, oy - 3, 1, 0, Math.PI * 2);
+      ctx.arc(ox + 4.5, oy - 3, 1, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 4. Floating 'RISK' label banner
+      ctx.fillStyle = 'rgba(6, 24, 38, 0.85)';
+      ctx.strokeStyle = '#10B981';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.rect(ox - 18, oy + 12, 36, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#34D399';
+      ctx.font = 'bold 7.5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('RISK', ox, oy + 17);
     }
 
     texture.refresh();

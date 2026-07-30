@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="riskBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#991B1B"/>
+      <stop offset="100%" stop-color="#450A0A"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="20" fill="url(#riskBg)" stroke="#EF4444" stroke-width="3"/>
+  <rect x="12" y="12" width="104" height="48" rx="16" fill="#FFFFFF" fill-opacity="0.08"/>
+  <path d="M64 24 L98 88 H30 Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="2"/>
+  <text x="64" y="76" font-family="sans-serif" font-weight="900" font-size="28" fill="#FFFFFF" text-anchor="middle">!</text>
+</svg>

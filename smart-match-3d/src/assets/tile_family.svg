@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="tileBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14532D"/>
+      <stop offset="100%" stop-color="#052E16"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#tileBg)" stroke="#4ADE80" stroke-width="3"/>
+  <rect x="12" y="12" width="104" height="48" rx="20" fill="#FFFFFF" fill-opacity="0.08"/>
+  
+  <!-- 3D Family Crest (Dad, Mom, Kid Silhouettes in Gold) -->
+  <circle cx="48" cy="48" r="10" fill="#FEF08A"/>
+  <path d="M34 76 C34 62 42 56 48 56 C54 56 62 62 62 76 Z" fill="#F59E0B"/>
+  
+  <circle cx="80" cy="50" r="9" fill="#FEF08A"/>
+  <path d="M68 76 C68 64 74 58 80 58 C86 58 92 64 92 76 Z" fill="#F59E0B"/>
+  
+  <circle cx="64" cy="62" r="7" fill="#FEF08A"/>
+  <path d="M54 84 C54 74 58 70 64 70 C70 70 74 74 74 84 Z" fill="#F59E0B"/>
+</svg>

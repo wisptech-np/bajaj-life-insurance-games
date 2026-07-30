@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="equityGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#0369A1"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="16" fill="url(#equityGrad)" stroke="#38BDF8" stroke-width="3"/>
+  <rect x="12" y="12" width="104" height="48" rx="12" fill="#FFFFFF" fill-opacity="0.12"/>
+  <polyline points="32,80 52,60 70,70 96,40" fill="none" stroke="#FDE047" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="96,40 84,42 94,52" fill="#FDE047"/>
+</svg>

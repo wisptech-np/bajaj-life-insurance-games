@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="tileBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="carBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#tileBg)" stroke="#38BDF8" stroke-width="3"/>
+  <rect x="12" y="12" width="104" height="48" rx="20" fill="#FFFFFF" fill-opacity="0.08"/>
+  
+  <!-- 3D Family Car -->
+  <path d="M32 64 Q44 44 64 44 Q84 44 96 64 L100 76 H28 Z" fill="url(#carBody)" stroke="#FFFFFF" stroke-width="2"/>
+  <rect x="24" y="74" width="80" height="16" rx="8" fill="#0284C7"/>
+  <circle cx="42" cy="90" r="10" fill="#1E293B" stroke="#94A3B8" stroke-width="3"/>
+  <circle cx="86" cy="90" r="10" fill="#1E293B" stroke="#94A3B8" stroke-width="3"/>
+  <!-- Windows -->
+  <path d="M42 62 Q52 48 64 48 V62 Z" fill="#E0F2FE"/>
+  <path d="M68 48 Q78 48 86 62 H68 Z" fill="#E0F2FE"/>
+</svg>

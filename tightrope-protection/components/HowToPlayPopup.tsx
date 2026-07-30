@@ -25,22 +25,19 @@ const HowToPlayPopup: React.FC<Props> = ({ onStart, onClose }) => {
         {/* Interactive Tutorial Animation Area */}
         <div className="relative w-full h-[150px] bg-slate-950/80 rounded-xl border border-white/10 overflow-hidden mb-4 flex flex-col justify-center">
           
-          {/* Parallel Wires Mockup */}
-          <div className="absolute inset-x-0 top-1/4 h-[1px] bg-[#00AEEF]/40"></div>
-          <div className="absolute inset-x-0 top-2/4 h-[1px] bg-[#00AEEF]/40"></div>
-          <div className="absolute inset-x-0 top-3/4 h-[1px] bg-[#00AEEF]/40"></div>
+          {/* Flat Ground Track Mockup */}
+          <div className="absolute inset-x-0 bottom-6 h-6 bg-[#00AEEF]/10 border-t border-[#00AEEF]/30"></div>
+          <div className="absolute inset-x-0 bottom-[14px] h-[1px] stroke-dashed bg-[#00AEEF]/50"></div>
 
-          {/* Looping Beetle Mascot running */}
-          <div className="absolute left-10 top-2/4 -translate-y-1/2 flex flex-col items-center">
+          {/* Looping Hero Mascot running */}
+          <div className="absolute left-10 bottom-6 flex flex-col items-center">
             <div className="w-8 h-8 rounded-full bg-[#22C55E] flex items-center justify-center border-2 border-[#00AEEF] animate-bounce">
               <span className="text-[14px]">🐞</span>
             </div>
-            {/* Ripple representation */}
-            <div className="pulse-ripple mt-[-16px]"></div>
           </div>
 
           {/* Floating score representation for Positive Tokens */}
-          <div className="absolute left-[35%] top-[10%] flex flex-col items-center">
+          <div className="absolute left-[35%] top-[15%] flex flex-col items-center">
             <span className="text-[18px]">🪙</span>
             <span className="text-[10px] font-black text-green-400 absolute top-[-16px] animate-pulse">+1000</span>
           </div>
@@ -50,9 +47,9 @@ const HowToPlayPopup: React.FC<Props> = ({ onStart, onClose }) => {
             <span className="text-[10px] font-black text-[#00AEEF] absolute top-[-16px] animate-pulse">+800</span>
           </div>
 
-          {/* Floating score representation for Hazards */}
-          <div className="absolute right-[15%] top-[55%] flex flex-col items-center">
-            <span className="text-[18px] animate-bounce">🐦</span>
+          {/* Green Virus Risk Representation */}
+          <div className="absolute right-[15%] bottom-7 flex flex-col items-center">
+            <span className="text-[18px] animate-pulse">🦠</span>
             <span className="text-[10px] font-black text-red-400 absolute top-[-16px] animate-pulse">-1400</span>
           </div>
 
@@ -67,19 +64,19 @@ const HowToPlayPopup: React.FC<Props> = ({ onStart, onClose }) => {
           <div className="flex items-start gap-2.5">
             <span className="text-[#00AEEF] font-bold">1.</span>
             <p>
-              Swipe <strong className="text-white">Up/Down</strong> or use <strong className="text-white">Arrow Keys</strong> to switch wires with natural anti-gravity arcs.
+              Swipe <strong className="text-white">Up/Down</strong> or use <strong className="text-white">Arrow Keys</strong> to switch lanes on flat ground.
             </p>
           </div>
           <div className="flex items-start gap-2.5">
             <span className="text-[#00AEEF] font-bold">2.</span>
             <p>
-              Tap <strong className="text-white">Screen</strong> or press <strong className="text-white">Space</strong> to Jump over hazards and catch floating items.
+              Tap <strong className="text-white">Screen</strong> or press <strong className="text-white">Space</strong> to Jump over hazards.
             </p>
           </div>
           <div className="flex items-start gap-2.5">
             <span className="text-[#00AEEF] font-bold">3.</span>
             <p>
-              Grab <strong className="text-green-400">Rupee Coins</strong> & <strong className="text-cyan-400">Shield Covers</strong> while avoiding risk <strong className="text-red-400">Obstacles (Birds)</strong>.
+              Collect <strong className="text-green-400">Rupee Coins</strong> & <strong className="text-cyan-400">Shields</strong> while dodging <strong className="text-red-400">Green Virus Risks 🦠</strong>.
             </p>
           </div>
         </div>
@@ -87,7 +84,7 @@ const HowToPlayPopup: React.FC<Props> = ({ onStart, onClose }) => {
         {/* Objective & CTA */}
         <div className="space-y-4">
           <p className="text-xs font-black text-blue-200/90 tracking-wide uppercase italic bg-[#00AEEF]/5 py-2 rounded-lg border border-[#00AEEF]/20">
-            "Grab opportunities, shields and reach your future goals!"
+            "Run on flat ground, dodge green viruses and secure your future!"
           </p>
           <div className="grid grid-cols-5 gap-3 pt-2">
             <button
@@ -98,8 +95,10 @@ const HowToPlayPopup: React.FC<Props> = ({ onStart, onClose }) => {
             </button>
             <button
               onClick={onStart}
-              className="btn-press col-span-3 rounded-xl py-3 text-xs font-black uppercase tracking-wider text-black shadow-[0_4px_16px_rgba(249,115,22,0.4)]"
-              style={{ background: 'linear-gradient(135deg, #F97316 0%, #FACC15 100%)' }}
+              className="btn-press col-span-3 rounded-xl py-3 text-xs font-black uppercase text-white shadow-[0_4px_16px_rgba(34,197,94,0.4)]"
+              style={{
+                background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
+              }}
             >
               Start Game
             </button>

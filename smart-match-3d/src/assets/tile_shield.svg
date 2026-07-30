@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="tileBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="shieldFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="50%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="goldRim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="100%" stop-color="#CA8A04"/>
+    </linearGradient>
+    <filter id="glow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#3B82F6" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <!-- Glossy 3D Glass Tile Base -->
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#tileBg)" stroke="url(#goldRim)" stroke-width="3" filter="url(#glow)"/>
+  <rect x="12" y="12" width="104" height="48" rx="20" fill="#FFFFFF" fill-opacity="0.08"/>
+  
+  <!-- 3D Term Shield -->
+  <path d="M64 24 L94 36 V62 C94 84 78 98 64 106 C50 98 34 84 34 62 V36 Z" fill="url(#shieldFill)" stroke="#FFFFFF" stroke-width="2.5"/>
+  <path d="M54 62 L62 70 L76 52" fill="none" stroke="#FDE047" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

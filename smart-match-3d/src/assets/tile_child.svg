@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="tileBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0C4A6E"/>
+      <stop offset="100%" stop-color="#075985"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#tileBg)" stroke="#38BDF8" stroke-width="3"/>
+  <rect x="12" y="12" width="104" height="48" rx="20" fill="#FFFFFF" fill-opacity="0.08"/>
+  
+  <!-- 3D Child Future Stroller -->
+  <path d="M40 48 C64 48 76 60 76 76 H36 C36 60 40 48 40 48 Z" fill="#38BDF8" stroke="#FFFFFF" stroke-width="2"/>
+  <circle cx="48" cy="84" r="8" fill="#F59E0B"/>
+  <circle cx="72" cy="84" r="8" fill="#F59E0B"/>
+  <path d="M76 56 L88 44" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+</svg>

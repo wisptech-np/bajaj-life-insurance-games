@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="tileBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#312E81"/>
+      <stop offset="100%" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="capGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A5B4FC"/>
+      <stop offset="100%" stop-color="#6366F1"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#tileBg)" stroke="#818CF8" stroke-width="3"/>
+  <rect x="12" y="12" width="104" height="48" rx="20" fill="#FFFFFF" fill-opacity="0.08"/>
+  
+  <!-- 3D Graduation Cap & Books -->
+  <rect x="36" y="82" width="56" height="12" rx="3" fill="#EC4899"/>
+  <rect x="32" y="70" width="64" height="12" rx="3" fill="#3B82F6"/>
+  <!-- Cap Diamond -->
+  <polygon points="64,36 100,50 64,64 28,50" fill="url(#capGrad)" stroke="#FFFFFF" stroke-width="2"/>
+  <rect x="48" y="56" width="32" height="16" fill="#4338CA"/>
+  <!-- Tassel -->
+  <line x1="84" y1="52" x2="94" y2="68" stroke="#FDE047" stroke-width="3"/>
+  <circle cx="94" cy="70" r="3" fill="#FDE047"/>
+</svg>

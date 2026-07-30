@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="tileBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#78350F"/>
+      <stop offset="100%" stop-color="#451A03"/>
+    </linearGradient>
+    <linearGradient id="goldPiggy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#tileBg)" stroke="#F59E0B" stroke-width="3"/>
+  <rect x="12" y="12" width="104" height="48" rx="20" fill="#FFFFFF" fill-opacity="0.08"/>
+  
+  <!-- 3D Golden Piggy Bank -->
+  <ellipse cx="64" cy="68" rx="32" ry="26" fill="url(#goldPiggy)" stroke="#B45309" stroke-width="2"/>
+  <circle cx="82" cy="62" r="10" fill="#FBBF24"/>
+  <circle cx="84" cy="60" r="1.5" fill="#78350F"/>
+  <circle cx="87" cy="63" r="1.5" fill="#78350F"/>
+  <circle cx="72" cy="56" r="3" fill="#FFFFFF"/>
+  <circle cx="73" cy="56" r="1.5" fill="#000000"/>
+  <!-- Coin slot -->
+  <rect x="56" y="44" width="16" height="4" rx="2" fill="#78350F"/>
+  <!-- Dropping Rupee coin -->
+  <circle cx="64" cy="36" r="8" fill="#FEF08A" stroke="#B45309" stroke-width="1.5"/>
+</svg>

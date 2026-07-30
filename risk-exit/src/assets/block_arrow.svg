@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="blockBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00529B"/>
+      <stop offset="100%" stop-color="#061826"/>
+    </linearGradient>
+    <linearGradient id="arrowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#00A3E0"/>
+    </linearGradient>
+    <filter id="blockGlow">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#00A3E0" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="20" fill="url(#blockBg)" stroke="#00A3E0" stroke-width="3" filter="url(#blockGlow)"/>
+  <rect x="12" y="12" width="104" height="48" rx="16" fill="#FFFFFF" fill-opacity="0.1"/>
+  <polygon points="64,28 92,60 76,60 76,96 52,96 52,60 36,60" fill="url(#arrowGrad)" stroke="#FFFFFF" stroke-width="2.5"/>
+</svg>

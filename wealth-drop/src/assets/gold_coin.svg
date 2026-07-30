@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="coinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <filter id="coinGlow">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#F59E0B" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="52" fill="url(#coinGrad)" stroke="#FEF08A" stroke-width="4" filter="url(#coinGlow)"/>
+  <circle cx="64" cy="64" r="40" fill="none" stroke="#78350F" stroke-width="2" stroke-dasharray="6 4"/>
+  <path d="M48 44 H72 M48 56 H72 M52 44 C66 44 66 68 52 68 H48 L72 92" fill="none" stroke="#78350F" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

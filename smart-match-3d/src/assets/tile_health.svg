@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="tileBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#991B1B"/>
+      <stop offset="100%" stop-color="#450A0A"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#tileBg)" stroke="#F87171" stroke-width="3"/>
+  <rect x="12" y="12" width="104" height="48" rx="20" fill="#FFFFFF" fill-opacity="0.08"/>
+  
+  <!-- 3D Healthcare Shield Cross -->
+  <path d="M64 24 L92 36 V60 C92 78 78 92 64 98 C50 92 36 78 36 60 V36 Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="2"/>
+  <rect x="58" y="44" width="12" height="34" rx="2" fill="#FFFFFF"/>
+  <rect x="47" y="55" width="34" height="12" rx="2" fill="#FFFFFF"/>
+</svg>
