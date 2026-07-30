@@ -88,3 +88,8 @@ extrapolated.
 - Lead capture / slot booking / playCount wired per GAME_STANDARD §2
   (lead modal auto-opens on first results without a stored lead;
   `startGame()` calls `incrementPlayCount()` once; `gameKey` remount restart).
+
+## 2026-07-30 - orchestrator re-verification after session-limit interruption
+
+Re-ran full gate: pnpm build zero errors (423.65 kB JS); node gate.mjs GATE: PASS (strip bot >=70% on 6/6 seeds, idle+camper never win, 106 seals with zero orb-containment errors, monotonic claim). Kit hashes 7/7 identical. LEAD_NO_KEY ringFenceLeadNo, playCount wired.
+
