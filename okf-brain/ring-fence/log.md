@@ -93,3 +93,55 @@ extrapolated.
 
 Re-ran full gate: pnpm build zero errors (423.65 kB JS); node gate.mjs GATE: PASS (strip bot >=70% on 6/6 seeds, idle+camper never win, 106 seals with zero orb-containment errors, monotonic claim). Kit hashes 7/7 identical. LEAD_NO_KEY ringFenceLeadNo, playCount wired.
 
+
+---
+
+## 2026-07-31 — lead form trimmed, how-to-play rebuilt as animation, asset sheet
+
+Three scoped changes. No gameplay touched: `data.js`, `rules.js` and
+`RingFenceGame.jsx` are byte-identical, so the grid, the orb speeds and ramp,
+the seal resolution, the fuse and the scoring are all unchanged.
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx` lost `EMAIL_RE`, the
+`email` state, the "Email Field" block, the `errs.email` branch, both
+`lastSubmittedEmail` sessionStorage calls, and `email` from the `submitToLMS`
+call and both `onSubmitted` payloads. `api.js` untouched — it already sends
+`email_id: email || ''`. Name + Mobile + T&C unchanged. Grep for `email` over
+`ring-fence/src` is now empty.
+
+**G2 — `HowToPlayScreen` is now one animated demo.** Deleted: the three numbered
+instruction paragraphs (including the one that quoted `GAME_CONFIG.winPct` /
+`sessionSeconds`) and the small 180 px demo strip. In their place `DemoField()`
+renders a 216×240 miniature of the real field and runs one 6 s loop of an actual
+claim: the guardian sits on the cyan safety wall, a finger presses and *drags*
+it off into open ground, the orange dashed trail grows up → right → down, the
+guardian re-touches the wall, and the sealed pocket floods blue left-to-right —
+a directional wipe, matching the shipped 900 px/s colour wave rather than a fade
+— after which the cut itself redraws as wall. Two green virus orbs bounce on
+linear timing (so the reflections read as deterministic, which they are) and
+both stay in ground that is still open, so the pocket that claims genuinely
+contains no hazard. Orb sprite, wall blue, trail orange and guardian shield are
+the shipped ones. All tracks share the 6 s duration; all are disabled under
+`prefers-reduced-motion` (the old demo had none).
+Remaining text: the "How to Play" heading, three icon-led cues (DRAG TO CUT /
+SEAL TO CLAIM / AVOID THE ORBS) and the Play button. Nothing else. Card 340 px
+wide; stack measures ~440 px, so 360×640 fits with no scroll (`overflow: hidden`,
+was `overflowY: auto`).
+
+**G3 — `asset-from-here.md`,** 13 Nano Banana prompts on the motif *surveyor's
+plot on a backlit drafting table*: every asset is hard-line draughting ink on
+vellum lit from beneath — measured line weights, 45° ownership hatching,
+dimension ticks, registration crosses, dashed provisional construction lines —
+always flat-on plan view, north up, with an explicit ban in the sheet on
+perspective, volume, bevel and 3D. Covers the plot sheet, the guardian marker,
+tileable wall and cut segments, the tileable claimed hatch, the risk orb, the
+third-orb telegraph ring, the fuse spark, the shield pips, the claim dial, the
+big-cut stamp and both result-screen pieces.
+
+**Verification**
+
+| Gate | Result |
+| --- | --- |
+| `pnpm install` | pass |
+| `pnpm build` | pass — `✓ built in 3.72s`, 426.77 kB / 142.06 kB gzip |
+| `node gate.mjs` | **PASS** — strip bot 6/6 seeds ≥70% in time, idle bot 0/3, camper bot 0/3, seal correctness over 106 seals across 20 runs |

@@ -20,6 +20,7 @@ import {
   buildVerifiedTower,
   buildTower,
   analyzeTower,
+  createFlexChain,
   createLeanSolver,
   evaluateMasks,
   masksForState,
@@ -281,8 +282,52 @@ console.log(`  winnable ${fb.winnable} · final margin ${fb.finalMargin.toFixed(
   + ` · heartbeat-band states ${fb.hazardStates}/${fb.totalStates}`);
 console.log('');
 
+/* ─── Joint chain check ──────────────────────────────────────
+   The chain is render-only, so the gate cannot catch a regression in it through
+   win rates. These three properties are the ones the feel depends on, and all
+   three are cheap to assert: it has to settle where the statics point it, the
+   top has to move more than the base, and the top has to arrive later. */
+function checkChain() {
+  const L = cfg.tower.layers;
+  const dt = 1 / 120;
+  const gain = cfg.chain.leanGain;
+
+  // 1. Settles onto the driven lean, amplified by leanGain and nothing else.
+  const rest = createFlexChain(cfg);
+  for (let i = 0; i < 600; i++) rest.step(dt, 0.1, 1, 0);
+  let total = 0;
+  for (let i = 0; i < L; i++) total += rest.angles[i];
+  const settleErr = Math.abs(total - 0.1 * gain);
+
+  // 2/3. Kick it and watch where the motion goes and when it gets there.
+  const hit = createFlexChain(cfg);
+  hit.kick(0.6);
+  let basePeak = 0;
+  let baseAt = 0;
+  let topPeak = 0;
+  let topAt = 0;
+  for (let i = 0; i < 360; i++) {
+    hit.step(dt, 0, 1, 0);
+    const t = i * dt;
+    if (Math.abs(hit.angles[0]) > basePeak) { basePeak = Math.abs(hit.angles[0]); baseAt = t; }
+    let acc = 0;
+    for (let j = 0; j < L; j++) acc += hit.angles[j];
+    if (Math.abs(acc) > topPeak) { topPeak = Math.abs(acc); topAt = t; }
+  }
+
+  const pass = settleErr < 1e-3 && topPeak > basePeak * 6 && topAt > baseAt;
+  console.log('JOINT CHAIN');
+  console.log(`  settles on lean*gain (err ${settleErr.toExponential(1)} rad)`
+    + ` · top swing ${(topPeak / basePeak).toFixed(1)}x the base`
+    + ` · top peaks ${((topAt - baseAt) * 1000).toFixed(0)} ms later`);
+  console.log('');
+  return pass;
+}
+const chainOk = checkChain();
+
 /* ─── Verdict ────────────────────────────────────────────── */
-const ok = failWinnable === 0
+const ok = chainOk
+  && failWinnable === 0
   && failCareless === 0
   && failFinal === 0
   && fallbacks === 0
@@ -302,5 +347,6 @@ if (!ok) {
   if (!carelessOrderTopples(buildTower(FALLBACK_REDS, cfg), cfg)) console.log('    - FALLBACK_REDS cannot be toppled');
   if (dyn.steady.wins / RUNS < 0.9) console.log('    - the steady player wins less than 90% of runs');
   if (dyn.careless.wins / RUNS > 0.35) console.log('    - the careless player wins more than 35% of runs');
+  if (!chainOk) console.log('    - the joint chain no longer settles, accumulates or lags correctly');
 }
 process.exit(ok ? 0 : 1);

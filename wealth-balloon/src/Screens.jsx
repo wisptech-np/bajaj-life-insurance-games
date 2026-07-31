@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { GAME_CONFIG, RESULT_TARGET_SCORE, VALUE_CEILING, VALUE_FLOOR } from './data.js';
+import { GAME_CONFIG, RESULT_TARGET_SCORE } from './data.js';
 
 const GAME_TITLE = 'Wealth Balloon';
 
@@ -141,9 +141,129 @@ const SCREEN_CSS = `
 .wb-hold   { animation: wbBeatHold 2.4s ease-in-out infinite; transform-origin: 37px 38px; }
 .wb-tell   { animation: wbBeatTell 2.4s ease-in-out infinite; }
 .wb-shield { animation: wbBeatShield 2.4s ease-in-out infinite; transform-origin: 37px 32px; }
+
+/* How-to-play demo. One 6.4s loop, two rounds of the real press-your-luck loop:
+   round 1 banks on the wobble, round 2 pushes past it and the Term Shield pays
+   half. Every transform is authored around its parent's origin, so no
+   transform-box/transform-origin fiddling is needed. */
+@keyframes wbDemoBody {
+  0%,2%    { opacity: 0; }
+  4%,31%   { opacity: 1; }
+  35%,41%  { opacity: 0; }
+  43%,71%  { opacity: 1; }
+  74%,100% { opacity: 0; }
+}
+@keyframes wbDemoScale {
+  0%,3%    { transform: scale(0.34); }
+  26%      { transform: scale(0.95); }
+  31%      { transform: scale(1.02); }
+  34%      { transform: scale(1.12); }
+  42%      { transform: scale(0.34); }
+  68%      { transform: scale(1.18); }
+  71%      { transform: scale(1.3); }
+  73%      { transform: scale(1.55); }
+  75%,100% { transform: scale(0.34); }
+}
+@keyframes wbDemoWarm {
+  0%,10%   { opacity: 0; }
+  24%,31%  { opacity: 1; }
+  35%,49%  { opacity: 0; }
+  60%,73%  { opacity: 1; }
+  76%,100% { opacity: 0; }
+}
+@keyframes wbDemoHot {
+  0%,60%   { opacity: 0; }
+  68%,73%  { opacity: 1; }
+  76%,100% { opacity: 0; }
+}
+@keyframes wbDemoWobble {
+  0%,24%   { transform: translate(0,0) rotate(0deg); }
+  26%      { transform: translate(-2.5px,0) rotate(-2.5deg); }
+  28%      { transform: translate(2.5px,0) rotate(2.5deg); }
+  30%      { transform: translate(-2px,0) rotate(-2deg); }
+  32%,61%  { transform: translate(0,0) rotate(0deg); }
+  63%      { transform: translate(-4px,0) rotate(-4.5deg); }
+  65%      { transform: translate(4px,0) rotate(4.5deg); }
+  67%      { transform: translate(-4px,0) rotate(-4.5deg); }
+  69%      { transform: translate(4px,0) rotate(4.5deg); }
+  71%      { transform: translate(-3px,0) rotate(-3.5deg); }
+  73%,100% { transform: translate(0,0) rotate(0deg); }
+}
+@keyframes wbDemoFinger {
+  0%,1%    { transform: translate(136px, 164px); }
+  3%,31%   { transform: translate(136px, 173px); }
+  33%,41%  { transform: translate(136px, 164px); }
+  43%,73%  { transform: translate(136px, 173px); }
+  76%,100% { transform: translate(136px, 164px); }
+}
+@keyframes wbDemoHoldRing {
+  0%,2%    { opacity: 0; transform: scale(0.5); }
+  6%       { opacity: 0.9; transform: scale(1); }
+  29%      { opacity: 0.9; transform: scale(1.35); }
+  33%,42%  { opacity: 0; transform: scale(0.5); }
+  46%      { opacity: 0.9; transform: scale(1); }
+  71%      { opacity: 0.9; transform: scale(1.35); }
+  75%,100% { opacity: 0; transform: scale(0.5); }
+}
+@keyframes wbDemoValue {
+  0%,3%    { transform: scaleY(0.06); }
+  26%      { transform: scaleY(0.62); }
+  31%      { transform: scaleY(0.66); }
+  34%,42%  { transform: scaleY(0.06); }
+  68%      { transform: scaleY(0.92); }
+  73%      { transform: scaleY(1); }
+  76%,100% { transform: scaleY(0.06); }
+}
+@keyframes wbDemoCoinA {
+  0%,31%   { transform: translate(150px,108px) scale(0.15); opacity: 0; }
+  34%      { transform: translate(150px,108px) scale(1);    opacity: 1; }
+  42%      { transform: translate(44px,176px)  scale(0.85); opacity: 1; }
+  45%,100% { transform: translate(44px,176px)  scale(0.85); opacity: 0; }
+}
+@keyframes wbDemoCoinB {
+  0%,76%   { transform: translate(150px,108px) scale(0.12); opacity: 0; }
+  79%      { transform: translate(150px,108px) scale(0.6);  opacity: 1; }
+  88%      { transform: translate(44px,176px)  scale(0.52); opacity: 1; }
+  91%,100% { transform: translate(44px,176px)  scale(0.52); opacity: 0; }
+}
+@keyframes wbDemoBurst {
+  0%,71%   { opacity: 0; transform: scale(0.35); }
+  73.5%    { opacity: 1; transform: scale(1); }
+  80%,100% { opacity: 0; transform: scale(1.55); }
+}
+@keyframes wbDemoShield {
+  0%,72%   { opacity: 0; transform: scale(0.5); }
+  77%      { opacity: 1; transform: scale(1.14); }
+  82%      { opacity: 1; transform: scale(1); }
+  90%,100% { opacity: 0; transform: scale(1); }
+}
+@keyframes wbDemoVault {
+  0%,40%   { opacity: 0.3; }
+  44%      { opacity: 1; }
+  50%,85%  { opacity: 0.3; }
+  89%      { opacity: 1; }
+  95%,100% { opacity: 0.3; }
+}
+.wb-demo-body    { animation: wbDemoBody 6.4s linear infinite; }
+.wb-demo-scale   { animation: wbDemoScale 6.4s cubic-bezier(0.4,0,0.6,1) infinite; }
+.wb-demo-warm    { animation: wbDemoWarm 6.4s linear infinite; }
+.wb-demo-hot     { animation: wbDemoHot 6.4s linear infinite; }
+.wb-demo-wobble  { animation: wbDemoWobble 6.4s linear infinite; }
+.wb-demo-finger  { animation: wbDemoFinger 6.4s ease-out infinite; }
+.wb-demo-ring    { animation: wbDemoHoldRing 6.4s ease-out infinite; }
+.wb-demo-value   { animation: wbDemoValue 6.4s cubic-bezier(0.4,0,0.6,1) infinite; }
+.wb-demo-coin-a  { animation: wbDemoCoinA 6.4s cubic-bezier(0.5,0,0.6,1) infinite; }
+.wb-demo-coin-b  { animation: wbDemoCoinB 6.4s cubic-bezier(0.5,0,0.6,1) infinite; }
+.wb-demo-burst   { animation: wbDemoBurst 6.4s ease-out infinite; }
+.wb-demo-shield  { animation: wbDemoShield 6.4s cubic-bezier(0.22,1,0.36,1) infinite; }
+.wb-demo-vault   { animation: wbDemoVault 6.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .wb-title, .wb-float, .wb-glow, .wb-chip, .wb-hero-grow, .wb-hero-warm,
-  .wb-hero-count, .wb-drone, .wb-hold, .wb-tell, .wb-shield { animation: none !important; }
+  .wb-hero-count, .wb-drone, .wb-hold, .wb-tell, .wb-shield,
+  .wb-demo-body, .wb-demo-scale, .wb-demo-warm, .wb-demo-hot, .wb-demo-wobble,
+  .wb-demo-finger, .wb-demo-ring, .wb-demo-value, .wb-demo-coin-a,
+  .wb-demo-coin-b, .wb-demo-burst, .wb-demo-shield,
+  .wb-demo-vault { animation: none !important; }
 }
 `;
 
@@ -339,37 +459,37 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-/** One beat of the hold → read → bank loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
+/**
+ * Animation-first how-to-play. One 6.4 s loop plays two real rounds:
+ *   round 1  hold → the envelope grows and warms → the wobble arrives → let go
+ *            → the round's value drops into the vault.
+ *   round 2  hold → push past the wobble → burst → the Term Shield catches it
+ *            and a half-size coin drops into the vault.
+ * No prose: the curve, the tell, the bank and the cover are all shown.
+ */
+
+/** The envelope, drawn around its parent's origin so CSS scale works cleanly. */
+function DemoBalloon() {
+  const r = 40;
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
-    </div>
+    <g className="wb-demo-scale">
+      <ellipse cx="0" cy="0" rx={r} ry={r * 1.14} fill={BLUE_LT} />
+      <ellipse className="wb-demo-warm" cx="0" cy="0" rx={r} ry={r * 1.14} fill={ORANGE} />
+      <ellipse className="wb-demo-hot" cx="0" cy="0" rx={r} ry={r * 1.14} fill={DANGER} />
+      <ellipse cx={-r * 0.34} cy={-r * 0.42} rx={r * 0.2} ry={r * 0.3} fill="rgba(255,255,255,0.5)" />
+      <path d={`M${-r * 0.12},${r * 1.1} L${r * 0.12},${r * 1.1} L${r * 0.06},${r * 1.36} L${-r * 0.06},${r * 1.36} Z`}
+        fill="#002D7A" />
+    </g>
   );
 }
 
-/** A small balloon for the tutorial diagrams. */
-function BeatBalloon({ cx = 37, cy = 32, r = 13, fill = BLUE_LT }) {
+/** A banked coin. Small = the half the Term Shield rescues. */
+function DemoCoin({ cls }) {
   return (
-    <g transform={`translate(${cx},${cy})`}>
-      <ellipse cx="0" cy="0" rx={r} ry={r * 1.14} fill={fill} />
-      <ellipse cx={-r * 0.34} cy={-r * 0.42} rx={r * 0.2} ry={r * 0.3} fill="rgba(255,255,255,0.45)" />
-      <path d={`M${-r * 0.12},${r * 1.1} L${r * 0.12},${r * 1.1} L${r * 0.06},${r * 1.34} L${-r * 0.06},${r * 1.34} Z`} fill="#002D7A" />
+    <g className={cls}>
+      <circle cx="0" cy="0" r="11" fill={GOLD} stroke="#B07B12" strokeWidth="2" />
+      <circle cx="-3" cy="-3.4" r="3" fill={GOLD_LT} />
+      <path d="M0 -5.5 L0 5.5 M-3.6 -2 L3.6 -2" stroke="#8A5E0B" strokeWidth="2" strokeLinecap="round" />
     </g>
   );
 }
@@ -388,9 +508,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -399,101 +519,132 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '24px 20px 20px',
+        padding: '18px 14px 16px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 23, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 12px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 14px 0', lineHeight: 1.4 }}>
-          Hold to inflate &middot; Let go to bank &middot; The wobble is your only warning
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 14 }}>
-          <Beat n="1" title="Hold to inflate" copy="The counter climbs faster the longer you hold. Nobody tells you when it pops.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <g className="wb-hold"><BeatBalloon cy={38} r={14} /></g>
-              <text x="37" y="12" fill={GOLD_LT} fontSize="11" fontWeight="900" textAnchor="middle"
-                fontFamily="'Poppins', sans-serif">10·t^1.6</text>
-            </svg>
-          </Beat>
+        {/* ── The looping demo: hold, read the wobble, bank — then the burst ── */}
+        <svg viewBox="0 0 300 210" width="100%" role="img"
+          aria-label="A finger holds to inflate the balloon until it wobbles, then lets go and the value drops into the vault; on the second round it holds too long, the balloon bursts and the Term Shield banks half."
+          style={{ display: 'block', borderRadius: 16, border: '1px solid rgba(255,255,255,0.1)' }}>
+          <defs>
+            <radialGradient id="wbDemoBg" cx="50%" cy="42%" r="70%">
+              <stop offset="0%" stopColor="rgba(30,107,224,0.24)" />
+              <stop offset="100%" stopColor="rgba(6,11,22,0.92)" />
+            </radialGradient>
+          </defs>
+          <rect x="0" y="0" width="300" height="210" rx="15" fill="url(#wbDemoBg)" />
 
-          <Beat n="2" title="Read the wobble" copy="At 70% of the hidden limit it shakes and turns orange. Honest, but ±0.35s noisy.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatBalloon cy={32} r={15} fill={ORANGE} />
-              <g className="wb-tell">
-                <ellipse cx="37" cy="32" rx="21" ry="23" fill="none" stroke="#FF8B8B" strokeWidth="1.7" />
-                <path d="M11 20 Q7 25 11 30M63 20 Q67 25 63 30" stroke="#FF8B8B" strokeWidth="1.6"
-                  fill="none" strokeLinecap="round" />
+          {/* Value column: the 10·t^1.6 curve, shown as a rising gold gauge */}
+          <rect x="272" y="38" width="14" height="134" rx="7" fill="rgba(255,255,255,0.08)" />
+          <g transform="translate(279,172)">
+            <rect className="wb-demo-value" x="-5" y="-132" width="10" height="132" rx="5" fill={GOLD} />
+          </g>
+
+          {/* The vault the banked value falls into */}
+          <g transform="translate(44,176)">
+            <rect className="wb-demo-vault" x="-27" y="-24" width="54" height="46" rx="10"
+              fill={GREEN} stroke={GREEN_LT} strokeWidth="2.5" />
+            <rect x="-13" y="-16" width="26" height="5" rx="2.5" fill="#062B12" opacity="0.7" />
+            <circle cx="0" cy="4" r="9" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="2.5" />
+            <path d="M0 -1.5 V9" stroke="rgba(255,255,255,0.75)" strokeWidth="2.5" strokeLinecap="round" />
+          </g>
+
+          {/* The envelope, with its wobble tell */}
+          <g transform="translate(150,108)">
+            <g className="wb-demo-wobble">
+              <g className="wb-demo-body">
+                <DemoBalloon />
               </g>
-            </svg>
-          </Beat>
 
-          <Beat n="3" title="One Term Shield" copy="Your first burst is absorbed and banks half. After that a burst is a zero.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatBalloon cy={30} r={12} fill={DANGER} />
-              <g className="wb-shield">
-                <path d="M37 14 l14 5 l0 11 c0 9 -6 15.5 -14 19 c-8 -3.5 -14 -10 -14 -19 l0 -11 z"
-                  fill="rgba(30,107,224,0.88)" stroke="#A6D0FF" strokeWidth="1.3" />
-                <path d="M31 31 l4.4 4.4 l8 -8.8" fill="none" stroke="#fff" strokeWidth="2.2"
+              {/* Burst rays — round 2 only */}
+              <g className="wb-demo-burst">
+                {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+                  <path key={a} transform={`rotate(${a})`} d="M0 -22 L6 -40 L0 -62 L-6 -40 Z" fill={DANGER} />
+                ))}
+                <circle cx="0" cy="0" r="18" fill={ORANGE_LT} />
+              </g>
+
+              {/* The Term Shield that absorbs it */}
+              <g className="wb-demo-shield">
+                <path d="M0 -30 l22 8 v17 c0 14 -9 24 -22 30 c-13 -6 -22 -16 -22 -30 v-17 z"
+                  fill="rgba(30,107,224,0.92)" stroke={SKY_LT} strokeWidth="2.4" />
+                <path d="M-9 2 l7 7 l13 -14" fill="none" stroke="#fff" strokeWidth="3.6"
                   strokeLinecap="round" strokeLinejoin="round" />
               </g>
-            </svg>
-          </Beat>
+            </g>
+          </g>
 
-          <Beat n="4" title="Mind the drones" copy="From round 4 a needle drone crosses. Let go while it touches you and it pops, full stop.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatBalloon cy={26} r={13} />
-              <line x1="2" y1="47" x2="72" y2="47" stroke={DANGER} strokeWidth="1"
-                strokeDasharray="4 6" opacity="0.5" />
-              <g className="wb-drone" style={{ animationDuration: '3.4s' }}>
-                <rect x="-8" y="43" width="16" height="8" rx="3" fill="#2B3A50" stroke="rgba(214,228,247,0.45)" strokeWidth="0.8" />
-                <line x1="8" y1="47" x2="19" y2="47" stroke="#D6E4F7" strokeWidth="1.5" />
-                <circle cx="-3" cy="47" r="1.7" fill={DANGER} />
-              </g>
-            </svg>
-          </Beat>
-        </div>
+          {/* Banked value flying to the vault */}
+          <DemoCoin cls="wb-demo-coin-a" />
+          <DemoCoin cls="wb-demo-coin-b" />
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.rounds} rounds</strong> worth{' '}
-          <strong style={{ color: '#fff' }}>{VALUE_FLOOR}–{VALUE_CEILING}</strong> each, or{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong> — whichever runs out first.
-          Bank <strong style={{ color: GREEN_LT }}>{RESULT_TARGET_SCORE.toLocaleString()}</strong> in total to win.
-        </p>
+          {/* The finger, held down for as long as the balloon is inflating */}
+          <g className="wb-demo-finger">
+            <g transform="translate(15,6)">
+              <circle className="wb-demo-ring" cx="0" cy="0" r="17" fill="none"
+                stroke={GOLD} strokeWidth="3" />
+            </g>
+            <path d="M13 21V7.6a3 3 0 0 1 6 0V18h1.6a3 3 0 0 1 3 3v.6l3.2 1.4a4 4 0 0 1 2.3 4.5l-1.2 5.6A5 5 0 0 1 23 37h-6.4a6 6 0 0 1-4.6-2.2l-5.6-6.9a2.8 2.8 0 0 1 3.9-4L13 26"
+              fill="#FFFFFF" stroke="#0B1221" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          </g>
+        </svg>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 16 }}>
+        {/* ── At most three icon-led labels ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, margin: '12px 2px 14px' }}>
           {[
-            { k: 'compound', text: `Compound +${GAME_CONFIG.compound.bonusPerStep} per unbroken round`, color: GREEN_LT },
-            { k: 'shield', text: `Term Shield banks ${GAME_CONFIG.shield.absorbFraction * 100}%`, color: SKY_LT },
-            { k: 'burst', text: 'A burst resets the streak', color: '#FF8B8B' },
-          ].map((chip, i) => (
-            <span
-              key={chip.k}
-              className="wb-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: chip.color,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {chip.text}
-            </span>
+            {
+              color: GOLD, word: 'HOLD TO GROW',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke={GOLD} strokeWidth="1.8" opacity="0.5" />
+                  <circle cx="12" cy="12" r="4.6" fill={GOLD} />
+                </svg>
+              ),
+            },
+            {
+              color: ORANGE_LT, word: 'WOBBLE = BANK',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <ellipse cx="12" cy="12" rx="5.4" ry="6.2" fill={ORANGE_LT} />
+                  <path d="M3.4 7.4 Q1.4 12 3.4 16.6M20.6 7.4 Q22.6 12 20.6 16.6" stroke={ORANGE_LT}
+                    strokeWidth="1.9" fill="none" strokeLinecap="round" opacity="0.85" />
+                </svg>
+              ),
+            },
+            {
+              color: SKY_LT, word: 'COVER SAVES HALF',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 2.6 4.6 5.4v6.1c0 5 3.3 8.6 7.4 10.3 4.1-1.7 7.4-5.3 7.4-10.3V5.4L12 2.6z"
+                    fill={BLUE_LT} stroke={SKY_LT} strokeWidth="1.6" strokeLinejoin="round" />
+                  <path d="m8.8 12.1 2.2 2.2 4.4-4.6" fill="none" stroke="#fff" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ),
+            },
+          ].map(({ color, word, icon }) => (
+            <div key={word} style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              padding: '7px 2px', borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)', border: `1px solid ${color}44`,
+            }}>
+              {icon}
+              <span style={{ fontSize: 9.5, fontWeight: 900, color, letterSpacing: '0.03em', lineHeight: 1.15 }}>
+                {word}
+              </span>
+            </div>
           ))}
         </div>
 

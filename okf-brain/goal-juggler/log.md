@@ -463,3 +463,64 @@ robust on the high side.
 
 Final shipped-state gate re-run after restoring 0.55: **GATE: PASS** — honest
 34.8% combined over 2,000 runs, sharp 98.0%, every canary shut, zero tunnelling.
+
+---
+
+## 2026-07-31 — Lead-form / how-to-play revamp
+
+**G1 — email removed from lead capture.** `src/LeadCaptureModal.jsx` no longer
+collects an email address. Deleted `EMAIL_RE`, the `email` `useState` (and its
+`lastSubmittedEmail` sessionStorage read), the optional-email validation branch,
+the whole "Email Field" `sl-lead-field` block, the `lastSubmittedEmail`
+sessionStorage write, and the `email` key from both the `submitToLMS({...})` call
+and the two `onSubmitted({...})` payloads. `src/api.js` is untouched: `submitToLMS`
+already sends `email_id: email || ''`, so omitting the key keeps the LMS payload
+shape byte-identical. Name, mobile (`^[6-9]\d{9}$`) and the T&C checkbox are
+unchanged. Grep confirms no `email` / `lastSubmittedEmail` reference survives
+under `src/`.
+
+**G2 — `HowToPlayScreen` is now animation-first.** Deleted all three numbered
+instruction beats and the `Beat` / `BeatCourt` components that carried them, the
+sub-headline, the session/gust/target paragraph and the three scoring chips. In
+their place is `DemoCourt`: one looping 2.6 s SVG of the real court — walls,
+ceiling, the red floor band — in which a gold Education orb falls under gravity,
+a finger presses its **right** side just above the floor, and it rebounds up and
+to the **left**. The parabola is authored as a closed loop (it ends exactly where
+it starts) so there is no snap at the seam, keyframe spacing widens on the way
+down and narrows on the way up so the motion reads as real gravity, and the
+off-centre contact point is visibly the *reason* the orb changes direction —
+which is the one mechanic a new player must understand. Two more orbs bob in the
+background so "several at once" also needs no sentence. Orb art is the existing
+`Orb`/`GoalGlyph` components, i.e. literally the silhouettes the canvas draws.
+
+**The one-finger warning survived as a glyph.** The shared input kit tracks a
+single pointer, so a second finger resting on the glass swallows every tap. That
+caveat was a paragraph; it is now the first icon-led cue — a finger with a
+crossed-out second finger beside it, labelled "One finger only". The other two
+cues are "Off-centre steers" and "Floor costs cover". All three are ≤ 4 words.
+Total text on the screen: heading, three cues, Play button.
+
+Card capped at 344 px with `overflow: hidden`; fits 360×640 without scrolling.
+The three `gjBeat*` keyframes are replaced by seven `gjD*` keyframes, all added to
+the existing `prefers-reduced-motion` kill switch. Per this file's stated
+convention the new art uses inline palette literals rather than importing
+`COLORS` from `data.js`.
+
+**G3 — `goal-juggler/asset-from-here.md` added.** 13 Nano Banana prompts committed
+to a single motif: **hand-blown luminous glass** — each goal is a mouth-blown
+lantern with a lampworked emblem burning inside it, with visible wall thickness,
+trapped bubbles, gold-leaf flecks, a pontil mark, subsurface scattering and real
+caustics, floating in a dark indigo glasshouse lit only by the lanterns
+themselves. Translucent and fragile by design, which is what makes the red floor
+threshold mean something. Covers the hall backdrop, all four goal orbs, the side
+rails, the floor danger line, the shatter burst (one tint per goal), the white
+touch shockwave, the cover pip in held and spent states, the risk gust, the HUD
+glyph set and the result art.
+
+**Not touched:** gameplay, balance, `physics.js`, orb schedule, gust, scoring,
+HUD layout, `ResultsScreen`, `HomeScreen`, `data.js`, `api.js`, `src/kit/`.
+`scripts/balance.mjs` was not re-run — nothing this change touches is reachable
+from it.
+
+**Build:** `pnpm install` + `pnpm build` exit 0 —
+`dist/assets/index-CQAk6iwT.js` 429.02 kB / 142.78 kB gzip, built in 2.57 s.

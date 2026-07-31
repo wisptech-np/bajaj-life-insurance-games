@@ -237,6 +237,120 @@ export function HomeScreen({ onStart }) {
   );
 }
 
+/* ─── How to play ────────────────────────────────────────── */
+/**
+ * Animation-first how-to-play. One 5.6 s loop states the whole SUPERHOT rule
+ * without a word: while the hand drags, bullets streak and their trails stretch;
+ * the moment the hand lifts, everything hangs in the air. Two drags carry the
+ * guardian from the floor through the zone gate.
+ */
+const TUT_CSS = `
+@keyframes tsTutGuardian {
+  0%, 16%   { transform: translate(0, 0); }
+  40%       { transform: translate(0, -70px); }
+  58%, 70%  { transform: translate(0, -70px); }
+  94%, 100% { transform: translate(0, -128px); }
+}
+@keyframes tsTutHand {
+  0%, 12%   { transform: translate(26px, 40px) scale(0.9); opacity: 0; }
+  16%       { transform: translate(26px, 40px) scale(1);   opacity: 1; }
+  40%       { transform: translate(26px, -30px) scale(1);  opacity: 1; }
+  50%       { transform: translate(26px, -30px) scale(0.9); opacity: 0; }
+  70%       { transform: translate(26px, -30px) scale(1);  opacity: 1; }
+  94%, 100% { transform: translate(26px, -88px) scale(1);  opacity: 1; }
+}
+@keyframes tsTutBulletA {
+  0%, 16%   { transform: translateX(0); }
+  40%       { transform: translateX(104px); }
+  58%, 70%  { transform: translateX(110px); }
+  94%, 100% { transform: translateX(240px); }
+}
+@keyframes tsTutBulletB {
+  0%, 16%   { transform: translateX(0); }
+  40%       { transform: translateX(-96px); }
+  58%, 70%  { transform: translateX(-102px); }
+  94%, 100% { transform: translateX(-228px); }
+}
+/* The tell: trails are long while time runs and collapse to nothing when it stops. */
+@keyframes tsTutTrail {
+  0%, 14%   { width: 5px;  opacity: 0.45; }
+  26%, 40%  { width: 48px; opacity: 1; }
+  54%, 70%  { width: 5px;  opacity: 0.45; }
+  80%, 94%  { width: 48px; opacity: 1; }
+  100%      { width: 5px;  opacity: 0.45; }
+}
+@keyframes tsTutFlow {
+  0%, 14%   { width: 7%; }
+  26%, 40%  { width: 82%; }
+  54%, 70%  { width: 7%; }
+  80%, 94%  { width: 82%; }
+  100%      { width: 7%; }
+}
+/* Frost bloom over the whole plate while the world is stopped. */
+@keyframes tsTutFrost {
+  0%, 14%   { opacity: 0.55; }
+  26%, 44%  { opacity: 0; }
+  56%, 70%  { opacity: 0.55; }
+  80%, 96%  { opacity: 0; }
+  100%      { opacity: 0.55; }
+}
+@keyframes tsTutGate {
+  0%, 88%   { opacity: 0.5; transform: scaleX(1); }
+  95%       { opacity: 1;   transform: scaleX(1.35); }
+  100%      { opacity: 0.5; transform: scaleX(1); }
+}
+.ts-tut-guardian { animation: tsTutGuardian 5.6s ease-in-out infinite; }
+.ts-tut-hand     { animation: tsTutHand 5.6s ease-in-out infinite; }
+.ts-tut-a        { animation: tsTutBulletA 5.6s ease-in-out infinite; }
+.ts-tut-b        { animation: tsTutBulletB 5.6s ease-in-out infinite; }
+.ts-tut-trail    { animation: tsTutTrail 5.6s ease-in-out infinite; }
+.ts-tut-flow     { animation: tsTutFlow 5.6s ease-in-out infinite; }
+.ts-tut-frost    { animation: tsTutFrost 5.6s ease-in-out infinite; }
+.ts-tut-gate     { animation: tsTutGate 5.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ts-tut-guardian, .ts-tut-hand, .ts-tut-a, .ts-tut-b,
+  .ts-tut-trail, .ts-tut-flow, .ts-tut-frost, .ts-tut-gate { animation: none !important; }
+}
+`;
+
+/** The dragging hand: white fill so it stays legible over the bullet lattice. */
+function DragHand({ size = 34 }) {
+  return (
+    <svg width={size} height={size * 1.18} viewBox="0 0 34 40" fill="none" aria-hidden="true">
+      <path d="M13 21V7.6a3 3 0 0 1 6 0V18h1.6a3 3 0 0 1 3 3v.6l3.2 1.4a4 4 0 0 1 2.3 4.5l-1.2 5.6A5 5 0 0 1 23 37h-6.4a6 6 0 0 1-4.6-2.2l-5.6-6.9a2.8 2.8 0 0 1 3.9-4L13 26"
+        fill="#FFFFFF" stroke="#05101F" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** One bullet: a glowing head with a trail that stretches only while time runs. */
+function TutBullet({ cls, top, side }) {
+  const isLeft = side === 'left';
+  return (
+    <div className={cls} style={{
+      position: 'absolute',
+      top,
+      [isLeft ? 'left' : 'right']: 10,
+      display: 'flex',
+      flexDirection: isLeft ? 'row' : 'row-reverse',
+      alignItems: 'center',
+    }}>
+      <div className="ts-tut-trail" style={{
+        height: 5,
+        borderRadius: 3,
+        background: isLeft
+          ? 'linear-gradient(90deg, rgba(255,138,61,0), #FF8A3D)'
+          : 'linear-gradient(270deg, rgba(255,138,61,0), #FF8A3D)',
+      }} />
+      <div style={{
+        width: 11, height: 11, borderRadius: '50%', flexShrink: 0,
+        background: '#F26522',
+        boxShadow: '0 0 10px rgba(242,101,34,0.9)',
+      }} />
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
   return (
     <motion.div
@@ -251,153 +365,141 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: 18,
         background: TIME_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: TUT_CSS }} />
+
       <div style={{
         background: 'rgba(0, 30, 70, 0.65)',
         border: '1px solid rgba(255, 255, 255, 0.14)',
         borderRadius: 24,
-        padding: '30px 24px 24px',
+        padding: '18px 14px 16px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 26,
+          fontSize: 23,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 20px 0',
+          margin: '0 0 12px 0',
           color: '#fff',
           textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           How to Play
         </h2>
 
-        {/* Animated demo: while the hand drags, bullets streak; when it
-            stops, they freeze mid-air. */}
+        {/* ── The looping demo: drag = time runs, stop = time freezes ── */}
         <div style={{
           position: 'relative',
           width: '100%',
-          height: 180,
-          background: 'rgba(5, 20, 45, 0.5)',
+          height: 208,
+          background: 'radial-gradient(ellipse at 50% 90%, rgba(30,107,224,0.18), rgba(5,20,45,0.7) 72%)',
           borderRadius: 16,
-          border: '1px solid rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.08)',
           overflow: 'hidden',
-          marginBottom: 20,
         }}>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes tutGuardian {
-              0%, 18%  { transform: translate(0, 0); }
-              42%      { transform: translate(0, -66px); }
-              60%, 74% { transform: translate(0, -66px); }
-              96%, 100%{ transform: translate(0, -118px); }
-            }
-            @keyframes tutHand {
-              0%, 14%  { transform: translate(24px, 34px); opacity: 0; }
-              18%      { transform: translate(24px, 34px); opacity: 1; }
-              42%      { transform: translate(24px, -32px); opacity: 1; }
-              56%      { transform: translate(24px, -32px); opacity: 0.35; }
-              74%      { transform: translate(24px, -32px); opacity: 0.35; }
-              96%, 100%{ transform: translate(24px, -84px); opacity: 1; }
-            }
-            @keyframes tutBulletA {
-              0%, 18%  { transform: translateX(0); }
-              42%      { transform: translateX(96px); }
-              60%, 74% { transform: translateX(104px); }
-              96%, 100%{ transform: translateX(220px); }
-            }
-            @keyframes tutBulletB {
-              0%, 18%  { transform: translateX(0); }
-              42%      { transform: translateX(-88px); }
-              60%, 74% { transform: translateX(-96px); }
-              96%, 100%{ transform: translateX(-210px); }
-            }
-            @keyframes tutFlowBar {
-              0%, 14%  { width: 8%; }
-              22%, 42% { width: 78%; }
-              56%, 74% { width: 8%; }
-              82%, 96% { width: 78%; }
-              100%     { width: 8%; }
-            }
-          ` }} />
-
-          {/* Gate line at top */}
-          <div style={{ position: 'absolute', top: 26, left: 0, right: 0, height: 3, background: 'rgba(150,190,240,0.35)' }} />
-          <div style={{ position: 'absolute', top: 23, left: 'calc(50% - 22px)', width: 44, height: 9, borderRadius: 3, background: 'rgba(87,224,160,0.7)' }} />
-
-          {/* Bullets */}
-          <div style={{ position: 'absolute', top: 74, left: 8, width: 26, height: 5, borderRadius: 3, background: 'linear-gradient(90deg, rgba(255,138,61,0), #FF8A3D)', animation: 'tutBulletA 5.2s infinite ease-in-out' }} />
-          <div style={{ position: 'absolute', top: 74, left: 30, width: 10, height: 10, borderRadius: '50%', background: '#F26522', boxShadow: '0 0 8px rgba(242,101,34,0.8)', animation: 'tutBulletA 5.2s infinite ease-in-out' }} />
-          <div style={{ position: 'absolute', top: 108, right: 8, width: 26, height: 5, borderRadius: 3, background: 'linear-gradient(270deg, rgba(255,138,61,0), #FF8A3D)', animation: 'tutBulletB 5.2s infinite ease-in-out' }} />
-          <div style={{ position: 'absolute', top: 106, right: 30, width: 10, height: 10, borderRadius: '50%', background: '#F26522', boxShadow: '0 0 8px rgba(242,101,34,0.8)', animation: 'tutBulletB 5.2s infinite ease-in-out' }} />
-
-          {/* Guardian */}
-          <div style={{
-            position: 'absolute',
-            bottom: 22,
-            left: 'calc(50% - 13px)',
-            width: 26,
-            height: 26,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle at 36% 32%, #7FB4FF, #1E6BE0 55%, #003DA6)',
-            boxShadow: '0 0 12px rgba(30,107,224,0.8), 0 0 0 3px rgba(156,197,255,0.5)',
-            animation: 'tutGuardian 5.2s infinite ease-in-out',
-            zIndex: 2,
+          {/* Zone gate the guardian has to reach */}
+          <div style={{ position: 'absolute', top: 30, left: 0, right: 0, height: 3, background: 'rgba(150,190,240,0.3)' }} />
+          <div className="ts-tut-gate" style={{
+            position: 'absolute', top: 26, left: 'calc(50% - 26px)', width: 52, height: 11,
+            borderRadius: 4, background: '#57E0A0', boxShadow: '0 0 14px rgba(87,224,160,0.7)',
           }} />
 
-          {/* Hand */}
-          <div style={{
+          <TutBullet cls="ts-tut-a" top={84} side="left" />
+          <TutBullet cls="ts-tut-b" top={128} side="right" />
+
+          {/* Frost wash: the world is visibly stopped whenever the hand is still */}
+          <div className="ts-tut-frost" style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: 'linear-gradient(180deg, rgba(150,200,255,0.16), rgba(120,170,230,0.05))',
+            backdropFilter: 'saturate(0.55)', WebkitBackdropFilter: 'saturate(0.55)',
+          }} />
+
+          {/* The guardian */}
+          <div className="ts-tut-guardian" style={{
             position: 'absolute',
-            bottom: 8,
-            left: 'calc(50% - 2px)',
-            width: 32,
-            height: 32,
-            animation: 'tutHand 5.2s infinite ease-in-out',
-            zIndex: 5,
+            bottom: 24,
+            left: 'calc(50% - 15px)',
+            width: 30,
+            height: 30,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle at 36% 32%, #7FB4FF, #1E6BE0 55%, #003DA6)',
+            boxShadow: '0 0 14px rgba(30,107,224,0.85), 0 0 0 3px rgba(156,197,255,0.55)',
+            zIndex: 3,
+          }} />
+
+          {/* The finger doing the real drag */}
+          <div className="ts-tut-hand" style={{
+            position: 'absolute', bottom: 6, left: 'calc(50% - 4px)', zIndex: 5,
           }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.5">
-              <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-              <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-              <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
-              <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
-            </svg>
+            <DragHand size={30} />
           </div>
 
-          {/* Time-flow bar */}
-          <div style={{ position: 'absolute', bottom: 6, left: 12, right: 12, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 3, background: 'linear-gradient(90deg, #7C94AE, #1E6BE0, #FF8A3D)', animation: 'tutFlowBar 5.2s infinite ease-in-out' }} />
+          {/* Time-flow meter: how fast the world is running right now */}
+          <div style={{
+            position: 'absolute', bottom: 7, left: 12, right: 12, height: 6,
+            borderRadius: 3, background: 'rgba(255,255,255,0.12)', overflow: 'hidden',
+          }}>
+            <div className="ts-tut-flow" style={{
+              height: '100%', borderRadius: 3,
+              background: 'linear-gradient(90deg, #7C94AE, #1E6BE0, #FF8A3D)',
+            }} />
           </div>
         </div>
 
-        <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 14,
-          lineHeight: 1.45,
-          marginBottom: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>1.</span>
-            <span><strong>Drag your guardian</strong> — the world's clock runs at the speed you move. Hold still and bullets hang mid-air while you plan.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>2.</span>
-            <span>Climb through all <strong>5 zone gates</strong>. Each gate opens only after that zone's volley has crossed — you cannot skip the test, only slow it down.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>3.</span>
-            <span>The <strong>real clock and the rising fog never stop</strong> — 105 seconds, two hits and the run ends. Graze bullets at speed for bonus points.</span>
-          </div>
+        {/* ── At most three icon-led labels ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, margin: '12px 2px 14px' }}>
+          {[
+            {
+              color: '#FF8A3D', word: 'DRAG TO MOVE',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4.4" fill="#FF8A3D" />
+                  <path d="M12 1.6 14.4 5.4H9.6L12 1.6zM12 22.4 9.6 18.6h4.8L12 22.4zM1.6 12 5.4 9.6v4.8L1.6 12zM22.4 12 18.6 14.4V9.6L22.4 12z" fill="#FF8A3D" opacity="0.75" />
+                </svg>
+              ),
+            },
+            {
+              color: '#9CC5FF', word: 'STOP FREEZES TIME',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke="#9CC5FF" strokeWidth="2" />
+                  <path d="M12 6.6V12l3.6 2.4" stroke="#9CC5FF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M4 4 20 20" stroke="#9CC5FF" strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+                </svg>
+              ),
+            },
+            {
+              color: '#57E0A0', word: 'CLIMB FIVE GATES',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M3 20h18" stroke="#57E0A0" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+                  <rect x="3" y="14.5" width="5" height="4" rx="1" fill="#57E0A0" opacity="0.55" />
+                  <rect x="9.5" y="10" width="5" height="8.5" rx="1" fill="#57E0A0" opacity="0.8" />
+                  <rect x="16" y="4.5" width="5" height="14" rx="1" fill="#57E0A0" />
+                </svg>
+              ),
+            },
+          ].map(({ color, word, icon }) => (
+            <div key={word} style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              padding: '7px 2px', borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)', border: `1px solid ${color}44`,
+            }}>
+              {icon}
+              <span style={{ fontSize: 9.5, fontWeight: 900, color, letterSpacing: '0.03em', lineHeight: 1.15 }}>
+                {word}
+              </span>
+            </div>
+          ))}
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

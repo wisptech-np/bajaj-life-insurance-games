@@ -160,9 +160,37 @@ const SCREEN_CSS = `
 .sw-beat-hop    { animation: swBeatHop 2.4s ease-in-out infinite alternate; }
 .sw-beat-coin   { animation: swBeatCoin 1.6s ease-in-out infinite; }
 .sw-beat-shield { animation: swBeatShield 2.4s ease-in-out infinite; }
+
+/* How-to-play demo: the real one-tap flight loop. */
+@keyframes swDemoScroll { from { transform: translateX(0); } to { transform: translateX(-150px); } }
+@keyframes swDemoFly {
+  0%    { transform: translate(62px, 124px); }
+  6%    { transform: translate(62px, 112px); }
+  26%   { transform: translate(62px, 86px); }
+  46%   { transform: translate(62px, 92px); }
+  100%  { transform: translate(62px, 124px); }
+}
+@keyframes swDemoPress {
+  0%       { transform: translate(16px, 140px) scale(0.92); }
+  9%       { transform: translate(16px, 148px) scale(0.82); }
+  28%,100% { transform: translate(16px, 140px) scale(0.92); }
+}
+@keyframes swDemoRing {
+  0%       { transform: scale(0.35); opacity: 0; }
+  10%      { transform: scale(0.6);  opacity: 1; }
+  55%,100% { transform: scale(2.6);  opacity: 0; }
+}
+@keyframes swDemoPulse { 0%,100% { transform: scale(1); opacity: 0.88; } 50% { transform: scale(1.2); opacity: 1; } }
+.sw-demo-scroll { animation: swDemoScroll 2.4s linear infinite; }
+.sw-demo-fly    { animation: swDemoFly 1.2s cubic-bezier(0.25,0.9,0.4,1) infinite; }
+.sw-demo-press  { animation: swDemoPress 1.2s ease-out infinite; }
+.sw-demo-ring   { animation: swDemoRing 1.2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.sw-demo-pulse  { animation: swDemoPulse 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @media (prefers-reduced-motion: reduce) {
   .sw-title, .sw-float, .sw-glow, .sw-chip, .sw-hero-fly, .sw-hero-scroll,
-  .sw-beat-tap, .sw-beat-hop, .sw-beat-coin, .sw-beat-shield { animation: none !important; }
+  .sw-beat-tap, .sw-beat-hop, .sw-beat-coin, .sw-beat-shield,
+  .sw-demo-scroll, .sw-demo-fly, .sw-demo-press, .sw-demo-ring,
+  .sw-demo-pulse { animation: none !important; }
 }
 `;
 
@@ -379,31 +407,56 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
+/**
+ * Animation-first how-to-play. One looping scene runs the actual game: expense
+ * pillars scroll in from the right, a hand taps, the glider gets its one fixed
+ * lift and threads the slot, and the cover token rides in the gap. No prose.
+ */
+
+/** One expense gate — the paired stone pillars and the coin sitting in the slot. */
+function DemoGate({ x, token }) {
+  const GAP_T = 68;
+  const GAP_B = 132;
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
-    </div>
+    <g transform={`translate(${x},0)`}>
+      <rect x="0" y="8" width="18" height={GAP_T - 8} fill="url(#swStone)" />
+      <rect x="-2" y={GAP_T - 3} width="22" height="3.4" fill="#F2694C" />
+      <rect x="0" y={GAP_B} width="18" height={192 - GAP_B} fill="url(#swStone)" />
+      <rect x="-2" y={GAP_B - 0.4} width="22" height="3.4" fill="#F2694C" />
+      {token === 'coin' && (
+        <circle className="sw-demo-pulse" cx="9" cy="100" r="7" fill="url(#swCoin)"
+          stroke="#B07B12" strokeWidth="1.2" />
+      )}
+      {token === 'shield' && (
+        <g className="sw-demo-pulse" transform="translate(9,100)">
+          <path d="M0 -10 l8 3 v6.2c0 5.1 -3.4 9 -8 11 c-4.6 -2 -8 -5.9 -8 -11 V-7z"
+            fill="#3B8DD4" stroke="#BFE0FF" strokeWidth="1.4" />
+          <path d="M-3.6 0.4 l2.5 2.5 l4.7 -5" fill="none" stroke="#fff" strokeWidth="1.9"
+            strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+      )}
+    </g>
+  );
+}
+
+/** The tapping hand, drawn last so it stays legible over whatever scrolls past. */
+function DemoHand() {
+  return (
+    <>
+      <circle className="sw-demo-ring" cx="33" cy="152" r="10" fill="none"
+        stroke={GOLD} strokeWidth="2.4" />
+      <g className="sw-demo-press">
+        <circle cx="17" cy="12" r="26" fill="rgba(5,26,58,0.55)" />
+        <g transform="scale(0.92)">
+          <path d="M13 21V7.6a3 3 0 0 1 6 0V18h1.6a3 3 0 0 1 3 3v.6l3.2 1.4a4 4 0 0 1 2.3 4.5l-1.2 5.6A5 5 0 0 1 23 37h-6.4a6 6 0 0 1-4.6-2.2l-5.6-6.9a2.8 2.8 0 0 1 3.9-4L13 26"
+            fill="#FFFFFF" stroke="#051A3A" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        </g>
+      </g>
+    </>
   );
 }
 
 export function HowToPlayScreen({ onPlay }) {
-  const cfg = GAME_CONFIG;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -417,9 +470,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -428,105 +481,95 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(5,26,58,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '18px 14px 16px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 23, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 12px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Tap to lift &middot; Thread every expense wall &middot; {cfg.gatesToWin} gates keeps the cover flying
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Tap to lift" copy="One tap gives one lift. Stop tapping and gravity takes over.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <Defs />
-              <rect x="0" y="0" width="74" height="62" rx="8" fill="rgba(5,26,58,0.6)" />
-              <path d="M6 46 Q18 22 30 40 Q42 58 54 30 Q62 14 70 26" fill="none"
-                stroke="rgba(255,133,51,0.4)" strokeWidth="1.4" strokeDasharray="3 4" />
-              <g className="sw-beat-hop"><Glider scale={0.62} /></g>
-              <g className="sw-beat-tap" transform="translate(30,52)">
-                <circle cx="0" cy="0" r="7" fill="none" stroke={GOLD} strokeWidth="2" />
-                <circle cx="0" cy="0" r="2.4" fill={GOLD} />
-              </g>
-            </svg>
-          </Beat>
+        {/* ── The looping demo: tap → lift → thread the slot ── */}
+        <svg viewBox="0 0 300 200" width="100%" role="img"
+          aria-label="A hand taps, the glider lifts, and it flies through the gap between two expense pillars."
+          style={{ display: 'block', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)' }}>
+          <Defs />
+          <clipPath id="swDemoClip"><rect x="0" y="0" width="300" height="200" rx="15" /></clipPath>
+          <g clipPath="url(#swDemoClip)">
+            <rect x="0" y="0" width="300" height="200" fill="url(#swSky)" />
+            {/* ceiling and floor — touching either ends the run */}
+            <rect x="0" y="0" width="300" height="8" fill="#0B2B52" />
+            <rect x="0" y="192" width="300" height="8" fill="#0B2B52" />
+            <rect x="0" y="8" width="300" height="2" fill="rgba(242,105,34,0.5)" />
+            <rect x="0" y="190" width="300" height="2" fill="rgba(242,105,34,0.5)" />
 
-          <Beat n="2" title="Thread the gap" copy="Each wall is a real bill. Clear the slot and the premium is paid — scrape the edge for a bonus.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <Defs />
-              <rect x="0" y="0" width="74" height="62" rx="8" fill="rgba(5,26,58,0.6)" />
-              <rect x="40" y="0" width="13" height="18" fill="url(#swStone)" />
-              <rect x="39" y="18" width="15" height="2.6" fill="#F2694C" />
-              <rect x="40" y="42" width="13" height="20" fill="url(#swStone)" />
-              <rect x="39" y="39.4" width="15" height="2.6" fill="#F2694C" />
-              <text x="46.5" y="58" fill="rgba(214,235,255,0.75)" fontSize="5" fontWeight="900"
-                textAnchor="middle" fontFamily="'Poppins', sans-serif"
-                transform="rotate(-90 46.5 58)">EMI</text>
-              <circle className="sw-beat-coin" cx="46.5" cy="30" r="4" fill="url(#swCoin)"
-                style={{ transformOrigin: '46.5px 30px' }} />
-              <g transform="translate(18,30)"><Glider scale={0.62} /></g>
-              <path d="M28 30 L36 30" stroke={GOLD} strokeWidth="1.6" strokeDasharray="3 3" strokeLinecap="round" />
-            </svg>
-          </Beat>
+            {/* Expense gates scrolling in from the right, seamlessly */}
+            <g className="sw-demo-scroll">
+              <DemoGate x={150} token="coin" />
+              <DemoGate x={300} token="shield" />
+              <DemoGate x={450} token="coin" />
+            </g>
 
-          <Beat n="3" title="Cover catches one" copy="Grab a blue shield token and your next collision is absorbed — that is what cover does.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <Defs />
-              <rect x="0" y="0" width="74" height="62" rx="8" fill="rgba(5,26,58,0.6)" />
-              <g className="sw-beat-shield" style={{ transformOrigin: '37px 28px' }}>
-                <path d="M37 12 l9 3.4 l0 7 c0 5.7 -3.9 10.1 -9 12.4 c-5.1 -2.3 -9 -6.7 -9 -12.4 l0 -7 z"
-                  fill={BLUE_LT} stroke="#BFE0FF" strokeWidth="1.2" />
-                <path d="M33 24 l2.8 2.8 l5.2 -5.6" fill="none" stroke="#fff" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </g>
-              <g transform="translate(14,46)"><Glider scale={0.5} /></g>
-            </svg>
-          </Beat>
-        </div>
+            {/* The glider: one tap per bob, gravity does the rest */}
+            <g className="sw-demo-fly">
+              <Glider scale={1.05} />
+            </g>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{cfg.gatesToWin} gates</strong> inside{' '}
-          <strong style={{ color: GOLD }}>{cfg.sessionSeconds}s</strong> wins. The slot narrows from{' '}
-          <strong style={{ color: GREEN_LT }}>{Math.round(cfg.gap.start * 100)}%</strong> to{' '}
-          <strong style={{ color: DANGER }}>{Math.round(cfg.gap.end * 100)}%</strong> of the sky, the wind picks up
-          at gates 9 and 17, and from gate {cfg.gap.driftFromGate} some slots drift.
-        </p>
+            <DemoHand />
+          </g>
+        </svg>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
+        {/* ── At most three icon-led labels ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, margin: '12px 2px 14px' }}>
           {[
-            { k: 'gate', label: `Gate +${cfg.scoring.gate}`, color: GREEN_LT },
-            { k: 'coin', label: `Coin +${cfg.scoring.coin}`, color: GOLD },
-            { k: 'near', label: `Near miss +${cfg.scoring.nearMiss}`, color: ORANGE_LT },
-            { k: 'shield', label: `Cover intact +${cfg.scoring.shieldIntactBonus}`, color: '#BFE0FF' },
-          ].map((c, i) => (
-            <span
-              key={c.k}
-              className="sw-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: c.color,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {c.label}
-            </span>
+            {
+              color: GOLD, word: 'TAP TO LIFT',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8.4" stroke={GOLD} strokeWidth="1.8" opacity="0.55" />
+                  <circle cx="12" cy="12" r="3.6" fill={GOLD} />
+                </svg>
+              ),
+            },
+            {
+              color: GREEN_LT, word: 'THREAD GAP',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="9" y="1.5" width="6" height="7" rx="1" fill={GREEN_LT} opacity="0.9" />
+                  <rect x="9" y="15.5" width="6" height="7" rx="1" fill={GREEN_LT} opacity="0.9" />
+                  <path d="M2 12h20" stroke={GREEN_LT} strokeWidth="2" strokeDasharray="3 3" strokeLinecap="round" />
+                </svg>
+              ),
+            },
+            {
+              color: '#BFE0FF', word: 'COVER SAVES ONE',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 2.6 4.6 5.4v6.1c0 5 3.3 8.6 7.4 10.3 4.1-1.7 7.4-5.3 7.4-10.3V5.4L12 2.6z"
+                    fill={BLUE_LT} stroke="#BFE0FF" strokeWidth="1.6" strokeLinejoin="round" />
+                  <path d="m8.8 12.1 2.2 2.2 4.4-4.6" fill="none" stroke="#fff" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ),
+            },
+          ].map(({ color, word, icon }) => (
+            <div key={word} style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              padding: '7px 2px', borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)', border: `1px solid ${color}44`,
+            }}>
+              {icon}
+              <span style={{ fontSize: 9.5, fontWeight: 900, color, letterSpacing: '0.03em', lineHeight: 1.15 }}>
+                {word}
+              </span>
+            </div>
           ))}
         </div>
 

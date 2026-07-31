@@ -123,28 +123,82 @@ function HomeIcon({ size = 18 }) {
 const SCREEN_CSS = `
 @keyframes rrTitleIn { from { opacity: 0; letter-spacing: 0.24em; transform: translateY(10px); } to { opacity: 1; letter-spacing: -0.02em; transform: none; } }
 @keyframes rrFloat   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-@keyframes rrChip    { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
 @keyframes rrPing    { 0% { r: 8; opacity: 0.95; } 100% { r: 86; opacity: 0; } }
 @keyframes rrPingSm  { 0% { r: 4; opacity: 0.8; } 100% { r: 34; opacity: 0; } }
 @keyframes rrWall    { 0%, 18% { opacity: 0; } 30% { opacity: 1; } 62% { opacity: 1; } 86%, 100% { opacity: 0; } }
 @keyframes rrExit    { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
 @keyframes rrFinger  { 0%,44% { opacity: 0; transform: translateY(8px); } 52% { opacity: 1; transform: translateY(0); } 70%,100% { opacity: 0; transform: translateY(0); } }
-@keyframes rrWalk    { 0% { transform: translate(0,0); } 100% { transform: translate(26px,-18px); } }
 @keyframes rrLurk    { 0%,35% { transform: translate(0,0); } 80%,100% { transform: translate(-22px,10px); } }
+
+/* How-to-play demo: one 5.6s loop of the real reveal grammar. A tap fires the
+   pulse; wall chunks light as the wavefront reaches them (near at ~16%, mid at
+   ~22%, far at ~33% of the cycle — the same order the 460 px/s front arrives in)
+   and fade behind it; then the finger holds and the family walks toward it with
+   two followers trailing on the breadcrumb, while the lurker leaves to hunt the
+   spot the pulse came FROM. Every track shares the 5.6s duration. */
+@keyframes rrhPulse {
+  0%, 8%   { r: 6;   opacity: 0; }
+  9%       { r: 10;  opacity: 0.95; }
+  34%      { r: 122; opacity: 0; }
+  100%     { r: 122; opacity: 0; }
+}
+@keyframes rrhNear { 0%, 13% { opacity: 0; } 16% { opacity: 1; } 44% { opacity: 1; } 60%, 100% { opacity: 0; } }
+@keyframes rrhMid  { 0%, 19% { opacity: 0; } 22% { opacity: 1; } 48% { opacity: 1; } 64%, 100% { opacity: 0; } }
+@keyframes rrhFar  { 0%, 30% { opacity: 0; } 33% { opacity: 1; } 54% { opacity: 1; } 70%, 100% { opacity: 0; } }
+@keyframes rrhWalk {
+  0%, 42%  { transform: translate(60px, 158px);  opacity: 1; }
+  60%      { transform: translate(103px, 140px); opacity: 1; }
+  80%, 88% { transform: translate(103px, 86px);  opacity: 1; }
+  93%      { transform: translate(103px, 86px);  opacity: 0; }
+  99%      { transform: translate(60px, 158px);  opacity: 0; }
+  100%     { transform: translate(60px, 158px);  opacity: 1; }
+}
+@keyframes rrhTrail { 0%, 44% { opacity: 0; } 55%, 88% { opacity: 0.35; } 93%, 100% { opacity: 0; } }
+@keyframes rrhLurk {
+  0%, 24%   { transform: translate(145px, 120px); }
+  62%       { transform: translate(122px, 162px); }
+  78%       { transform: translate(124px, 166px); }
+  92%, 100% { transform: translate(145px, 120px); }
+}
+@keyframes rrhFinger {
+  0%, 4%    { transform: translate(60px, 176px);  opacity: 0; }
+  7%, 18%   { transform: translate(60px, 172px);  opacity: 1; }
+  32%       { transform: translate(64px, 168px);  opacity: 0.6; }
+  42%       { transform: translate(104px, 74px);  opacity: 0.6; }
+  46%, 84%  { transform: translate(108px, 70px);  opacity: 1; }
+  91%, 100% { transform: translate(108px, 70px);  opacity: 0; }
+}
+@keyframes rrhPress {
+  0%, 6%    { transform: scale(0.4);  opacity: 0; }
+  9%        { transform: scale(0.6);  opacity: 0.9; }
+  18%       { transform: scale(1.7);  opacity: 0; }
+  43%       { transform: scale(0.6);  opacity: 0; }
+  47%       { transform: scale(1.15); opacity: 0.8; }
+  80%       { transform: scale(1.15); opacity: 0.8; }
+  88%, 100% { transform: scale(1.7);  opacity: 0; }
+}
 .rr-title { animation: rrTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .rr-float { animation: rrFloat 4s ease-in-out infinite; }
-.rr-chip  { animation: rrChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .rr-ping   { animation: rrPing 2.6s cubic-bezier(0.1,0.6,0.4,1) infinite; }
 .rr-ping-2 { animation: rrPing 2.6s cubic-bezier(0.1,0.6,0.4,1) 0.85s infinite; }
 .rr-ping-sm { animation: rrPingSm 3.2s ease-out infinite; }
 .rr-wall   { animation: rrWall 2.6s ease-out infinite; }
 .rr-exit   { animation: rrExit 2s ease-in-out infinite; }
 .rr-finger { animation: rrFinger 2.6s ease-in-out infinite; }
-.rr-walk   { animation: rrWalk 2.2s ease-in-out infinite alternate; }
 .rr-lurk   { animation: rrLurk 3.4s ease-in-out infinite alternate; }
+.rrh-pulse  { animation: rrhPulse 5.6s cubic-bezier(0.1,0.6,0.4,1) infinite; }
+.rrh-near   { animation: rrhNear 5.6s ease-out infinite; }
+.rrh-mid    { animation: rrhMid 5.6s ease-out infinite; }
+.rrh-far    { animation: rrhFar 5.6s ease-out infinite; }
+.rrh-walk   { animation: rrhWalk 5.6s cubic-bezier(0.4,0,0.3,1) infinite; }
+.rrh-trail  { animation: rrhTrail 5.6s ease-out infinite; }
+.rrh-lurk   { animation: rrhLurk 5.6s linear infinite; }
+.rrh-finger { animation: rrhFinger 5.6s cubic-bezier(0.4,0,0.2,1) infinite; }
+.rrh-press  { animation: rrhPress 5.6s ease-out infinite; transform-origin: 0 0; }
 @media (prefers-reduced-motion: reduce) {
-  .rr-title, .rr-float, .rr-chip, .rr-ping, .rr-ping-2, .rr-ping-sm, .rr-wall,
-  .rr-exit, .rr-finger, .rr-walk, .rr-lurk { animation: none !important; }
+  .rr-title, .rr-float, .rr-ping, .rr-ping-2, .rr-ping-sm, .rr-wall,
+  .rr-exit, .rr-finger, .rr-lurk, .rrh-pulse, .rrh-near, .rrh-mid, .rrh-far,
+  .rrh-walk, .rrh-trail, .rrh-lurk, .rrh-finger, .rrh-press { animation: none !important; }
 }
 `;
 
@@ -338,41 +392,151 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
+/**
+ * The whole tutorial, animated, and played in the dark exactly as the game is.
+ * A tap fires the pulse; wall chunks light only as the wavefront reaches them
+ * and fade behind it; the hidden orb glints, the spike pool and the shelter show
+ * only while they are swept. Then the finger holds and the family walks toward
+ * it, two followers trailing on the breadcrumb — and the lurker peels off to
+ * hunt the spot the pulse came FROM, which is the pass window the whole game is
+ * built on. Same reveal grammar and same colours as RiskRadarGame.jsx.
+ */
+function DemoMaze() {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
-    </div>
-  );
-}
+    <svg width="214" height="225" viewBox="0 0 190 200" aria-hidden="true">
+      <defs>
+        <clipPath id="rrhClip"><rect x="2" y="2" width="186" height="196" rx="12" /></clipPath>
+      </defs>
 
-/** A miniature dark frame for the tutorial diagrams. */
-function BeatFrame({ children }) {
-  return (
-    <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-      <rect x="1" y="1" width="72" height="60" rx="10" fill="#04070E" stroke="rgba(255,255,255,0.14)" />
-      {children}
+      <rect x="2" y="2" width="186" height="196" rx="12" fill="#04070E"
+        stroke="rgba(255,255,255,0.12)" strokeWidth="1.2" />
+
+      <g clipPath="url(#rrhClip)">
+        {/* The pulse: the only thing that reveals anything */}
+        <circle className="rrh-pulse" cx="60" cy="158" r="6" fill="none" stroke={CYAN} strokeWidth="2.6" />
+        <circle className="rrh-pulse" cx="60" cy="158" r="6" fill="none" stroke="rgba(255,255,255,0.75)"
+          strokeWidth="1.1" style={{ animationDelay: '0.06s' }} />
+
+        {/* Walls, lit in the order the wavefront reaches them */}
+        <g fill="none" stroke="#E8F1FF" strokeWidth="2.4" strokeLinecap="round">
+          <path className="rrh-near" d="M20 178 L110 178" />
+          <path className="rrh-near" d="M20 178 L20 100" />
+          <path className="rrh-mid"  d="M20 100 L96 100" />
+          <path className="rrh-mid"  d="M110 178 L110 60" />
+          <path className="rrh-far"  d="M110 60 L170 60" />
+          <path className="rrh-far"  d="M170 60 L170 130" />
+        </g>
+
+        {/* Spike pool — lights red */}
+        <g className="rrh-near">
+          <circle cx="40" cy="148" r="9" fill="rgba(140,22,22,0.55)" />
+          <path d="M40 140 L42 146 L48 148 L42 150 L40 156 L38 150 L32 148 L38 146 Z" fill="#FF5A5A" />
+        </g>
+
+        {/* Hidden orb — glints only inside a sweep */}
+        <g className="rrh-mid">
+          <circle cx="78" cy="120" r="3.4" fill={CYAN} />
+          <circle cx="78" cy="120" r="6.5" fill="none" stroke={CYAN} strokeWidth="1" opacity="0.5" />
+        </g>
+
+        {/* The shelter — lights gold, far away */}
+        <g className="rrh-far">
+          <rect x="132" y="72" width="26" height="20" rx="3" fill="rgba(255,200,69,0.22)"
+            stroke={GOLD} strokeWidth="1.8" />
+          <path d="M132 72 L145 62 L158 72" fill="none" stroke={GOLD} strokeWidth="1.8"
+            strokeLinejoin="round" />
+        </g>
+
+        {/* Lurker: its own gray telegraph ring never stops, so it is never
+            unrevealed; the red body shows only inside a sweep. */}
+        <g className="rrh-lurk">
+          <circle className="rr-ping-sm" cx="0" cy="0" r="4" fill="none"
+            stroke="rgba(170,178,196,0.55)" strokeWidth="1.6" />
+          <g className="rrh-mid">
+            <circle cx="0" cy="0" r="6" fill="#FF4D4D" />
+            <circle cx="0" cy="0" r="2.4" fill="#7A0F0F" />
+          </g>
+        </g>
+
+        {/* The breadcrumb the followers walk */}
+        <path className="rrh-trail" d="M60 158 L103 140 L103 86" fill="none"
+          stroke="rgba(143,198,255,0.9)" strokeWidth="1.4" strokeDasharray="3 5" strokeLinecap="round" />
+
+        {/* The family: you plus two followers, one delayed behind the other */}
+        <g className="rrh-walk" style={{ animationDelay: '0.34s' }}>
+          <circle cx="0" cy="0" r="3" fill="#8FC6FF" opacity="0.8" />
+        </g>
+        <g className="rrh-walk" style={{ animationDelay: '0.17s' }}>
+          <circle cx="0" cy="0" r="3.4" fill="#8FC6FF" />
+        </g>
+        <g className="rrh-walk">
+          <circle cx="0" cy="0" r="4.6" fill="#FFFFFF" />
+          <circle cx="0" cy="0" r="7.5" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" />
+        </g>
+
+        {/* The finger: taps once to pulse, then holds to walk the family to it */}
+        <g className="rrh-finger">
+          <g className="rrh-press">
+            <circle cx="0" cy="0" r="13" fill="none" stroke="#fff" strokeWidth="2.2" />
+          </g>
+          <circle cx="0" cy="0" r="8" fill="rgba(255,255,255,0.5)" stroke="#fff" strokeWidth="1.6" />
+        </g>
+      </g>
     </svg>
   );
 }
 
+function PulseGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="2.6" fill="#fff" />
+      <circle cx="12" cy="12" r="6" fill="none" stroke={CYAN} strokeWidth="1.8" opacity="0.85" />
+      <circle cx="12" cy="12" r="10" fill="none" stroke={CYAN} strokeWidth="1.4" opacity="0.4" />
+    </svg>
+  );
+}
+
+function WalkGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="5" cy="17" r="2.2" fill="#8FC6FF" opacity="0.75" />
+      <circle cx="10" cy="14" r="2.6" fill="#8FC6FF" />
+      <circle cx="15.5" cy="10" r="3.4" fill="#fff" />
+      <circle cx="19" cy="6" r="4" fill="none" stroke="#fff" strokeWidth="1.6" opacity="0.9" />
+    </svg>
+  );
+}
+
+function LurkerGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(170,178,196,0.55)" strokeWidth="1.4" />
+      <circle cx="12" cy="12" r="5.6" fill="#FF4D4D" />
+      <circle cx="12" cy="12" r="2.2" fill="#7A0F0F" />
+    </svg>
+  );
+}
+
+/** icon + one short label. The only words allowed on this screen. */
+function Cue({ icon, word }) {
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+      padding: '9px 4px', borderRadius: 13,
+      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+    }}>
+      {icon}
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em',
+        color: 'rgba(255,255,255,0.82)', textAlign: 'center', lineHeight: 1.1,
+      }}>
+        {word}
+      </span>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
-  const cfg = GAME_CONFIG;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -386,9 +550,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -397,95 +561,27 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '18px 16px 16px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 340,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 8px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Tap to pulse &middot; Hold to walk &middot; Reach the shelter with a heart left
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Tap: send the radar" copy="The maze is pitch dark. A tap fires a sound wave — walls light only where the ring touches, then fade. One pulse every 1.6s.">
-            <BeatFrame>
-              <circle className="rr-ping-sm" cx="37" cy="34" r="4" fill="none" stroke={CYAN} strokeWidth="1.8" />
-              <path className="rr-wall" d="M14 16 L60 16" stroke="#E8F1FF" strokeWidth="2" strokeLinecap="round" style={{ animationDelay: '0.4s' }} />
-              <path className="rr-wall" d="M14 50 L60 50" stroke="#E8F1FF" strokeWidth="2" strokeLinecap="round" style={{ animationDelay: '0.5s' }} />
-              <circle cx="37" cy="34" r="3.4" fill="#fff" />
-            </BeatFrame>
-          </Beat>
+        <DemoMaze />
 
-          <Beat n="2" title="Hold: walk the family" copy="Hold and drag — you walk toward your finger, and two family members follow your exact footsteps. Spikes and dead ends punish blind rushing.">
-            <BeatFrame>
-              <path d="M18 44 Q30 40 48 26" stroke="rgba(255,255,255,0.3)" strokeWidth="1.4" strokeDasharray="3 4" fill="none" />
-              <g className="rr-walk">
-                <circle cx="14" cy="47" r="2.4" fill="#8FC6FF" opacity="0.85" />
-                <circle cx="19" cy="45" r="2.6" fill="#8FC6FF" />
-                <circle cx="25" cy="42" r="3.6" fill="#fff" />
-              </g>
-              <circle className="rr-finger" cx="50" cy="24" r="5" fill="none" stroke="#fff" strokeWidth="1.6" />
-            </BeatFrame>
-          </Beat>
-
-          <Beat n="3" title="Noise is heard" copy="Lurkers hunt the spot you pulsed from — fire, then move on. They always announce themselves: gray rings, and a shriek before any lunge.">
-            <BeatFrame>
-              <g className="rr-lurk" style={{ animationDuration: '2.4s' }}>
-                <circle className="rr-ping-sm" cx="52" cy="22" r="3" fill="none" stroke="rgba(170,178,196,0.55)" strokeWidth="1.4" style={{ animationDuration: '2.2s' }} />
-                <circle cx="52" cy="22" r="4.6" fill="#FF4D4D" />
-                <circle cx="52" cy="22" r="1.8" fill="#7A0F0F" />
-              </g>
-              <circle className="rr-ping-sm" cx="22" cy="42" r="4" fill="none" stroke={CYAN} strokeWidth="1.6" style={{ animationDelay: '0.6s' }} />
-              <circle cx="22" cy="42" r="2" fill="none" stroke={CYAN} strokeWidth="1" opacity="0.6" />
-              <path d="M46 26 L28 38" stroke="rgba(255,90,90,0.5)" strokeWidth="1.4" strokeDasharray="3 3" strokeLinecap="round" />
-            </BeatFrame>
-          </Beat>
-        </div>
-
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{cfg.sessionSeconds} seconds</strong> and{' '}
-          <strong style={{ color: DANGER }}>{cfg.hearts} hearts</strong>. Getting caught costs a heart
-          and sends the family back to the last of the{' '}
-          <strong style={{ color: GREEN_LT }}>{cfg.maze.gates.length} checkpoints</strong>.{' '}
-          <strong style={{ color: CYAN }}>{cfg.maze.orbs.length} hidden orbs</strong> glint only
-          while a pulse sweeps them.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {[
-            { k: 'h', label: `+${cfg.scoring.perHeart} per heart`, color: DANGER },
-            { k: 't', label: `+${cfg.scoring.perSecondRemaining} x seconds left`, color: GREEN_LT },
-            { k: 'o', label: `+${cfg.scoring.perOrb} per orb`, color: CYAN },
-            { k: 'q', label: `Quiet +${cfg.scoring.quietBonus} (${'≤'}${cfg.scoring.quietMaxPulses} pulses)`, color: GOLD },
-          ].map((c, i) => (
-            <span
-              key={c.k}
-              className="rr-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: c.color,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {c.label}
-            </span>
-          ))}
+        <div style={{ display: 'flex', gap: 7, margin: '8px 0 12px' }}>
+          <Cue icon={<PulseGlyph />} word="TAP TO PULSE" />
+          <Cue icon={<WalkGlyph />} word="HOLD TO WALK" />
+          <Cue icon={<LurkerGlyph />} word="NOISE DRAWS THEM" />
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

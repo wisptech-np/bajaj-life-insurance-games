@@ -80,10 +80,12 @@ const GameScreen: React.FC<Props> = ({ onGameEnd }) => {
     timeLeft: GAME_CONFIG.SESSION_SECONDS,
     wave: 1,
     waveTotal: GAME_CONFIG.WAVES.length,
-    virusesLeft: 0,
-    virusesTotal: 0,
+    waveLabel: GAME_CONFIG.WAVES[0].label,
+    risksLeft: 0,
+    risksTotal: 0,
     windLevel: 0,
     windDir: 'none',
+    windFlash: false,
     streak: 0,
     feedback: '',
   });
@@ -155,7 +157,7 @@ const GameScreen: React.FC<Props> = ({ onGameEnd }) => {
   const minutes = Math.floor(hud.timeLeft / 60);
   const seconds = hud.timeLeft % 60;
   const timeStr = `${minutes}:${String(seconds).padStart(2, '0')}`;
-  const timeCritical = hud.timeLeft <= 15;
+  const timeCritical = hud.timeLeft <= GAME_CONFIG.LOW_TIME_WARN;
   const arrowsCritical = hud.arrowsLeft <= 3;
 
   return (
@@ -211,13 +213,17 @@ const GameScreen: React.FC<Props> = ({ onGameEnd }) => {
         <div className="px-3 py-1.5 rounded-xl border border-white/10 bg-slate-950/70 backdrop-blur-sm flex items-center gap-1.5">
           <span className="text-[7px] font-black text-blue-300/40 uppercase tracking-wider">Wave</span>
           <span className="text-xs font-black text-white">{hud.wave}/{hud.waveTotal}</span>
-          <span className="text-[7px] font-black text-green-400/70 uppercase tracking-wider ml-1">
-            {hud.virusesLeft} left
+          <span className="text-[7px] font-black text-[#00AEEF]/80 uppercase tracking-wider ml-1">
+            {hud.risksLeft} left
           </span>
         </div>
 
-        {/* Wind indicator */}
-        <div className="px-3 py-1.5 rounded-xl border border-white/10 bg-slate-950/70 backdrop-blur-sm flex items-center gap-1.5">
+        {/* Wind indicator — pulses when a miss was wind-blown */}
+        <div
+          className={`px-3 py-1.5 rounded-xl border backdrop-blur-sm flex items-center gap-1.5 transition-colors ${
+            hud.windFlash ? 'border-[#00AEEF] bg-[#00AEEF]/20 animate-pulse' : 'border-white/10 bg-slate-950/70'
+          }`}
+        >
           <span className="text-[7px] font-black text-blue-300/40 uppercase tracking-wider">Wind</span>
           <WindArrow dir={hud.windDir} />
           <span className="flex gap-[2px] items-end" aria-hidden="true">
@@ -249,8 +255,17 @@ const GameScreen: React.FC<Props> = ({ onGameEnd }) => {
 
       {/* 5. Feedback banner */}
       {hud.feedback && (
-        <div className="absolute top-[7.4rem] inset-x-6 z-50 pointer-events-none px-4 py-2.5 rounded-2xl bg-slate-950/90 border border-[#28A745]/40 text-center animate-fade-in shadow-2xl">
-          <div className="text-[8px] font-black text-[#28A745] uppercase tracking-widest mb-0.5">Coverage Activated</div>
+        <div
+          className={`absolute top-[7.4rem] inset-x-6 z-50 pointer-events-none px-4 py-2.5 rounded-2xl bg-slate-950/90 border text-center animate-fade-in shadow-2xl ${
+            hud.feedback.startsWith('Missed') ? 'border-[#F26522]/40' : 'border-[#28A745]/40'
+          }`}
+        >
+          <div
+            className="text-[8px] font-black uppercase tracking-widest mb-0.5"
+            style={{ color: hud.feedback.startsWith('Missed') ? '#F26522' : '#28A745' }}
+          >
+            {hud.feedback.startsWith('Missed') ? hud.waveLabel : 'Coverage Activated'}
+          </div>
           <div className="text-xs font-black text-white leading-tight">{hud.feedback}</div>
         </div>
       )}

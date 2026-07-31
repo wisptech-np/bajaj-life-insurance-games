@@ -17,5 +17,4 @@ export interface GameResult {
 export interface PlayerInfo {
   name: string;
   mobile: string;
-  email?: string;
 }

@@ -76,3 +76,70 @@ timestamp: 2026-07-28
 grep over `src/` is clean (the only non-ASCII glyph is a `✓` in the lead-capture
 checkbox, which is HTML UI copy, not a game object). Attribution grep is zero.
 `src/kit/` left byte-identical to `shared/game-kit/`.
+
+---
+
+## 2026-07-31 — Lead-form / how-to-play revamp
+
+**G1 — email removed from lead capture.** `src/LeadCaptureModal.jsx` no longer
+collects an email address. Deleted `EMAIL_RE`, the `email` `useState` (and its
+`lastSubmittedEmail` sessionStorage read), the optional-email validation branch,
+the whole "Email Field" `sl-lead-field` block, the `lastSubmittedEmail`
+sessionStorage write, and the `email` key from both the `submitToLMS({...})` call
+and the two `onSubmitted({...})` payloads. `src/api.js` is untouched: `submitToLMS`
+already sends `email_id: email || ''`, so omitting the key keeps the LMS payload
+shape byte-identical. Name, mobile (`^[6-9]\d{9}$`) and the T&C checkbox are
+unchanged. Grep confirms no `email` / `lastSubmittedEmail` reference survives
+under `src/`.
+
+**G2 — `HowToPlayScreen` is now animation-first.** Deleted the three numbered
+instruction beats, the `Beat` component behind them, the milestone/target
+paragraph and the hidden defs-only `<svg>` the beats needed. In their place is
+`DemoTransfer`: one looping 4.2 s SVG of a single real transfer — the comet
+circles the blue planet, a finger taps, it leaves along the **tangent**, crosses
+a line of coins past a drifting green virus rock, and the gold milestone
+planet's capture ring locks it in.
+
+The geometry is not eyeballed. With the source planet at (66,132) on a 32 px
+orbit and the target at (224,56), the release point that makes the straight leg
+genuinely tangent is the solution of "AR perpendicular to RB" — i.e. the
+intersection of the orbit circle with the circle on AB as diameter. Solving that
+gives R = (57.6, 101.1), which is the keyframe the comet actually departs from.
+That matters because the single thing a new player misreads about this game is
+that release is *tangential, not aimed*; a demo whose straight leg visibly left
+the circle at the wrong angle would teach the wrong model. The comet's orbital
+leg is likewise four points sampled off the real r=32 circle rather than a
+hand-drawn arc. Planets, rings, wells, comet and virus rock are the existing
+`Planet` / `Comet` / `VirusRock` / `OrbitDefs` components, so the demo is drawn
+from the same source as the Home screen and the canvas.
+
+Remaining text: heading, three icon-led cues ("Tap to release", "Reach the ring",
+"Dodge green risk" — all ≤ 4 words), Play button. Card capped at 344 px with
+`overflow: hidden`; fits 360×640 without scrolling. The seven `goB1*`/`goB2*`/
+`goB3*` keyframes are replaced by seven `goD*` keyframes, all added to the
+existing `prefers-reduced-motion` kill switch. `goWell`, `goDash`, `goCoinPop`
+and `goDrift` were left alone — the Home screen still uses them.
+
+**G3 — `goal-orbit/asset-from-here.md` added.** 13 Nano Banana prompts committed
+to a single motif: **layered cut-paper diorama** — every object assembled from
+stacked coloured card with visible 1–2 mm edge thickness, soft contact shadows
+between layers, deckled fibrous cut edges and matte paper tooth, lit by one soft
+studio light. Depth comes from stacking, never from rendering: a planet is three
+offset discs rather than a shaded sphere, a gravity well is stacked translucent
+vellum rather than a radial gradient, a coin spin is achieved by narrowing the
+face disc while the thickness edge stays visible. Every prompt explicitly forbids
+glow, bloom and gloss, which is what keeps it away from the obvious sci-fi
+default and away from the other four sheets in this batch. The sheet also
+restates that green is the *only* colour risk may be, since the virus rock is
+the one asset a generator would happily recolour. Covers the space backdrop, the
+blue goal planet, the gold milestone planet, the three remaining planet builds,
+the orbit ring, the gravity well, the comet, the virus asteroid, the coin, the
+release ping, the capture lock, the HUD glyph set and the result art.
+
+**Not touched:** gameplay, balance, `orbit.js`, chain generation, asteroid
+timing, HUD layout, `ResultsScreen`, `HomeScreen`, `data.js`, `api.js`,
+`src/kit/`. `tools/balance-sim.mjs` was not re-run — nothing this change touches
+is reachable from it.
+
+**Build:** `pnpm install` + `pnpm build` exit 0 —
+`dist/assets/index-DAU8O2P7.js` 431.55 kB / 143.74 kB gzip, built in 2.85 s.

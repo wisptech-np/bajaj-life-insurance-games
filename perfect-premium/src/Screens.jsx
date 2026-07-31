@@ -350,26 +350,116 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-/** One beat of the read - lock - keep-the-streak loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
+/**
+ * Animation-first tutorial. One looping SVG demo of the only verb in the game:
+ * the orange marker sweeps the premium bar, a finger taps once, the marker
+ * locks. Beat one lands in the gold PERFECT sliver and lights a combo pip;
+ * beat two shows the same rule on the bent arc bar that every 4th stage uses,
+ * landing in green. Bar, band, sliver and marker are the canvas's own shapes.
+ */
+const PP_TUT_CSS = `
+@keyframes ppTutBeatA {
+  0%, 46% { opacity: 1; }
+  52%, 96% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes ppTutBeatB {
+  0%, 46% { opacity: 0; }
+  52%, 96% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes ppTutSweepA {
+  0%  { transform: translateX(-96px); }
+  13% { transform: translateX(96px); }
+  27% { transform: translateX(-96px); }
+  38%, 100% { transform: translateX(0px); }
+}
+@keyframes ppTutFingerA {
+  0%, 26% { opacity: 0; transform: translate(0px, 20px); }
+  32% { opacity: 1; transform: translate(0px, 8px); }
+  38%, 43% { opacity: 1; transform: translate(0px, 0px); }
+  48%, 100% { opacity: 0; transform: translate(0px, 12px); }
+}
+@keyframes ppTutBurstA {
+  0%, 38% { opacity: 0; transform: scale(0.3); }
+  42% { opacity: 1; transform: scale(1); }
+  50%, 100% { opacity: 0; transform: scale(1.9); }
+}
+@keyframes ppTutPip {
+  0%, 40% { opacity: 0.18; }
+  44%, 96% { opacity: 1; }
+  100% { opacity: 0.18; }
+}
+@keyframes ppTutSweepB {
+  0%, 52% { transform: rotate(-46deg); }
+  65% { transform: rotate(46deg); }
+  77% { transform: rotate(-46deg); }
+  88%, 100% { transform: rotate(6deg); }
+}
+@keyframes ppTutFingerB {
+  0%, 76% { opacity: 0; transform: translate(0px, 20px); }
+  82% { opacity: 1; transform: translate(0px, 8px); }
+  88%, 93% { opacity: 1; transform: translate(0px, 0px); }
+  97%, 100% { opacity: 0; transform: translate(0px, 12px); }
+}
+@keyframes ppTutBurstB {
+  0%, 88% { opacity: 0; transform: scale(0.3); }
+  91% { opacity: 1; transform: scale(1); }
+  98%, 100% { opacity: 0; transform: scale(1.8); }
+}
+.pp-tut-a      { animation: ppTutBeatA 6s steps(1,end) infinite; }
+.pp-tut-b      { animation: ppTutBeatB 6s steps(1,end) infinite; }
+.pp-tut-sweepa { animation: ppTutSweepA 6s cubic-bezier(0.45,0,0.55,1) infinite; }
+.pp-tut-fingera{ animation: ppTutFingerA 6s ease-in-out infinite; }
+.pp-tut-bursta { transform-origin: 0 0; animation: ppTutBurstA 6s ease-out infinite; }
+.pp-tut-pip    { animation: ppTutPip 6s steps(1,end) infinite; }
+.pp-tut-sweepb { transform-origin: 0 0; animation: ppTutSweepB 6s cubic-bezier(0.45,0,0.55,1) infinite; }
+.pp-tut-fingerb{ animation: ppTutFingerB 6s ease-in-out infinite; }
+.pp-tut-burstb { transform-origin: 0 0; animation: ppTutBurstB 6s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pp-tut-a, .pp-tut-b, .pp-tut-sweepa, .pp-tut-fingera, .pp-tut-bursta,
+  .pp-tut-pip, .pp-tut-sweepb, .pp-tut-fingerb, .pp-tut-burstb { animation: none !important; }
+}
+`;
+
+/** The orange sweep marker the canvas draws: a needle with a diamond cap. */
+function TutMarker({ len = 40 }) {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+    <g>
+      <rect x="-2.4" y={-len / 2} width="4.8" height={len} rx="2.4" fill={ORANGE} />
+      <path d={`M0 ${-len / 2 - 8} l4.6 4.6 l-4.6 4.6 l-4.6 -4.6 z`} fill={ORANGE_LT} />
+    </g>
+  );
+}
+
+/** The finger glyph performing the single tap. */
+function TutHand() {
+  return (
+    <g transform="translate(-12 0) scale(1.5)">
+      <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+    </g>
+  );
+}
+
+/** Icon-led label under the demo. Max three, max four words each. */
+function TutLabel({ icon, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      {icon}
+      <span style={{
+        fontSize: 9.5,
+        fontWeight: 900,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.82)',
+        lineHeight: 1.15,
+        textAlign: 'center',
+      }}>
+        {children}
+      </span>
     </div>
   );
 }
@@ -388,18 +478,18 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
-      <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: PP_TUT_CSS }} />
 
       <div style={{
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '22px 18px 20px',
         width: '100%',
         maxWidth: 360,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
@@ -408,96 +498,125 @@ export function HowToPlayScreen({ onPlay }) {
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 14px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          One tap locks the marker &middot; Green pays the premium &middot; Gold is perfect
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Tap to lock" copy="The marker sweeps the bar. Stop it inside the green band to pay that year's premium.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <rect x="6" y="26" width="62" height="10" rx="5" fill="rgba(6,18,41,0.9)" stroke="rgba(255,255,255,0.22)" strokeWidth="0.9" />
-              <rect x="27" y="26.5" width="20" height="9" rx="4" fill={GREEN} />
-              <g className="pp-beatsweep" transform="translate(37,31)">
-                <rect x="-1.7" y="-13" width="3.4" height="26" rx="1.7" fill={ORANGE} />
-                <path d="M0 -16 l3.6 3.6 l-3.6 3.6 l-3.6 -3.6 z" fill={ORANGE_LT} />
-              </g>
-            </svg>
-          </Beat>
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          borderRadius: 16,
+          background: 'linear-gradient(180deg, #0A1E42 0%, #0B2450 45%, #061229 100%)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          overflow: 'hidden',
+          marginBottom: 16,
+        }}>
+          <svg width="100%" viewBox="0 0 300 190" aria-hidden="true" style={{ display: 'block' }}>
+            {/* Timeline ribbon: the twelve premium due dates, 25 to 60. */}
+            <rect x="34" y="30" width="232" height="3" rx="1.5" fill="rgba(255,255,255,0.14)" />
+            {Array.from({ length: 12 }).map((_, i) => (
+              <circle key={i} cx={34 + i * 21.1} cy="31.5" r={i < 3 ? 4 : 3}
+                fill={i < 3 ? GREEN_LT : 'rgba(255,255,255,0.22)'} />
+            ))}
 
-          <Beat n="2" title="Aim for the gold" copy="The sliver at the centre is a PERFECT: double points and a combo step, up to x4.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <rect x="6" y="26" width="62" height="10" rx="5" fill="rgba(6,18,41,0.9)" stroke="rgba(255,255,255,0.22)" strokeWidth="0.9" />
-              <rect x="27" y="26.5" width="20" height="9" rx="4" fill={GREEN} />
-              <rect className="pp-beatperfect" x="34" y="24.5" width="6" height="13" rx="2.6" fill={GOLD} />
-              <g transform="translate(37,31)">
-                <rect x="-1.7" y="-13" width="3.4" height="26" rx="1.7" fill={ORANGE} />
-              </g>
-              <text x="37" y="55" fill={GOLD_LT} fontSize="8" fontWeight="900" textAnchor="middle"
-                fontFamily="'Poppins', sans-serif">x2</text>
-            </svg>
-          </Beat>
+            {/* Grace periods left. */}
+            <g transform="translate(232 52)">
+              {[0, 1, 2].map((i) => (
+                <path key={i} transform={`translate(${i * 18} 0) scale(0.62)`}
+                  d="M0 -10 L-8 -7 v6 c0 5 3.5 9 8 11 4.5 -2 8 -6 8 -11 v-6 z"
+                  fill={GREEN_LT} />
+              ))}
+            </g>
 
-          <Beat n="3" title="Mind the grace" copy="Miss the band and one of three grace periods is gone — and the stage comes round again, faster.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <rect x="6" y="22" width="62" height="10" rx="5" fill="rgba(6,18,41,0.9)" stroke="rgba(255,255,255,0.22)" strokeWidth="0.9" />
-              <rect x="20" y="22.5" width="16" height="9" rx="4" fill={GREEN} />
-              <g transform="translate(57,27)">
-                <rect x="-1.7" y="-12" width="3.4" height="24" rx="1.7" fill={DANGER} />
+            {/* ── Beat 1: the straight premium bar, locked on gold. ── */}
+            <g className="pp-tut-a">
+              <rect x="42" y="96" width="216" height="20" rx="10"
+                fill="rgba(6,18,41,0.92)" stroke="rgba(255,255,255,0.22)" strokeWidth="1.2" />
+              <rect x="120" y="98" width="60" height="16" rx="8" fill={GREEN} />
+              <rect x="144" y="92" width="12" height="28" rx="5" fill={GOLD} />
+
+              <g transform="translate(150 106)">
+                <g className="pp-tut-bursta">
+                  <circle r="24" fill="none" stroke={GOLD_LT} strokeWidth="3" />
+                </g>
               </g>
-              <g className="pp-beatmiss" transform="translate(37,50)">
-                {[0, 1, 2].map((i) => (
-                  <path
-                    key={i}
-                    transform={`translate(${(i - 1) * 15},0) scale(0.55)`}
-                    d="M0 -10 L-8 -7 v6 c0 5 3.5 9 8 11 4.5 -2 8 -6 8 -11 v-6 z"
-                    fill={i < 2 ? GREEN_LT : 'rgba(255,255,255,0.18)'}
-                  />
+
+              <g transform="translate(150 106)">
+                <g className="pp-tut-sweepa"><TutMarker /></g>
+              </g>
+
+              <g className="pp-tut-fingera" transform="translate(150 134)">
+                <TutHand />
+              </g>
+
+              {/* Combo pips — the first one lights on the perfect lock. */}
+              <g transform="translate(150 168)">
+                {[0, 1, 2, 3].map((i) => (
+                  <rect key={i} className={i === 0 ? 'pp-tut-pip' : undefined}
+                    x={(i - 2) * 16 + 3} y="-4" width="10" height="8" rx="4"
+                    fill={GOLD} opacity={i === 0 ? undefined : 0.18} />
                 ))}
               </g>
-            </svg>
-          </Beat>
+            </g>
+
+            {/* ── Beat 2: every 4th stage bends the same bar into an arc. ── */}
+            <g className="pp-tut-b">
+              <path d="M90.3 117.9 A78 78 0 0 1 209.7 117.9" fill="none"
+                stroke="rgba(6,18,41,0.92)" strokeWidth="20" strokeLinecap="round" />
+              <path d="M90.3 117.9 A78 78 0 0 1 209.7 117.9" fill="none"
+                stroke="rgba(255,255,255,0.22)" strokeWidth="21" strokeLinecap="round" opacity="0.35" />
+              <path d="M90.3 117.9 A78 78 0 0 1 209.7 117.9" fill="none"
+                stroke="rgba(6,18,41,0.95)" strokeWidth="18" strokeLinecap="round" />
+              <path d="M132.5 92 A78 78 0 0 1 167.5 92" fill="none"
+                stroke={GREEN} strokeWidth="16" strokeLinecap="butt" />
+              <path d="M145.2 90.2 A78 78 0 0 1 154.8 90.2" fill="none"
+                stroke={GOLD} strokeWidth="24" strokeLinecap="butt" />
+
+              <g transform="translate(158.2 90.4)">
+                <g className="pp-tut-burstb">
+                  <circle r="22" fill="none" stroke={GREEN_LT} strokeWidth="3" />
+                </g>
+              </g>
+
+              <g transform="translate(150 168)">
+                <g className="pp-tut-sweepb">
+                  <g transform="translate(0 -78)"><TutMarker len={44} /></g>
+                </g>
+              </g>
+
+              <g className="pp-tut-fingerb" transform="translate(150 150)">
+                <TutHand />
+              </g>
+            </g>
+          </svg>
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{TOTAL_STAGES} premiums</strong> from age{' '}
-          <strong style={{ color: '#fff' }}>{STAGES[0].age}</strong> to{' '}
-          <strong style={{ color: '#fff' }}>{STAGES[TOTAL_STAGES - 1].age}</strong>, in{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong>. Clear all{' '}
-          {TOTAL_STAGES} before the clock or your{' '}
-          <strong style={{ color: GREEN_LT }}>{GAME_CONFIG.gracePeriods} grace periods</strong> run out.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {[
-            { key: 'green', text: 'Green = paid', color: GREEN_LT },
-            { key: 'gold', text: 'Gold = perfect x2', color: GOLD_LT },
-            { key: 'topup', text: `Top-up +${GAME_CONFIG.topUp.bonus}`, color: ORANGE_LT },
-            { key: 'arc', text: 'Every 4th bends', color: BLUE_LT },
-          ].map((c, i) => (
-            <span
-              key={c.key}
-              className="pp-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: c.color,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {c.text}
-            </span>
-          ))}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <rect x="1" y="10" width="24" height="6" rx="3" fill="rgba(255,255,255,0.16)" />
+              <rect x="9" y="10" width="8" height="6" rx="3" fill={GREEN} />
+              <rect x="11.6" y="4" width="2.8" height="18" rx="1.4" fill={ORANGE} />
+            </svg>
+          }>Tap to lock</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <rect x="3" y="10" width="20" height="6" rx="3" fill={GREEN} />
+              <rect x="10.5" y="6" width="5" height="14" rx="2.4" fill={GOLD} />
+              <path d="M13 1.5 L14.4 4.4 L17.5 4.8 L15.2 6.9 L15.8 10 L13 8.5 L10.2 10 L10.8 6.9 L8.5 4.8 L11.6 4.4 Z" fill={GOLD_LT} />
+            </svg>
+          }>Gold is perfect</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <path key={i} transform={`translate(${4 + i * 8} 13) scale(0.5)`}
+                  d="M0 -10 L-8 -7 v6 c0 5 3.5 9 8 11 4.5 -2 8 -6 8 -11 v-6 z"
+                  fill={i === 2 ? 'rgba(255,255,255,0.2)' : GREEN_LT} />
+              ))}
+            </svg>
+          }>Three grace periods</TutLabel>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
@@ -512,7 +631,7 @@ export function HowToPlayScreen({ onPlay }) {
               cursor: 'pointer',
             }}
           >
-            Play Game
+            Play
           </button>
         </motion.div>
       </div>

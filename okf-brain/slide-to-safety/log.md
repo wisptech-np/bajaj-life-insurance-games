@@ -291,3 +291,60 @@ literally true in both the game and the gate.
 - `shared/game-kit/*.js` vs `src/kit/*.js` → byte-identical (7/7).
 - No files were written outside `slide-to-safety/` and
   `okf-brain/slide-to-safety/`.
+
+---
+
+## 2026-07-31 — Lead-form slim-down, animation-first how-to-play, asset prompt sheet
+
+Narrow scope: no gameplay, balance, physics, HUD or `ResultsScreen` changes.
+`src/slide.js`, `src/levels.js`, `src/data.js` and `scripts/balance.mjs` untouched.
+
+### G1 — email field removed from lead capture
+
+`src/LeadCaptureModal.jsx`: deleted `EMAIL_RE`, the `email` `useState`, the
+"Email Field" `sl-lead-field` block, the `errs.email` branch, the
+`sessionStorage.lastSubmittedEmail` read and write, and the `email` key from
+`submitToLMS({...})` and both `onSubmitted({...})` payloads. `src/api.js`
+untouched. Nothing else under `src/` referenced it. Name, Mobile and T&C
+unchanged.
+
+### G2 — `HowToPlayScreen` is now animation-first
+
+`src/Screens.jsx`: deleted the three `Beat` step cards (and the `Beat` component
+itself), the `Swipe to glide · Thin ice breaks · …` subtitle, the scoring
+paragraph and the per-level `LEVELS` chip row.
+
+New `BoardDemo` — one 5.2 s loop on a real 6×4 slice of the board, built from the
+canvas's own `IceGrid`, `RockTile`, `CrackTile`, `FamilyTile` and `ShieldToken`
+at the board's own 26 px cell: a `SwipeHand` glyph swipes right, the shield
+glides until the rock stops it and sweeps up a `CoinToken` on the way, then
+swipes up, crosses the thin-ice tile *without stopping on it* (the tile darkens
+as it passes), and lands on the family tile to a green arrival ring. The orange
+route trail draws itself leg by leg with `stroke-dashoffset`, matching the trail
+the canvas draws. CSS transforms only touch `<g>` elements with no transform
+attribute of their own. `prefers-reduced-motion` disables all six animations.
+
+Under it, exactly three icon-led cues reusing the board's tiles: swipe glyph +
+"SWIPE TO GLIDE", `CrackTile` + "THIN ICE BREAKS", `FamilyTile` + "REACH THE
+FAMILY". Remaining text: heading, three ≤4-word labels, Play button.
+`GAME_CONFIG` became unused in this file and was dropped from the import. Card is
+~430 px tall inside a 640 px viewport — no scroll at 360×640.
+
+### G3 — `asset-from-here.md`
+
+13 Nano Banana prompts written to `slide-to-safety/asset-from-here.md`. Motif is
+**layered die-cut papercraft with letterpress deboss**: every element is thick
+cotton card stock, cut and stacked so its pale cut edge shows, with cracks and
+frost *pressed* into the paper rather than airbrushed, and deckle-torn edges
+wherever something breaks. Explicitly matte — no gloss, metal, glass or glow
+anywhere. Covers the water background, both ice-tile shades, the three-stage thin
+ice, the rock, the family goal tile, the shield token, the coin, the wind lane,
+the breakthrough effect, the route trail, the HUD icon set and win/loss tableaus.
+
+### Verification
+
+- `pnpm install` + `pnpm build` — **green**: `dist/assets/index-CAQY8n85.js`
+  424.61 kB (141.27 kB gzip), `index-v4scUYR6.css` 33.00 kB, built in 2.81 s.
+- `node scripts/balance.mjs` — **GATE: PASS** (all 5 boards solvable at published
+  par, every coin inside par+2, no reachable dead ends, bot completion 44.3%).
+  Harness unmodified.

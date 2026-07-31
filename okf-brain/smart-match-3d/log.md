@@ -62,3 +62,53 @@ Notes (non-blocking): gameplay not exercised in a live browser (dev server prohi
 too); difficulty ramp is intrinsic (tray pressure, shrinking choice space, final-10 s ticks)
 rather than an explicit mechanical ramp; board solvability not guaranteed by construction —
 standard for the genre, mitigated by the undo/shuffle/magnet boosters.
+
+## 2026-07-31 — Revamp: minimal in-game HUD, email removal, animation-only how-to-play
+
+**1. Scoring presentation rebuilt (headline change).** The three glass stat chips
+(Score / Goals / Time) and the separate timer bar are gone. In their place, one thin
+26 px rail above the board — `Game.jsx` HUD block, `.sm3-rail` in `index.css`:
+
+- **Time** = a 22 px SVG ring that depletes counter-clockwise (`RING_C` dash-offset), turning
+  coral and pulsing under 15 s. No digits, no "TIME" label.
+- **Goals** = a 6 px collection rail that fills orange as triplets are secured, notched into
+  20 hairline segments by a `repeating-linear-gradient` (one notch per triplet — zero JS).
+- **Score** = a single 13 px tabular-nums number, no label, keyed on its own value so React
+  remounts it and replays a 0.32 s bump only when the score actually changes (not on the
+  once-a-second timer tick).
+
+Feedback moved to the point of action instead of the HUD: the merge float is now just `+N`
+(the "<goal> goal secured!" line is deleted, combo is a `×3` glyph not the word "Combo"),
+and merging a trio now pushes `st.slotPulses` entries that draw an expanding coloured ring
+on the three tray slots the trio just freed (`drawTray`, 0.45 s decay). Booster buttons lost
+their word captions — icon + count badge only, `aria-label` retained for screen readers.
+
+**2. G1 — email removed** from `src/LeadCaptureModal.jsx`: `EMAIL_RE`, the `email` state, the
+whole optional-email field block, the validation branch, the `lastSubmittedEmail` session
+read/write, and `email` from both the `submitToLMS({...})` call and the `onSubmitted({...})`
+payload. `api.js` untouched — `email_id: email || ''` still resolves to `''`. Repo-grepped:
+no other file in this game read `lastSubmittedEmail`. Name / mobile / T&C unchanged.
+
+**3. G2 — how-to-play is animation-only.** The three numbered instruction paragraphs
+(`.sm3-step*`, ~120 words) are deleted. The looping demo now shows the real mechanic: three
+identical Home tiles sitting on the board, an inline-SVG finger glyph that travels to and
+presses each tile at the exact frame that tile lifts off (`sm3-demo-finger` waypoints are
+synced to `sm3-demo-drop`'s 3 s cycle and its 0 / 0.28 / 0.56 s stagger), each tile flying
+into a visible tray slot, then the trio popping with the existing spark burst. Remaining
+text: the "How to Play" heading, three icon-led cues — finger + "Tap", three-tiles +
+"Match 3", tray + "Don't fill tray" — and the Play button. Card measures ~432 px tall at
+360×640, so it does not scroll.
+
+**4. G3 — `smart-match-3d/asset-from-here.md`** written: 14 Nano Banana prompts on a motif
+used by no other game in the repo — hand-poured vitreous enamel on brushed-brass squircle
+**pin badges** laid on navy collector's felt. Covers the felt backdrop, the shared badge body,
+seven individual goal emblems, a four-emblem strip for the remainder, the 7-slot brass tray
+rail, a five-glyph HUD/booster sheet, the merge burst, and a collector's-drawer results hero.
+Badge body and emblems are deliberately separate prompts so the rim lighting stays identical
+across all eleven goals.
+
+Untouched per G7: `src/kit/`, `src/api.js`, `services/`, `utils/`, every other game folder.
+
+**Build:** `pnpm install && pnpm build` — exit 0.
+`dist/assets/index-DOYnWTlv.js 401.48 kB │ gzip: 134.12 kB`, CSS 23.91 kB, 517 modules,
+built in 3.40 s.

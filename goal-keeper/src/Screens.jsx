@@ -123,9 +123,23 @@ const SCREEN_CSS = `
   70%,100%{ transform: translate(-30px,-16px) rotate(-52deg); }
 }
 @keyframes gkHeroZone { 0%,32% { opacity: 0.16; } 46%,100% { opacity: 0.8; } }
-@keyframes gkBeatLean { 0%,30% { transform: rotate(0deg); } 55%,100% { transform: rotate(-13deg); } }
-@keyframes gkBeatSwipe { 0%,20% { transform: translate(0,0); opacity: 0; } 30% { opacity: 1; } 70%,100% { transform: translate(-22px,-16px); opacity: 1; } }
-@keyframes gkBeatShield { 0%,40% { opacity: 0.35; transform: scale(0.86); } 60%,100% { opacity: 1; transform: scale(1); } }
+/* How-to-play demo — one 3.6s loop of a single penalty, in the order the game
+   gives it to you: 8% the striker plants (telegraph), 22% the swipe is drawn,
+   36% the keeper leaves his line, 40% the ball is struck, 62% it is saved. */
+@keyframes gkDScene  { 0%,1% { opacity: 0; } 3%,96% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes gkDLean   { 0%,8% { transform: rotate(0deg); } 20%,42% { transform: rotate(-15deg); } 58%,100% { transform: rotate(0deg); } }
+@keyframes gkDZone   { 0%,10% { opacity: 0.1; } 18%,88% { opacity: 0.7; } 96%,100% { opacity: 0.1; } }
+@keyframes gkDSwipe  { 0%,22% { stroke-dashoffset: 66; } 38%,56% { stroke-dashoffset: 0; } 64%,100% { stroke-dashoffset: 66; } }
+@keyframes gkDFinger { 0%,20% { opacity: 0; transform: translate(0,0); } 24% { opacity: 1; transform: translate(0,0); } 38%,46% { opacity: 1; transform: translate(-52px,-42px); } 54%,100% { opacity: 0; transform: translate(-52px,-42px); } }
+@keyframes gkDDive   { 0%,36% { transform: translate(0,0) rotate(0deg); } 58%,100% { transform: translate(-58px,-46px) rotate(-46deg); } }
+@keyframes gkDBall {
+  0%,40% { transform: translate(178px, 168px) scale(0.55); opacity: 1; }
+  62%    { transform: translate(80px, 52px) scale(1); opacity: 1; }
+  66%    { transform: translate(74px, 48px) scale(1.1); opacity: 1; }
+  86%    { transform: translate(18px, 6px) scale(0.7); opacity: 0; }
+  100%   { transform: translate(18px, 6px) scale(0.7); opacity: 0; }
+}
+@keyframes gkDSave   { 0%,62% { opacity: 0; transform: scale(0.4); } 70% { opacity: 1; transform: scale(1); } 86%,100% { opacity: 0; transform: scale(1.4); } }
 .gk-title { animation: gkTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .gk-float { animation: gkFloat 4s ease-in-out infinite; }
 .gk-glow  { animation: gkGlow 2.2s ease-in-out infinite; }
@@ -133,12 +147,18 @@ const SCREEN_CSS = `
 .gk-hero-ball { animation: gkHeroBall 3.2s cubic-bezier(0.35,0,0.4,1) infinite; }
 .gk-hero-dive { animation: gkHeroDive 3.2s cubic-bezier(0.3,0,0.3,1) infinite; }
 .gk-hero-zone { animation: gkHeroZone 3.2s ease-in-out infinite; }
-.gk-lean   { animation: gkBeatLean 2.4s ease-in-out infinite; }
-.gk-swipe  { animation: gkBeatSwipe 2.4s cubic-bezier(0.3,0,0.3,1) infinite; }
-.gk-shield { animation: gkBeatShield 2.4s ease-in-out infinite; }
+.gk-d-scene  { animation: gkDScene 3.6s linear infinite; }
+.gk-d-lean   { animation: gkDLean 3.6s ease-in-out infinite; }
+.gk-d-zone   { animation: gkDZone 3.6s ease-in-out infinite; }
+.gk-d-swipe  { animation: gkDSwipe 3.6s cubic-bezier(0.3,0,0.3,1) infinite; }
+.gk-d-finger { animation: gkDFinger 3.6s cubic-bezier(0.3,0,0.3,1) infinite; }
+.gk-d-dive   { animation: gkDDive 3.6s cubic-bezier(0.3,0,0.25,1) infinite; }
+.gk-d-ball   { animation: gkDBall 3.6s cubic-bezier(0.45,0,0.6,1) infinite; }
+.gk-d-save   { animation: gkDSave 3.6s ease-out infinite; transform-origin: 76px 50px; }
 @media (prefers-reduced-motion: reduce) {
   .gk-title, .gk-float, .gk-glow, .gk-chip, .gk-hero-ball, .gk-hero-dive, .gk-hero-zone,
-  .gk-lean, .gk-swipe, .gk-shield { animation: none !important; }
+  .gk-d-scene, .gk-d-lean, .gk-d-zone, .gk-d-swipe, .gk-d-finger, .gk-d-dive,
+  .gk-d-ball, .gk-d-save { animation: none !important; }
 }
 `;
 
@@ -374,57 +394,145 @@ export function HomeScreen({ onStart }) {
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
-/** One beat of the read - dive - cover loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
+/* ─── How to play ─────────────────────────────────────────
+   No instructions: one looping 3.6 s demo of a single penalty, played in the
+   order the game gives it to you. The striker plants toward the top-left zone
+   and that zone lights up (the 400 ms telegraph); a finger draws a LONG swipe
+   up and to the left — long because the target is high, which is the one rule
+   about swipe length that matters; the keeper leaves his line along the same
+   vector; the ball is struck at the lit zone and the gloves get there first. */
+function DemoPenalty() {
+  const postL = 40;
+  const postR = 260;
+  const barY = 26;
+  const lineY = 118;
+  const w = postR - postL;
+  const midY = (barY + lineY) / 2;
+
+  const cells = [];
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < 3; col++) {
+      const hot = row === 1 && col === 0;      // top-left: the zone this penalty goes to
+      const y = row === 1 ? barY : midY;
+      cells.push(
+        <rect
+          key={`${row}-${col}`}
+          className={hot ? 'gk-d-zone' : undefined}
+          x={postL + (col * w) / 3 + 2} y={y + 2}
+          width={w / 3 - 4} height={(lineY - barY) / 2 - 4} rx="4"
+          fill={hot ? ORANGE : '#DCEBFF'} opacity={hot ? 0.1 : 0.07}
+          stroke={hot ? ORANGE_LT : 'rgba(220,235,255,0.3)'} strokeWidth="1"
+        />,
+      );
+    }
+  }
+
+  const net = [];
+  for (let x = postL; x <= postR; x += 14) {
+    net.push(<line key={`v${x}`} x1={x} y1={barY} x2={x + 6} y2={lineY} stroke="rgba(206,228,255,0.2)" strokeWidth="0.7" />);
+  }
+  for (let y = barY; y <= lineY; y += 12) {
+    net.push(<line key={`h${y}`} x1={postL} y1={y} x2={postR} y2={y} stroke="rgba(206,228,255,0.2)" strokeWidth="0.7" />);
+  }
+
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+    <svg width="100%" viewBox="0 0 300 200" style={{ display: 'block' }} aria-hidden="true">
+      <defs>
+        <linearGradient id="gkDSky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#08152F" />
+          <stop offset="55%" stopColor="#0A2450" />
+          <stop offset="100%" stopColor="#0E4A2C" />
+        </linearGradient>
+        <radialGradient id="gkDBallFill" cx="0.36" cy="0.32" r="0.75">
+          <stop offset="0%" stopColor="#FFFFFF" />
+          <stop offset="70%" stopColor="#F2F7FF" />
+          <stop offset="100%" stopColor="#C9D6EA" />
+        </radialGradient>
+        <clipPath id="gkDClip"><rect x="0" y="0" width="300" height="200" rx="16" /></clipPath>
+      </defs>
+
+      <g clipPath="url(#gkDClip)" className="gk-d-scene">
+        <rect x="0" y="0" width="300" height="200" fill="url(#gkDSky)" />
+        <ellipse cx="150" cy="52" rx="150" ry="66" fill="rgba(120,170,240,0.16)" />
+
+        {/* Turf and the six-yard line the keeper stands on */}
+        <rect x="0" y={lineY} width="300" height={200 - lineY} fill="#0E4A2C" />
+        <rect x="0" y="146" width="300" height="26" fill="rgba(255,255,255,0.03)" />
+        <line x1="0" y1={lineY} x2="300" y2={lineY} stroke="rgba(232,246,255,0.4)" strokeWidth="1.4" />
+        <ellipse cx="178" cy="170" rx="4" ry="1.8" fill="rgba(232,246,255,0.5)" />
+
+        {net}
+        {cells}
+
+        {/* Frame */}
+        <rect x={postL - 3} y={barY - 3} width="6" height={lineY - barY + 4} rx="2" fill="#F4F8FF" />
+        <rect x={postR - 3} y={barY - 3} width="6" height={lineY - barY + 4} rx="2" fill="#F4F8FF" />
+        <rect x={postL - 3} y={barY - 3} width={w + 6} height="6" rx="2" fill="#F4F8FF" />
+
+        {/* Save flash at the top-left zone */}
+        <g className="gk-d-save">
+          <circle cx="76" cy="50" r="20" fill="none" stroke={GREEN_LT} strokeWidth="4" />
+          <circle cx="76" cy="50" r="9" fill="rgba(74,222,128,0.35)" />
+        </g>
+
+        {/* The keeper, leaving his line along the swipe vector */}
+        <g transform={`translate(150,${lineY})`}>
+          <g className="gk-d-dive">
+            <ellipse cx="0" cy="2" rx="12" ry="3.2" fill="rgba(0,0,0,0.3)" />
+            <path d="M-4 -19 L-11 0 M-4 -19 L5 -1" stroke="#A93A0D" strokeWidth="4.4" strokeLinecap="round" />
+            <rect x="-6.5" y="-38" width="13" height="20" rx="4.5" fill={ORANGE} />
+            <circle cx="0" cy="-43" r="5.4" fill="#E8B98C" />
+            <rect x="-17" y="-40" width="9" height="10" rx="3.4" fill={GOLD} />
+            <rect x="9" y="-32" width="9" height="10" rx="3.4" fill={GOLD} />
+          </g>
+        </g>
+
+        {/* The striker, planting toward the zone he is about to hit */}
+        <g transform="translate(212,176)">
+          <g className="gk-d-lean" style={{ transformOrigin: '0px 0px' }}>
+            <rect x="-5" y="-27" width="10" height="15" rx="4" fill={BLUE_LT} />
+            <circle cx="0" cy="-32" r="4.6" fill="#E8B98C" />
+            <path d="M-2.5 -12 L-7 0 M2.5 -12 L7 0" stroke={BLUE} strokeWidth="3.2" strokeLinecap="round" />
+          </g>
+        </g>
+
+        {/* The ball: on the spot, struck at the lit zone, then turned away */}
+        <g className="gk-d-ball">
+          <circle cx="0" cy="0" r="8" fill="url(#gkDBallFill)" />
+          <circle cx="0" cy="0" r="2.6" fill="#0B1221" opacity="0.8" />
+        </g>
+
+        {/* The real input: a long swipe up and to the left */}
+        <line className="gk-d-swipe" x1="118" y1="186" x2="66" y2="144"
+          stroke={ORANGE_LT} strokeWidth="3.4" strokeLinecap="round"
+          strokeDasharray="66" strokeDashoffset="66" />
+        <g transform="translate(118,204)">
+          <g className="gk-d-finger">
+            <rect x="-4.5" y="-18" width="9" height="21" rx="4.5" fill="#F3F7FF" />
+            <rect x="-9" y="-5" width="19" height="16" rx="7" fill="#C9D6EA" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+/** Icon + ≤4 words. The only prose allowed on this screen. */
+function Cue({ tint, label, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+      <svg width="28" height="26" viewBox="0 0 28 26" aria-hidden="true">{children}</svg>
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: tint,
+        textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.15,
+      }}>
+        {label}
+      </span>
     </div>
   );
 }
 
-/** A miniature goal mouth with its six zones, for the tutorial diagrams. */
-function BeatGoal({ hot = -1 }) {
-  const cells = [];
-  for (let row = 0; row < 2; row++) {
-    for (let col = 0; col < 3; col++) {
-      const id = col + row * 3;
-      cells.push(
-        <rect key={id} x={7 + col * 20} y={8 + (1 - row) * 17} width="18" height="15" rx="2"
-          fill={id === hot ? ORANGE : '#DCEBFF'} opacity={id === hot ? 0.55 : 0.09}
-          stroke={id === hot ? ORANGE_LT : 'rgba(220,235,255,0.3)'} strokeWidth="0.8" />,
-      );
-    }
-  }
-  return (
-    <g>
-      {cells}
-      <rect x="4" y="6" width="63" height="2.5" rx="1" fill="#F4F8FF" />
-      <rect x="4" y="6" width="2.5" height="36" rx="1" fill="#F4F8FF" />
-      <rect x="64.5" y="6" width="2.5" height="36" rx="1" fill="#F4F8FF" />
-      <line x1="0" y1="42" x2="74" y2="42" stroke="rgba(232,246,255,0.4)" strokeWidth="1" />
-    </g>
-  );
-}
-
 export function HowToPlayScreen({ onPlay }) {
-  const cfg = GAME_CONFIG;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -438,9 +546,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -449,98 +557,44 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '20px 16px 18px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 14px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Read the run-up &middot; Swipe to dive &middot; Six saves keeps the family&rsquo;s goals safe
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Read the plant" copy="The striker leans and plants toward one zone. He means it four times out of five.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatGoal hot={3} />
-              <g className="gk-lean" transform="translate(37,58)" style={{ transformOrigin: '37px 58px' }}>
-                <rect x="-4" y="-16" width="8" height="11" rx="3" fill={BLUE_LT} />
-                <circle cx="0" cy="-20" r="3.4" fill="#E8B98C" />
-                <path d="M-2 -5 L-5 0 M2 -5 L5 0" stroke={BLUE} strokeWidth="2.4" strokeLinecap="round" />
-              </g>
-              <path d="M25 55 l-6 3 l6 3" fill="none" stroke={GOLD} strokeWidth="2"
-                strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Beat>
-
-          <Beat n="2" title="Swipe to dive" copy="Direction picks the side. How FAR you swipe picks low or high.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatGoal hot={3} />
-              <circle cx="52" cy="52" r="3.5" fill={ORANGE} />
-              <g className="gk-swipe">
-                <line x1="52" y1="52" x2="52" y2="52" stroke={ORANGE_LT} strokeWidth="2.6"
-                  strokeLinecap="round" strokeDasharray="4 4" />
-                <circle cx="52" cy="52" r="5" fill="none" stroke={ORANGE_LT} strokeWidth="2" />
-              </g>
-              <path d="M52 52 L30 36" stroke={ORANGE_LT} strokeWidth="2.4" strokeLinecap="round"
-                strokeDasharray="4 4" opacity="0.85" />
-            </svg>
-          </Beat>
-
-          <Beat n="3" title="Cover the one you miss" copy="Three saves in a row earn a Shield glove. It absorbs one goal — like cover should.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatGoal hot={-1} />
-              <g className="gk-shield" style={{ transformOrigin: '37px 26px' }}>
-                <path d="M37 12 l9 3.4 l0 7 c0 5.7 -3.9 10.1 -9 12.4 c-5.1 -2.3 -9 -6.7 -9 -12.4 l0 -7 z"
-                  fill={BLUE_LT} stroke="#A6D0FF" strokeWidth="1.2" />
-                <path d="M33 24 l2.8 2.8 l5.2 -5.6" fill="none" stroke="#fff" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </g>
-            </svg>
-          </Beat>
+        <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <DemoPenalty />
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{cfg.shotsPerSession} penalties.</strong> Save{' '}
-          <strong style={{ color: GREEN_LT }}>{cfg.savesToWin}</strong> to win &mdash; concede{' '}
-          <strong style={{ color: DANGER }}>{cfg.concededToLose}</strong> and it&rsquo;s over. Every{' '}
-          <strong style={{ color: GOLD }}>{cfg.shot.riskEvery}th</strong> shot is a faster Risk shot worth double.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {[
-            { k: 'save', label: `Save +${cfg.scoring.save}`, color: GREEN_LT },
-            { k: 'risk', label: `Risk save +${cfg.scoring.riskSave}`, color: GOLD },
-            { k: 'streak', label: `Streak +${cfg.scoring.streakBonus}`, color: GREEN_LT },
-            { k: 'perfect', label: `Perfect hands +${cfg.scoring.perfectBonus}`, color: ORANGE_LT },
-          ].map((c, i) => (
-            <span
-              key={c.k}
-              className="gk-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: c.color,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {c.label}
-            </span>
-          ))}
+        <div style={{ display: 'flex', gap: 6, margin: '14px 0 16px' }}>
+          <Cue tint={BLUE_LT} label="Read the plant">
+            <rect x="10" y="5" width="8" height="12" rx="3.6" fill={BLUE_LT} />
+            <circle cx="14" cy="2.8" r="2.8" fill="#E8B98C" />
+            <path d="M12 17 L8 24 M16 17 L21 24" stroke={BLUE} strokeWidth="2.6" strokeLinecap="round" />
+            <path d="M6 21 l-4 2.5 l4 2.5" fill="none" stroke={GOLD} strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </Cue>
+          <Cue tint={ORANGE_LT} label="Longer swipe, higher">
+            <circle cx="22" cy="22" r="3.2" fill={ORANGE} />
+            <path d="M21 20 L6 6" stroke={ORANGE_LT} strokeWidth="2.6" strokeLinecap="round" strokeDasharray="3.5 3.5" />
+            <path d="M6 6 l6 0.6 M6 6 l0.6 6" stroke={ORANGE_LT} strokeWidth="2.6" strokeLinecap="round" />
+          </Cue>
+          <Cue tint={GREEN_LT} label="Streak earns shield">
+            <path d="M14 3 l8 3 l0 7 c0 5.4 -3.4 9.4 -8 11.4 c-4.6 -2 -8 -6 -8 -11.4 l0 -7 z"
+              fill={BLUE_LT} stroke="#A6D0FF" strokeWidth="1.3" />
+            <path d="M10.4 12.6 l2.6 2.6 l4.8 -5.4" fill="none" stroke="#fff" strokeWidth="2.2"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </Cue>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

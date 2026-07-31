@@ -392,3 +392,53 @@ bowled already rattles the timber at 0.35×.
   be confused about which applies. Not changed here because `index.css` is a
   verbatim shared copy and editing it would diverge this game from every other in
   the repo; worth a repo-wide pass by the orchestrator rather than a local fork.
+
+---
+
+## 2026-07-31 — Lead-form / how-to-play revamp
+
+**G1 — email removed from lead capture.** `src/LeadCaptureModal.jsx` no longer
+collects an email address. Deleted `EMAIL_RE`, the `email` `useState` (and its
+`lastSubmittedEmail` sessionStorage read), the optional-email validation branch,
+the whole "Email Field" `sl-lead-field` block, the `lastSubmittedEmail`
+sessionStorage write, and the `email` key from both the `submitToLMS({...})` call
+and the two `onSubmitted({...})` payloads. `src/api.js` is untouched: `submitToLMS`
+already sends `email_id: email || ''`, so omitting the key keeps the LMS payload
+shape byte-identical. Name (letters+spaces), mobile (`^[6-9]\d{9}$`) and the T&C
+checkbox are unchanged. Grep confirms no `email` / `lastSubmittedEmail` reference
+survives anywhere under `src/`.
+
+**G2 — `HowToPlayScreen` is now animation-first.** Every numbered instruction
+paragraph, the sub-headline, the four outcome chips and the chase-maths paragraph
+are gone, along with the `Beat` component that carried them. In their place is one
+looping 3.4 s SVG demo (`DemoBall`) of the actual ball: the orange length marker
+lights up as the telegraph, the ball pitches on it, the timing gauge needle sweeps
+the arc, a finger glyph taps exactly as the needle crosses the bright GREEN
+PERFECT core, the bat rotates through, and the ball clears the boundary rope into
+a gold spark. Every track is keyed to the same 3.4 s clock (8% release, 30% pitch,
+52% tap+contact, 78% over the rope) so the cause-and-effect chain reads without a
+word of explanation. Sprite construction, palette and proportions are lifted from
+the canvas rig and `HeroGround`, so the demo previews the real game rather than
+illustrating it. Remaining text on the screen: the "How to Play" heading, three
+icon-led cues ("Read the length", "Tap on green", "Bank cover" — all ≤ 4 words),
+and the Play button. Card is capped at 344 px with `overflow: hidden`, so it fits
+360×640 without scrolling. The three retired `cdBeat*` keyframes were replaced by
+eight `cdD*` demo keyframes, all covered by the existing
+`prefers-reduced-motion` kill switch.
+
+**G3 — `cover-drive/asset-from-here.md` added.** 14 Nano Banana prompts committed
+to a single motif: **night-match broadcast realism** — sodium-floodlight key with
+a cold cyan rim, dew-slick specular turf, stadium bokeh, worn sports materials
+(scuffed leather, chalked willow, dusty pads) and broadcast lens language.
+Deliberately the only camera-realist sheet in the repo. Covers backdrop, pitch
+strip, ball, ball trail, batter rig, bat, stumps intact and shattered, length
+marker, timing gauge, cover shield, the HUD glyph set, the boundary spark and the
+result trophy, each with size, dense prompt and negative list.
+
+**Not touched:** gameplay, balance, physics, HUD layout, `ResultsScreen`,
+`HomeScreen`, `data.js`, `rules.js`, `deliveries.js`, `api.js`, `src/kit/`.
+No re-run of `scripts/balance.mjs` was needed — nothing this change touches is
+reachable from the sim.
+
+**Build:** `pnpm install` + `pnpm build` exit 0 — 525 modules transformed,
+`dist/assets/index-Cfvv4GrS.js` 435.72 kB / 144.05 kB gzip, built in 2.23 s.

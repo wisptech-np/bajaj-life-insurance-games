@@ -3,19 +3,20 @@ import React, { useEffect, useRef, useState } from "react";
 import MainScene from "../game/scenes/MainScene";
 import PreloadScene from "../game/scenes/PreloadScene";
 import { GameResult } from "../types";
+import { CoinIcon, PoleIcon, ShieldIcon, SoundOffIcon, SoundOnIcon } from "./Icons";
 
 interface Props {
   onGameEnd: (result: GameResult) => void;
 }
 
+const GOAL_M = 1000;
+
 const GameScreen: React.FC<Props> = ({ onGameEnd }) => {
   const gameContainer = useRef<HTMLDivElement>(null);
   const gameInstance = useRef<Phaser.Game | null>(null);
 
-  // Sound state
   const [muted, setMuted] = useState(false);
 
-  // HUD State synced from Phaser
   const [hud, setHud] = useState({
     score: 0,
     distance: 0,
@@ -39,7 +40,7 @@ const GameScreen: React.FC<Props> = ({ onGameEnd }) => {
       const config: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
         parent: gameContainer.current,
-        backgroundColor: "#030F26",
+        backgroundColor: "#030913",
         banner: false,
         physics: {
           default: "arcade",
@@ -60,7 +61,6 @@ const GameScreen: React.FC<Props> = ({ onGameEnd }) => {
       game = new Phaser.Game(config);
       gameInstance.current = game;
 
-      // Set registry callbacks immediately so that they are ready when MainScene initializes
       game.registry.set("onScoreUpdate", (metrics: typeof hud) => {
         if (active) setHud(metrics);
       });
@@ -86,7 +86,6 @@ const GameScreen: React.FC<Props> = ({ onGameEnd }) => {
     };
   }, [onGameEnd]);
 
-  // Audio volume toggle
   const handleMuteToggle = () => {
     const nextMute = !muted;
     setMuted(nextMute);
@@ -95,94 +94,219 @@ const GameScreen: React.FC<Props> = ({ onGameEnd }) => {
     }
   };
 
-  // Target distance is 1000m. Progress bar sweeps to it
-  const distancePct = Math.min(100, Math.max(0, (hud.distance / 1000) * 100));
+  const pct = Math.min(100, Math.max(0, (hud.distance / GOAL_M) * 100));
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#030F26] flex flex-col justify-between select-none">
-      {/* 1. Upper HUD (sound, score, shield items) */}
-      <div className="absolute top-0 inset-x-0 p-4 pt-6 z-50 pointer-events-none flex justify-between items-center">
-        {/* Sound toggle button */}
+    <div
+      className="tp-screen relative flex h-full w-full select-none flex-col justify-between overflow-hidden"
+      style={{ background: "#030913" }}
+    >
+      {/* ── Top HUD: icon + number only ── */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-50 flex items-center justify-between"
+        style={{ padding: "var(--s4) var(--s4) 0" }}
+      >
         <button
           onClick={handleMuteToggle}
-          className="btn-press pointer-events-auto flex h-[2.2rem] min-w-[3.6rem] items-center justify-center rounded-full px-3 text-[10px] font-black uppercase text-white bg-white/10 border border-white/20"
+          aria-label={muted ? "Unmute" : "Mute"}
+          className="btn-press pointer-events-auto flex items-center justify-center"
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid var(--tp-stroke)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}
         >
-          {muted ? "Muted" : "Sound"}
+          {muted ? <SoundOffIcon size={20} /> : <SoundOnIcon size={20} />}
         </button>
 
-        {/* Score tracker */}
-        <div className="text-center">
-          <span className="text-[20px] font-black italic text-white leading-none tracking-tight block">
+        {/* Score — glyph + number, no word label */}
+        <div className="flex items-center" style={{ gap: 7 }}>
+          <PoleIcon size={19} color="#F26522" />
+          <span
+            style={{
+              fontSize: 24,
+              fontWeight: 900,
+              lineHeight: 1,
+              letterSpacing: "-0.02em",
+              color: "#fff",
+              fontVariantNumeric: "tabular-nums",
+              textShadow: "0 2px 8px rgba(0,0,0,0.75)",
+            }}
+          >
             {hud.score.toLocaleString("en-IN")}
-          </span>
-          <span className="text-[8px] font-bold text-blue-200/50 uppercase tracking-widest mt-0.5">
-            Score
           </span>
         </div>
 
-        {/* Shield Covers (Lives) */}
-        <div className="flex gap-1 justify-end min-w-[3.6rem]">
+        {/* Lives as shield pips; an active cover adds a pulsing ring */}
+        <div
+          className="flex items-center justify-end"
+          style={{ gap: 4, minWidth: 44, height: 44, position: "relative" }}
+        >
           {Array.from({ length: 3 }).map((_, i) => (
             <span
               key={i}
-              className="text-sm transition-all duration-200"
-              style={{ opacity: i < hud.lives ? 1 : 0.2 }}
+              style={{
+                display: "inline-flex",
+                transition: "opacity .25s ease, transform .25s ease",
+                opacity: i < hud.lives ? 1 : 0.22,
+                transform: i < hud.lives ? "none" : "scale(0.82)",
+                filter:
+                  i < hud.lives ? "drop-shadow(0 0 5px rgba(46,155,255,0.55))" : "none",
+              }}
             >
-              🛡️
+              <ShieldIcon size={17} color={i < hud.lives ? "#2E9BFF" : "#7E97BB"} />
             </span>
           ))}
+          {hud.shieldActive && (
+            <span
+              className="pulse-ripple"
+              style={{
+                width: 26,
+                height: 26,
+                right: 12,
+                top: 9,
+                borderColor: "#4FB4FF",
+                borderWidth: 2,
+              }}
+            />
+          )}
         </div>
       </div>
 
-      {/* 2. Middle HUD Progress bar */}
-      <div className="absolute top-16 inset-x-0 mx-4 z-50 pointer-events-none">
-        <div className="flex justify-between text-[8px] font-bold text-blue-200/60 uppercase tracking-wider mb-1">
-          <span>Progress to Goal</span>
-          <span>{Math.floor(hud.distance)}m / 1000m</span>
-        </div>
-        <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
+      {/* ── Rope meter: progress drawn as a cable with the walker on it ── */}
+      <div
+        className="pointer-events-none absolute inset-x-0 z-50"
+        style={{ top: 62, padding: "0 var(--s4)" }}
+      >
+        <div className="relative" style={{ height: 22 }}>
+          {/* cable */}
           <div
-            className="h-full bg-gradient-to-r from-[#00AEEF] to-[#22C55E] rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(0,174,239,0.5)]"
-            style={{ width: `${distancePct}%` }}
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 12,
+              height: 3,
+              borderRadius: 2,
+              background: "rgba(126,151,187,0.28)",
+            }}
+          />
+          {/* travelled section, lit */}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 12,
+              height: 3,
+              width: `${pct}%`,
+              borderRadius: 2,
+              background: "linear-gradient(90deg,#003DA6 0%,#F26522 100%)",
+              boxShadow: "0 0 8px rgba(242,101,34,0.65)",
+              transition: "width .3s linear",
+            }}
+          />
+          {/* walker marker */}
+          <div
+            style={{
+              position: "absolute",
+              top: 4,
+              left: `${pct}%`,
+              width: 19,
+              height: 19,
+              marginLeft: -9.5,
+              borderRadius: "50%",
+              background: "#F26522",
+              border: "2px solid #04122B",
+              boxShadow: "0 0 10px rgba(242,101,34,0.85)",
+              transition: "left .3s linear",
+            }}
+          >
+            {/* balance-pole tick through the marker */}
+            <span
+              style={{
+                position: "absolute",
+                left: -4,
+                right: -4,
+                top: 6.5,
+                height: 2,
+                background: "#04122B",
+                borderRadius: 1,
+              }}
+            />
+          </div>
+          {/* goal pylon */}
+          <div
+            style={{
+              position: "absolute",
+              right: -2,
+              top: 0,
+              width: 4,
+              height: 22,
+              borderRadius: 2,
+              background: "linear-gradient(180deg,#FFC845 0%,#0D2A58 100%)",
+            }}
           />
         </div>
       </div>
 
-      {/* 3. Phaser Canvas Container */}
-      <div className="flex-1 w-full h-full flex items-center justify-center relative">
+      {/* ── Phaser canvas ── */}
+      <div className="relative flex h-full w-full flex-1 items-center justify-center">
         <div
           ref={gameContainer}
-          className="w-full h-full flex items-center justify-center"
+          className="flex h-full w-full items-center justify-center"
         />
       </div>
 
-      {/* 4. Lower HUD metrics layout */}
-      <div className="absolute bottom-4 inset-x-0 px-4 z-50 pointer-events-none flex justify-between items-center gap-4">
-        {/* Left: Distance */}
-        <div className="px-3 py-1.5 rounded-xl border border-white/5 bg-slate-950/80 backdrop-blur-sm flex flex-col">
-          <span className="text-[7.5px] font-black text-blue-300/40 uppercase tracking-wider">
-            Distance
+      {/* ── Bottom HUD: savings, icon + number, no panel ── */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex items-end justify-between"
+        style={{ padding: "0 var(--s4) var(--s4)" }}
+      >
+        <div className="flex items-center" style={{ gap: 6 }}>
+          <CoinIcon size={20} />
+          <span
+            style={{
+              fontSize: 16,
+              fontWeight: 900,
+              lineHeight: 1,
+              color: "#FFC845",
+              fontVariantNumeric: "tabular-nums",
+              textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+            }}
+          >
+            {(hud.coins * 100).toLocaleString("en-IN")}
           </span>
-          <span className="text-xs font-black text-white">{hud.distance}m</span>
         </div>
 
-        {/* Right: Collected Savings */}
-        <div className="px-3 py-1.5 rounded-xl border border-white/5 bg-slate-950/80 backdrop-blur-sm flex flex-col text-right">
-          <span className="text-[7.5px] font-black text-blue-300/40 uppercase tracking-wider">
-            Savings
+        <div className="flex items-center" style={{ gap: 5 }}>
+          <span
+            style={{
+              fontSize: 16,
+              fontWeight: 900,
+              lineHeight: 1,
+              color: "#A9C2E8",
+              fontVariantNumeric: "tabular-nums",
+              textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+            }}
+          >
+            {hud.distance}
           </span>
-          <span className="text-xs font-black text-green-400">
-            ₹{hud.coins * 100}
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 900,
+              letterSpacing: "0.08em",
+              color: "#7E97BB",
+            }}
+          >
+            M
           </span>
         </div>
       </div>
-
-      {/* 5. Mobile active shield flashing banner overlay */}
-      {hud.shieldActive && (
-        <div className="absolute top-24 inset-x-0 mx-auto w-fit z-50 pointer-events-none px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-400/40 text-[9px] font-black text-cyan-400 tracking-wider uppercase animate-pulse">
-          🛡️ Shield Active
-        </div>
-      )}
     </div>
   );
 };

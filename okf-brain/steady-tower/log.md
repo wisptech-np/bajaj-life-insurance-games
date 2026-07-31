@@ -104,3 +104,66 @@ timestamp: 2026-07-28
   human figure explicitly.
 - Re-verified: `node scripts/balance.mjs 500 500` exit 0 (`GATE: PASS`),
   `pnpm build` exit 0.
+
+## 2026-07-31 — Revamp: joint-chain wobble, icon-first UI, email removal
+
+**Tower shake replaced (spec item 2).** The lean was previously faked with a
+global shear (`tan(theta) * height`) plus a uniform `blockTiltFrac` rotation on
+every block — a parallelogram, which read as a rendering glitch rather than a
+stack losing balance. Removed entirely. New `createFlexChain(cfg)` in `data.js`:
+twelve damped-spring joints, one per layer, each holding a bend angle relative to
+the layer below. `layoutTower()` in `SteadyTowerGame.jsx` walks the chain from
+the plinth upward, so rotation and displacement both accumulate — joint 0 carries
+~3% of the bend, joint 11 ~15%, and the top block inherits the sum.
+  - Stiffness falls with height (`softenTop` 0.62): base ~2.3 Hz, top ~1.4 Hz, so
+    upper joints visibly lag lower ones.
+  - Damping ratio falls with height (`zetaBase` 0.38 → `zetaTop` 0.15): base
+    snaps back, top overshoots and rings down.
+  - Every joint spring is scaled by the live stability margin, the same coupling
+    the lean solver uses, so a critical tower is visibly floppy.
+  - `separations[i]` opens the joints on a squared stress curve; `thump()` gives
+    a vertical settle after each pull; normalised joint stress drives the dust
+    (at the worst joint, not a random one) and a new creak voice (`audio.hit`).
+  - Collapse now seeds every body from the pose the chain was already producing
+    (position, rotation, velocity, spin) instead of a canned scatter.
+  - Chain is render-only — statics still read `lean.theta` — so no balance
+    constant moved. Pass 1 and Pass 2 output are unchanged (steady median 2597).
+
+**Verification.** Added a joint-chain self-check to `scripts/balance.mjs`, folded
+into the gate verdict: settles on `theta * leanGain` (err 1.8e-5 rad), top swings
+49.3x the base joint, top peaks 42 ms later. `GATE: PASS`.
+
+**Text stripped to icons (spec item 1).** New coherent icon set exported from
+`Screens.jsx` (24×24 viewBox, stroke 2, round caps, rx 1.5, `currentColor`) and
+imported by the game component so there is one set: stacked-blocks, spiked
+hazard, spirit level, clock, plus trophy/topple/play/calendar/share/phone/rotate/
+home rebuilt in the same family. HUD is now icon + number only — the SCORE /
+RISKS / TIME / STABILITY word labels are gone. Deleted the whole banner system
+("Tower secured", "Out of time", "Hold steady" + notes), the first-run hint
+sentence, the pause-veil copy, and the on-canvas `FLICK SIDEWAYS` / `KEEP THIS
+ONE` / `TOWER SECURED` / `TOPPLED` float texts (now `★` / `✕` glyphs). Win hold
+is a wordless closing ring; the first-run hint is a thumb-flick animation.
+
+**How to play is animation-only (G2).** Deleted the three numbered beats with
+their explanatory copy and the "8 risks · 12 layers · 120s" line. Replaced with
+one looping SVG demo of the real mechanic — thumb flicks a red block sideways,
+block leaves, tower leans on nested joints and recovers — plus three wordless
+icon chips. Zero instruction text. The demo tower is a recursive component whose
+nesting IS the joint model, so the screen and the canvas lean the same way; the
+home hero uses the same component with an idle sway. No skew keyframes remain.
+
+**Results screen.** Repo-standard structure kept (count-up, radius-75 ring,
+confetti, share, glass card, ghost replay, disclaimer); prose cut. Stat tiles are
+icon + number, the eight risk chips are block shapes instead of "Cleared"/"Left"
+labels, buttons are icon + one word (Share / Book / Call / Again / Home).
+
+**G1.** Removed `EMAIL_RE`, the `email` state, the email field, its validation
+branch, both `sessionStorage` reads/writes of `lastSubmittedEmail`, and `email`
+from the `submitToLMS` and `onSubmitted` payloads in `LeadCaptureModal.jsx`.
+`api.js` untouched — it already sends `email_id: email || ''`.
+
+**G3.** Wrote `steady-tower/asset-from-here.md`, 12 prompts on a structural-
+engineering-blueprint identity (milled composite beams, survey plinth, drafting
+sky) that deliberately diverges from the repo catalogue's mahogany-wood entry.
+
+**Build:** `pnpm install && pnpm build` exit 0 — `✓ built in 3.46s`.

@@ -271,6 +271,119 @@ export function HomeScreen({ onStart }) {
   );
 }
 
+/* ─── How-to-play art ─────────────────────────────────────
+   The demo re-uses the canvas's own slab construction (front face, right side
+   face, sheared top face, crisp top-edge highlight) and its own hue ramp —
+   GAME_CONFIG.slabHueStart 216 (brand blue) drifting to slabHueEnd 130 (green)
+   — so the tutorial and the game are visibly the same object. */
+
+/** One pseudo-3D SIP slab, same geometry the canvas draws. */
+function Slab({ x = 0, y = 0, w, h = 14, d = 4.5, sh = 5, hue }) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <rect x="0" y={d} width={w} height={h - d} fill={`hsl(${hue}, 64%, 40%)`} />
+      <polygon points={`${w},${d} ${w + sh},0 ${w + sh},${h - d} ${w},${h}`} fill={`hsl(${hue}, 62%, 25%)`} />
+      <polygon points={`0,${d} ${sh},0 ${w + sh},0 ${w},${d}`} fill={`hsl(${hue}, 58%, 58%)`} />
+      <line x1="0" y1={d} x2={w} y2={d} stroke="rgba(255,255,255,0.28)" strokeWidth="0.8" />
+    </g>
+  );
+}
+
+/** A pointing hand whose fingertip sits on the local origin. */
+function TapFinger({ scale = 1 }) {
+  return (
+    <g transform={`scale(${scale}) translate(-7.8,-1.4)`} fill="rgba(8,18,40,0.6)"
+      stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 10.5V3.2a1.8 1.8 0 0 1 3.6 0v7.3" />
+      <path d="M9.6 8.6a1.7 1.7 0 0 1 3.4 0v2" />
+      <path d="M13 9.6a1.7 1.7 0 0 1 3.4 0v1.6" />
+      <path d="M16.4 11.2a1.6 1.6 0 0 1 3.2 0v4.2a6.4 6.4 0 0 1-6.4 6.4h-2.4a6.4 6.4 0 0 1-6.4-6.4v-2.6a1.7 1.7 0 0 1 3.4 0" />
+    </g>
+  );
+}
+
+/** Icon-led cue under the demo. Label must stay ≤ 4 words. */
+function DemoCue({ label, tint, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+      <div style={{
+        width: 46, height: 46, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.13)',
+      }}>
+        {children}
+      </div>
+      <span style={{
+        fontSize: 9.5, fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase',
+        color: tint, lineHeight: 1.2, textAlign: 'center',
+      }}>{label}</span>
+    </div>
+  );
+}
+
+/**
+ * One 4 s loop of the real mechanic: a SIP slab slides across the tower, a
+ * finger taps, the slab drops, the part hanging past the tower shears away and
+ * tumbles, and the tower is left one layer taller and one notch narrower.
+ * CSS transforms are applied only to <g> elements with no transform attribute
+ * of their own (a CSS transform replaces the attribute, it does not compose).
+ */
+function TowerDemo() {
+  return (
+    <div style={{
+      position: 'relative', width: '100%', height: 170,
+      background: 'rgba(5, 12, 28, 0.6)', borderRadius: 16,
+      border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 18,
+    }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes ssTutSlab   { 0% { transform: translate(-150px,-26px); opacity: 1; } 40%,44% { transform: translate(0,-26px); opacity: 1; } 47% { transform: translate(0,0); opacity: 1; } 47.6%,100% { transform: translate(0,0); opacity: 0; } }
+        @keyframes ssTutPlaced { 0%,47% { opacity: 0; } 47.6%,100% { opacity: 1; } }
+        @keyframes ssTutChunk  { 0%,47% { opacity: 0; transform: translate(0,-26px) rotate(0deg); } 47.6% { opacity: 1; transform: translate(0,0) rotate(0deg); } 84%,100% { opacity: 0; transform: translate(30px,104px) rotate(56deg); } }
+        @keyframes ssTutHand   { 0% { opacity: 0; transform: translate(36px,-30px); } 26% { opacity: 1; transform: translate(15px,-11px); } 40% { opacity: 1; transform: translate(0,0); } 46% { opacity: 1; transform: translate(3px,7px); } 64%,100% { opacity: 0; transform: translate(28px,-24px); } }
+        @keyframes ssTutRipple { 0%,37% { opacity: 0; transform: scale(0.4); } 42% { opacity: 1; transform: scale(0.75); } 60%,100% { opacity: 0; transform: scale(1.7); } }
+        .ss-tut-slab   { animation: ssTutSlab 4s cubic-bezier(0.35,0,0.35,1) infinite; }
+        .ss-tut-placed { animation: ssTutPlaced 4s step-end infinite; }
+        .ss-tut-chunk  { animation: ssTutChunk 4s ease-in infinite; }
+        .ss-tut-hand   { animation: ssTutHand 4s cubic-bezier(0.3,0,0.3,1) infinite; }
+        .ss-tut-ripple { animation: ssTutRipple 4s ease-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .ss-tut-slab, .ss-tut-placed, .ss-tut-chunk, .ss-tut-hand, .ss-tut-ripple { animation: none !important; }
+        }
+      ` }} />
+      <svg width="100%" height="100%" viewBox="0 0 300 170" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs><clipPath id="ssTutClip"><rect x="0" y="0" width="300" height="170" /></clipPath></defs>
+        <g clipPath="url(#ssTutClip)">
+          {/* plinth + settled tower */}
+          <rect x="84" y="160" width="140" height="8" rx="3" fill="rgba(6,14,32,0.9)" />
+          <Slab x={90} y={138} w={120} h={22} d={7} sh={8} hue={216} />
+          <Slab x={94} y={116} w={112} h={22} d={7} sh={8} hue={212} />
+          <Slab x={98} y={94} w={104} h={22} d={7} sh={8} hue={208} />
+
+          {/* the slab in play — slides, then drops on the tap */}
+          <g transform="translate(110 72)">
+            <g className="ss-tut-slab"><Slab x={0} y={0} w={104} h={22} d={7} sh={8} hue={204} /></g>
+          </g>
+
+          {/* what survives the drop: only the overlap */}
+          <g transform="translate(110 72)">
+            <g className="ss-tut-placed"><Slab x={0} y={0} w={92} h={22} d={7} sh={8} hue={204} /></g>
+          </g>
+
+          {/* what hangs past the tower: sheared off and tumbling away */}
+          <g transform="translate(202 72)">
+            <g className="ss-tut-chunk"><Slab x={0} y={0} w={12} h={22} d={7} sh={8} hue={204} /></g>
+          </g>
+
+          {/* the real input */}
+          <g transform="translate(222 44)">
+            <circle className="ss-tut-ripple" cx="-4" cy="8" r="17" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.6" />
+            <g className="ss-tut-hand"><TapFinger scale={1.25} /></g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
   return (
     <motion.div
@@ -314,99 +427,29 @@ export function HowToPlayScreen({ onPlay }) {
           How to Play
         </h2>
 
-        {/* CSS demo: slab slides, tap drops it, overhang shears off */}
-        <div style={{
-          position: 'relative',
-          width: '100%',
-          height: 170,
-          background: 'rgba(5, 12, 28, 0.6)',
-          borderRadius: 16,
-          border: '1px solid rgba(255,255,255,0.06)',
-          overflow: 'hidden',
-          marginBottom: 18,
-        }}>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes tutSlide {
-              0% { transform: translateX(-95px); }
-              38% { transform: translateX(-14px); }
-              46% { transform: translateX(-14px) translateY(26px); }
-              100% { transform: translateX(-14px) translateY(26px); }
-            }
-            @keyframes tutShear {
-              0%, 45% { transform: translate(0, 0) rotate(0); opacity: 0; }
-              46% { transform: translate(0, 26px) rotate(0); opacity: 1; }
-              80%, 100% { transform: translate(-34px, 130px) rotate(-48deg); opacity: 0; }
-            }
-            @keyframes tutTapRing {
-              0%, 40% { transform: scale(0.4); opacity: 0; }
-              44% { transform: scale(0.7); opacity: 1; }
-              58% { transform: scale(1.5); opacity: 0; }
-              100% { opacity: 0; }
-            }
-          ` }} />
-          {/* base tower */}
-          <div style={{ position: 'absolute', bottom: 12, left: '50%', width: 130, height: 24, marginLeft: -65, borderRadius: 4, background: 'linear-gradient(180deg, #1E6BE0, #003DA6)', boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.3)' }} />
-          <div style={{ position: 'absolute', bottom: 36, left: '50%', width: 112, height: 24, marginLeft: -56, borderRadius: 4, background: 'linear-gradient(180deg, #2E86E8, #0A4CB8)', boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.3)' }} />
-          {/* sliding slab */}
-          <div style={{
-            position: 'absolute',
-            bottom: 86,
-            left: '50%',
-            width: 112,
-            height: 24,
-            marginLeft: -42,
-            borderRadius: 4,
-            background: 'linear-gradient(180deg, #FF8A3D, #F26522)',
-            boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.35)',
-            animation: 'tutSlide 3.4s cubic-bezier(0.35, 0, 0.35, 1) infinite',
-          }} />
-          {/* sheared overhang */}
-          <div style={{
-            position: 'absolute',
-            bottom: 86,
-            left: '50%',
-            width: 26,
-            height: 24,
-            marginLeft: -56,
-            borderRadius: 4,
-            background: 'linear-gradient(180deg, #FF8A3D, #D9541A)',
-            animation: 'tutShear 3.4s ease-in infinite',
-          }} />
-          {/* tap ring */}
-          <div style={{
-            position: 'absolute',
-            right: 34,
-            bottom: 52,
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            border: '3px solid rgba(255,255,255,0.85)',
-            animation: 'tutTapRing 3.4s ease-out infinite',
-          }} />
-        </div>
+        <TowerDemo />
 
-        <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 14,
-          lineHeight: 1.45,
-          marginBottom: 22,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>1.</span>
-            <span>A SIP slab slides across the tower. <strong>TAP</strong> to drop it — the overlap stays, the overhang shears off.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>2.</span>
-            <span>Land dead-centre for a <strong>PERFECT</strong> — no trim, bonus points, and streaks of 3+ <strong>regrow</strong> your slab.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>3.</span>
-            <span>Stack <strong>{GAME_CONFIG.targetLayers} layers</strong> to reach the Retirement Corpus summit. Miss the tower and the run ends!</span>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'space-around', gap: 6, marginBottom: 20 }}>
+          <DemoCue label="Tap to drop" tint="#fff">
+            <svg width="28" height="28" viewBox="0 0 28 28">
+              <circle cx="14" cy="15" r="10.5" fill="none" stroke="rgba(255,255,255,0.32)" strokeWidth="1.6" />
+              <g transform="translate(13,7)"><TapFinger scale={0.72} /></g>
+            </svg>
+          </DemoCue>
+          <DemoCue label="Overhang shears" tint="#FF8A3D">
+            <svg width="30" height="28" viewBox="0 0 30 28">
+              <Slab x={3} y={12} w={16} hue={216} />
+              <g transform="translate(22,15) rotate(28)"><Slab x={0} y={0} w={7} hue={216} /></g>
+              <path d="M20.5 9 L20.5 26" stroke="#FF8A3D" strokeWidth="1.6" strokeDasharray="2.5 2.5" />
+            </svg>
+          </DemoCue>
+          <DemoCue label="Centre = perfect" tint="#7CF5A0">
+            <svg width="30" height="28" viewBox="0 0 30 28">
+              <Slab x={5} y={15} w={20} hue={140} />
+              <Slab x={5} y={5} w={20} hue={140} />
+              <path d="M15 2 L15 26" stroke="#7CF5A0" strokeWidth="1.4" strokeDasharray="2.5 2.5" opacity="0.9" />
+            </svg>
+          </DemoCue>
         </div>
 
         <motion.div whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

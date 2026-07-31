@@ -530,3 +530,67 @@ the swipe-coverage question is partly covered by the new assertions). Still open
 - **Copy does not mention that swipe up/down direction is ignored.** Only the
   horizontal component and the total magnitude matter, so an up-left and a
   down-left swipe of the same length resolve identically.
+
+---
+
+## 2026-07-31 — Lead-form / how-to-play revamp
+
+**G1 — email removed from lead capture.** `src/LeadCaptureModal.jsx` no longer
+collects an email address. Deleted `EMAIL_RE`, the `email` `useState` (and its
+`lastSubmittedEmail` sessionStorage read), the optional-email validation branch,
+the whole "Email Field" `sl-lead-field` block, the `lastSubmittedEmail`
+sessionStorage write, and the `email` key from both the `submitToLMS({...})` call
+and the two `onSubmitted({...})` payloads. `src/api.js` is untouched: `submitToLMS`
+already sends `email_id: email || ''`, so omitting the key keeps the LMS payload
+shape byte-identical. Name, mobile (`^[6-9]\d{9}$`) and the T&C checkbox are
+unchanged. Grep confirms no `email` / `lastSubmittedEmail` reference survives
+under `src/`.
+
+**G2 — `HowToPlayScreen` is now animation-first.** Deleted the three numbered
+instruction beats and the `Beat` / `BeatGoal` components behind them, the
+sub-headline, the penalties/saves/conceded paragraph and the four scoring chips.
+In their place is `DemoPenalty`: one looping 3.6 s SVG that plays a single
+penalty in exactly the order the game delivers it —
+
+  8%  the striker plants and leans toward the top-left zone
+  18% that zone lights orange (the 400 ms telegraph)
+  22% a finger draws a LONG swipe up and to the left
+  36% the keeper leaves his line along the same vector
+  40% the ball is struck at the lit zone
+  62% the gloves get there first and the save ring fires
+
+The swipe is drawn with an animated `stroke-dashoffset` so its *length* is
+visibly the thing that grows, which is the one non-obvious rule in the game
+(direction picks the column, length picks the height). The demo reuses the goal
+geometry, six-zone grid, keeper rig and striker rig from `HeroGoal`, so it
+previews the real canvas rather than illustrating it. A short crossfade at the
+loop seam hides the reset. Remaining text: heading, three icon-led cues ("Read
+the plant", "Longer swipe, higher", "Streak earns shield" — all ≤ 4 words), Play
+button.
+
+Card capped at 344 px with `overflow: hidden`; fits 360×640 without scrolling.
+The three `gkBeat*` keyframes are replaced by eight `gkD*` keyframes, all added
+to the existing `prefers-reduced-motion` kill switch (which previously still
+listed the now-deleted `.gk-lean` / `.gk-swipe` / `.gk-shield` classes).
+
+**G3 — `goal-keeper/asset-from-here.md` added.** 12 Nano Banana prompts committed
+to a single motif: **silk-screened match poster** — a 1970s European football
+poster run off a four-colour screen press. Flat ink layers only, no gradients
+anywhere, tone carried by coarse halftone dots and cross-hatch, deliberate 1–2 px
+misregistration, paper grain, chunky geometric anatomy. This was a conscious
+divergence: `cover-drive` is the repo's other sports game and it owns broadcast
+photorealism, so the sheet forbids photographic turf, stadium bokeh, dimensional
+lighting and 3D rendering outright. Also encodes the gameplay constraint that
+the striker's plant and lean must be exaggerated past anatomical accuracy,
+because reading that silhouette *is* the game. Covers terrace backdrop, keeper,
+striker, ball, goal frame, the six-zone grid (with a hot-cell variant), milestone
+banners, the shield glove in earned and spent states, the save burst, the concede
+stamp, the HUD glyph set and the result poster.
+
+**Not touched:** gameplay, balance, `shots.js`, `rules.js`, zone geometry, dive
+timings, HUD layout, `ResultsScreen`, `HomeScreen`, `data.js`, `api.js`,
+`src/kit/`. `scripts/balance.mjs` was not re-run — nothing this change touches is
+reachable from it.
+
+**Build:** `pnpm install` + `pnpm build` exit 0 —
+`dist/assets/index-SVgnWzrH.js` 430.53 kB / 143.06 kB gzip, built in 2.25 s.

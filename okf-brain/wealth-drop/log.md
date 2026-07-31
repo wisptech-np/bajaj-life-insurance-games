@@ -148,3 +148,79 @@ canvas sizes; headless draw harness clean at five sizes (296x420 to 430x900),
 115 pegs, pocket lifecycle firing exactly once per drop; attribution grep zero;
 emoji scan unchanged (only the scaffold's U+2713 checkbox tick in HTML text);
 kit copies still byte-identical to `shared/game-kit/`.
+
+## [2026-07-31] Contrast revamp, compact HUD, animation-only tutorial, no email
+
+Headline problem: foreground and background sat in the same value band, so the
+board was hard to read on a phone in daylight. Measured before touching
+anything (sRGB relative luminance, WCAG 2.x ratios):
+
+- lit board mid was **L 0.0382** — a saturated `rgba(38,102,196,0.26)` well over
+  `#0B2450`. The peg cores were `#DCEBFF` (**9.85:1** against the board), i.e.
+  the scenery was the brightest thing on screen.
+- the gold coin measured **1.28:1 against a peg core**, **1.22:1 against the
+  Retirement pocket lip** and **1.82:1 against a peg body**. The object the
+  player is tracking disappeared exactly where it mattered.
+- the cover peg — the one reactable object in the game — measured **2.40:1**
+  against the board and **1.76:1** against the peg field.
+- text failures: results ring `target N` and the disclaimer at
+  `rgba(255,255,255,0.4)` = **3.81:1**; lead-modal subtitle `#9CA3AF` = **2.54:1**,
+  consent link `#31CDEC` = **1.90:1**, input placeholder `#CBD5E1` = **1.42:1**,
+  error text `#EF4444` = **3.76:1**, submit button white-on-`#31CDEC` = **1.90:1**;
+  orange/blue CTA labels at 17-18px were under the WCAG large-text line so
+  white-on-`#F26522` (3.15:1) and white-on-`#2C7BF0` (4.04:1) both failed 4.5:1.
+
+What changed:
+
+- `src/data.js` — palette rebuilt as an explicit three-tier value ladder
+  (backdrop L 0.008-0.014, structure 0.04-0.12, reactable objects 0.20-0.62) and
+  a shared `outline` ink `rgba(3,6,11,0.92)`. Backdrop pushed to `#0A1220` /
+  `#0B1526` / `#050A12` with the well alpha down to 0.16 of a desaturated slate:
+  lit board mid **L 0.0382 -> 0.0122**. Peg field demoted from `#DCEBFF`/`#6E9DD6`
+  to `#93B4D6`/`#3C5C82`. Bucket `colorLt` values relifted; Education moved to
+  the game's own accent, teal `#1FA8B8`/`#6FE3F0`. Brand anchors unchanged.
+- `src/WealthDropGame.jsx` — every gameplay object now carries a dark rim plus a
+  light rim: coin (**13.1:1** rim-vs-body, **9.4:1** rim-vs-peg-core, **14.6:1**
+  rim-vs-jackpot-lip), cover peg, pegs, aim marker, pocket faces. Pocket type is
+  stroked in the outline ink before it is filled so it survives a payout flash.
+  Added a board vignette so the centre column is the lightest backdrop area, and
+  darkened/heightened the HUD scrim.
+- HUD compacted to icon + number: two 32 px glass chips (coin+payout,
+  clock+time), a full-width 6 px target track with a target glyph and the number,
+  coin pips instead of an "N coins left" sentence, streak/cover as icon + one
+  token. Removed the three stacked label/value panels. Outcome banner reduced
+  from a three-line panel to one 38 px chip. One spacing scale (4/8/12/16)
+  across the whole overlay. Floating `+N` at the pocket was already in place.
+- `src/Screens.jsx` — **How to Play is now animation only** (G2): one looping 4 s
+  CSS/SVG demo where a finger glyph drags the aim rail, lifts, and the coin drops
+  from that exact x, grazes the cover peg (which flares and hands it a shield
+  ring) and lands in the x5 pocket for a floating `+500`. All instruction
+  paragraphs, the bucket-ladder chips and the numbered steps are gone; the only
+  text left is the heading, three icon-led two-word labels and the Play button.
+  Fits 360x640 with `overflow: hidden`. Results screen keeps the guardian-shelter
+  structure (count-up, r75 ring, confetti, share, glass action card, ghost
+  Play again, disclaimer) with corrected values and one shared 52 px button
+  height at 19 px/900 — which is what puts brand orange over the large-text line.
+- `src/LeadCaptureModal.jsx` — **email removed** (G1): `EMAIL_RE`, the state, the
+  field block, the validation branch, both `sessionStorage` reads/writes of
+  `lastSubmittedEmail`, and the key from `submitToLMS` and `onSubmitted`.
+  `api.js` untouched — it already sends `email_id: ''`. Repo grep for
+  `email` under `src/` outside `api.js`/`kit/` returns only the explanatory comment.
+- `src/index.css` — lead/slot modal recoloured off the failing cyan onto brand
+  blue (`#31CDEC` -> `#1E6BE0`, `#0096C7` -> `#003DA6`), subtitle `#5B6472`,
+  placeholder `#6B7280`, error `#C22B2B`.
+- `wealth-drop/asset-from-here.md` — 12 Nano Banana prompts, each restating the
+  three-tier value ladder and the dark-rim requirement so generated art keeps
+  the fix.
+
+After: 54/54 measured pairs pass — body text >= 4.5:1 (lowest 4.91:1, the
+disclaimer lead-in), large text and meaningful icons >= 3:1 (lowest 3.15:1,
+white on brand orange at 19px/900, and 3.73:1 for the cover-peg rim against the
+peg field). Object separation: coin 10.9:1 against the board and never below
+9.4:1 at its own rim; cover peg 4.2:1 body / 13.0:1 highlight; risk pocket
+4.5:1; aim marker 6.5:1.
+
+Verification: `pnpm install` + `pnpm build` exit 0 (523 modules,
+425.75 kB / 141.51 kB gzip). `node tools/balance-sim.mjs --runs 1500` GATE PASS
+at all three canvas sizes (casual 37-39%, best edge 30.7%) — physics and the
+`PURE-PHYSICS` region were not touched.

@@ -8,46 +8,75 @@
 // buffer, particle budgets, haptics) come from the kit: src/kit/config.js BALANCE.
 
 /* ─── Palette ─────────────────────────────────────────────
-   Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745, dark bg #0B1221.
+   Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745.
+   Game accent: TEAL #1FA8B8 / #6FE3F0 — the Education pockets and their
+   payout spray. It is the one hue no other game in the repo uses as a pocket
+   colour, and it sits cool enough next to the cover blue that "blue means
+   protection" still reads.
 
    Colour grammar for the board: RED is risk (the two x0 buckets, the only
-   things on screen that can take your money), BLUE is protection (the pegs you
-   want to graze, the cover pegs, the coin's shield aura), GOLD is wealth (the
-   premium coin, the Retirement buckets) and ORANGE is the player's own hand —
-   the aim rail and the drop marker. Green is reserved for progress toward the
-   target, so "green" always means "you are winning" and never means a hazard. */
+   things on screen that can take your money), BLUE is protection (the cover
+   pegs and the coin's shield aura), GOLD is wealth (the premium coin, the
+   Retirement buckets) and ORANGE is the player's own hand — the aim rail and
+   the drop marker. Green is reserved for progress toward the target, so
+   "green" always means "you are winning" and never means a hazard.
+
+   CONTRAST LADDER (measured, sRGB relative luminance L):
+     backdrop   L 0.008-0.014  — near-black desaturated navy, never competes
+     structure  L 0.04-0.12    — pegs, rails, dividers: mid-value, dark-rimmed
+     objects    L 0.20-0.62    — coin, cover peg, risk pocket, aim marker
+   Every moving object also carries `outline` (the darkest ink on screen) so its
+   silhouette survives crossing a bright peg or a gold pocket lip — before this
+   the gold coin measured 1.28:1 against a peg core and 1.22:1 against the
+   Retirement lip, i.e. it vanished exactly where the player was looking. */
 export const COLORS = {
   brandBlue: '#003DA6',
-  brandBlueLt: '#1E6BE0',
-  brandBlueGlow: 'rgba(30,107,224,0.55)',
+  brandBlueLt: '#2C7BF0',
+  brandBlueGlow: 'rgba(44,123,240,0.6)',
   orange: '#F26522',
-  orangeLt: '#FF8A3D',
+  orangeLt: '#FF9A55',
   green: '#28A745',
-  greenLt: '#4ADE80',
+  greenLt: '#5CE68F',
+  teal: '#1FA8B8',
+  tealLt: '#6FE3F0',
   gold: '#FFC845',
   goldLt: '#FFE38A',
-  goldDeep: '#B07B12',
+  goldCore: '#FFF6D6',
+  goldDeep: '#6B4A05',
   danger: '#EF4444',
-  dangerLt: '#FF8B8B',
+  dangerLt: '#FFA8A8',
 
-  bgDark: '#0B1221',
-  boardTop: '#0A1E42',
-  boardMid: '#0B2450',
-  boardLow: '#061229',
-  rail: 'rgba(255,255,255,0.10)',
-  railTrack: 'rgba(255,255,255,0.14)',
+  /* Backdrop — pushed down about 3x in luminance from the old #0B2450 board
+     (lit mid L 0.0382 -> 0.0122) and desaturated, so it stays quiet under
+     moving objects. */
+  bgDark: '#05090F',
+  boardTop: '#0A1220',
+  boardMid: '#0B1526',
+  boardLow: '#050A12',
+  wellGlow: 'rgba(40,72,110,0.16)',
+  rail: 'rgba(255,255,255,0.07)',
+  railTrack: 'rgba(255,255,255,0.18)',
 
-  peg: '#6E9DD6',
-  pegCore: '#DCEBFF',
-  pegDeep: '#2B558A',
-  pegGlow: 'rgba(146,190,255,0.6)',
-  cover: '#1E6BE0',
-  coverLt: '#A6D0FF',
+  /* Structure tier — the peg field is scenery, not the subject. Dropped from
+     a #DCEBFF core (9.9:1 against the old board, brighter than the coin) to a
+     mid steel blue with a dark rim. */
+  peg: '#3C5C82',
+  pegCore: '#93B4D6',
+  pegDeep: '#16283F',
+  pegGlow: 'rgba(120,160,210,0.3)',
+
+  /* Reaction tier — the two things the player must actually react to. */
+  cover: '#2C7BF0',
+  coverLt: '#CDE4FF',
+
+  /** Shared dark rim under every moving object. */
+  outline: 'rgba(3,6,11,0.92)',
 
   ink: '#FFFFFF',
-  inkDim: 'rgba(255,255,255,0.62)',
-  glass: 'rgba(255,255,255,0.05)',
-  glassLine: 'rgba(255,255,255,0.12)',
+  inkDim: '#B7C6DA',
+  inkFaint: '#8C9CB2',
+  glass: 'rgba(255,255,255,0.06)',
+  glassLine: 'rgba(255,255,255,0.16)',
 };
 
 /* ─── Gameplay configuration ──────────────────────────────
@@ -90,19 +119,25 @@ export const GAME_CONFIG = {
 
      board.laneCount MUST equal buckets.length. `label` is the short form drawn
      on the pocket face (pockets are narrow at eleven lanes); `full` is what the
-     banners and the screens use. */
+     banners and the screens use.
+
+     `color` is the pocket lip, `colorLt` the multiplier type and the payout
+     spray. Every `colorLt` clears 4.5:1 against the pocket well it is drawn on
+     (measured 8.5-13.3:1), and the ladder is also ordered by value — the x5
+     and x0 pockets are the brightest faces on the board, the x1 gutter the
+     dimmest, so payout rank reads without reading the numbers. */
   buckets: [
-    { key: 'save', label: 'SAV', full: 'Savings', mult: 1, kind: 'goal', color: '#4E7FB8', colorLt: '#A9C8E8' },
-    { key: 'save', label: 'SAV', full: 'Savings', mult: 1, kind: 'goal', color: '#4E7FB8', colorLt: '#A9C8E8' },
-    { key: 'retire', label: 'RET', full: 'Retirement', mult: 5, kind: 'goal', color: '#FFC845', colorLt: '#FFE38A' },
-    { key: 'risk', label: 'RISK', full: 'Market Risk', mult: 0, kind: 'risk', color: '#EF4444', colorLt: '#FF8B8B' },
-    { key: 'edu', label: 'EDU', full: 'Education', mult: 2, kind: 'goal', color: '#3B8DD4', colorLt: '#9FD0FF' },
-    { key: 'home', label: 'HOME', full: 'Home', mult: 3, kind: 'goal', color: '#1E6BE0', colorLt: '#7FB6FF' },
-    { key: 'edu', label: 'EDU', full: 'Education', mult: 2, kind: 'goal', color: '#3B8DD4', colorLt: '#9FD0FF' },
-    { key: 'risk', label: 'RISK', full: 'Market Risk', mult: 0, kind: 'risk', color: '#EF4444', colorLt: '#FF8B8B' },
-    { key: 'retire', label: 'RET', full: 'Retirement', mult: 5, kind: 'goal', color: '#FFC845', colorLt: '#FFE38A' },
-    { key: 'save', label: 'SAV', full: 'Savings', mult: 1, kind: 'goal', color: '#4E7FB8', colorLt: '#A9C8E8' },
-    { key: 'save', label: 'SAV', full: 'Savings', mult: 1, kind: 'goal', color: '#4E7FB8', colorLt: '#A9C8E8' },
+    { key: 'save', label: 'SAV', full: 'Savings', mult: 1, kind: 'goal', color: '#547FAE', colorLt: '#BBD6F0' },
+    { key: 'save', label: 'SAV', full: 'Savings', mult: 1, kind: 'goal', color: '#547FAE', colorLt: '#BBD6F0' },
+    { key: 'retire', label: 'RET', full: 'Retirement', mult: 5, kind: 'goal', color: '#E0A21C', colorLt: '#FFD75E' },
+    { key: 'risk', label: 'RISK', full: 'Market Risk', mult: 0, kind: 'risk', color: '#EF4444', colorLt: '#FFA8A8' },
+    { key: 'edu', label: 'EDU', full: 'Education', mult: 2, kind: 'goal', color: '#1FA8B8', colorLt: '#6FE3F0' },
+    { key: 'home', label: 'HOME', full: 'Home', mult: 3, kind: 'goal', color: '#1E6BE0', colorLt: '#A8C8FF' },
+    { key: 'edu', label: 'EDU', full: 'Education', mult: 2, kind: 'goal', color: '#1FA8B8', colorLt: '#6FE3F0' },
+    { key: 'risk', label: 'RISK', full: 'Market Risk', mult: 0, kind: 'risk', color: '#EF4444', colorLt: '#FFA8A8' },
+    { key: 'retire', label: 'RET', full: 'Retirement', mult: 5, kind: 'goal', color: '#E0A21C', colorLt: '#FFD75E' },
+    { key: 'save', label: 'SAV', full: 'Savings', mult: 1, kind: 'goal', color: '#547FAE', colorLt: '#BBD6F0' },
+    { key: 'save', label: 'SAV', full: 'Savings', mult: 1, kind: 'goal', color: '#547FAE', colorLt: '#BBD6F0' },
   ],
 
   /* -- Board geometry -----------------------------------------------------

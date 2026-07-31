@@ -45,31 +45,81 @@ const SCREEN_CSS = `
 @keyframes ppNoDot {
   0%, 100% { opacity: 0; }
 }
-@keyframes ppChip { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes ppBarPulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+/* How-to-play demo: one 4.4s loop of the actual go/no-go. Beat one is a blue
+   premium contracting onto the badge — the touch dot meets it on the outline and
+   a gold PERFECT burst fires. Beat two is a red spiked temptation — the dot pulls
+   off the glass, the spikes pass through untouched and a green skip pulse pays.
+   Every track shares the 4.4s duration so nothing can drift out of sync. */
+@keyframes ppuBlue {
+  0%       { transform: scale(3.1); opacity: 0; }
+  5%       { opacity: 1; }
+  32%      { transform: scale(1);    opacity: 1; }
+  38%      { transform: scale(0.72); opacity: 0; }
+  100%     { transform: scale(0.72); opacity: 0; }
+}
+@keyframes ppuRed {
+  0%, 48%  { transform: scale(3.1) rotate(0deg);  opacity: 0; }
+  53%      { opacity: 1; }
+  80%      { transform: scale(1) rotate(26deg);   opacity: 1; }
+  88%      { transform: scale(0.3) rotate(34deg); opacity: 0; }
+  100%     { transform: scale(0.3) rotate(34deg); opacity: 0; }
+}
+@keyframes ppuBurst {
+  0%, 30%   { transform: scale(0.7);  opacity: 0; }
+  34%       { transform: scale(1.02); opacity: 1; }
+  46%, 100% { transform: scale(1.8);  opacity: 0; }
+}
+@keyframes ppuSkip {
+  0%, 82%   { transform: scale(0.6);  opacity: 0; }
+  87%       { transform: scale(1.05); opacity: 0.95; }
+  97%, 100% { transform: scale(1.5);  opacity: 0; }
+}
+@keyframes ppuBadge {
+  0%, 30%   { transform: scale(1); }
+  35%       { transform: scale(1.14); }
+  46%, 82%  { transform: scale(1); }
+  87%       { transform: scale(1.08); }
+  96%, 100% { transform: scale(1); }
+}
+@keyframes ppuFinger {
+  0%        { transform: translate(152px, 176px); }
+  26%, 36%  { transform: translate(100px, 100px); }
+  46%       { transform: translate(152px, 176px); }
+  56%, 92%  { transform: translate(176px, 186px); }
+  100%      { transform: translate(152px, 176px); }
+}
+@keyframes ppuTap {
+  0%, 29%   { transform: scale(0.4); opacity: 0; }
+  32%       { transform: scale(0.5); opacity: 0.95; }
+  42%, 100% { transform: scale(1.7); opacity: 0; }
+}
+@keyframes ppuNo { 0%, 50% { opacity: 0; } 56%, 88% { opacity: 1; } 94%, 100% { opacity: 0; } }
 
 .pp-ring-a { animation: ppRingIn 2.6s cubic-bezier(0.4,0,0.9,0.4) infinite; transform-origin: center; }
 .pp-ring-b { animation: ppRingIn 2.6s cubic-bezier(0.4,0,0.9,0.4) infinite 0.87s; transform-origin: center; }
 .pp-ring-c { animation: ppSpikeIn 2.6s cubic-bezier(0.4,0,0.9,0.4) infinite 1.74s; transform-origin: center; }
 .pp-badge  { animation: ppBadgePulse 1.3s ease-in-out infinite; transform-origin: center; }
 .pp-tapdot { animation: ppTapDot 2.6s ease-out infinite; transform-origin: center; }
-.pp-chip   { animation: ppChip 420ms ease-out both; }
 .pp-bar i  { animation: ppBarPulse 1.1s ease-in-out infinite; }
 .pp-bar i:nth-child(2) { animation-delay: 0.14s; }
 .pp-bar i:nth-child(3) { animation-delay: 0.28s; }
 .pp-bar i:nth-child(4) { animation-delay: 0.42s; }
 
-/* How-to beat demos */
-@keyframes ppDemoRing { 0% { r: 30; opacity: 0; } 12% { opacity: 1; } 76% { r: 11; opacity: 1; } 88%, 100% { r: 11; opacity: 0; } }
-@keyframes ppDemoHit  { 0%, 74% { opacity: 0; transform: scale(0.4); } 82% { opacity: 1; transform: scale(1.5); } 100% { opacity: 0; transform: scale(1.9); } }
-@keyframes ppDemoPass { 0% { r: 30; opacity: 0; } 12% { opacity: 1; } 76% { r: 11; opacity: 1; } 92%, 100% { r: 3; opacity: 0; } }
-.pp-demo-ring { animation: ppDemoRing 2.2s ease-in infinite; }
-.pp-demo-hit  { animation: ppDemoHit 2.2s ease-out infinite; transform-origin: center; }
-.pp-demo-pass { animation: ppDemoPass 2.2s ease-in infinite; }
+.ppu-blue   { animation: ppuBlue 4.4s cubic-bezier(0.35,0,0.7,0.6) infinite; transform-origin: center; }
+.ppu-red    { animation: ppuRed 4.4s cubic-bezier(0.35,0,0.7,0.6) infinite; transform-origin: center; }
+.ppu-burst  { animation: ppuBurst 4.4s ease-out infinite; transform-origin: center; }
+.ppu-skip   { animation: ppuSkip 4.4s ease-out infinite; transform-origin: center; }
+.ppu-badge  { animation: ppuBadge 4.4s ease-out infinite; transform-origin: 0 0; }
+.ppu-finger { animation: ppuFinger 4.4s cubic-bezier(0.4,0,0.2,1) infinite; }
+.ppu-tap    { animation: ppuTap 4.4s ease-out infinite; transform-origin: 0 0; }
+.ppu-no     { animation: ppuNo 4.4s ease-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .pp-ring-a, .pp-ring-b, .pp-ring-c, .pp-badge, .pp-tapdot, .pp-chip,
-  .pp-bar i, .pp-demo-ring, .pp-demo-hit, .pp-demo-pass {
+  .pp-ring-a, .pp-ring-b, .pp-ring-c, .pp-badge, .pp-tapdot,
+  .pp-bar i, .ppu-blue, .ppu-red, .ppu-burst, .ppu-skip, .ppu-badge,
+  .ppu-finger, .ppu-tap, .ppu-no {
     animation-duration: 1ms !important; animation-iteration-count: 1 !important;
   }
 }
@@ -431,52 +481,129 @@ function spikePath(cx, cy, outer, inner, spikes) {
 }
 
 /* ═══════════════════════════════════════════════════════ */
-function Beat({ n, title, copy, children }) {
+/**
+ * The whole tutorial, animated: the shipping arena at rest, running one blue
+ * premium and one red temptation. Same badge, same ring colours, same hit
+ * outline as PremiumPulseGame.jsx — a touch dot meets the blue ring exactly on
+ * the outline (gold PERFECT burst, badge kicks), then lifts off the glass while
+ * the red spiked ring passes through untouched (green skip pulse). One 4.4 s
+ * loop, no words needed.
+ */
+function DemoArena() {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 12,
-      padding: '9px 11px',
-      borderRadius: 14,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.10)',
-      textAlign: 'left',
-    }}>
-      <div style={{ flex: '0 0 74px', display: 'flex', justifyContent: 'center' }}>{children}</div>
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>
-          <span style={{ color: ORANGE_LT, marginRight: 6 }}>{n}.</span>
-          {title}
-        </div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.66)', lineHeight: 1.35, marginTop: 2 }}>
-          {copy}
-        </div>
-      </div>
-    </div>
-  );
-}
+    <svg width="228" height="228" viewBox="0 0 200 200" aria-hidden="true">
+      <defs>
+        <linearGradient id="ppuBadgeGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={ORANGE_LT} />
+          <stop offset="55%" stopColor={ORANGE} />
+          <stop offset="100%" stopColor="#B3400E" />
+        </linearGradient>
+        <radialGradient id="ppuArena" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stopColor="rgba(0,91,172,0.35)" />
+          <stop offset="100%" stopColor="rgba(3,16,42,0)" />
+        </radialGradient>
+      </defs>
 
-/** Shared mini-arena for the how-to-play beats. */
-function DemoArena({ children }) {
-  return (
-    <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-      <circle cx="37" cy="31" r="27" fill="none" stroke="rgba(190,224,255,0.10)" strokeWidth="0.8" />
-      <circle cx="37" cy="31" r="19" fill="none" stroke="rgba(190,224,255,0.08)" strokeWidth="0.8" />
-      <circle cx="37" cy="31" r="11" fill="none" stroke={ORANGE_LT} strokeWidth="1.2" opacity="0.75" />
-      {children}
-      <g transform="translate(37,31)">
-        <path d="M0 -7.5 6 -5v6c0 4.4-3 7.6-6 9.2-3-1.6-6-4.8-6-9.2v-6z"
-          fill={ORANGE} stroke="rgba(255,255,255,0.4)" strokeWidth="0.7" />
-        <path d="m-2.6 0.4 2 2 3.8-4.2" fill="none" stroke="#fff" strokeWidth="1.4"
-          strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="100" cy="100" r="96" fill="url(#ppuArena)" />
+
+      {/* Approach guides — the same faint rings the canvas draws */}
+      <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(190,224,255,0.09)" strokeWidth="1" />
+      <circle cx="100" cy="100" r="60" fill="none" stroke="rgba(190,224,255,0.08)" strokeWidth="1" />
+
+      {/* Hit outline: the ring must be met HERE */}
+      <circle cx="100" cy="100" r="30" fill="none" stroke={ORANGE_LT} strokeWidth="1.6"
+        strokeDasharray="4 4" opacity="0.8" />
+
+      {/* Correct-skip pulse when the temptation passes through */}
+      <circle className="ppu-skip" cx="100" cy="100" r="36" fill="none" stroke={GREEN_LT} strokeWidth="3" />
+
+      {/* PERFECT burst on the tap */}
+      <circle className="ppu-burst" cx="100" cy="100" r="34" fill="none" stroke={GOLD_LT} strokeWidth="3.2" />
+
+      {/* Beat one — the premium falling due */}
+      <circle className="ppu-blue" cx="100" cy="100" r="30" fill="none" stroke={BLUE_LT} strokeWidth="4"
+        style={{ filter: 'drop-shadow(0 0 4px rgba(59,141,212,0.7))' }} />
+
+      {/* Beat two — the impulse buy */}
+      <path className="ppu-red" d={spikePath(100, 100, 30, 23, 14)} fill="none" stroke={DANGER}
+        strokeWidth="3.4" strokeLinejoin="miter" />
+
+      {/* The policy badge at the centre — you */}
+      <g transform="translate(100,100)">
+        <g className="ppu-badge">
+          <g transform="scale(1.05) translate(-24,-24)">
+            <path d="M24 6 38 11v12c0 9-6 15.5-14 19-8-3.5-14-10-14-19V11z"
+              fill="url(#ppuBadgeGrad)" stroke="rgba(255,255,255,0.45)" strokeWidth="1.4" />
+            <path d="m18 23 4.4 4.4L31 18" fill="none" stroke="#fff" strokeWidth="3.2"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        </g>
+      </g>
+
+      {/* Touch dot: meets the blue ring, then pulls away for the red one */}
+      <g className="ppu-finger">
+        <g className="ppu-tap">
+          <circle cx="0" cy="0" r="15" fill="none" stroke="#fff" strokeWidth="2.6" />
+        </g>
+        <circle cx="0" cy="0" r="9" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.3)" strokeWidth="1" />
+        <g className="ppu-no" transform="translate(0,-24)">
+          <circle cx="0" cy="0" r="9" fill="rgba(3,16,42,0.85)" stroke={DANGER} strokeWidth="2.4" />
+          <line x1="-5" y1="5" x2="5" y2="-5" stroke={DANGER} strokeWidth="2.4" strokeLinecap="round" />
+        </g>
       </g>
     </svg>
   );
 }
 
+function BlueRingGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="none" stroke={BLUE_LT} strokeWidth="2" opacity="0.5" />
+      <circle cx="12" cy="12" r="5.5" fill="none" stroke={BLUE_LT} strokeWidth="2.4" />
+      <circle cx="12" cy="12" r="2" fill={ORANGE} />
+    </svg>
+  );
+}
+
+function SpikeGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <path d={spikePath(12, 12, 10, 6.5, 9)} fill="none" stroke={DANGER} strokeWidth="2"
+        strokeLinejoin="miter" />
+      <circle cx="12" cy="12" r="2" fill={ORANGE} />
+    </svg>
+  );
+}
+
+function StreakGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M13 2c1 4-3 5-3 8a3 3 0 0 0 6 0c2 2 3 4 3 6a7 7 0 0 1-14 0C5 10 11 8 13 2z"
+        fill={ORANGE} stroke={GOLD_LT} strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** icon + one short label. The only words allowed on this screen. */
+function Cue({ icon, word }) {
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+      padding: '9px 4px', borderRadius: 13,
+      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+    }}>
+      {icon}
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em',
+        color: 'rgba(255,255,255,0.82)', textAlign: 'center', lineHeight: 1.1,
+      }}>
+        {word}
+      </span>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
-  const cfg = GAME_CONFIG;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -490,9 +617,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -501,108 +628,27 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(3,16,42,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '18px 16px 16px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 340,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
           letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Tap the blue &middot; Skip the red &middot; Stay on the beat
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Meet the premium" copy="A blue ring closes on the badge. Tap the moment it touches the outline.">
-            <DemoArena>
-              <circle className="pp-demo-ring" cx="37" cy="31" r="30" fill="none" stroke={BLUE_LT} strokeWidth="2.2" />
-              <circle className="pp-demo-hit" cx="37" cy="31" r="12" fill="none" stroke={GOLD_LT} strokeWidth="1.8" />
-            </DemoArena>
-          </Beat>
+        <DemoArena />
 
-          <Beat n="2" title="Let the spikes pass" copy="Red spiked rings are impulse buys. Touch one and the beat is broken; ignore it and it pays.">
-            <DemoArena>
-              <path className="pp-demo-pass" d={spikePath(37, 31, 26, 21, 12)}
-                fill="none" stroke={DANGER} strokeWidth="1.8" strokeLinejoin="miter" />
-            </DemoArena>
-          </Beat>
-
-          <Beat n="3" title="Keep the streak" copy="Every clean beat builds the combo. Ten in a row doubles a PERFECT, twenty triples it.">
-            <DemoArena>
-              <circle className="pp-demo-ring" cx="37" cy="31" r="30" fill="none" stroke={GOLD} strokeWidth="2.2" />
-              <g className="pp-demo-hit" transform="translate(37,31)">
-                <circle r="14" fill="none" stroke={ORANGE_LT} strokeWidth="1.6" />
-                <circle r="18" fill="none" stroke={GOLD_LT} strokeWidth="1" opacity="0.7" />
-              </g>
-            </DemoArena>
-          </Beat>
-        </div>
-
-        {/* The two rules a player most often learns the hard way. 4.04 of the
-            5.72 misses in an average run come from a tap that was mistimed or
-            aimed at nothing, so saying so up front is worth more than any other
-            sentence on this screen. The one-finger note is a real constraint:
-            the shared input kit tracks a single pointer and ignores a second
-            finger's pointerdown while the first is down. */}
-        <p style={{
-          fontSize: 11.5,
-          fontWeight: 700,
-          color: '#fff',
-          background: 'rgba(239,68,68,0.14)',
-          border: '1px solid rgba(239,68,68,0.34)',
-          borderRadius: 12,
-          padding: '9px 11px',
-          margin: '0 0 12px 0',
-          lineHeight: 1.45,
-          textAlign: 'left',
-        }}>
-          <strong style={{ color: DANGER }}>A miss is any tap that isn&rsquo;t on a blue ring.</strong>{' '}
-          Too early, too late, on a red ring, or on nothing at all &mdash; they all cost you one.
-          Missing a blue ring entirely costs one too.{' '}
-          <strong style={{ color: '#fff' }}>Use one finger:</strong> a second finger on the glass is ignored
-          while the first is down.
-        </p>
-
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>Three movements, 96 &rarr; 126 BPM.</strong> Reach{' '}
-          <strong style={{ color: GOLD }}>{cfg.targetScore.toLocaleString()}</strong> points to win &mdash;{' '}
-          <strong style={{ color: DANGER }}>{cfg.maxMisses}</strong> missed beats and the cover lapses. Every 8th beat
-          is a <strong style={{ color: GOLD_LT }}>bonus double</strong>: two premiums, half a beat apart.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {[
-            { k: 'p', label: `Perfect ≤${cfg.judge.perfectMs}ms +${cfg.scoring.perfect}`, color: GOLD_LT },
-            { k: 'g', label: `Good ≤${cfg.judge.goodMs}ms +${cfg.scoring.good}`, color: BLUE_PALE },
-            { k: 's', label: `Skipped temptation +${cfg.scoring.redAvoided}`, color: GREEN_LT },
-            { k: 'c', label: 'Combo up to x3', color: ORANGE_LT },
-          ].map((c, i) => (
-            <span
-              key={c.k}
-              className="pp-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: c.color,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {c.label}
-            </span>
-          ))}
+        <div style={{ display: 'flex', gap: 7, margin: '8px 0 12px' }}>
+          <Cue icon={<BlueRingGlyph />} word="TAP THE BLUE" />
+          <Cue icon={<SpikeGlyph />} word="SKIP THE RED" />
+          <Cue icon={<StreakGlyph />} word="KEEP THE STREAK" />
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

@@ -1,79 +1,180 @@
 import React, { useState } from "react";
 import HowToPlayPopup from "./HowToPlayPopup";
+import { CoinIcon, GustIcon, ShieldIcon } from "./Icons";
 
 interface Props {
   onPlay: () => void;
 }
+
+const LEGEND: { icon: React.ReactNode; label: string }[] = [
+  { icon: <CoinIcon size={20} />, label: "Collect" },
+  { icon: <ShieldIcon size={20} />, label: "Shield" },
+  { icon: <GustIcon size={20} />, label: "Avoid" },
+];
 
 const IntroScreen: React.FC<Props> = ({ onPlay }) => {
   const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   return (
     <div
-      className="relative flex h-full w-full flex-col justify-between px-6 py-8"
+      className="tp-screen relative flex h-full w-full flex-col justify-between"
       style={{
+        padding: "var(--s8) var(--s6) var(--s6)",
         backgroundImage: "url('/landing_bg.svg')",
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
     >
-      {/* Top and Bottom gradient vignette */}
+      {/* Vignette keeps the type on quiet ground */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(3, 15, 38, 0.85) 0%, rgba(3, 15, 38, 0.4) 15%, rgba(3, 15, 38, 0) 32%, rgba(3, 15, 38, 0) 68%, rgba(3, 15, 38, 0.4) 85%, rgba(3, 15, 38, 0.85) 100%)",
+            "linear-gradient(to bottom, rgba(3,9,19,0.88) 0%, rgba(4,18,43,0.35) 22%, rgba(4,18,43,0) 44%, rgba(4,18,43,0.55) 76%, rgba(1,4,10,0.94) 100%)",
         }}
       />
 
-      {/* Top Glassmorphic Card */}
-      <div className="relative z-10 flex flex-col items-center pt-4 pb-5 px-6 bg-[#030F26]/80 border border-white/10 rounded-2xl backdrop-blur-md shadow-2xl max-w-[320px] mx-auto text-center pop">
-        <div className="mb-2.5 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-[#00AEEF] bg-[#00AEEF]/15 border border-[#00AEEF]/30 rounded-full">
-          Bajaj Allianz Life Insurance
+      {/* ── Title card ── */}
+      <div
+        className="pop tp-glass relative z-10 mx-auto w-full text-center"
+        style={{ maxWidth: 320, padding: "var(--s5) var(--s5) var(--s6)" }}
+      >
+        <div
+          className="mx-auto mb-3 inline-flex items-center rounded-full"
+          style={{
+            padding: "5px var(--s3)",
+            fontSize: 9,
+            fontWeight: 900,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "#FFB988",
+            background: "rgba(242,101,34,0.14)",
+            border: "1px solid rgba(242,101,34,0.42)",
+          }}
+        >
+          Bajaj Allianz Life
         </div>
-        <h2 className="text-[10px] font-bold tracking-[0.1em] text-blue-200/90 uppercase mb-3.5">
-          Flat Ground Runner • Secure Your Future
-        </h2>
-        <h1 className="font-black tracking-tight leading-none text-white text-[1.8rem]">
-          GROUND
+
+        <h1
+          style={{
+            fontSize: 32,
+            fontWeight: 900,
+            lineHeight: 0.94,
+            letterSpacing: "-0.03em",
+            color: "#fff",
+            textTransform: "uppercase",
+            textShadow: "0 2px 12px rgba(0,0,0,0.6)",
+          }}
+        >
+          Tightrope
           <br />
-          <span className="bg-gradient-to-r from-[#00AEEF] via-[#22C55E] to-[#00AEEF] bg-clip-text text-transparent">
-            PROTECTION
-          </span>
-        </h1>
-      </div>
-
-      {/* Spacer */}
-      <div className="flex-1 min-h-[140px]" />
-
-      {/* Footer Controls */}
-      <div className="relative z-10 flex flex-col gap-4 items-center pb-2 w-full">
-        <div className="w-full max-w-[320px] bg-[#030F26]/75 border border-white/10 rounded-2xl p-4 backdrop-blur-md shadow-2xl text-center">
-          <p className="text-[10.5px] font-bold text-blue-100/90 leading-relaxed mb-3">
-            Run on flat ground! Dodge Green Virus risks, collect protection shields, and secure your financial goals.
-          </p>
-
-          <button
-            onClick={() => setShowHowToPlay(true)}
-            className="btn-press w-full rounded-xl py-3.5 text-xs font-black uppercase tracking-wider text-white shadow-[0_6px_24px_rgba(34,197,94,0.45)] transition-all"
+          <span
             style={{
-              background: "linear-gradient(135deg, #22C55E 0%, #16A34A 100%)",
-              textShadow: "0 1px 2px rgba(0,0,0,0.2)",
+              background: "linear-gradient(100deg,#FFB988 0%,#F26522 55%,#FF8A45 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
             }}
           >
-            Play Game
-          </button>
+            Protection
+          </span>
+        </h1>
+
+        {/* Rope rule — the shape motif, not a divider */}
+        <div className="relative mx-auto mt-4" style={{ width: 168, height: 10 }}>
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 4,
+              height: 3,
+              borderRadius: 2,
+              background:
+                "linear-gradient(90deg,rgba(242,101,34,0) 0%,#F26522 30%,#FFB988 50%,#F26522 70%,rgba(242,101,34,0) 100%)",
+            }}
+          />
+          <span
+            className="float"
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 0,
+              width: 11,
+              height: 11,
+              marginLeft: -5.5,
+              borderRadius: "50%",
+              background: "#FFC845",
+              boxShadow: "0 0 12px rgba(255,200,69,0.8)",
+            }}
+          />
         </div>
 
-        <span
-          className="text-[9px] text-blue-200/50 uppercase tracking-widest font-bold"
-          style={{ textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}
+        <p
+          style={{
+            marginTop: "var(--s4)",
+            fontSize: 12,
+            fontWeight: 700,
+            lineHeight: 1.5,
+            color: "var(--tp-text-2)",
+          }}
         >
-          Flat Ground Protection Runner
+          Cross the wire. Dodge the gusts.
+          <br />
+          Keep your cover intact.
+        </p>
+      </div>
+
+      <div className="flex-1" style={{ minHeight: 96 }} />
+
+      {/* ── Footer ── */}
+      <div
+        className="rise relative z-10 mx-auto flex w-full flex-col items-center"
+        style={{ maxWidth: 320, gap: "var(--s4)" }}
+      >
+        {/* Icon legend — no sentences */}
+        <div
+          className="tp-glass flex w-full items-center justify-around"
+          style={{ padding: "var(--s3) var(--s2)", borderRadius: "var(--tp-r)" }}
+        >
+          {LEGEND.map((l) => (
+            <div key={l.label} className="flex flex-col items-center" style={{ gap: 5 }}>
+              {l.icon}
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 900,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--tp-text-2)",
+                }}
+              >
+                {l.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={() => setShowHowToPlay(true)}
+          className="btn-press tp-btn tp-btn-rope pulse-cta"
+        >
+          Play Game
+        </button>
+
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 800,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "var(--tp-text-3)",
+          }}
+        >
+          Balance · Cover · Arrive
         </span>
       </div>
 
-      {/* Tutorial Popup Modal */}
       {showHowToPlay && (
         <HowToPlayPopup
           onStart={() => {

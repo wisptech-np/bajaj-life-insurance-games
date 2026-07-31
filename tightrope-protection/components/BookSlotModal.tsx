@@ -1,5 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { updateLeadNew, submitToLMS } from '../services/api';
+import { CloseIcon } from './Icons';
+
+const fieldLabel: React.CSSProperties = {
+  display: 'block',
+  fontSize: 9.5,
+  fontWeight: 900,
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  color: 'var(--tp-text-2)',
+  marginBottom: 5,
+};
+
+const fieldError: React.CSSProperties = {
+  fontSize: 10.5,
+  fontWeight: 700,
+  color: '#FF6B84',
+  marginTop: 5,
+};
 
 interface Props {
   name: string;
@@ -172,108 +190,147 @@ const BookSlotModal: React.FC<Props> = ({ name, mobile, onClose, onBookSuccess }
   };
 
   return (
-    <div className="absolute inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-      {/* Modal Container */}
-      <div className="relative w-full max-w-[360px] bg-[#061939] border border-white/10 rounded-2xl p-6 shadow-2xl">
-        
-        {/* Header */}
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-black text-[#00AEEF] uppercase tracking-wider">Book a Consultation</h3>
-          <button 
-            type="button" 
-            onClick={onClose} 
-            className="text-blue-300/40 hover:text-white text-lg font-bold"
+    <div
+      className="absolute inset-0 z-[120] flex items-center justify-center"
+      style={{
+        background: 'rgba(1,4,10,0.72)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        padding: 'var(--s4)',
+      }}
+    >
+      <div
+        className="pop tp-glass relative w-full"
+        style={{
+          maxWidth: 340,
+          padding: 'var(--s5)',
+          background: 'rgba(7,27,62,0.92)',
+          maxHeight: '92%',
+          overflowY: 'auto',
+        }}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: '#F26522',
+            }}
           >
-            ✕
+            Book a Consultation
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="btn-press flex items-center justify-center"
+            style={{ width: 44, height: 44, marginRight: -12, background: 'transparent' }}
+          >
+            <CloseIcon size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleBooking} className="space-y-3.5">
-          {/* Name input */}
-          <div className="space-y-0.5">
-            <label className="text-[9px] font-black uppercase text-blue-200">Name</label>
+        <form onSubmit={handleBooking} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s3)' }}>
+          <div>
+            <label htmlFor="bs-name" style={fieldLabel}>Name</label>
             <input
+              id="bs-name"
               type="text"
               value={custName}
               onChange={(e) => { setCustName(e.target.value); setNameError(''); }}
-              className="w-full bg-[#051736] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-blue-300/20 focus:border-[#00AEEF] focus:outline-none"
+              className="tp-field"
+              style={{ height: 44 }}
             />
-            {nameError && <p className="text-[9px] font-bold text-red-400">{nameError}</p>}
+            {nameError && <p style={fieldError}>{nameError}</p>}
           </div>
 
-          {/* Mobile input */}
-          <div className="space-y-0.5">
-            <label className="text-[9px] font-black uppercase text-blue-200">Mobile</label>
+          <div>
+            <label htmlFor="bs-mobile" style={fieldLabel}>Mobile</label>
             <input
+              id="bs-mobile"
               type="tel"
+              inputMode="numeric"
               value={custMobile}
               onChange={(e) => { setCustMobile(e.target.value.replace(/\D/g, '').slice(0, 10)); setMobileError(''); }}
-              className="w-full bg-[#051736] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-blue-300/20 focus:border-[#00AEEF] focus:outline-none"
+              className="tp-field"
+              style={{ height: 44 }}
             />
-            {mobileError && <p className="text-[9px] font-bold text-red-400">{mobileError}</p>}
+            {mobileError && <p style={fieldError}>{mobileError}</p>}
           </div>
 
-          {/* Preferred Date */}
-          <div className="space-y-0.5">
-            <label className="text-[9px] font-black uppercase text-blue-200">Preferred Date</label>
+          <div>
+            <label htmlFor="bs-date" style={fieldLabel}>Preferred Date</label>
             <input
+              id="bs-date"
               type="date"
               value={date}
               min={todayStr}
               max={maxDateStr}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-[#051736] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#00AEEF] focus:outline-none"
+              className="tp-field"
+              style={{ height: 44 }}
             />
           </div>
 
-          {/* Preferred Time Slot */}
-          <div className="space-y-0.5">
-            <label className="text-[9px] font-black uppercase text-blue-200">Preferred Time Slot</label>
+          <div>
+            <label htmlFor="bs-slot" style={fieldLabel}>Preferred Time Slot</label>
             {availableSlots.length > 0 ? (
               <select
+                id="bs-slot"
                 value={selectedSlot}
                 onChange={(e) => setSelectedSlot(e.target.value)}
-                className="w-full bg-[#051736] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#00AEEF] focus:outline-none"
+                className="tp-field"
+                style={{ height: 44 }}
               >
                 {availableSlots.map(slot => (
-                  <option key={slot} value={slot}>{slot}</option>
+                  <option key={slot} value={slot} style={{ background: '#071B3E' }}>{slot}</option>
                 ))}
               </select>
             ) : (
-              <div className="w-full bg-[#051736] border border-red-500/30 text-red-400 rounded-lg px-3 py-2 text-xs font-bold text-center">
+              <div
+                style={{
+                  height: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 'var(--tp-r)',
+                  border: '1px solid rgba(255,107,132,0.4)',
+                  color: '#FF6B84',
+                  fontSize: 12.5,
+                  fontWeight: 800,
+                }}
+              >
                 No slots available for today
               </div>
             )}
-            {slotError && <p className="text-[9px] font-bold text-red-400">{slotError}</p>}
+            {slotError && <p style={fieldError}>{slotError}</p>}
           </div>
 
-          {/* Consent Checkbox */}
-          <div className="pt-1">
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => {
-                  setAgreed(e.target.checked);
-                  if (e.target.checked) setConsentError('');
-                }}
-                className="mt-0.5 rounded border-white/10 bg-[#051736] text-[#00AEEF] w-3.5 h-3.5 cursor-pointer"
-              />
-              <span className="text-[9px] text-blue-200/50 leading-relaxed text-left">
-                Authorize Bajaj Life Insurance to call me back regarding my request.
-              </span>
-            </label>
-            {consentError && <p className="text-[9px] font-bold text-red-400">{consentError}</p>}
-          </div>
+          <label className="flex cursor-pointer items-start" style={{ gap: 9, marginTop: 2 }}>
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => {
+                setAgreed(e.target.checked);
+                if (e.target.checked) setConsentError('');
+              }}
+              style={{ marginTop: 1, width: 17, height: 17, accentColor: '#F26522', flexShrink: 0, cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--tp-text-3)', textAlign: 'left' }}>
+              Authorize Bajaj Life Insurance to call me back regarding my request.
+            </span>
+          </label>
+          {consentError && <p style={fieldError}>{consentError}</p>}
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={isSubmitting || (date === todayStr && availableSlots.length === 0)}
-            className="btn-press w-full rounded-xl py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg transition-all flex items-center justify-center gap-1.5"
-            style={{ background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)' }}
+            className="btn-press tp-btn tp-btn-green"
+            style={{ marginTop: 'var(--s2)', opacity: isSubmitting ? 0.7 : 1 }}
           >
-            {isSubmitting ? 'Booking...' : 'Confirm Slot'}
+            {isSubmitting ? 'Booking…' : 'Confirm Slot'}
           </button>
         </form>
       </div>

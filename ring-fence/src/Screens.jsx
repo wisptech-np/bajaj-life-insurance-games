@@ -260,6 +260,230 @@ export function HomeScreen({ onStart }) {
   );
 }
 
+/* ─── How to play ────────────────────────────────────────── */
+/* One 6s loop of a real claim on a miniature of the shipping field: the guardian
+   rides the safety wall, a dragging finger pulls it off into open ground, the
+   orange trail grows up / right / down, touching the wall seals the cut, and the
+   pocket floods blue left-to-right the way the 900 px/s colour wave does — while
+   two green risk orbs bounce in the ground that is still open. Same wall blue,
+   same trail orange, same virus orb sprite as RingFenceGame.jsx. */
+const HTP_CSS = `
+@keyframes rfGuard {
+  0%, 8%    { transform: translate(44px, 190px); }
+  30%       { transform: translate(44px, 60px); }
+  52%       { transform: translate(130px, 60px); }
+  72%, 94%  { transform: translate(130px, 190px); }
+  100%      { transform: translate(44px, 190px); }
+}
+@keyframes rfFinger {
+  0%, 6%    { transform: translate(44px, 196px); opacity: 0; }
+  12%       { transform: translate(44px, 178px); opacity: 1; }
+  33%       { transform: translate(44px, 74px);  opacity: 1; }
+  56%       { transform: translate(122px, 66px); opacity: 1; }
+  76%       { transform: translate(130px, 182px); opacity: 1; }
+  83%, 100% { transform: translate(130px, 194px); opacity: 0; }
+}
+@keyframes rfPress {
+  0%, 8%    { transform: scale(0.5); opacity: 0; }
+  13%       { transform: scale(1.1); opacity: 0.9; }
+  76%       { transform: scale(1.1); opacity: 0.9; }
+  84%, 100% { transform: scale(1.7); opacity: 0; }
+}
+@keyframes rfTrailV1 {
+  0%, 8%    { transform: scaleY(0); opacity: 1; }
+  30%, 74%  { transform: scaleY(1); opacity: 1; }
+  81%, 100% { transform: scaleY(1); opacity: 0; }
+}
+@keyframes rfTrailH {
+  0%, 30%   { transform: scaleX(0); opacity: 1; }
+  52%, 74%  { transform: scaleX(1); opacity: 1; }
+  81%, 100% { transform: scaleX(1); opacity: 0; }
+}
+@keyframes rfTrailV2 {
+  0%, 52%   { transform: scaleY(0); opacity: 1; }
+  72%, 74%  { transform: scaleY(1); opacity: 1; }
+  81%, 100% { transform: scaleY(1); opacity: 0; }
+}
+@keyframes rfFlood {
+  0%, 72%   { transform: scaleX(0); opacity: 0.95; }
+  81%, 94%  { transform: scaleX(1); opacity: 0.95; }
+  99%, 100% { transform: scaleX(1); opacity: 0; }
+}
+@keyframes rfNewWall {
+  0%, 76%   { opacity: 0; }
+  83%, 94%  { opacity: 1; }
+  99%, 100% { opacity: 0; }
+}
+@keyframes rfOrbA {
+  0%   { transform: translate(30px, 28px); }
+  26%  { transform: translate(92px, 48px); }
+  52%  { transform: translate(152px, 24px); }
+  78%  { transform: translate(98px, 47px); }
+  100% { transform: translate(30px, 28px); }
+}
+@keyframes rfOrbB {
+  0%   { transform: translate(28px, 78px); }
+  32%  { transform: translate(37px, 168px); }
+  64%  { transform: translate(23px, 108px); }
+  100% { transform: translate(28px, 78px); }
+}
+
+.rf-guard    { animation: rfGuard 6s linear infinite; }
+.rf-finger   { animation: rfFinger 6s linear infinite; }
+.rf-press    { animation: rfPress 6s ease-out infinite; transform-origin: 0 0; }
+.rf-trail-v1 { animation: rfTrailV1 6s linear infinite; transform-origin: 44px 190px; }
+.rf-trail-h  { animation: rfTrailH 6s linear infinite; transform-origin: 44px 60px; }
+.rf-trail-v2 { animation: rfTrailV2 6s linear infinite; transform-origin: 130px 60px; }
+.rf-flood    { animation: rfFlood 6s cubic-bezier(0.2,0.8,0.3,1) infinite; transform-origin: 45px 0; }
+.rf-newwall  { animation: rfNewWall 6s ease-out infinite; }
+.rf-orb-a    { animation: rfOrbA 4.1s linear infinite; }
+.rf-orb-b    { animation: rfOrbB 3.3s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .rf-guard, .rf-finger, .rf-press, .rf-trail-v1, .rf-trail-h, .rf-trail-v2,
+  .rf-flood, .rf-newwall, .rf-orb-a, .rf-orb-b { animation: none !important; }
+}
+`;
+
+/** The green virus risk orb, same sprite the canvas draws. */
+function Orb({ className }) {
+  return (
+    <g className={className}>
+      <circle cx="0" cy="0" r="6" fill={COLORS.virus} />
+      <path d="M-7,0 L7,0 M0,-7 L0,7 M-5,-5 L5,5 M-5,5 L5,-5"
+        stroke={COLORS.virus} strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="0" cy="0" r="2.8" fill={COLORS.virusDeep} />
+    </g>
+  );
+}
+
+function DemoField() {
+  return (
+    <svg width="216" height="240" viewBox="0 0 180 200" aria-hidden="true">
+      <defs>
+        <linearGradient id="rfFloodGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="rgba(30,107,224,0.62)" />
+          <stop offset="100%" stopColor="rgba(0,61,166,0.45)" />
+        </linearGradient>
+        <clipPath id="rfClip"><rect x="4" y="4" width="172" height="192" rx="10" /></clipPath>
+      </defs>
+
+      <rect x="4" y="4" width="172" height="192" rx="10" fill="rgba(6,18,41,0.75)" />
+
+      <g clipPath="url(#rfClip)">
+        {/* The safety wall: a claimed frame two cells thick */}
+        <rect x="10" y="10" width="160" height="180" fill="none" stroke={COLORS.wall} strokeWidth="12"
+          opacity="0.55" />
+        <rect x="10" y="10" width="160" height="180" fill="none" stroke={COLORS.blueLt} strokeWidth="2"
+          opacity="0.9" style={{ filter: 'drop-shadow(0 0 4px rgba(127,192,255,0.7))' }} />
+
+        {/* The pocket, flooding left to right at the seal */}
+        <g className="rf-flood">
+          <rect x="45" y="61" width="84" height="123" fill="url(#rfFloodGrad)" />
+        </g>
+
+        {/* The cut, become wall */}
+        <g className="rf-newwall">
+          <path d="M44 190 L44 60 L130 60 L130 190" fill="none" stroke={COLORS.wall} strokeWidth="5"
+            strokeLinejoin="round" style={{ filter: 'drop-shadow(0 0 5px rgba(59,141,212,0.9))' }} />
+        </g>
+
+        {/* Risk orbs, bouncing in the ground that is still open */}
+        <Orb className="rf-orb-a" />
+        <Orb className="rf-orb-b" />
+
+        {/* The live trail */}
+        <g className="rf-trail-v1">
+          <rect x="42.5" y="60" width="3" height="130" fill={COLORS.orangeBright}
+            style={{ filter: 'drop-shadow(0 0 4px rgba(255,138,61,0.95))' }} />
+        </g>
+        <g className="rf-trail-h">
+          <rect x="44" y="58.5" width="86" height="3" fill={COLORS.orangeBright}
+            style={{ filter: 'drop-shadow(0 0 4px rgba(255,138,61,0.95))' }} />
+        </g>
+        <g className="rf-trail-v2">
+          <rect x="128.5" y="60" width="3" height="130" fill={COLORS.orangeBright}
+            style={{ filter: 'drop-shadow(0 0 4px rgba(255,138,61,0.95))' }} />
+        </g>
+
+        {/* The finger, dragging the guardian off the wall and back to it */}
+        <g className="rf-finger">
+          <g className="rf-press">
+            <circle cx="0" cy="0" r="13" fill="none" stroke="#fff" strokeWidth="2.2" />
+          </g>
+          <circle cx="0" cy="0" r="8" fill="rgba(255,255,255,0.5)" stroke="#fff" strokeWidth="1.6" />
+        </g>
+
+        {/* The guardian */}
+        <g className="rf-guard">
+          <g transform="scale(0.85) translate(-10,-10)">
+            <path d="M10,1.5 C14,3 17,5.5 17,9 C17,13.5 13.8,16.8 10,18.5 C6.2,16.8 3,13.5 3,9 C3,5.5 6,3 10,1.5 Z"
+              fill={COLORS.blueBright} stroke="#fff" strokeWidth="1.6"
+              style={{ filter: 'drop-shadow(0 0 5px rgba(127,192,255,0.95))' }} />
+            <circle cx="10" cy="10" r="3" fill="#fff" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function DragGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="9" cy="15" r="4.2" fill="rgba(255,255,255,0.55)" stroke="#fff" strokeWidth="1.4" />
+      <path d="M9 10.5 V4" stroke={COLORS.orangeBright} strokeWidth="2" strokeLinecap="round" />
+      <path d="M6.4 6 L9 3 L11.6 6" fill="none" stroke={COLORS.orangeBright} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13.5 15 H20" stroke={COLORS.orangeBright} strokeWidth="2" strokeLinecap="round" />
+      <path d="M17.5 12.4 L20.5 15 L17.5 17.6" fill="none" stroke={COLORS.orangeBright} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ClaimGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke={COLORS.wall} strokeWidth="2.4" />
+      <rect x="6" y="6" width="12" height="12" rx="1.5" fill="rgba(30,107,224,0.6)" />
+      <path d="m8.5 12 2.6 2.6L16 9.6" fill="none" stroke="#fff" strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function OrbGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <g transform="translate(12,12)">
+        <circle cx="0" cy="0" r="6.5" fill={COLORS.virus} />
+        <path d="M-9,0 L9,0 M0,-9 L0,9 M-6.4,-6.4 L6.4,6.4 M-6.4,6.4 L6.4,-6.4"
+          stroke={COLORS.virus} strokeWidth="1.8" strokeLinecap="round" />
+        <circle cx="0" cy="0" r="3" fill={COLORS.virusDeep} />
+      </g>
+    </svg>
+  );
+}
+
+/** icon + one short label. The only words allowed on this screen. */
+function Cue({ icon, word }) {
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+      padding: '9px 4px', borderRadius: 13,
+      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+    }}>
+      {icon}
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em',
+        color: 'rgba(255,255,255,0.82)', textAlign: 'center', lineHeight: 1.1,
+      }}>
+        {word}
+      </span>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
   return (
     <motion.div
@@ -274,136 +498,43 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: HTP_CSS }} />
+
       <div style={{
         background: 'rgba(0, 30, 70, 0.65)',
         border: '1px solid rgba(255, 255, 255, 0.14)',
         borderRadius: 24,
-        padding: '30px 24px 24px',
+        padding: '18px 16px 16px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 340,
         boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 26,
+          fontSize: 24,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 20px 0',
+          margin: '0 0 8px 0',
           color: '#fff',
           textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           How to Play
         </h2>
 
-        {/* CSS animation demo: cut out from the wall, seal, the pocket floods */}
-        <div style={{
-          position: 'relative',
-          width: '100%',
-          height: 180,
-          background: 'rgba(5, 20, 45, 0.6)',
-          borderRadius: 16,
-          border: '1px solid rgba(255,255,255,0.06)',
-          overflow: 'hidden',
-          marginBottom: 20,
-        }}>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes tutGuardian {
-              0%, 12%  { left: 24px; top: 132px; }
-              34%      { left: 24px; top: 40px; }
-              62%      { left: 148px; top: 40px; }
-              84%, 100%{ left: 148px; top: 132px; }
-            }
-            @keyframes tutTrailV {
-              0%, 12% { height: 0; }
-              34%, 84% { height: 92px; }
-              88%, 100% { height: 92px; }
-            }
-            @keyframes tutTrailH {
-              0%, 34% { width: 0; }
-              62%, 88% { width: 124px; }
-              100% { width: 124px; }
-            }
-            @keyframes tutTrailV2 {
-              0%, 62% { height: 0; }
-              84%, 100% { height: 92px; }
-            }
-            @keyframes tutFlood {
-              0%, 84% { opacity: 0; }
-              92%, 100% { opacity: 1; }
-            }
-            @keyframes tutOrbBounce {
-              0%   { transform: translate(0, 0); }
-              30%  { transform: translate(48px, 26px); }
-              55%  { transform: translate(6px, 44px); }
-              80%  { transform: translate(52px, 8px); }
-              100% { transform: translate(0, 0); }
-            }
-          ` }} />
+        <DemoField />
 
-          {/* Safety wall frame */}
-          <div style={{ position: 'absolute', inset: 10, border: '3px solid #3B8DD4', borderRadius: 8, boxShadow: '0 0 10px rgba(88,160,255,0.65), inset 0 0 8px rgba(88,160,255,0.3)' }} />
-
-          {/* Flooded claimed pocket (appears at seal) */}
-          <div style={{
-            position: 'absolute', left: 27, top: 43, width: 124, height: 92,
-            background: 'linear-gradient(135deg, rgba(30,107,224,0.55), rgba(0,61,166,0.4))',
-            borderRadius: 4,
-            animation: 'tutFlood 5s infinite',
-          }} />
-
-          {/* Trail segments */}
-          <div style={{ position: 'absolute', left: 26, bottom: 45, width: 3, animation: 'tutTrailV 5s infinite', background: '#FF8A3D', boxShadow: '0 0 8px rgba(255,138,61,0.9)', transformOrigin: 'bottom' }} />
-          <div style={{ position: 'absolute', left: 27, top: 41, height: 3, animation: 'tutTrailH 5s infinite', background: '#FF8A3D', boxShadow: '0 0 8px rgba(255,138,61,0.9)' }} />
-          <div style={{ position: 'absolute', left: 150, top: 43, width: 3, animation: 'tutTrailV2 5s infinite', background: '#FF8A3D', boxShadow: '0 0 8px rgba(255,138,61,0.9)' }} />
-
-          {/* Bouncing risk orb (right side, outside the bite) */}
-          <div style={{ position: 'absolute', right: 66, top: 58, width: 18, height: 18, animation: 'tutOrbBounce 3.4s ease-in-out infinite' }}>
-            <svg width="18" height="18" viewBox="0 0 16 16">
-              <circle cx="8" cy="8" r="6" fill="#49E24B" />
-              <path d="M1,8 L15,8 M8,1 L8,15 M3,3 L13,13 M3,13 L13,3" stroke="#49E24B" strokeWidth="1.5" />
-              <circle cx="8" cy="8" r="3" fill="#0E5C1D" />
-            </svg>
-          </div>
-
-          {/* Guardian */}
-          <div style={{ position: 'absolute', width: 16, height: 16, animation: 'tutGuardian 5s infinite', zIndex: 3 }}>
-            <svg width="16" height="16" viewBox="0 0 20 20">
-              <path d="M10,1.5 C14,3 17,5.5 17,9 C17,13.5 13.8,16.8 10,18.5 C6.2,16.8 3,13.5 3,9 C3,5.5 6,3 10,1.5 Z" fill="#1E6BE0" stroke="#fff" strokeWidth="1.4" style={{ filter: 'drop-shadow(0 0 5px rgba(127,192,255,0.9))' }} />
-              <circle cx="10" cy="10" r="3" fill="#fff" />
-            </svg>
-          </div>
-        </div>
-
-        <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 14,
-          lineHeight: 1.45,
-          marginBottom: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>1.</span>
-            <span><strong>Swipe or drag</strong> to steer the guardian along the glowing safety wall. Leave the wall to start cutting open ground.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>2.</span>
-            <span>Return to the wall to <strong>seal the cut</strong> — every pocket without a virus orb floods blue and is ring-fenced. Bigger bites pay x1.5, x2.5, even x4.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>3.</span>
-            <span>Orbs that touch your <strong>unfinished trail</strong> cost a shield, and stalling mid-cut lights a fuse. Secure <strong>{GAME_CONFIG.winPct}%</strong> in {GAME_CONFIG.sessionSeconds}s to win!</span>
-          </div>
+        <div style={{ display: 'flex', gap: 7, margin: '8px 0 12px' }}>
+          <Cue icon={<DragGlyph />} word="DRAG TO CUT" />
+          <Cue icon={<ClaimGlyph />} word="SEAL TO CLAIM" />
+          <Cue icon={<OrbGlyph />} word="AVOID THE ORBS" />
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

@@ -125,3 +125,64 @@ gradients per resize). Full teardown on unmount; `gameKey` remount restart.
 3. Assist (drag) mode bypasses the accel/decay envelope by design; it is an
    accessibility toggle, default off, and the gate proves the hold-input
    envelope.
+
+---
+
+## 2026-07-31 — Lead-form / how-to-play revamp
+
+**G1 — email removed from lead capture.** `src/LeadCaptureModal.jsx` no longer
+collects an email address. Deleted `EMAIL_RE`, the `email` `useState` (and its
+`lastSubmittedEmail` sessionStorage read), the optional-email validation branch,
+the whole "Email Field" `sl-lead-field` block, the `lastSubmittedEmail`
+sessionStorage write, and the `email` key from both the `submitToLMS({...})` call
+and the two `onSubmitted({...})` payloads. `src/api.js` is untouched: `submitToLMS`
+already sends `email_id: email || ''`, so omitting the key keeps the LMS payload
+shape byte-identical. Name, mobile (`^[6-9]\d{9}$`) and the T&C checkbox are
+unchanged. Grep confirms no `email` / `lastSubmittedEmail` reference survives
+under `src/`.
+
+**G2 — `HowToPlayScreen` is now animation-first.** The three numbered instruction
+paragraphs are deleted. The old demo — a bar that fell past an orbit which spun
+for no visible reason — is replaced by `DemoOrbit`, one looping 4 s SVG that shows
+the actual causal chain: the pair starts vertical, a centre bar drops toward them,
+a hand glyph presses and *holds* the right half (that half tints, a ripple fires,
+a gold arc arrow shows the spin direction), the ring turns 90° so both orbs sit in
+the side gaps, and the bar sweeps through clean with a green pass ring. The demo's
+geometry is the canvas geometry: the centre bar's half width (64 px of a 300 px
+frame) is narrower than the ring radius (48 px), which is precisely why turning
+horizontal is what saves you — so the picture teaches the rule rather than
+asserting it. The dashed centre divider states the two-half control scheme without
+a caption. Remaining text: the "How to Play" heading, three icon-led cues ("Hold to
+spin", "Both must clear", "Three shields only" — all ≤ 4 words), the assist
+control, and the Play button.
+
+**Assist toggle kept, relabelled.** The direct-drag accessibility option is a
+control, not an instruction, so it stays. Its sentence-long label
+("Assist mode: drag to steer instead of hold-to-spin") is now a compact pill —
+a drag icon plus "Assist: drag" — with the full sentence preserved on the
+`aria-label` so screen-reader users lose nothing.
+
+Card capped at 344 px with `overflow: hidden`; fits 360×640 without scrolling. The
+three old `dcTut*` keyframes are replaced by eight `dcd*` keyframes in a
+module-level `DEMO_CSS` constant, all covered by a `prefers-reduced-motion` kill
+switch that the previous inline keyframes did not have.
+
+**G3 — `dual-cover/asset-from-here.md` added.** 13 Nano Banana prompts committed to
+a single motif: **cold-forged precision instrumentation** — a laboratory calibration
+rig in CNC-milled aluminium, anodised colour anodes, frosted optical glass and
+hairline engraved graduations, lit by hard product-photography studio light in a
+dead-black void with no atmosphere, no environment and no ground plane.
+Deliberately the inverse of any scenery-driven sheet in the repo. The sheet
+restates the colour grammar as a hard constraint — obstacles are cold neutral
+steel and are never tinted blue or orange, because tinting them would imply they
+belong to one orb. Covers backdrop, both orbs, the orbit ring, four obstacle types
+(wall stub, centre bar, spinner, squeeze), the two orb trails, the near-miss
+shimmer, the shield pip in charged and spent states, the phase marker and the
+result art.
+
+**Not touched:** gameplay, balance, `rules.js`, obstacle generation, HUD layout,
+`ResultsScreen`, `HomeScreen`, `data.js`, `api.js`, `src/kit/`. `gate.mjs` was not
+re-run — nothing this change touches is reachable from it.
+
+**Build:** `pnpm install` + `pnpm build` exit 0 —
+`dist/assets/index-BvbnT76C.js` 418.38 kB / 139.68 kB gzip, built in 2.69 s.

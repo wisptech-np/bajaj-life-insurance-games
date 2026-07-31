@@ -7,6 +7,74 @@ timestamp: 2026-07-28
 
 # Spiral Sprint Change Log
 
+## [2026-07-31] Revamp — bigger ball, over-fall destroy, difficulty ramp
+
+- **Ball resized 14 → 20 px** (`data.js` `ball.radiusPx`) and everything it has to
+  fit through retuned with it, because a bigger ball through unchanged gaps is a
+  silent difficulty change. Its angular width at the worst-case 360 px screen goes
+  16.4° → 23.5°, so: `arcs.gapSpanDeg` 70→42 became **80→46** (the deepest gap
+  keeps 11.3° of slack a side, the same drag tolerance the old pair gave the old
+  ball), `minSafeSpanDeg` 55→**60**, `minSafeSliceDeg` 10→**14**,
+  `minCrashSpanDeg` 16→**18**, `tower.thicknessPx` 13→**16**. Collision follows
+  automatically: `contactHalfDeg = atan(r / orbitR)` and contact is sampled across
+  five points spanning it, so the ball genuinely occupies the extra degrees.
+- **Over-fall destroy.** More than `fall.maxRings: 4` rings in one uninterrupted
+  fall destroys the ball and ends the run (`passRing()` checks the streak before
+  scoring the ring, and is deliberately not gated on fever). Telegraphed from
+  ring `fall.warnRings: 3`: hot-metal `stressBall` gradient replacing the blue,
+  fracture crackle lines that multiply and jitter, a pulsing red full-frame
+  vignette, the ring-pass tone jumping a register (`audio.combo` at a higher
+  index), a live `Fall n/4` HUD chip in danger red, and `fall.stressVelocityPx:
+  700` replacing the 2,300 px/s terminal velocity so the ball visibly strains.
+  That last one is the fairness knob: 150 px per ring at 700 px/s is 214 ms, so
+  there are **429 ms between the first cue and destruction** against a landing arc
+  at least 60° wide, ≤ 43 px of drag from the gap edge.
+- **Fever reconciled with the limit rather than left to contradict it.** Kept
+  `fever.ringsPerStreak: 3` and set `fall.maxRings: 4` — reward and death are one
+  ring apart and never overlap: ring 3 lights the fever *and* starts the stress,
+  ring 4 is the last legal ring, ring 5 destroys the ball regardless of fever.
+  Fever immunity is explicitly scoped to crash arcs. The planted fever shafts stay
+  2 rings long, which lands the streak on exactly 3, so the generator never hands
+  out a ring of stress the player did not choose.
+- **Difficulty now ramps instead of being flat.** New `arcs.rampExp: 1.7` eases
+  the depth parameter every difficulty lerp reads (`difficultyT()`), so gap width,
+  crash coverage and crash-arc count all back-load. Crash coverage `[0.10,0.34] →
+  [0.08,0.46]`, crash arcs `[1,3] → [1,4]`. Measured over 400 towers: gap width
+  77.9° / 69.3° / 55.3° and crash coverage 10.3% / 19.9% / 35.6% by third of the
+  descent. New `ball.lateSpeedup: 1.28` scales launch speed by k and gravity by k²
+  on the same curve, shortening the bounce period 0.70 s → 0.55 s while holding
+  the apex at exactly 100 px, so deep rings give less aiming time without the ball
+  changing weight.
+- **G1** — email removed from `LeadCaptureModal.jsx` (`EMAIL_RE`, the state, the
+  field block, the validation branch, the `lastSubmittedEmail` session read/write
+  and the key in both `submitToLMS` and `onSubmitted`). `api.js` untouched; it
+  already does `email_id: email || ''`, so the LMS payload shape is unchanged.
+  Zero case-insensitive `email` matches left in `src/` outside `src/kit/`.
+- **G2** — `HowToPlayScreen` is now a single 5 s looping demo with no prose. The
+  ring wedges live inside a group that is translated to the ring centre and
+  flattened with `scale(1, 0.32)`, so rotating that group is a *true* spin of the
+  tilted disc rather than a sideways slide: the thumb glyph drags, the tower
+  spins, the gap arrives under the ball, the ball drops a ring, then a green crash
+  arc swings toward it and the second drag steers it clear. Text budget spent on
+  three icon-led labels: DRAG / MAX 4 DROPS / AVOID GREEN. The three `Beat`
+  components and their keyframes were deleted.
+- **G3** — `spiral-sprint/asset-from-here.md`, 13 prompts, all anchored to this
+  game's tilted-annulus shape language and cobalt-on-navy shaft palette (ball in
+  three states, safe / landing / crash arcs, core column, vault floor, decade
+  rule, shaft background, HUD icon sheet, both result crests).
+- README rewritten around the new ball size, the fall limit, the reconciled fever
+  rule and the measured ramp; the stale per-profile simulation table was removed
+  rather than left standing, since it was measured against the old constants.
+- Verified: `pnpm install` + `pnpm build` exit 0 (`✓ built in 2.62s`). Headless
+  re-check of the generator (shipped code copied verbatim, `GAME_CONFIG` imported,
+  worst-case 337 px stage, 400 towers / 15,600 hazard rings): 0 rings whose spans
+  miss 360°, 0 landing arcs under `minSafeSpanDeg`, 0 crash arcs under the previous
+  gap, 0 gaps with under 4° of slack over the ball's width. Pacing bound: 41 / 67 /
+  92 s for 40 rings at 1 / 2 / 3 bounces per ring against the 120 s cap. The
+  generator can stack a 7-ring passive shaft (62 of 15,600 rings sit at such a
+  depth, ~1 spot per 6 towers) — that is the mechanic, not a bug: dragging works
+  mid-fall and the stress cap exists to make those escapable.
+
 ## [2026-07-28] Review fix — fever relight exploit
 
 - **Fixed (Important, from review):** `fever.smashLimit: 1` was not enforced

@@ -427,3 +427,53 @@ frame-replay equivalence still 0 mismatches over 4,800 runs.
 
 7. **No difficulty selection.** Movements are fixed at 96/112/126. A "practice" tempo would be
    easy to add (the whole schedule is a function of `cfg.sections`) but was out of scope.
+
+---
+
+## 2026-07-31 — lead form trimmed, how-to-play rebuilt as animation, asset sheet
+
+Three scoped changes. No gameplay touched: `data.js`, `track.js` and
+`PremiumPulseGame.jsx` are byte-identical, so the timing model, the schedule
+builder, the judge and every balance number quoted above still hold.
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx` lost `EMAIL_RE`, the
+`email` state, the "Email Field" block, the `errs.email` branch, both
+`lastSubmittedEmail` sessionStorage calls, and `email` from the `submitToLMS`
+call and both `onSubmitted` payloads. `api.js` untouched — it already sends
+`email_id: email || ''`, so the LMS payload shape is unchanged. Name + Mobile +
+T&C unchanged. Grep for `email` over `premium-pulse/src` is now empty.
+
+**G2 — `HowToPlayScreen` is now one animated demo.** Deleted: the three numbered
+`Beat` paragraphs, the red "a miss is any tap that isn't on a blue ring" callout,
+the movements/target/bonus paragraph, the four scoring chips, the `Beat` and
+`DemoArena` components and the `ppDemo*` / `ppChip` keyframes. In their place a
+full-size `DemoArena()` runs one 4.4 s loop of the actual go/no-go: a blue
+premium ring contracts onto the badge, a touch dot meets it exactly on the hit
+outline and a gold PERFECT burst fires with the badge kicking; then a red
+fourteen-point spiked ring contracts, the dot pulls off the glass and shows a
+red "no" glyph, the spikes pass through untouched and a green skip pulse pays.
+The badge, the ring colours and `spikePath()` are the shipped ones. All tracks
+share the 4.4 s duration and all are neutralised under `prefers-reduced-motion`.
+Remaining text: the "How to Play" heading, three icon-led cues (TAP THE BLUE /
+SKIP THE RED / KEEP THE STREAK) and the Play button. Nothing else. Card 340 px
+wide with a 228×228 arena; stack measures ~420 px, so 360×640 fits with no
+scroll (`overflow: hidden`, was `overflowY: auto`).
+
+**G3 — `asset-from-here.md`,** 13 Nano Banana prompts on the motif *vital-signs
+telemetry — phosphor trace behind medical glass*: everything is emissive and
+weightless, flat-on orthographic, phosphor strokes with bloom over frosted
+smoked acrylic, explicitly no metal, no wood, no wear and no cast shadows.
+Covers the monitor field background, the policy badge, the blue premium ring,
+the red spiked temptation, the gold bonus double, the PERFECT burst, the green
+skip pulse, the combo flame, the HUD score plate, the miss pip pair, the
+progress lane and both result-screen pieces.
+
+**Verification**
+
+| Gate | Result |
+| --- | --- |
+| `pnpm install` | pass |
+| `pnpm build` | pass — `✓ built in 3.22s`, 423.39 kB / 140.22 kB gzip |
+
+`scripts/balance.mjs` was not re-run: this round changed no file it reads
+(`data.js` and `track.js` are untouched).

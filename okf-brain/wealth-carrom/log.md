@@ -282,3 +282,52 @@ because they are the numbers the balance hangs on:
 - `scripts/games-manifest.json`, `README.md`, `scripts/sync-game-kit.mjs`,
   `scripts/build-status.json` and `build_tracker.py` registration are the
   controller's single post-batch task and were deliberately not touched here.
+
+## [2026-07-31] Revamp: email field removed, animated how-to-play, asset sheet
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx`: deleted `EMAIL_RE`, the
+`email` `useState`, the whole "Email Field" `sl-lead-field` block, the
+`errs.email` validation branch, and both `sessionStorage` touches of
+`lastSubmittedEmail`. Dropped `email` from the `submitToLMS({...})` call and from
+both `onSubmitted({...})` payloads. `api.js` untouched — `submitToLMS` already
+sends `email_id: email || ''`, so the LMS payload shape is unchanged. Name +
+Mobile + T&C unchanged. Grep for `email` outside `src/kit/` and `src/api.js`
+returns zero hits.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first.** `src/Screens.jsx`:
+- Deleted the `Beat` and `BeatDefs` components, all three numbered step blocks
+  with their titles and copy, the strikes/session paragraph and the
+  `PIECE_LEGEND` chip row. Dropped the now-unused `PIECE_LEGEND` import and the
+  `CrownIcon` helper, which only existed for the deleted copy.
+- New 300×260 inline-SVG scene renders the whole board — mitred frame, lacquered
+  playfield, brass centre circle, four collared corner pockets, the baseline
+  strip, six goal coins, the Queen on the centre spot and both risk discs
+  including the one parked between the baseline and the Queen.
+- One 7 s loop plays two real strikes: the finger drags the striker along the
+  baseline, presses on it and pulls back (dashed aim ray appears opposite the
+  pull, power ring grows), releases; the striker flies, the Queen slides into the
+  top-left pocket and the pocket flashes crimson — then a **dashed red pending
+  ring** sits on that pocket, because she has not been covered yet. The second
+  strike pots a gold coin into the top-right pocket, the pending ring clears and
+  a green tick blooms over the centre. The cover rule is therefore demonstrated
+  rather than described.
+- Remaining text: the "How to Play" heading, three icon-led labels (`PULL TO
+  AIM`, `POCKET COINS`, `COVER THE QUEEN`), and the Play button.
+- Container switched from `overflowY: auto` to `overflow: hidden`; measured stack
+  is ~510 px so it fits 360×640 without scrolling. All 11 new keyframe classes
+  are added to the existing `prefers-reduced-motion` kill switch.
+
+**G3 — `wealth-carrom/asset-from-here.md`.** 12 Nano Banana prompts on a
+"lacquered heirloom board on a marble table" motif — photoreal product-render
+CGI under a single overhead softbox, real materials (piano lacquer, brushed
+brass, enamel, pearl acrylic), every disc dead-on from above with a short tight
+contact shadow and an explicit "no perspective tilt" negative. Covers the board,
+all four disc types, the pocket, the aim ray, the power ring, two HUD pips and
+both result-screen illustrations.
+
+**Not changed:** gameplay, balance, `physics.js`, `rules.js`, `board.js`, HUD
+layout, `ResultsScreen`, `HomeScreen`, canvas artwork, `data.js`, `api.js`,
+`src/kit/`.
+
+**Build:** `pnpm install && pnpm build` — exit 0, `✓ built in 4.95s`
+(`dist/assets/index-BNWUgJr8.js 433.06 kB │ gzip: 143.18 kB`).

@@ -871,7 +871,21 @@ body,
 
 /* ─────────────────────────────────────────────────────────────
    Portfolio Fit — game-specific styles
+   One spacing scale (--pf-1 … --pf-6) drives every gap, so nothing
+   sits off-grid at 360×640 / 375×812 / 414×896.
    ───────────────────────────────────────────────────────────── */
+:root {
+  --pf-1: 4px;
+  --pf-2: 8px;
+  --pf-3: 12px;
+  --pf-4: 16px;
+  --pf-5: 24px;
+  --pf-6: 32px;
+  --pf-edge: 16px;      /* screen side margin */
+  --pf-tap: 52px;       /* one button height everywhere */
+  --pf-col: 340px;      /* content column */
+}
+
 .pf-game-shell {
   position: absolute;
   inset: 0;
@@ -880,50 +894,59 @@ body,
   overflow: hidden;
 }
 
+/* ── HUD ─────────────────────────────────────────────────── */
 .pf-hud {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px 14px 4px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--pf-2);
+  padding: var(--pf-3) var(--pf-edge) 0;
   z-index: 5;
 }
 
 .pf-hud-chip {
-  flex: 1;
-  padding: 8px 12px;
+  height: 52px;
+  padding: 0 var(--pf-2);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pf-2);
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.pf-hud-stack {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   gap: 1px;
   min-width: 0;
 }
 
 .pf-hud-value {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.05;
   color: #fff;
+  white-space: nowrap;
 }
 
 .pf-hud-value.pf-danger {
   color: #FF7B6B;
   animation: pf-timer-pulse 1s ease-in-out infinite;
+  transform-origin: left center;
 }
 
 @keyframes pf-timer-pulse {
   0%, 100% { transform: scale(1); text-shadow: 0 0 0 rgba(255, 99, 71, 0); }
-  50%      { transform: scale(1.12); text-shadow: 0 0 16px rgba(255, 99, 71, 0.8); }
+  50%      { transform: scale(1.1); text-shadow: 0 0 16px rgba(255, 99, 71, 0.8); }
 }
 
 .pf-streak-chip {
   background: linear-gradient(180deg, rgba(255, 133, 51, 0.35), rgba(242, 101, 34, 0.2));
-  box-shadow:
-    0 0 0 1px rgba(255, 165, 90, 0.5) inset,
-    0 0 18px rgba(242, 101, 34, 0.45);
   animation: pf-flame-glow 700ms ease-in-out infinite;
 }
 
@@ -932,31 +955,50 @@ body,
   50%      { box-shadow: 0 0 0 1px rgba(255, 200, 120, 0.8) inset, 0 0 26px rgba(255, 133, 51, 0.7); }
 }
 
+/* ── Asset legend ────────────────────────────────────────── */
 .pf-legend {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  padding: 6px 12px 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: start;
+  gap: var(--pf-1);
+  width: 100%;
+  max-width: var(--pf-col);
+  margin: 0 auto;
+  padding: var(--pf-2) var(--pf-edge) 0;
   z-index: 5;
 }
 
 .pf-legend-item {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.72);
-  white-space: nowrap;
+  gap: var(--pf-1);
+  min-width: 0;
 }
 
-.pf-legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
+.pf-legend-chip {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    inset 0 2px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.32),
+    0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+.pf-legend-name {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .pf-canvas-wrap {
@@ -975,7 +1017,7 @@ body,
   touch-action: none;
 }
 
-/* Home screen */
+/* ── Home screen ─────────────────────────────────────────── */
 .pf-home {
   position: absolute;
   inset: 0;
@@ -983,23 +1025,26 @@ body,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 28px 24px 40px;
+  gap: var(--pf-4);
+  padding: var(--pf-5) var(--pf-edge) var(--pf-6);
   overflow: hidden;
 }
 
 .pf-home-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
+  gap: var(--pf-2);
+  height: 30px;
+  padding: 0 14px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.85);
+  line-height: 1;
 }
 
 .pf-home-title {
@@ -1008,7 +1053,7 @@ body,
   letter-spacing: -0.04em;
   line-height: 0.95;
   text-align: center;
-  margin-top: 14px;
+  margin: 0;
   background: linear-gradient(180deg, #fff 30%, #9CC2FF 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -1017,18 +1062,18 @@ body,
 }
 
 .pf-home-sub {
-  margin-top: 10px;
+  margin: calc(var(--pf-3) * -1) 0 0;
   font-size: 13px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.72);
   text-align: center;
-  max-width: 300px;
+  max-width: 290px;
   line-height: 1.5;
 }
 
 .pf-preview-board {
   position: relative;
-  margin: 26px auto 0;
+  margin: 0;
   border-radius: 20px;
   padding: 10px;
   background: rgba(255, 255, 255, 0.06);
@@ -1048,13 +1093,16 @@ body,
 }
 
 .pf-preview-cell {
-  border-radius: 6px;
+  border-radius: 7px;
   background: rgba(255, 255, 255, 0.05);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .pf-preview-cell.filled {
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), inset 0 -3px 5px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 2px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.32);
 }
 
 .pf-preview-cell.flash-row {
@@ -1066,10 +1114,23 @@ body,
   62%, 74% { filter: brightness(1.9) saturate(1.3); }
 }
 
+/* the dragged holding: ONE rounded object, one gradient, icon face per cell */
 .pf-preview-piece {
   position: absolute;
+  left: 97px;
+  top: 10px;
+  width: 55px;
+  height: 55px;
+  border-radius: 10px;
   display: grid;
-  gap: 3px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.24),
+    inset 0 3px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -6px 9px rgba(0, 0, 0, 0.34);
   animation: pf-piece-drag 2.8s ease-in-out infinite;
   filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.5));
 }
@@ -1083,35 +1144,31 @@ body,
 }
 
 .pf-play-btn {
-  margin-top: 34px;
+  margin: 0;
   width: 100%;
-  max-width: 320px;
-  height: 64px;
-  font-size: 20px;
-  border-radius: 20px;
+  max-width: 300px;
+  height: 60px;
+  font-size: 19px;
+  border-radius: 18px;
 }
 
-.pf-howto-btn {
-  margin-top: 14px;
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.6);
-  font-family: var(--ls-font);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  padding: 10px 16px;
+/* ── How to play — animation only ────────────────────────── */
+.pf-howto {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pf-4) var(--pf-edge);
+  overflow-y: auto;
 }
 
-/* How to play */
 .pf-howto-card {
   position: relative;
   width: 100%;
-  max-width: 380px;
+  max-width: 360px;
   margin: 0 auto;
-  padding: 26px 22px 22px;
+  padding: var(--pf-5) var(--pf-4) var(--pf-4);
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.07);
   -webkit-backdrop-filter: blur(28px) saturate(160%);
@@ -1120,51 +1177,187 @@ body,
     inset 0 0 0 1px rgba(255, 255, 255, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.26),
     0 24px 60px rgba(0, 0, 0, 0.5);
-  text-align: center;
   animation: ls-rise 360ms ease-out both;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  align-items: center;
+  gap: var(--pf-4);
 }
 
-.pf-howto-step {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  padding: 12px 14px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
-}
-
-.pf-howto-num {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.pf-howto-title {
+  margin: 0;
+  font-size: 24px;
   font-weight: 900;
-  font-size: 14px;
-  background: linear-gradient(180deg, var(--ls-orange-bright), var(--ls-orange));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 10px rgba(242, 101, 34, 0.35);
-}
-
-.pf-howto-text {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  line-height: 1.45;
-}
-
-.pf-howto-text b {
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1;
   color: #fff;
-  font-weight: 800;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-/* Countdown / banner overlays inside game */
+/* demo geometry: 5 cells of 28px on a 32px pitch, 8px board padding */
+.pfh-demo {
+  position: relative;
+  width: 172px;
+  height: 244px;
+  flex: 0 0 auto;
+}
+
+.pfh-board {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 8px;
+  border-radius: 16px;
+  display: grid;
+  grid-template-columns: repeat(5, 28px);
+  grid-template-rows: repeat(5, 28px);
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.pfh-cell {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.pfh-cell.filled {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 2px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.32);
+}
+
+.pfh-cell.in-line {
+  animation: pfh-clear 4s ease-in-out infinite;
+}
+
+@keyframes pfh-clear {
+  0%, 54%  { opacity: 1; filter: brightness(1); transform: scale(1); }
+  62%      { opacity: 1; filter: brightness(2.1) saturate(1.2); transform: scale(1); }
+  76%      { opacity: 0; filter: brightness(2.1); transform: scale(1.28); }
+  95%      { opacity: 0; transform: scale(1); }
+  100%     { opacity: 1; filter: brightness(1); transform: scale(1); }
+}
+
+.pfh-sweep {
+  position: absolute;
+  top: 72px;
+  left: 8px;
+  width: 156px;
+  height: 28px;
+  border-radius: 8px;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.65) 50%,
+    rgba(255, 255, 255, 0) 100%);
+  opacity: 0;
+  animation: pfh-sweep 4s ease-in-out infinite;
+}
+
+@keyframes pfh-sweep {
+  0%, 56%  { opacity: 0; transform: translateX(-100%); }
+  60%      { opacity: 1; }
+  74%      { opacity: 0.9; transform: translateX(100%); }
+  75%, 100% { opacity: 0; transform: translateX(100%); }
+}
+
+/* the dragged holding — ONE object spanning two cells */
+.pfh-piece {
+  position: absolute;
+  top: 72px;
+  left: 104px;
+  width: 60px;
+  height: 28px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  color: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.24),
+    inset 0 3px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -6px 9px rgba(0, 0, 0, 0.34);
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.5));
+  animation: pfh-drag 4s ease-in-out infinite;
+}
+
+@keyframes pfh-drag {
+  0%       { transform: translateY(132px) scale(0.9); opacity: 0; }
+  8%       { transform: translateY(132px) scale(1); opacity: 1; }
+  44%      { transform: translateY(0) scale(1); opacity: 1; }
+  50%      { transform: translateY(0) scale(1.08); opacity: 1; }
+  54%, 62% { transform: translateY(0) scale(1); opacity: 1; }
+  76%      { transform: translateY(0) scale(1.28); opacity: 0; }
+  95%      { transform: translateY(132px) scale(0.9); opacity: 0; }
+  100%     { transform: translateY(132px) scale(0.9); opacity: 0; }
+}
+
+.pfh-finger {
+  position: absolute;
+  top: 82px;
+  left: 128px;
+  color: #fff;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
+  animation: pfh-finger 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pfh-finger {
+  0%       { transform: translateY(142px) scale(0.9); opacity: 0; }
+  8%       { transform: translateY(132px) scale(1); opacity: 1; }
+  44%      { transform: translateY(0) scale(1); opacity: 1; }
+  50%      { transform: translateY(0) scale(0.9); opacity: 1; }
+  56%      { transform: translateY(-8px) scale(1); opacity: 0; }
+  100%     { transform: translateY(142px) scale(0.9); opacity: 0; }
+}
+
+.pf-howto-keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: start;
+  gap: var(--pf-2);
+  width: 100%;
+}
+
+.pf-howto-key {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pf-1);
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+}
+
+.pf-howto-key b {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.pf-howto-key-hot {
+  color: var(--ls-gold);
+}
+
+.pf-howto-key-hot b {
+  color: var(--ls-gold);
+}
+
+.pf-howto-play {
+  width: 100%;
+  height: var(--pf-tap);
+  font-size: 18px;
+  border-radius: 16px;
+}
+
+/* ── In-game banners ─────────────────────────────────────── */
 .pf-banner {
   position: absolute;
   left: 50%;
@@ -1173,20 +1366,23 @@ body,
   z-index: 20;
   pointer-events: none;
   text-align: center;
+  width: 100%;
+  padding: 0 var(--pf-edge);
 }
 
 .pf-banner-main {
-  font-size: 34px;
+  font-size: 32px;
   font-weight: 900;
   letter-spacing: -0.03em;
+  line-height: 1.05;
   color: #fff;
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
   animation: pf-banner-pop 480ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .pf-banner-sub {
-  margin-top: 6px;
-  font-size: 13px;
+  margin-top: var(--pf-1);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1197,4 +1393,173 @@ body,
 @keyframes pf-banner-pop {
   from { transform: scale(0.6); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
+}
+
+/* ── Results ─────────────────────────────────────────────── */
+.pf-results {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pf-4);
+  padding: var(--pf-6) var(--pf-edge) var(--pf-5);
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(16, 55, 110, 0.55), rgba(11, 18, 33, 0.9) 70%),
+    #0B1221;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.pf-res-col {
+  width: 100%;
+  max-width: var(--pf-col);
+}
+
+.pf-res-stats {
+  display: flex;
+  gap: var(--pf-3);
+}
+
+.pf-res-stat {
+  height: 44px;
+  padding: 0 var(--pf-3);
+  display: flex;
+  align-items: center;
+  gap: var(--pf-2);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pf-res-stat-val {
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-res-msg {
+  width: 100%;
+  max-width: var(--pf-col);
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.35;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pf-res-share,
+.pf-res-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pf-2);
+  width: 100%;
+  height: var(--pf-tap);
+  border: none;
+  border-radius: 14px;
+  font-family: var(--ls-font);
+  font-size: 17px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 120ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.pf-res-share:active,
+.pf-res-action:active {
+  transform: scale(0.97);
+}
+
+.pf-res-share {
+  max-width: 280px;
+  border-radius: 16px;
+  background: #1D4ED8;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(29, 78, 216, 0.55);
+}
+
+.pf-res-card {
+  width: 100%;
+  max-width: var(--pf-col);
+  background: rgba(15, 23, 42, 0.75);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-radius: 24px;
+  padding: var(--pf-5) var(--pf-4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.pf-res-card-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0 0 var(--pf-4);
+}
+
+.pf-res-action-call {
+  background: #F59E0B;
+  color: #000;
+  border: 1px solid #FBBF24;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.pf-res-action-book {
+  background: #16A34A;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+}
+
+.pf-res-or {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-3);
+}
+
+.pf-res-or i {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pf-res-or span {
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+}
+
+.pf-res-again {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pf-2);
+  height: 48px;
+  padding: 0 var(--pf-5);
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--ls-font);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* Short viewports: keep the how-to-play demo on one screen */
+@media (max-height: 660px) {
+  .pf-howto-card { gap: var(--pf-3); padding: var(--pf-4); }
+  .pf-howto-title { font-size: 21px; }
+  .pf-home { gap: var(--pf-3); }
+  .pf-home-title { font-size: 38px; }
 }

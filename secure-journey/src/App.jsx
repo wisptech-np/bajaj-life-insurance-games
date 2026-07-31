@@ -110,7 +110,6 @@ export default function App() {
           onRetry={handleRetry}
           onHome={goHome}
           onBookSlot={handleBookSlot}
-          retryLabel={won ? 'Play again' : 'Try again'}
         />
       )}
 

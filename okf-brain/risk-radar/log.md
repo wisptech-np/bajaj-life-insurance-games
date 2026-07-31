@@ -47,3 +47,58 @@ Verification:
   beyond 400px; idle canary untouched.
 - Emoji grep over src: only the allowed `✓` in the verbatim LeadCaptureModal.
 - Kit files byte-identical to `shared/game-kit/` (cmp, all 7).
+
+---
+
+## 2026-07-31 — lead form trimmed, how-to-play rebuilt as animation, asset sheet
+
+Three scoped changes. No gameplay touched: `data.js`, `rules.js` and
+`RiskRadarGame.jsx` are byte-identical, so the pulse model, the noise economy,
+the telegraph invariants and the maze are all unchanged.
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx` lost `EMAIL_RE`, the
+`email` state, the "Email Field" block, the `errs.email` branch, both
+`lastSubmittedEmail` sessionStorage calls, and `email` from the `submitToLMS`
+call and both `onSubmitted` payloads. `api.js` untouched — it already sends
+`email_id: email || ''`. Name + Mobile + T&C unchanged. Grep for `email` over
+`risk-radar/src` is now empty.
+
+**G2 — `HowToPlayScreen` is now one animated demo.** Deleted: the three numbered
+`Beat` paragraphs, the seconds/hearts/checkpoints/orbs paragraph, the four
+scoring chips, the `Beat` and `BeatFrame` components and the now-unused
+`rrChip` / `rrWalk` keyframes. In their place `DemoMaze()` renders a 214×225
+pitch-black maze and runs one 5.6 s loop of the actual reveal grammar: a finger
+taps, the cyan wavefront expands from the family, and wall chunks light **in the
+order the front reaches them** — near at ~16% of the cycle, mid at ~22%, far at
+~33%, each holding then fading behind the front, exactly the "expanding ring,
+not a floodlight" behaviour `gate.mjs` asserts. The spike pool, the hidden orb
+and the gold shelter show only while swept; nothing is drawn before the pulse.
+Then the finger holds up-field and the family walks to it, the two followers
+trailing on the same track via `animation-delay` (0.17 s / 0.34 s), which is
+literally "followers walk your exact footsteps". Meanwhile the lurker leaves for
+the spot the pulse came FROM — the pass window — and its own grey telegraph ring
+(the shipped `rr-ping-sm`, reused) keeps running even in the dark, so the demo
+also shows the fairness rule that nothing is ever unrevealed.
+Remaining text: the "How to Play" heading, three icon-led cues (TAP TO PULSE /
+HOLD TO WALK / NOISE DRAWS THEM) and the Play button. Nothing else. Card 340 px
+wide; stack measures ~430 px, so 360×640 fits with no scroll (`overflow: hidden`,
+was `overflowY: auto`).
+
+**G3 — `asset-from-here.md`,** 14 Nano Banana prompts on the motif *rim-lit clay
+diorama in a blackout room*: every asset is a matte unglazed clay maquette
+photographed with one hard raking light, 80–95% of it falling into absolute
+black, only a single lit contour visible — the premise of the game made literal.
+Camera is low eye-level 3/4 (down in the maze), never plan view, with an explicit
+ban in the sheet on flat vector, blueprint linework, phosphor glow and evenly lit
+subjects. Covers the void background, the family, the tileable wall chunk, the
+spike pool, the lurker, its grey telegraph ring, the shriek edge-flash, the
+shelter, the hidden orb, the gate checkpoint, the pulse wavefront, the heart pips
+and both result-screen pieces.
+
+**Verification**
+
+| Gate | Result |
+| --- | --- |
+| `pnpm install` | pass |
+| `pnpm build` | pass — `✓ built in 5.85s`, 437.66 kB / 145.10 kB gzip |
+| `node gate.mjs` | **PASS** — all (a)–(d) sections, including "before any pulse, no geometry is rendered at any alpha" and the wavefront timing checks |

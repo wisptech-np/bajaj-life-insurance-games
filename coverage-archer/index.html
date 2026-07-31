@@ -82,8 +82,73 @@
       border-radius: 2px;
     }
 
+    .btn-press {
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+
     .btn-press:active {
-      transform: scale(0.95);
+      transform: scale(0.96);
+    }
+
+    /* Glassmorphism card — the repo's shared surface language */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.05);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.42);
+    }
+
+    /* 12px-radius gradient buttons with glow */
+    .btn-primary,
+    .btn-secondary,
+    .btn-accent {
+      width: 100%;
+      height: 52px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 900;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #FF8A3D 0%, #F26522 100%);
+      box-shadow: 0 6px 20px rgba(242, 101, 34, 0.42);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(180deg, #1E6BE0 0%, #003DA6 100%);
+      box-shadow: 0 6px 20px rgba(0, 61, 166, 0.42);
+    }
+
+    .btn-accent {
+      background: linear-gradient(180deg, #34C759 0%, #28A745 100%);
+      box-shadow: 0 6px 20px rgba(40, 167, 69, 0.35);
+    }
+
+    .btn-ghost {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
     }
 
     @keyframes pop {

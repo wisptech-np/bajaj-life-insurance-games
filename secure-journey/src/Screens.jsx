@@ -76,22 +76,30 @@ function ShieldCrossIcon({ size = 32 }) {
   );
 }
 
-function LaneIcon({ size = 28 }) {
+function DragGlyph({ size = 26 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#F26522" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 3v18M20 3v18" />
-      <path d="M12 5v2M12 11v2M12 17v2" strokeDasharray="3 3" />
-      <circle cx="12" cy="12" r="2" fill="#F26522" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#F26522"
+      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+      <path d="M14 10V5a2 2 0 0 0-4 0v5" />
+      <path d="M10 10.5V4a2 2 0 0 0-4 0v10" />
+      <path d="M6 14v-2.5a2 2 0 0 0-4 0V17a5 5 0 0 0 5 5h5a5 5 0 0 0 5-5v-1.5" />
     </svg>
   );
 }
 
-function VirusLaserIcon({ size = 28 }) {
+/* Risk Barricade — the game's antagonist silhouette, used as a legend glyph. */
+function BarricadeGlyph({ size = 26 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#28A745" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="5" fill="#28A745" opacity="0.2" />
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1" />
-      <line x1="8" y1="12" x2="16" y2="12" stroke="#EF4444" strokeWidth="2" />
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <defs>
+        <linearGradient id="sjBarricade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FF9C5B" />
+          <stop offset="100%" stopColor="#C43F16" />
+        </linearGradient>
+      </defs>
+      <path d="M12 23 1 12.5 4 1h16l3 11.5z" fill="url(#sjBarricade)" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" />
+      <path d="M8 9.5 12 14l4-4.5" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -237,41 +245,36 @@ export function HowToPlayScreen({ onPlay }) {
           How to Play
         </h2>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="sj-howto-step">
-            <div className="sj-howto-icon" style={{ background: 'rgba(242, 101, 34, 0.15)', border: '1.5px solid #F26522' }}>
-              <LaneIcon />
-            </div>
-            <div className="sj-howto-text">
-              <b>Steer Between 3 Lanes</b>
-              <span>Drag left/right (or use Arrow keys) to steer your guardian across the bridge safely.</span>
-            </div>
+        {/* Looping demo of the real mechanic: drag the pod, auto-fire clears the
+            barricade, drag onto the shield. No instruction text needed. */}
+        <div className="sj-demo" aria-label="Animated demo: drag to steer, bolts clear barricades, collect shields">
+          <div className="sj-demo-deck">
+            <div className="sj-demo-lane" style={{ left: '33.3%' }} />
+            <div className="sj-demo-lane" style={{ left: '66.6%' }} />
           </div>
-
-          <div className="sj-howto-step">
-            <div className="sj-howto-icon" style={{ background: 'rgba(40, 167, 69, 0.15)', border: '1.5px solid #28A745' }}>
-              <VirusLaserIcon />
-            </div>
-            <div className="sj-howto-text">
-              <b>Defeat Financial Risks</b>
-              <span>Auto-fire energy bolts to blast incoming virus blobs. Clear the path before they drain your health.</span>
-            </div>
-          </div>
-
-          <div className="sj-howto-step">
-            <div className="sj-howto-icon" style={{ background: 'rgba(59, 141, 212, 0.15)', border: '1.5px solid #3B8DD4' }}>
-              <ShieldCrossIcon size={24} />
-            </div>
-            <div className="sj-howto-text">
-              <b>Collect Health Shields</b>
-              <span>Grab floating Hex Shields to restore health AND permanently stack up your weapon fire rate + damage!</span>
-            </div>
+          <div className="sj-demo-shield" />
+          <div className="sj-demo-hazard" />
+          <div className="sj-demo-bolt" />
+          <div className="sj-demo-pod" />
+          <div className="sj-demo-hand">
+            <DragGlyph size={22} />
           </div>
         </div>
 
-        <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textAlign: 'center', margin: '4px 0 0' }}>
-          Reach the Wealth Vault at the end of the 90s bridge (defeat the final Boss) to win!
-        </p>
+        <div className="sj-demo-legend">
+          <div>
+            <DragGlyph size={24} />
+            <span>Drag</span>
+          </div>
+          <div>
+            <BarricadeGlyph size={24} />
+            <span>Blast</span>
+          </div>
+          <div>
+            <ShieldCrossIcon size={24} />
+            <span>Collect</span>
+          </div>
+        </div>
 
         <motion.div whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button
@@ -318,9 +321,8 @@ function Confetti() {
 }
 
 /* ─── ResultsScreen ────────────────────────────────────── */
-export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLabel }) {
+export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
   void onHome;
-  void retryLabel;
   const score = stats?.score || 0;
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
@@ -373,10 +375,10 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   const radius = 75;
   const circumference = 2 * Math.PI * radius;
   // target score for visual wrap
-  const targetScore = 3000;
+  const targetScore = 1800;
   const progress = (Math.min(score, targetScore) / targetScore) * circumference;
-  const strokeColor = won ? '#22c55e' : (score < 800 ? '#ef4444' : '#F26522');
-  const glowColor = won ? 'rgba(34, 197, 94, 0.4)' : (score < 800 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(242, 101, 34, 0.4)');
+  const strokeColor = won ? '#28A745' : (score < 500 ? '#ef4444' : '#F26522');
+  const glowColor = won ? 'rgba(40, 167, 69, 0.4)' : (score < 500 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(242, 101, 34, 0.4)');
 
   return (
     <motion.div
@@ -436,7 +438,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
               {animatedScore.toLocaleString()}
             </span>
             <span className="hud-label" style={{ fontSize: 8, marginTop: 4 }}>
-              Score
+              Points
             </span>
           </div>
         </div>
@@ -456,7 +458,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         textAlign: 'center'
       }}>
         <div style={{ flex: 1 }}>
-          <div className="ls-num" style={{ fontSize: 18, color: '#fff' }}>{stats?.viruses || 0}</div>
+          <div className="ls-num" style={{ fontSize: 18, color: '#fff' }}>{stats?.cleared || 0}</div>
           <div className="hud-label" style={{ fontSize: 8 }}>Risks Cleared</div>
         </div>
         <div style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
@@ -537,8 +539,16 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
                 }}
               >
                 <PhoneIcon />
-                Call Agent
+                Call Specialist
               </a>
+            )}
+
+            {empPhone && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '2px 0' }}>
+                <div style={{ height: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 'bold', fontSize: 9, letterSpacing: '0.15em' }}>OR</span>
+                <div style={{ height: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+              </div>
             )}
 
             <button
@@ -556,7 +566,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
               }}
             >
               <CalendarIcon size={16} />
-              Book Free Advisory Slot
+              Book Consultation
             </button>
           </div>
         </div>
@@ -577,7 +587,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
           }}
         >
           <RotateIcon />
-          {won ? 'Play Again' : 'Try Again'}
+          Play again
         </button>
       </div>
 

@@ -3,7 +3,7 @@
 // 12px rounded-xl buttons with hover scale animations, and synthetic SFX.
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BRAND } from './data.js';
+import { BRAND, LEVELS, TARGET_SCORE } from './data.js';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
 
@@ -54,104 +54,127 @@ function CalendarIcon({ size = 18 }) {
   );
 }
 
-/* ─── Arrow hero illustration (inline SVG, no assets) ───── */
-function ArrowHero() {
+/* ─── Shared block art (inline SVG, no image assets) ────── */
+function BlockDefs() {
   return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: 'relative',
-        width: 280,
-        height: 280,
-        margin: '0 auto',
-        animation: 're-float 4s ease-in-out infinite',
-        filter: 'drop-shadow(0 20px 24px rgba(0,0,0,0.4))',
-      }}
-    >
-      <svg width="280" height="280" viewBox="0 0 280 280">
-        <defs>
-          <linearGradient id="reBgGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#111c30" />
-            <stop offset="100%" stopColor="#070c14" />
-          </linearGradient>
-          <linearGradient id="reBlueArrow" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5B8DEF" />
-            <stop offset="100%" stopColor="#012B72" />
-          </linearGradient>
-          <linearGradient id="reOrangeArrow" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#FF9A4D" />
-            <stop offset="100%" stopColor="#C24A0E" />
-          </linearGradient>
-          <linearGradient id="reGreenArrow" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#4ADE80" />
-            <stop offset="100%" stopColor="#1B7A33" />
-          </linearGradient>
-          <linearGradient id="reRedRisk" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#F87171" />
-            <stop offset="100%" stopColor="#7F1D1D" />
-          </linearGradient>
-          {/* Grid pattern */}
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <rect width="40" height="40" fill="none" stroke="rgba(255, 255, 255, 0.05)" strokeWidth="1" />
-          </pattern>
-        </defs>
+    <defs>
+      <linearGradient id="rxWell" x1="0" y1="0" x2="0.6" y2="1">
+        <stop offset="0%" stopColor="#0d1728" />
+        <stop offset="100%" stopColor="#060c17" />
+      </linearGradient>
+      <linearGradient id="rxGold" x1="0" y1="0" x2="0.35" y2="1">
+        <stop offset="0%" stopColor="#FFE9A6" />
+        <stop offset="52%" stopColor="#FFC845" />
+        <stop offset="100%" stopColor="#B4780C" />
+      </linearGradient>
+      <linearGradient id="rxRed" x1="0" y1="0" x2="0.35" y2="1">
+        <stop offset="0%" stopColor="#FCA5A5" />
+        <stop offset="52%" stopColor="#E23D3D" />
+        <stop offset="100%" stopColor="#7A1414" />
+      </linearGradient>
+      <linearGradient id="rxPlum" x1="0" y1="0" x2="0.35" y2="1">
+        <stop offset="0%" stopColor="#FDA4C4" />
+        <stop offset="52%" stopColor="#D6336C" />
+        <stop offset="100%" stopColor="#6D1030" />
+      </linearGradient>
+      <linearGradient id="rxEmber" x1="0" y1="0" x2="0.35" y2="1">
+        <stop offset="0%" stopColor="#FBA98B" />
+        <stop offset="52%" stopColor="#D2451C" />
+        <stop offset="100%" stopColor="#6B1D06" />
+      </linearGradient>
+      <linearGradient id="rxGloss" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="rgba(255,255,255,0.34)" />
+        <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+      </linearGradient>
+    </defs>
+  );
+}
 
-        {/* Board container */}
-        <rect x="20" y="20" width="240" height="240" rx="16" fill="url(#reBgGrad)" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="2" />
-        
-        {/* Grid pattern overlay */}
-        <rect x="20" y="20" width="240" height="240" rx="16" fill="url(#grid)" />
+/** One extruded slab: body gradient, top gloss band, bright rim. */
+function Slab({ x, y, w, h, fill, r = 7 }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} rx={r} fill={fill} />
+      <rect x={x} y={y} width={w} height={h * 0.5} rx={r} fill="url(#rxGloss)" />
+      <rect x={x + 0.8} y={y + 0.8} width={w - 1.6} height={h - 1.6} rx={Math.max(1, r - 0.8)}
+        fill="none" stroke="rgba(255,255,255,0.42)" strokeWidth="1.4" />
+    </g>
+  );
+}
 
-        {/* Outer board exit highlights */}
-        <path d="M 140 20 L 140 5" stroke="rgba(74, 222, 128, 0.4)" strokeWidth="3" strokeDasharray="3 3" />
-        <path d="M 260 140 L 275 140" stroke="rgba(125, 211, 252, 0.4)" strokeWidth="3" strokeDasharray="3 3" />
+/** The umbrella-over-family mark stamped on the gold cover block. */
+function CoverMark({ x, y, s = 1 }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`} opacity="0.8">
+      <path d="M-11 -1a11 11 0 0 1 22 0z" fill="#3b2a05" />
+      <path d="M0 -1V9" stroke="#3b2a05" strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx="-5" cy="10.5" r="2.8" fill="#3b2a05" />
+      <circle cx="5" cy="10.5" r="2.8" fill="#3b2a05" />
+    </g>
+  );
+}
 
-        {/* Red Risk Block (in center-ish, locked symbol) */}
-        <g transform="translate(100, 100)">
-          <rect width="80" height="40" rx="8" fill="url(#reRedRisk)" stroke="#DC2626" strokeWidth="1.5" />
-          {/* Lock Icon */}
-          <path d="M 33 22 L 33 17 A 7 7 0 0 1 47 17 L 47 22" fill="none" stroke="#fff" strokeWidth="2" />
-          <rect x="30" y="21" width="20" height="12" rx="2" fill="#fff" />
-          <circle cx="40" cy="27" r="2" fill="#7F1D1D" />
-          {/* Glow */}
-          <rect width="80" height="40" rx="8" fill="none" stroke="rgba(239, 68, 68, 0.6)" strokeWidth="3" style={{ opacity: 0.8 }} />
-        </g>
+/** The gate mouth: brackets and an outbound chevron on the right wall. */
+function Gate({ x, y, h, w = 18 }) {
+  return (
+    <g>
+      <rect x={x - 4} y={y} width={w + 8} height={h} fill="rgba(74,222,128,0.15)" />
+      <path d={`M${x - 6} ${y + 1.4} H${x + w} M${x - 6} ${y + h - 1.4} H${x + w}`}
+        stroke="#4ADE80" strokeWidth="2.6" strokeLinecap="round" />
+      <path d={`M${x + 1} ${y + h * 0.3} L${x + 7} ${y + h * 0.5} L${x + 1} ${y + h * 0.7}`}
+        fill="none" stroke="#4ADE80" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+        className="rx-gate-chev" />
+    </g>
+  );
+}
 
-        {/* Static Arrow: Left Orange */}
-        <g transform="translate(60, 60)">
-          <rect width="40" height="80" rx="8" fill="url(#reOrangeArrow)" stroke="#F26522" strokeWidth="1" />
-          {/* Chevron shape pointing down */}
-          <path d="M 12 35 L 20 45 L 28 35" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M 12 47 L 20 57 L 28 47" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.75" />
-        </g>
+/** Pointing-hand cursor glyph. */
+function Finger({ className }) {
+  return (
+    <g className={className}>
+      <path
+        d="M18 11V6a2 2 0 0 0-4 0v5M14 10V5a2 2 0 0 0-4 0v5M10 10.5V2a2 2 0 0 0-4 0v8.5M6 14v-2.5a2 2 0 0 0-4 0V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5"
+        fill="rgba(8,14,28,0.8)" stroke="#FFF3C4" strokeWidth="1.9"
+        strokeLinecap="round" strokeLinejoin="round"
+      />
+    </g>
+  );
+}
 
-        {/* Animating Arrow: Green sliding UP off screen */}
-        <g transform="translate(140, 60)">
-          <animateTransform
-            attributeName="transform"
-            type="translate"
-            values="140,60; 140,-60; 140,60"
-            keyTimes="0; 0.4; 1"
-            dur="3s"
-            repeatCount="indefinite"
-            ease="ease-out"
-          />
-          <rect width="40" height="80" rx="8" fill="url(#reGreenArrow)" stroke="#28A745" strokeWidth="1" />
-          {/* Chevron shape pointing UP */}
-          <path d="M 12 45 L 20 35 L 28 45" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M 12 57 L 20 47 L 28 57" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.75" />
-          {/* Motion lines trailing */}
-          <line x1="8" y1="90" x2="8" y2="105" stroke="rgba(74,222,128,0.4)" strokeWidth="2" />
-          <line x1="20" y1="92" x2="20" y2="112" stroke="rgba(74,222,128,0.4)" strokeWidth="2.5" />
-          <line x1="32" y1="90" x2="32" y2="105" stroke="rgba(74,222,128,0.4)" strokeWidth="2" />
-        </g>
+/* ─── Home hero: the gold cover block escaping a packed board ─── */
+function BoardHero() {
+  const C = 34;   // cell size
+  const O = 12;   // board origin
+  const px = (n) => O + n * C;
+  return (
+    <div aria-hidden="true" className="re-hero" style={{ width: 252, height: 196, margin: '0 auto' }}>
+      <svg width="252" height="196" viewBox="0 0 252 196">
+        <BlockDefs />
+        <rect x={O - 7} y={O - 7} width={C * 5 + 14} height={C * 5 + 14} rx="20" fill="url(#rxWell)" />
+        {Array.from({ length: 25 }).map((_, i) => {
+          const col = i % 5;
+          const row = (i - col) / 5;
+          return (
+            <rect key={i} x={px(col) + 3} y={px(row) + 3} width={C - 6} height={C - 6} rx="7"
+              fill={(col + row) % 2 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.042)'} />
+          );
+        })}
 
-        {/* Static Arrow: Blue pointing Right */}
-        <g transform="translate(180, 140)">
-          <rect width="80" height="40" rx="8" fill="url(#reBlueArrow)" stroke="#003DA6" strokeWidth="1" />
-          {/* Chevron shape pointing right */}
-          <path d="M 35 12 L 45 20 L 35 28" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M 47 12 L 57 20 L 47 28" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.75" />
+        <Gate x={px(5) + 3} y={px(1) + 3} h={C - 6} />
+
+        {/* Risks shoved clear of the escape lane — row 1 is the open path */}
+        <Slab x={px(0) + 3} y={px(0) + 3} w={C * 2 - 6} h={C - 6} fill="url(#rxRed)" />
+        <Slab x={px(3) + 3} y={px(0) + 3} w={C * 2 - 6} h={C - 6} fill="url(#rxEmber)" />
+        <Slab x={px(2) + 3} y={px(2) + 3} w={C - 6} h={C * 2 - 6} fill="url(#rxRed)" />
+        <Slab x={px(3) + 3} y={px(2) + 3} w={C - 6} h={C * 2 - 6} fill="url(#rxPlum)" />
+        <Slab x={px(4) + 3} y={px(2) + 3} w={C - 6} h={C * 3 - 6} fill="url(#rxEmber)" />
+        <Slab x={px(0) + 3} y={px(3) + 3} w={C - 6} h={C * 2 - 6} fill="url(#rxPlum)" />
+        <Slab x={px(1) + 3} y={px(4) + 3} w={C * 2 - 6} h={C - 6} fill="url(#rxPlum)" />
+
+        {/* The gold cover block, escaping forever */}
+        <g className="rx-hero-run">
+          <Slab x={px(0) + 3} y={px(1) + 3} w={C * 2 - 6} h={C - 6} fill="url(#rxGold)" />
+          <CoverMark x={px(1)} y={px(1) + C / 2 - 3} s={0.82} />
         </g>
       </svg>
     </div>
@@ -179,7 +202,6 @@ export function HomeScreen({ onStart, theme }) {
         overflow: 'hidden',
       }}
     >
-      {/* Brand */}
       <div style={{ textAlign: 'center', marginBottom: 10 }}>
         <div style={{
           fontSize: 11, fontWeight: 800, letterSpacing: '0.28em',
@@ -200,11 +222,12 @@ export function HomeScreen({ onStart, theme }) {
           margin: '10px auto 0', maxWidth: 300, fontSize: 13.5, lineHeight: 1.45,
           color: 'rgba(255,255,255,0.75)', fontWeight: 600,
         }}>
-          Clear the path, escape the board, and make the smart sequence of decisions to solve the puzzle.
+          Debt, illness, market shocks and job loss are wedged across your family&rsquo;s path.
+          Slide them aside and get your cover out.
         </p>
       </div>
 
-      <ArrowHero />
+      <BoardHero />
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -239,103 +262,71 @@ export function HomeScreen({ onStart, theme }) {
         marginTop: 16, fontSize: 11, fontWeight: 600,
         color: 'rgba(255,255,255,0.4)', textAlign: 'center',
       }}>
-        2-minute cap · 5 levels · order-of-decisions test
+        2-minute cap &middot; {LEVELS.length} boards &middot; beat par
       </p>
     </motion.div>
   );
 }
 
-/* ─── HowToPlayScreen ──────────────────────────────────── */
-function TutorialAnimation() {
+/* ─── HowToPlayScreen — one looping demo, near-zero text ── */
+function DragDemo() {
+  // 4-column mini board, 30px cells at origin (14,14). One red block is
+  // dragged down out of the lane; the gold block then slides out the gate.
+  const C = 30;
+  const O = 14;
+  const px = (n) => O + n * C;
   return (
-    <div style={{
-      position: 'relative', width: 120, height: 120, margin: '0 auto',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.06)',
-      border: '1px solid rgba(255,255,255,0.12)',
-      boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      overflow: 'hidden',
-    }}>
-      {/* Grid lines inside */}
-      <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'absolute', inset: 0 }}>
-        <line x1="40" y1="0" x2="40" y2="120" stroke="rgba(255,255,255,0.05)" />
-        <line x1="80" y1="0" x2="80" y2="120" stroke="rgba(255,255,255,0.05)" />
-        <line x1="0" y1="40" x2="120" y2="40" stroke="rgba(255,255,255,0.05)" />
-        <line x1="0" y1="80" x2="120" y2="80" stroke="rgba(255,255,255,0.05)" />
+    <div className="rx-demo" aria-label="Drag a red block out of the lane, then slide the gold block out through the gate">
+      <svg width="100%" height="100%" viewBox="0 0 190 152" role="img">
+        <BlockDefs />
+        <rect x={O - 7} y={O - 7} width={C * 4 + 14} height={C * 4 + 14} rx="16" fill="url(#rxWell)" />
+        {Array.from({ length: 16 }).map((_, i) => (
+          <rect key={i} x={px(i % 4) + 3} y={px(Math.floor(i / 4)) + 3}
+            width={C - 6} height={C - 6} rx="6"
+            fill={(i % 4 + Math.floor(i / 4)) % 2 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.042)'} />
+        ))}
+
+        <Gate x={px(4) + 3} y={px(1) + 3} h={C - 6} />
+
+        {/* Idle risk, never moves — shows the board is packed */}
+        <Slab x={px(3) + 3} y={px(2) + 3} w={C - 6} h={C * 2 - 6} fill="url(#rxPlum)" r={6} />
+
+        {/* The blocker being dragged down and out of the lane */}
+        <g className="rx-demo-risk">
+          <Slab x={px(2) + 3} y={px(0) + 3} w={C - 6} h={C * 2 - 6} fill="url(#rxRed)" r={6} />
+        </g>
+
+        {/* The gold cover, escaping once the lane is clear */}
+        <g className="rx-demo-hero">
+          <Slab x={px(0) + 3} y={px(1) + 3} w={C * 2 - 6} h={C - 6} fill="url(#rxGold)" r={6} />
+          <CoverMark x={px(1)} y={px(1) + C / 2 - 3} s={0.7} />
+        </g>
+
+        {/* Finger 1: drags the risk down. Finger 2: drags the cover out. */}
+        <g transform={`translate(${px(2) + 4} ${px(0) + 6})`}>
+          <Finger className="rx-demo-f1" />
+        </g>
+        <g transform={`translate(${px(0) + 12} ${px(1) + 8})`}>
+          <Finger className="rx-demo-f2" />
+        </g>
       </svg>
-
-      {/* Arrow sliding right */}
-      <motion.div
-        animate={{
-          x: [-30, 10, 80, -30],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          times: [0, 0.2, 0.7, 1]
-        }}
-        style={{
-          width: 50,
-          height: 26,
-          borderRadius: 6,
-          background: 'linear-gradient(90deg, #7DD3FC 0%, #0B5394 100%)',
-          border: '1px solid #7DD3FC',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'absolute',
-          left: 10,
-          top: 47,
-          boxShadow: '0 0 10px rgba(125,211,252,0.4)',
-        }}
-      >
-        <svg width="24" height="14" viewBox="0 0 24 14" fill="none">
-          <path d="M10 2 L15 7 L10 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M16 2 L21 7 L16 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
-        </svg>
-      </motion.div>
-
-      {/* Hand tapping */}
-      <motion.div
-        animate={{
-          scale: [1, 0.85, 1, 1],
-          x: [20, 20, 20, 20],
-          y: [20, 12, 20, 20],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          times: [0, 0.15, 0.3, 1]
-        }}
-        style={{
-          position: 'absolute',
-          left: 30,
-          top: 55,
-          zIndex: 10,
-        }}
-      >
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#FFC845" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.6))' }}>
-          <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-          <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-          <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
-          <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
-        </svg>
-      </motion.div>
     </div>
   );
 }
 
-export function HowToPlayScreen({ onPlay }) {
-  const steps = [
-    { n: '1', text: 'Tap an arrow block to slide it in the direction it points.' },
-    { n: '2', text: 'If its exit path is clear of other blocks, it will slide completely off the board.' },
-    { n: '3', text: 'Red Risk Blocks lock their neighbors if tapped early. You must clear normal blocks first and risks LAST.' },
-    { n: '4', text: 'Earn combo bonuses for consecutive exits. Clear all 5 levels inside 2 minutes!' },
-  ];
+function DemoLabel({ children, tint, icon }) {
+  return (
+    <span className="rx-tip" style={{ '--tip': tint }}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={tint}
+        strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {icon}
+      </svg>
+      {children}
+    </span>
+  );
+}
 
+export function HowToPlayScreen({ onPlay }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -349,18 +340,18 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 24,
+        padding: 20,
         background: 'radial-gradient(ellipse at 50% 30%, rgba(14, 79, 148, 0.55), rgba(5, 26, 58, 0.85) 70%), #051a3a',
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <div className="re-glass-card" style={{
         width: '100%',
-        maxWidth: 360,
-        padding: '24px 20px',
+        maxWidth: 356,
+        padding: '20px 18px 18px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 16,
+        gap: 14,
         alignItems: 'center',
         background: 'rgba(15, 23, 42, 0.5)',
         border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -368,37 +359,32 @@ export function HowToPlayScreen({ onPlay }) {
         backdropFilter: 'blur(12px)',
       }}>
         <h2 style={{
-          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          fontSize: 22, fontWeight: 900, textTransform: 'uppercase',
           letterSpacing: '-0.01em', margin: 0, color: '#fff',
           textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           How to Play
         </h2>
 
-        <TutorialAnimation />
+        <DragDemo />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-          {steps.map((s) => (
-            <div key={s.n} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{
-                width: 20, height: 20, borderRadius: '50%',
-                backgroundColor: BRAND.orange, color: '#fff',
-                fontSize: 11, fontWeight: 900,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0, marginTop: 2,
-              }}>{s.n}</div>
-              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-                {s.text}
-              </p>
-            </div>
-          ))}
+        <div className="rx-tips">
+          <DemoLabel tint="#FFC845" icon={<><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /><path d="M11 18l-6-6 6-6" /></>}>
+            Drag
+          </DemoLabel>
+          <DemoLabel tint="#F87171" icon={<><rect x="4" y="9" width="16" height="6" rx="2" /><path d="M9 12h6" /></>}>
+            One axis
+          </DemoLabel>
+          <DemoLabel tint="#4ADE80" icon={<><path d="M14 4h5v16h-5" /><path d="M3 12h12" /><path d="M11 8l4 4-4 4" /></>}>
+            Exit
+          </DemoLabel>
         </div>
 
-        <motion.div whileTap={{ scale: 0.96 }} style={{ width: '100%', marginTop: 6 }}>
+        <motion.div whileTap={{ scale: 0.96 }} style={{ width: '100%', marginTop: 2 }}>
           <button
             onClick={onPlay}
             style={{
-              width: '100%', height: 50,
+              width: '100%', height: 52,
               fontSize: 18, textTransform: 'uppercase', letterSpacing: '0.06em',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               backgroundColor: BRAND.orange,
@@ -411,7 +397,7 @@ export function HowToPlayScreen({ onPlay }) {
             }}
           >
             <PlayIcon size={20} />
-            Let's Escape
+            Play
           </button>
         </motion.div>
       </div>
@@ -453,9 +439,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   void onHome;
   const score = stats?.score || 0;
   const levelsCleared = stats?.levelsCleared ?? 0;
-  const exits = stats?.exits ?? 0;
-  const bumps = stats?.bumps ?? 0;
-  
+  const moves = stats?.moves ?? 0;
+  const risksCleared = stats?.risksCleared ?? 0;
+
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
@@ -487,7 +473,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   async function handleShare() {
     const rawShareUrl = buildShareUrl() || window.location.href;
     const shareUrl = await shortenUrl(rawShareUrl);
-    const shareMessage = `Hi,\nI scored ${score} points in Risk Exit by choosing the smart order of decisions!\nCan you beat my score? Try it here: ${shareUrl}`.trim();
+    const shareMessage = `Hi,\nI scored ${score} points in Risk Exit — I slid every risk aside and got my family's cover out!\nCan you beat my score? Try it here: ${shareUrl}`.trim();
 
     if (navigator.share) {
       try {
@@ -506,7 +492,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
 
   const radius = 75;
   const circumference = 2 * Math.PI * radius;
-  const targetScore = 1500;
+  const targetScore = TARGET_SCORE;
   const progress = (Math.min(score, targetScore) / targetScore) * circumference;
   const strokeColor = won ? '#22c55e' : score < 500 ? '#ef4444' : '#FFC845';
   const glowColor = won ? 'rgba(34, 197, 94, 0.4)' : score < 500 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 200, 69, 0.4)';
@@ -537,7 +523,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         <p style={{ color: '#fff', fontSize: 24, fontWeight: 900, lineHeight: 1.2, margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
           Hi <span style={{ color: '#FFC845', fontWeight: 950 }}>{leadName || 'Friend'}!</span><br />
           <span style={{ fontSize: 20, color: 'rgba(255, 255, 255, 0.85)', fontWeight: 800 }}>
-            {won ? 'Decisions Secured!' : 'Session Complete'}
+            {won ? 'Cover Secured!' : 'Session Complete'}
           </span>
         </p>
       </div>
@@ -577,28 +563,28 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
           background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
           fontSize: 12, fontWeight: 800, color: '#fff',
         }}>
-          Levels <span style={{ color: '#FFC845' }}>{levelsCleared}/5</span>
+          Boards <span style={{ color: '#FFC845' }}>{levelsCleared}/{LEVELS.length}</span>
         </div>
         <div style={{
           padding: '8px 14px', borderRadius: 12,
           background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
           fontSize: 12, fontWeight: 800, color: '#fff',
         }}>
-          Exits <span style={{ color: '#22c55e' }}>{exits}</span>
+          Risks <span style={{ color: '#22c55e' }}>{risksCleared}</span>
         </div>
         <div style={{
           padding: '8px 14px', borderRadius: 12,
           background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
           fontSize: 12, fontWeight: 800, color: '#fff',
         }}>
-          Bumps <span style={{ color: '#ef4444' }}>{bumps}</span>
+          Moves <span style={{ color: '#7DD3FC' }}>{moves}</span>
         </div>
       </div>
 
       {/* Motivational message */}
       <div style={{ textAlign: 'center', marginBottom: 22, padding: '0 16px' }}>
         <h2 style={{ fontSize: 17, fontWeight: 900, color: '#fff', lineHeight: 1.35, margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-          Prioritize risk protection in the right order to keep your plans safe.
+          Real risks do not move themselves. Clear a path for your cover before you need it.
         </h2>
       </div>
 

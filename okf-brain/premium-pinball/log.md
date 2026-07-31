@@ -476,3 +476,56 @@ v_peak > stuckSpeed (same treatment as the clearance invariant); README gained
 the Cover Note paragraph (GAME_STANDARD 8.5); the pre-Cover-Note mouth sweep
 table in data.js is marked historical. The unreachable 'BALL HELD - RUN ENDED'
 branch in finish() is left as defensive dead code, noted here.
+
+---
+
+## 2026-07-31 — lead form trimmed, how-to-play rebuilt as animation, asset sheet
+
+Three scoped changes, no gameplay touched (`data.js`, `physics.js`, `engine.js`,
+`table.js`, `render.js` and the HUD are byte-identical).
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx` lost `EMAIL_RE`, the
+`email` state, the whole "Email Field" block, the `errs.email` branch, both
+`lastSubmittedEmail` sessionStorage calls, and `email` from the `submitToLMS`
+call and both `onSubmitted` payloads. `api.js` untouched — `submitToLMS` already
+does `email_id: email || ''`, so the LMS payload shape is unchanged. Name +
+Mobile + T&C are exactly as they were. Grep for `email` over `premium-pinball/src`
+is now empty.
+
+**G2 — `HowToPlayScreen` is now one animated demo.** All four numbered `Beat`
+paragraphs, the scoring-ladder chips, the balls/seconds/target paragraph and the
+Cover Note sentence are deleted, along with the `Beat` component and the three
+`ppBeat*` keyframes. In their place `DemoTable()` renders a mini of the shipping
+table — same plunger lane, same three goal bumpers in `GOALS` order and colours,
+same slingshots, funnel walls, flippers and drain mouth — running a single 5.6 s
+loop: a touch dot holds the plunger (the rod visibly compresses), releases, the
+ball climbs the shooter lane, lights the three rollover lamps, pops the middle
+goal bumper (ring flash), falls toward the drain, and the dot moves to the LEFT
+half and taps — which is the real input map from `PremiumPinballGame.jsx`
+(`toLogicalX(e.clientX) < table.cx ? 'left' : 'right'`) — and the left flipper
+fires and saves it. Every track shares the 5.6 s duration so they stay in sync,
+and all of them are disabled under `prefers-reduced-motion`.
+Remaining text on the screen: the "How to Play" heading, three icon-led cues
+(HOLD TO LAUNCH / TAP TO FLIP / DON'T DRAIN) and the Play button. Nothing else.
+Card is 340 px wide with the demo at 212×265; measured stack is ~490 px, so it
+fits 360×640 with no scroll (`overflow: hidden`, was `overflowY: auto`).
+`SCORE_LADDER` dropped from the `data.js` import as it is now unused.
+
+**G3 — `asset-from-here.md`,** 14 Nano Banana prompts on the motif
+*chrome-and-neon arcade cabinet hardware*: every asset is a physical,
+manufactured pinball part shot as a product render — lacquered plywood,
+injection-moulded translucent caps, chrome skirts, rubber rings, wire-form lanes,
+backglass lamp inserts — at the steep ~28° 3/4 playfield camera. Covers the
+playfield bed, steel ball, all three goal bumpers, flipper pair, plunger
+assembly, slingshot, rollover lane lamp (lit/unlit pair), drain mouth, two HUD
+icons, the Bonus Secure band and both result-screen pieces.
+
+**Verification**
+
+| Gate | Result |
+| --- | --- |
+| `pnpm install` | pass |
+| `pnpm build` | pass — `✓ built in 4.87s`, 526 modules, 430.99 kB / 142.64 kB gzip |
+
+`scripts/balance.mjs` was not re-run: this round changed no file it reads
+(`data.js`, `table.js`, `physics.js`, `engine.js` are untouched).

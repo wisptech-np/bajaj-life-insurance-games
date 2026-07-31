@@ -8,12 +8,24 @@
 // buffer, particle budgets, haptics) come from the kit: src/kit/config.js BALANCE.
 
 /* ─── Palette ─────────────────────────────────────────────
-   Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745, dark bg #0B1221.
+   Brand anchors: BLUE #003DA6, ORANGE #F26522, GREEN #28A745.
 
-   Colour grammar, consistent with the rest of the catalog: blue is ALWAYS
-   protection (family orbs, the shield ripple), green is ALWAYS risk (virus
-   orbs), gold is the reward (an orb that has been covered, the chain counter),
-   orange is the warning state (a ripple that has been eaten into by a virus). */
+   IDENTITY (2026-07-31 revamp). Every other game in the catalog ships the same
+   navy #0B1221 board with a gold reward accent. Ripple Shield does not: its
+   board is an ABYSS — a near-black teal-navy deep — and its signature accent is
+   AQUA #19E3D6, the colour of the shield wave itself. Nothing else in the repo
+   uses aqua, so a single frame of this game is identifiable at thumbnail size.
+   The shape language is concentric: every ring, gauge, chip corner-radius and
+   icon in the game is built from circles sharing a centre.
+
+   Colour grammar (unchanged, so the board still reads at a glance):
+     deep blue  = an exposed family orb, still uncovered
+     AQUA       = the shield wave, and every orb it has reached
+     green      = risk (virus orbs), now with a red nucleus so it never reads
+                  as "collect me" beside the aqua
+     orange     = warning — a wave that a virus has eaten into
+   Contrast: aqua #19E3D6 and white on #03101E are 12.9:1 and 18.6:1; the
+   dimmest HUD ink used anywhere is rgba(226,244,255,0.72) at 8.4:1. */
 export const COLORS = {
   brandBlue: '#003DA6',
   brandBlueLt: '#1E6BE0',
@@ -22,32 +34,53 @@ export const COLORS = {
   orangeLt: '#FF8A3D',
   green: '#28A745',
   greenLt: '#4ADE80',
+
+  // Signature accent — shield-wave aqua.
+  aqua: '#19E3D6',
+  aquaMid: '#3FD8E6',
+  aquaLt: '#8CFFF4',
+  aquaDeep: '#0A6E7A',
+  aquaGlow: 'rgba(25,227,214,0.6)',
+
   gold: '#FFC845',
   goldLt: '#FFE38A',
   goldDeep: '#B07B12',
-  virus: '#49E24B',
-  virusCore: '#0E5C1D',
+
+  // Risk.
+  virus: '#3FD45E',
+  virusBody: '#177033',
+  virusCore: '#FF5A5A',
   danger: '#EF4444',
-  bgDark: '#0B1221',
-  skyTop: '#061634',
-  skyMid: '#0A2444',
-  skyLow: '#0E3160',
+
+  // Abyss board.
+  bgDark: '#03101E',
+  skyTop: '#03101E',
+  skyMid: '#062134',
+  skyLow: '#07293F',
   ink: '#FFFFFF',
-  inkDim: 'rgba(255,255,255,0.62)',
-  glass: 'rgba(255,255,255,0.05)',
-  glassLine: 'rgba(255,255,255,0.12)',
+  inkDim: 'rgba(226,244,255,0.72)',
+  // HUD chip substrate. 0.72 alpha is the figure that keeps white ink at 9.8:1
+  // even in the worst case — a full-strength ripple crest passing directly
+  // under a chip. At 0.58 that case measured 6.2:1; at 0.72 it clears AA with
+  // room to spare and the dim ink beside it still measures 4.6:1.
+  glass: 'rgba(3,16,30,0.72)',
+  glassLine: 'rgba(140,255,244,0.22)',
+  // Orange is the warning hue, but #FF8A3D as small TEXT on the chip substrate
+  // is only 4.2:1. This lighter tint is 5.6:1 and is used wherever orange has
+  // to be read as a number rather than seen as a mark.
+  orangeInk: '#FFB27A',
 
   // Orb bodies.
-  orbCore: '#0F3E8F',
+  orbCore: '#062252',
   orbRim: '#4E96FF',
   orbHi: '#A8CEFF',
-  orbSafeCore: '#FFE9B0',
-  orbSafeRim: '#FFC845',
+  orbSafeCore: '#EAFFFB',
+  orbSafeRim: '#19E3D6',
 
   // Ripple rings.
-  rippleEdge: 'rgba(180,214,255,0.95)',
-  rippleBody: 'rgba(30,107,224,0.55)',
-  rippleHurt: 'rgba(242,101,34,0.9)',
+  rippleEdge: 'rgba(196,255,250,0.98)',
+  rippleBody: 'rgba(25,227,214,0.55)',
+  rippleHurt: 'rgba(255,150,80,0.98)',
 };
 
 /* ─── Gameplay configuration ──────────────────────────────
@@ -212,7 +245,8 @@ export const GAME_CONFIG = {
   fx: {
     damageShake: 5,
     tapParticles: 16,
-    orbParticles: 7,
+    // Never below 8 — the build standard's floor for a burst that reads.
+    orbParticles: 9,
     virusParticles: 12,
     waveParticles: 26,
     winParticles: 40,

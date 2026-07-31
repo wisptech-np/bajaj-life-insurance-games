@@ -13,6 +13,53 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
   <style>
+    /* ───────────────────────────────────────────────────────────────
+       Tightrope Protection — design tokens.
+       Accent is the balance-pole ORANGE; shape language is long taut
+       horizontals, height ticks and 12px-radius glass.
+       Every text/fill pair below is >= 4.5:1 on --tp-ink (AA body).
+       ─────────────────────────────────────────────────────────────── */
+    :root {
+      --tp-ink: #04122B;
+      --tp-ink-2: #071B3E;
+      --tp-ink-3: #0A2450;
+
+      --tp-rope: #F26522;
+      /* brand ORANGE — 5.9:1 on ink */
+      --tp-rope-lo: #C2410C;
+      --tp-blue: #003DA6;
+      /* brand BLUE */
+      --tp-blue-lt: #2E9BFF;
+      --tp-green: #28A745;
+      /* brand GREEN — 5.9:1 on ink */
+      --tp-gold: #FFC845;
+      --tp-risk: #FF6B84;
+
+      --tp-text: #FFFFFF;
+      --tp-text-2: #A9C2E8;
+      /* 10.2:1 */
+      --tp-text-3: #7E97BB;
+      /* 6.2:1 */
+
+      --tp-glass: rgba(255, 255, 255, 0.05);
+      --tp-glass-2: rgba(255, 255, 255, 0.08);
+      --tp-stroke: rgba(255, 255, 255, 0.12);
+
+      /* spacing scale */
+      --s1: 4px;
+      --s2: 8px;
+      --s3: 12px;
+      --s4: 16px;
+      --s5: 20px;
+      --s6: 24px;
+      --s8: 32px;
+
+      --tp-r: 12px;
+      --tp-r-lg: 20px;
+      --tp-btn-h: 52px;
+      --tp-btn-h-sm: 44px;
+    }
+
     *,
     *::before,
     *::after {
@@ -29,7 +76,7 @@
 
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background: #04122B;
+      background: var(--tp-ink);
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       -webkit-user-select: none;
@@ -75,22 +122,123 @@
       width: 3px;
     }
 
+    /* ── Buttons: one shared height, 12px radius, 0.96 press-scale + glow ── */
     .btn-press {
-      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, box-shadow 0.2s ease;
+      transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s ease, box-shadow 0.2s ease;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
     }
 
     .btn-press:hover {
       transform: scale(1.02);
-      opacity: 0.95;
+      filter: brightness(1.06);
     }
 
     .btn-press:active {
-      transform: scale(0.95);
+      transform: scale(0.96);
     }
 
-    .btn-press:focus {
+    .btn-press:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.4), 0 6px 24px rgba(0, 174, 239, 0.2);
+      box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.55);
+    }
+
+    .tp-btn {
+      width: 100%;
+      height: var(--tp-btn-h);
+      min-height: var(--tp-btn-h);
+      border-radius: var(--tp-r);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s2);
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .tp-btn-sm {
+      height: var(--tp-btn-h-sm);
+      min-height: var(--tp-btn-h-sm);
+      font-size: 13px;
+    }
+
+    /* orange carries dark ink so the 4.5:1 body threshold is met */
+    .tp-btn-rope {
+      background: linear-gradient(135deg, #FF7B33 0%, #F26522 100%);
+      color: var(--tp-ink);
+      box-shadow: 0 6px 22px rgba(242, 101, 34, 0.38);
+    }
+
+    .tp-btn-blue {
+      background: linear-gradient(135deg, #2E7BE8 0%, #003DA6 100%);
+      color: #fff;
+      box-shadow: 0 6px 22px rgba(0, 61, 166, 0.45);
+    }
+
+    .tp-btn-green {
+      background: linear-gradient(135deg, #1E7E34 0%, #14612A 100%);
+      color: #fff;
+      box-shadow: 0 6px 22px rgba(40, 167, 69, 0.32);
+    }
+
+    .tp-btn-ghost {
+      background: transparent;
+      border: 1px solid var(--tp-stroke);
+      color: var(--tp-text-2);
+    }
+
+    .tp-glass {
+      background: var(--tp-glass);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--tp-stroke);
+      border-radius: var(--tp-r-lg);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+    }
+
+    .tp-field {
+      width: 100%;
+      height: var(--tp-btn-h);
+      background: rgba(4, 18, 43, 0.75);
+      border: 1px solid var(--tp-stroke);
+      border-radius: var(--tp-r);
+      padding: 0 var(--s4);
+      font-size: 15px;
+      font-family: inherit;
+      color: #fff;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .tp-field::placeholder {
+      color: var(--tp-text-3);
+      opacity: 0.75;
+    }
+
+    .tp-field:focus {
+      outline: none;
+      border-color: var(--tp-rope);
+      box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.22);
+    }
+
+    /* ── Screen transitions (0.3–0.5s) ── */
+    @keyframes tp-screen-in {
+      0% {
+        opacity: 0;
+        transform: translateY(16px) scale(0.975);
+      }
+
+      100% {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    .tp-screen {
+      animation: tp-screen-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
     @keyframes pop {
@@ -106,13 +254,31 @@
     }
 
     .pop {
-      animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      animation: pop 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes tp-rise {
+      0% {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+
+      100% {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    .rise {
+      animation: tp-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
     @keyframes float {
-      0%, 100% {
+      0%,
+      100% {
         transform: translateY(0)
       }
+
       50% {
         transform: translateY(-8px)
       }
@@ -122,14 +288,32 @@
       animation: float 3s ease-in-out infinite;
     }
 
+    /* ── Pulsing affordance on interactive elements ── */
+    @keyframes tp-pulse {
+      0%,
+      100% {
+        box-shadow: 0 6px 22px rgba(242, 101, 34, 0.38), 0 0 0 0 rgba(242, 101, 34, 0.45);
+      }
+
+      50% {
+        box-shadow: 0 6px 22px rgba(242, 101, 34, 0.38), 0 0 0 10px rgba(242, 101, 34, 0);
+      }
+    }
+
+    .pulse-cta {
+      animation: tp-pulse 2.2s ease-out infinite;
+    }
+
     @keyframes pulse-ring {
       0% {
         transform: scale(0.6);
         opacity: 0;
       }
+
       50% {
         opacity: 0.5;
       }
+
       100% {
         transform: scale(1.6);
         opacity: 0;
@@ -141,35 +325,200 @@
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      border: 3px solid #00AEEF;
+      border: 3px solid var(--tp-rope);
       animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
     }
 
-    @keyframes swipe-loop {
+    /* ── Confetti (results win state) ── */
+    @keyframes tp-confetti {
       0% {
-        transform: translateY(40px) scale(1);
-        opacity: 0;
-      }
-      10% {
-        transform: translateY(40px) scale(0.8);
+        transform: translateY(-40px) rotate(0deg);
         opacity: 1;
       }
-      40% {
-        transform: translateY(-40px) scale(0.8);
-        opacity: 1;
-      }
-      50% {
-        transform: translateY(-40px) scale(1);
-        opacity: 0;
-      }
+
       100% {
-        transform: translateY(40px) scale(1);
+        transform: translateY(760px) rotate(720deg);
         opacity: 0;
       }
     }
 
-    .swipe-hand {
-      animation: swipe-loop 2.4s ease-in-out infinite;
+    .confetti {
+      position: absolute;
+      width: 7px;
+      height: 13px;
+      border-radius: 1px;
+      pointer-events: none;
+      animation: tp-confetti var(--dur) linear var(--delay) infinite;
+    }
+
+    /* ── How-to-play demo loop (4s): swipe up, ride, hop a gust, drop back ── */
+    @keyframes tp-hand-swipe {
+      0%, 4% {
+        transform: translate(0, 20px) scale(1);
+        opacity: 0;
+      }
+
+      8% {
+        transform: translate(0, 20px) scale(0.84);
+        opacity: 1;
+      }
+
+      24% {
+        transform: translate(0, -18px) scale(0.84);
+        opacity: 1;
+      }
+
+      30% {
+        transform: translate(0, -18px) scale(1);
+        opacity: 0;
+      }
+
+      31%, 56% {
+        transform: translate(0, 2px) scale(1);
+        opacity: 0;
+      }
+
+      60% {
+        transform: translate(0, 2px) scale(0.78);
+        opacity: 1;
+      }
+
+      70% {
+        transform: translate(0, 2px) scale(1.08);
+        opacity: 1;
+      }
+
+      78%, 100% {
+        transform: translate(0, 2px) scale(1);
+        opacity: 0;
+      }
+    }
+
+    .tp-hand {
+      animation: tp-hand-swipe 4s ease-in-out infinite;
+    }
+
+    @keyframes tp-walker-demo {
+      0%, 10% {
+        transform: translateY(0);
+      }
+
+      24%, 56% {
+        transform: translateY(-30px);
+      }
+
+      68% {
+        transform: translateY(-62px);
+      }
+
+      78%, 92% {
+        transform: translateY(-30px);
+      }
+
+      100% {
+        transform: translateY(0);
+      }
+    }
+
+    .tp-walker-demo {
+      animation: tp-walker-demo 4s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
+    }
+
+    /* upper cable lights while she is on it */
+    @keyframes tp-rope-hot {
+      0%, 16% {
+        opacity: 0;
+      }
+
+      24%, 92% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes tp-rope-cold {
+      0%, 16% {
+        opacity: 1;
+      }
+
+      24%, 92% {
+        opacity: 0;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    .tp-rope-hot {
+      animation: tp-rope-hot 4s linear infinite;
+    }
+
+    .tp-rope-cold {
+      animation: tp-rope-cold 4s linear infinite;
+    }
+
+    /* gust crosses the upper cable and is cleared at 70% by the hop */
+    @keyframes tp-gust-run {
+      0%, 52% {
+        transform: translateX(0);
+        opacity: 0;
+      }
+
+      54% {
+        transform: translateX(-4px);
+        opacity: 1;
+      }
+
+      70% {
+        transform: translateX(-176px);
+        opacity: 1;
+      }
+
+      88% {
+        transform: translateX(-268px);
+        opacity: 1;
+      }
+
+      92%, 100% {
+        transform: translateX(-280px);
+        opacity: 0;
+      }
+    }
+
+    .tp-gust-run {
+      animation: tp-gust-run 4s linear infinite;
+    }
+
+    @keyframes tp-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .tp-spin {
+      animation: tp-spin 0.9s linear infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .tp-screen,
+      .pop,
+      .rise,
+      .float,
+      .pulse-cta,
+      .confetti,
+      .tp-hand,
+      .tp-walker-demo,
+      .tp-gust-run,
+      .tp-rope-hot,
+      .tp-rope-cold {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
     }
   </style>
   <script>

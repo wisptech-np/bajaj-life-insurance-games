@@ -65,3 +65,70 @@ timestamp: 2026-07-28
   a 30-35% pocket strike rate against 1% dead centre, gutters on bad angles, a
   42.0% casual win rate at the shipped target, and 53-63 s used of the 120 s
   session.
+
+## [2026-07-31] UI revamp: impact identity, compact HUD, animation-only tutorial
+
+- **Own identity.** The game now owns ignition orange `#FF6A1A` (hot core
+  `#FFE0B8`) as its accent and *concentric rings* as its shape language: timing
+  rings around a ball at rest, shockwaves at every point of contact, target
+  rings on the arena wall, the pocket ring on the deck, the ring glyph in the
+  HUD, the score ring on Results. No other game in the catalog leads on that
+  pair, which is what stops these screens reading like their neighbours.
+- **Figure/ground rebuilt.** Ground dropped to near-black `#050912` across
+  `App.jsx`, `Screens.jsx` and the canvas; the lane went from a mid-blue
+  `#2B5FA6` — which sat at almost the same value as the ball — down to
+  `#1B2C4E`/`#070D1B`. The arena behind the deck is now one soft bloom and a
+  dark masking slab instead of two pulsing light bars, so the only high-value
+  things on screen are the green bottles, the blue ball and the orange impact.
+- **Every object redrawn with depth.** The pin sprite gained a directional
+  shade across the belly plus two rim lights (cool `#C6FFB4` key, warm
+  `#FF6A1A` fill) inside the silhouette and a dark contour outside it; the ball
+  swapped its flat full-circle outline for two partial rim-light arcs; the
+  aiming arrows became open chevrons; the foul line became a lit gradient bar.
+  All programmatic — no images, no emoji.
+- **Compact HUD.** The two labelled panels and the six-row scorecard card are
+  gone. There are now three glyph-plus-number chips at 32 px (impact burst +
+  score, bottle + risks down, clock ring + seconds) and one 22 px five-cell
+  frame strip showing marks only. No word labels, no frame/ball sentence, no
+  pins-out-of-total sentence. Spacing runs on one 5/10/16/22 scale.
+- **Power meter moved to the point of action.** The vertical bar bolted to the
+  right edge was deleted; power is now the ring that fills clockwise around the
+  ball itself, going hot past 86%. Same information, no static panel, and it is
+  the game's own ring language doing the work.
+- **Impact feedback made heavy.** Pooled shockwave rings (`createRings` /
+  `spawnRing`, cap 10, zero per-impact allocation) drawn as flattened ellipses
+  on the lane plane under the pins, a full-screen flash tinted per event
+  (orange on contact, hot white on a strike, red on a gutter), one frame of
+  hit-stop on the first heavy contact of each throw, and shake scaled by
+  impulse. Floating `+N` now spawns at the centroid of the pins that actually
+  went down rather than at the middle of the screen.
+- **G1 — email removed** from `src/LeadCaptureModal.jsx`: `EMAIL_RE`, the state,
+  the field block, the validation branch, both `sessionStorage` reads/writes of
+  `lastSubmittedEmail`, and `email` from the `submitToLMS` and `onSubmitted`
+  payloads. `api.js` untouched (`email_id: email || ''` keeps the LMS shape).
+- **G2 — How to Play is animation only.** The three numbered instruction beats
+  and the win-condition paragraph are gone. One 3.2 s looping SVG shows a thumb
+  glyph flicking up the lane with a curl, the ball following that exact curl,
+  contact throwing a shockwave and a flash, the rack going down and the strike
+  mark landing. Text on the screen is the heading, three glyph-led labels
+  ("Flick up", "Curl to hook", "Clear all ten") and the Play button.
+- **Home and Results restyled** to match. Home leads with a stacked wordmark
+  inside two expanding shockwave rings over the same demo loop; Results keeps
+  the repo-standard structure from `guardian-shelter/src/Screens.jsx` (count-up
+  score, r=75 progress ring, confetti on win, Share, glass card with Book a
+  Slot + Call Specialist, ghost Play again, disclaimer) with the new palette.
+- **Contrast fixed.** `inkDim` raised 0.62 -> 0.72; stat-tile labels 0.5 -> 0.74;
+  the POINTS caption 0.55 -> 0.76; the disclaimer block 0.40 -> 0.62; spare
+  marks moved off `#2E7BF0` (4.2:1) to `#9CC6FF`; risk-label plates on the
+  playfield taken to 92% opaque so body text clears AA over the bloom.
+- **G3** — `risk-strike/asset-from-here.md` written: 14 Nano Banana prompts
+  (arena, lane bed, ball, standing pin, falling-pin strip, shockwave, timing
+  ring, power ring, chevrons, three HUD glyphs, two result marks), each with the
+  two-light rule and the orange/ring identity that separates them from the other
+  games' sheets.
+- **No gameplay change.** `physics.js` untouched; every number under `flick`,
+  `pins`, `winPins` and `scoreMultiplier` is as the balance sim set it. The only
+  `data.js` edits are the palette and a new `fx` block for the ring/flash
+  timings.
+- **Verified:** `pnpm install` then `pnpm build` exits 0 — `built in 4.45s`,
+  `dist/assets/index-*.js 436.48 kB / gzip 145.01 kB`.

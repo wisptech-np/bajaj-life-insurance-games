@@ -124,3 +124,51 @@ genuine bounces are untouched). Verified: the debug column now settles to
 4. **Added displacement-based velocity reconciliation** (not in the spec's
    physics list) — required to make the spec's own "at rest, speed < 20 px/s"
    overflow rule reachable in tall stacks; see the bug note above.
+
+## [2026-07-31] Revamp: email field removed, animated how-to-play, asset sheet
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx`: deleted `EMAIL_RE`, the
+`email` `useState`, the whole "Email Field" `sl-lead-field` block, the
+`errs.email` validation branch, and both `sessionStorage` touches of
+`lastSubmittedEmail`. Dropped `email` from the `submitToLMS({...})` call and from
+both `onSubmitted({...})` payloads. `api.js` untouched — `submitToLMS` already
+sends `email_id: email || ''`, so the LMS payload shape is unchanged. Name +
+Mobile + T&C unchanged. Grep for `email` outside `src/kit/` and `src/api.js`
+returns zero hits.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first.** `src/Screens.jsx`:
+- Deleted all three numbered instruction paragraphs and the `+3 MERGE!` floating
+  text that the old demo drew inside the jar.
+- The old demo was a 170 px DOM box showing a single drop and one merge. Replaced
+  with a 300×230 inline-SVG jar on a module-level `TUT_CSS` timeline (6.4 s):
+  the finger drags along the mouth with the game's real dashed drop guide under
+  it, releases; the token falls, bounces and settles touching an identical twin;
+  both vanish into a gold burst ring and the next tier pops out at the contact
+  point — and because that result is itself a twin of its neighbour, a **second**
+  merge fires 1.4 s later inside the chain window, with three ascending mint
+  chevrons standing in for the multiplier. The cascade, which is the actual
+  scoring engine, is now shown rather than described.
+- The jar is drawn as real glass with the always-visible dashed red danger line
+  pulsing across the mouth, so the overflow rule needs no sentence.
+- The 8-tier ladder strip is kept as pure shapes; its `>` separators were dropped
+  so the whole screen is wordless apart from the three labels.
+- Remaining text: the "How to Play" heading, three icon-led labels (`DRAG AND
+  DROP`, `SAME TIERS MERGE`, `STAY BELOW LINE`), and the Play button.
+- Container switched from `overflowY: auto` to `overflow: hidden`; measured stack
+  is ~510 px so it fits 360×640 without scrolling. Added a
+  `prefers-reduced-motion` kill switch, which this screen previously lacked.
+
+**G3 — `wealth-merge/asset-from-here.md`.** 12 Nano Banana prompts on a
+"blown-glass apothecary jar in a bioluminescent night" motif — translucent glass
+spheres with the emblem suspended *inside* them, everything lit from within
+rather than by a lamp, meniscus curves and caustic rings, soft edges throughout.
+Includes a single eight-token ladder sheet so the tier progression stays
+consistent, plus the jar, the corpus token, the merge burst, the chain glyph, the
+danger line, the drop guide, two HUD pieces and both result illustrations.
+
+**Not changed:** gameplay, balance, `physics.js`, the tier table, merge or chain
+rules, the overflow grace window, HUD layout, `ResultsScreen`, `HomeScreen`,
+canvas artwork, `data.js`, `api.js`, `src/kit/`.
+
+**Build:** `pnpm install && pnpm build` — exit 0, `✓ built in 2.54s`
+(`dist/assets/index-OfumB4RS.js 425.37 kB │ gzip: 141.22 kB`).

@@ -1,15 +1,22 @@
-// SwingToSecureGame.jsx — rope-swing momentum game.
+// SwingToSecureGame.jsx — tether-swing momentum game.
 //
-// The player is a guardian crossing a canyon on ropes thrown at protection
-// pylons. Hold to grab the nearest pylon, swing, release at the right moment to
-// convert angular momentum into distance. Reach the vault at 2000 m before the
-// 105 s session runs out.
+// The player is a guardian crossing a dusk skyline on tethers thrown at hex
+// protection beacons. Hold to grab the nearest beacon, swing, release at the
+// right moment to convert angular momentum into distance. Reach the retirement
+// vault at 2000 m before the session runs out.
+//
+// Art direction (2026-07-31): everything on screen is drawn from two primitives
+// — a HEXAGON and a CHEVRON — over a city at last light: a night-blue sky
+// burning down into an orange horizon, with two bands of chevron-roofed towers
+// in parallax silhouette. No images, no emoji, no flat rectangles. See
+// asset-from-here.md for the generated-art equivalents.
 //
 // Structure mirrors GuardianShelterGame.jsx: one canvas component whose mutable
 // state lives in refs (never React state — a 120 Hz physics tick must not
 // re-render), plus module-level pure helpers and draw functions. All tunables
 // come from data.js; the kit owns the loop, input, effects, audio and device
-// profiling.
+// profiling. Gravity is the one kit value this game overrides — see the physics
+// block in data.js for why.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { COLORS, GAME_CONFIG } from './data.js';
@@ -140,62 +147,123 @@ function buildWorld(cfg, rand) {
   return { anchors, coins, viruses, shields, courseLen, vaultX: courseLen };
 }
 
-/* ─── Parallax backdrop ──────────────────────────────────── */
+/* ─── Shape language ─────────────────────────────────────── */
 /**
- * Periodic ridge profile. Every harmonic is an integer multiple of the tile
- * width, so the layer tiles seamlessly however far the camera travels.
+ * Flat-top hexagon centred on the origin. Every solid object in this game — the
+ * beacons, the premium chips, the risk mines, the vault gate, the guardian's
+ * visor — is cut from this one primitive. That is the game's signature: no
+ * plain circles, no plain rectangles.
  */
-function ridgeY(u, base, amp, ph) {
-  return base
-    + Math.sin(u * Math.PI * 2 + ph[0]) * amp * 0.55
-    + Math.sin(u * Math.PI * 6 + ph[1]) * amp * 0.28
-    + Math.sin(u * Math.PI * 14 + ph[2]) * amp * 0.17;
+function hexPath(ctx, r, squash = 1) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 6 + (i / 6) * Math.PI * 2;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r * squash;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
 }
 
-/** Pre-render one parallax layer to an offscreen canvas (built on resize only). */
-function makeLayer({ tileW, h, dpr, baseFrac, ampFrac, top, bottom, alpha, crest, phases, segments }) {
+/** Rim light along the upper-left faces of a hex — the sun sits low and right. */
+function hexRim(ctx, r, color, width) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let i = 3; i <= 5; i++) {
+    const a = Math.PI / 6 + (i / 6) * Math.PI * 2;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 3) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+/* ─── Parallax backdrop: dusk skyline ────────────────────── */
+/**
+ * Pre-render one band of chevron-roofed towers to an offscreen canvas (built on
+ * resize only, never per frame).
+ *
+ * Towers are placed on a fixed pitch and are always narrower than the pitch, so
+ * no silhouette ever straddles the tile edge — the layer tiles seamlessly at any
+ * camera distance without the trigonometric bookkeeping the old ridge profile
+ * needed.
+ */
+function makeSkylineLayer({
+  tileW, h, dpr, seed, baseFrac, minHFrac, maxHFrac, pitch,
+  top, bottom, rim, alpha, windows, windowColor,
+}) {
   const cv = document.createElement('canvas');
   cv.width = Math.max(1, Math.round(tileW * dpr));
   cv.height = Math.max(1, Math.round(h * dpr));
   const c = cv.getContext('2d');
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const base = h * baseFrac;
-  const amp = h * ampFrac;
+  const rand = mulberry32(seed);
+  const baseY = h * baseFrac;
+  const minH = h * minHFrac;
+  const maxH = h * maxHFrac;
 
-  const xs = new Float32Array(segments + 1);
-  const ys = new Float32Array(segments + 1);
-  for (let i = 0; i <= segments; i++) {
-    const u = i / segments;
-    xs[i] = u * tileW;
-    ys[i] = ridgeY(u, base, amp, phases);
-  }
-
-  const crestPath = new Path2D();
-  crestPath.moveTo(xs[0], ys[0]);
-  for (let i = 0; i < segments; i++) {
-    crestPath.quadraticCurveTo(xs[i], ys[i], (xs[i] + xs[i + 1]) / 2, (ys[i] + ys[i + 1]) / 2);
-  }
-  crestPath.lineTo(xs[segments], ys[segments]);
-
-  const body = new Path2D(crestPath);
-  body.lineTo(tileW, h);
-  body.lineTo(0, h);
-  body.closePath();
-
-  const g = c.createLinearGradient(0, base - amp, 0, h);
+  const g = c.createLinearGradient(0, baseY - maxH, 0, h);
   g.addColorStop(0, top);
   g.addColorStop(1, bottom);
+
+  const n = Math.max(3, Math.round(tileW / pitch));
+  const step = tileW / n;
   c.globalAlpha = alpha;
-  c.fillStyle = g;
-  c.fill(body);
 
-  c.globalAlpha = alpha * 0.85;
-  c.strokeStyle = crest;
-  c.lineWidth = 1.6;
-  c.stroke(crestPath);
+  for (let i = 0; i < n; i++) {
+    const w = step * (0.5 + rand() * 0.36);
+    const x = i * step + (step - w) / 2;
+    const th = minH + rand() * (maxH - minH);
+    const y = baseY - th;
+    const notch = Math.min(14, w * 0.3);
+
+    // Chevron-cut roof — the same 30° bevel as the hex faces.
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(x, h);
+    c.lineTo(x, y + notch);
+    c.lineTo(x + notch, y);
+    c.lineTo(x + w - notch, y);
+    c.lineTo(x + w, y + notch);
+    c.lineTo(x + w, h);
+    c.closePath();
+    c.fill();
+
+    // Sunset rim along the roofline and the left face.
+    c.strokeStyle = rim;
+    c.lineWidth = 1.5;
+    c.lineJoin = 'round';
+    c.beginPath();
+    c.moveTo(x + 0.8, h);
+    c.lineTo(x + 0.8, y + notch);
+    c.lineTo(x + notch, y + 0.8);
+    c.lineTo(x + w - notch, y + 0.8);
+    c.stroke();
+
+    // Occasional aerial mast.
+    if (rand() < 0.34) {
+      c.beginPath();
+      c.moveTo(x + w / 2, y);
+      c.lineTo(x + w / 2, y - 10 - rand() * 16);
+      c.stroke();
+    }
+
+    if (windows) {
+      c.fillStyle = windowColor;
+      for (let wy = y + 16; wy < h - 10; wy += 14) {
+        for (let wx = x + 7; wx < x + w - 9; wx += 10) {
+          if (rand() < 0.24) c.fillRect(wx, wy, 3, 5);
+        }
+      }
+    }
+  }
+
   c.globalAlpha = 1;
-
   return cv;
 }
 
@@ -208,173 +276,205 @@ function makeLayer({ tileW, h, dpr, baseFrac, ampFrac, top, bottom, alpha, crest
 function buildPaints(ctx, cfg, W, H) {
   const floorTop = H - cfg.world.dangerBandPx;
 
+  // Dusk ramp: night at the top of the frame burning down into a sunset band.
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, COLORS.skyTop);
-  sky.addColorStop(0.5, COLORS.skyMid);
-  sky.addColorStop(1, COLORS.skyLow);
+  sky.addColorStop(0.38, COLORS.skyMid);
+  sky.addColorStop(0.64, COLORS.skyDusk);
+  sky.addColorStop(0.86, COLORS.skyBand);
+  sky.addColorStop(1, COLORS.skyHorizon);
+
+  // Low sun, centred on the origin so render() can translate to it.
+  const sunR = cfg.world.sunRadiusPx;
+  const sun = ctx.createRadialGradient(0, 0, sunR * 0.12, 0, 0, sunR);
+  sun.addColorStop(0, 'rgba(255,236,190,0.95)');
+  sun.addColorStop(0.3, 'rgba(255,176,32,0.5)');
+  sun.addColorStop(0.68, 'rgba(242,101,34,0.2)');
+  sun.addColorStop(1, 'rgba(242,101,34,0)');
 
   const danger = ctx.createLinearGradient(0, floorTop, 0, H);
-  danger.addColorStop(0, 'rgba(239,68,68,0)');
-  danger.addColorStop(1, 'rgba(239,68,68,0.34)');
+  danger.addColorStop(0, 'rgba(255,59,78,0)');
+  danger.addColorStop(1, 'rgba(255,59,78,0.36)');
 
   const cr = cfg.pickups.coinRadius;
-  const coin = ctx.createRadialGradient(-cr * 0.3, -cr * 0.35, 1, 0, 0, cr);
+  const coin = ctx.createLinearGradient(0, -cr, 0, cr);
   coin.addColorStop(0, COLORS.goldLt);
-  coin.addColorStop(0.55, COLORS.gold);
+  coin.addColorStop(0.5, COLORS.gold);
   coin.addColorStop(1, COLORS.goldDeep);
 
   const hr = cfg.hazards.radius;
-  const virus = ctx.createRadialGradient(-hr * 0.3, -hr * 0.3, 1, 0, 0, hr);
-  virus.addColorStop(0, '#A8F5A0');
-  virus.addColorStop(0.5, COLORS.virus);
+  const virus = ctx.createRadialGradient(-hr * 0.32, -hr * 0.36, 1, 0, 0, hr);
+  virus.addColorStop(0, COLORS.virusLt);
+  virus.addColorStop(0.48, COLORS.virus);
   virus.addColorStop(1, COLORS.virusCore);
 
   const sr = cfg.pickups.shieldRadius;
   const shield = ctx.createLinearGradient(0, -sr, 0, sr);
-  shield.addColorStop(0, '#7FB8FF');
+  shield.addColorStop(0, '#8CC4FF');
   shield.addColorStop(0.5, COLORS.brandBlueLt);
   shield.addColorStop(1, COLORS.brandBlue);
 
   const pr = cfg.player.radius;
   const body = ctx.createLinearGradient(0, -pr, 0, pr * 1.4);
-  body.addColorStop(0, '#4E96FF');
+  body.addColorStop(0, '#5FA0FF');
   body.addColorStop(0.55, COLORS.brandBlueLt);
-  body.addColorStop(1, COLORS.brandBlue);
+  body.addColorStop(1, '#00246A');
 
-  const pylon = ctx.createLinearGradient(0, -cfg.anchors.pylonH, 0, cfg.anchors.pylonH * 1.6);
-  pylon.addColorStop(0, '#8FB9F5');
-  pylon.addColorStop(0.5, COLORS.brandBlueLt);
-  pylon.addColorStop(1, '#04204F');
+  const bR = cfg.anchors.pylonR;
+  const pylon = ctx.createLinearGradient(0, -bR, 0, bR);
+  pylon.addColorStop(0, '#9CC6FF');
+  pylon.addColorStop(0.42, COLORS.brandBlueLt);
+  pylon.addColorStop(1, '#02163B');
 
   const vault = ctx.createLinearGradient(0, -150, 0, 90);
-  vault.addColorStop(0, '#F7D488');
+  vault.addColorStop(0, COLORS.goldLt);
   vault.addColorStop(0.45, COLORS.gold);
   vault.addColorStop(1, COLORS.goldDeep);
 
-  return { sky, danger, coin, virus, shield, body, pylon, vault, floorTop };
+  return { sky, sun, danger, coin, virus, shield, body, pylon, vault, floorTop };
 }
 
 /* ─── Entity draw functions (all programmatic — no emoji, no images) ── */
 
+/** Protection beacon: a hex head slung under a mast, with chevron catch-wings. */
 function drawPylon(ctx, paints, cfg, ax, ay, pop, glow, shadows) {
   const s = pop <= 0 ? 1 : Easing.outBack(clamp(1 - pop / cfg.world.spawnPopSeconds, 0, 1));
   if (s <= 0.01) return;
+  const r = cfg.anchors.pylonR;
   ctx.save();
   ctx.translate(ax, ay);
+
+  // Mast up out of frame — reads as "hung from the skyline", not floating.
+  // Drawn before the scale so a popping beacon does not stretch its own mast.
+  ctx.strokeStyle = 'rgba(156,198,255,0.28)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.6);
+  ctx.lineTo(0, -ay - 24);
+  ctx.stroke();
+
   ctx.scale(s, s);
 
   if (shadows) {
-    ctx.shadowColor = glow > 0 ? 'rgba(255,200,69,0.85)' : COLORS.brandBlueGlow;
-    ctx.shadowBlur = 12 + glow * 16;
+    ctx.shadowColor = glow > 0 ? 'rgba(255,176,32,0.9)' : COLORS.brandBlueGlow;
+    ctx.shadowBlur = 12 + glow * 18;
   }
 
-  // Cable up to the canyon rim — reads as "hung from above", not floating.
-  ctx.strokeStyle = 'rgba(143,185,245,0.35)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(0, -cfg.anchors.pylonH * 0.5);
-  ctx.lineTo(0, -ay - 20);
-  ctx.stroke();
-
-  // Housing.
-  const w = cfg.anchors.pylonW;
-  const h = cfg.anchors.pylonH;
+  // Hex head.
   ctx.fillStyle = paints.pylon;
-  ctx.beginPath();
-  ctx.roundRect(-w / 2, -h / 2, w, h, 7);
+  hexPath(ctx, r);
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.roundRect(-w / 2, -h / 2, w, h, 7);
-  ctx.stroke();
+  hexRim(ctx, r, 'rgba(255,255,255,0.5)', 1.6);
+  hexRim(ctx, r * 0.98, COLORS.towerFarRim, 1);
 
-  // Shield crest hanging under the housing.
-  ctx.fillStyle = glow > 0 ? COLORS.gold : 'rgba(255,255,255,0.9)';
-  ctx.beginPath();
-  ctx.moveTo(-8, h / 2);
-  ctx.lineTo(8, h / 2);
-  ctx.lineTo(8, h / 2 + 7);
-  ctx.quadraticCurveTo(0, h / 2 + 16, -8, h / 2 + 7);
-  ctx.closePath();
-  ctx.fill();
+  // Chevron catch-wings: the visual promise that this thing catches a tether.
+  ctx.strokeStyle = glow > 0 ? COLORS.gold : 'rgba(156,198,255,0.75)';
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const dir of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(dir * (r + 3), -r * 0.42);
+    ctx.lineTo(dir * (r + 11), 0);
+    ctx.lineTo(dir * (r + 3), r * 0.42);
+    ctx.stroke();
+  }
 
-  // Grab hook.
-  ctx.fillStyle = glow > 0 ? COLORS.gold : COLORS.orangeLt;
-  ctx.beginPath();
-  ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+  // Live core.
+  ctx.fillStyle = glow > 0 ? COLORS.goldLt : COLORS.orangeLt;
+  hexPath(ctx, 5.2);
   ctx.fill();
 
   if (glow > 0) {
-    ctx.strokeStyle = `rgba(255,200,69,${0.25 + glow * 0.45})`;
+    ctx.strokeStyle = `rgba(255,176,32,${0.25 + glow * 0.5})`;
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, 16 + glow * 8, 0, Math.PI * 2);
+    hexPath(ctx, r + 7 + glow * 7);
     ctx.stroke();
   }
   ctx.restore();
 }
 
+/** Premium chip: a hex token stamped with a chevron, spinning on its Y axis. */
 function drawCoin(ctx, paints, cfg, c, time) {
   const s = c.pop <= 0 ? 1 : Easing.outBack(clamp(1 - c.pop / cfg.world.spawnPopSeconds, 0, 1));
   if (s <= 0.01) return;
-  const spin = Math.abs(Math.cos(time * 2.4 + c.phase)) * 0.85 + 0.15;
-  const bob = Math.sin(time * 2 + c.phase) * 3;
+  const spin = Math.abs(Math.cos(time * 2 + c.phase)) * 0.82 + 0.18;
+  const bob = Math.sin(time * 1.7 + c.phase) * 3;
+  const r = cfg.pickups.coinRadius;
   ctx.save();
   ctx.translate(c.x, c.y + bob);
   ctx.scale(spin * s, s);
+
   ctx.fillStyle = paints.coin;
-  ctx.beginPath();
-  ctx.arc(0, 0, cfg.pickups.coinRadius, 0, Math.PI * 2);
+  hexPath(ctx, r);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.lineWidth = 1.5;
+  hexRim(ctx, r, 'rgba(255,255,255,0.7)', 1.5);
+
+  // Chevron stamp.
+  ctx.strokeStyle = COLORS.goldDeep;
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.arc(0, 0, cfg.pickups.coinRadius - 3.5, 0, Math.PI * 2);
+  ctx.moveTo(-r * 0.4, r * 0.16);
+  ctx.lineTo(0, -r * 0.34);
+  ctx.lineTo(r * 0.4, r * 0.16);
   ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+
+  // Specular flick.
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.beginPath();
-  ctx.ellipse(-3, -4, 3, 4.5, -0.5, 0, Math.PI * 2);
+  ctx.ellipse(-r * 0.24, -r * 0.42, r * 0.16, r * 0.3, -0.5, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
 
+/** Cover token: a hex-framed shield. Blue is the only "safe" colour in frame. */
 function drawShieldToken(ctx, paints, cfg, k, time, shadows) {
   const s = k.pop <= 0 ? 1 : Easing.outBack(clamp(1 - k.pop / cfg.world.spawnPopSeconds, 0, 1));
   if (s <= 0.01) return;
-  const pulse = 1 + Math.sin(time * 3 + k.phase) * 0.07;
+  const pulse = 1 + Math.sin(time * 2.4 + k.phase) * 0.07;
   const r = cfg.pickups.shieldRadius;
   ctx.save();
-  ctx.translate(k.x, k.y + Math.sin(time * 1.6 + k.phase) * 4);
+  ctx.translate(k.x, k.y + Math.sin(time * 1.3 + k.phase) * 4);
   ctx.scale(s * pulse, s * pulse);
+
   if (shadows) {
     ctx.shadowColor = COLORS.brandBlueGlow;
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = 15;
   }
   ctx.fillStyle = paints.shield;
-  ctx.beginPath();
-  ctx.moveTo(0, -r);
-  ctx.lineTo(r * 0.86, -r * 0.5);
-  ctx.lineTo(r * 0.86, r * 0.22);
-  ctx.quadraticCurveTo(r * 0.7, r, 0, r * 1.12);
-  ctx.quadraticCurveTo(-r * 0.7, r, -r * 0.86, r * 0.22);
-  ctx.lineTo(-r * 0.86, -r * 0.5);
-  ctx.closePath();
+  hexPath(ctx, r);
   ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-  ctx.lineWidth = 2.2;
+
+  hexRim(ctx, r, 'rgba(255,255,255,0.6)', 1.8);
+
+  // Rotating hex halo.
+  ctx.save();
+  ctx.rotate(time * 0.5 + k.phase);
+  ctx.strokeStyle = 'rgba(140,196,255,0.4)';
+  ctx.lineWidth = 1.4;
+  hexPath(ctx, r + 6);
+  ctx.stroke();
+  ctx.restore();
+
+  // Tick.
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2.6;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.moveTo(-r * 0.34, 0);
-  ctx.lineTo(-r * 0.06, r * 0.3);
-  ctx.lineTo(r * 0.4, -r * 0.32);
+  ctx.moveTo(-r * 0.36, r * 0.02);
+  ctx.lineTo(-r * 0.06, r * 0.32);
+  ctx.lineTo(r * 0.42, -r * 0.34);
   ctx.stroke();
   ctx.restore();
 }
 
+/** Risk mine: a crimson hex core inside a counter-rotating chevron cage. */
 function drawVirus(ctx, paints, cfg, v, time, shadows) {
   const s = v.pop <= 0 ? 1 : Easing.outBack(clamp(1 - v.pop / cfg.world.spawnPopSeconds, 0, 1));
   if (s <= 0.01) return;
@@ -382,105 +482,111 @@ function drawVirus(ctx, paints, cfg, v, time, shadows) {
   const pulse = 1 + Math.sin(time * Math.PI * 2 * cfg.hazards.pulseHz + v.phase) * 0.1;
   ctx.save();
   ctx.translate(v.x, v.y);
-  ctx.rotate(Math.sin(time * 0.9 + v.phase) * 0.35);
   ctx.scale(s * pulse, s * pulse);
 
+  // Cage: one chevron per hex face, spinning the opposite way to the core.
+  ctx.save();
+  ctx.rotate(-time * 0.7 + v.phase);
   if (shadows) {
-    ctx.shadowColor = 'rgba(73,226,75,0.7)';
-    ctx.shadowBlur = 13;
+    ctx.shadowColor = 'rgba(255,59,78,0.75)';
+    ctx.shadowBlur = 14;
   }
   ctx.strokeStyle = COLORS.virus;
   ctx.lineWidth = 2.6;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   for (let i = 0; i < cfg.hazards.spikes; i++) {
     const ang = (i / cfg.hazards.spikes) * Math.PI * 2;
-    const cx = Math.cos(ang);
-    const sy = Math.sin(ang);
+    ctx.save();
+    ctx.rotate(ang);
     ctx.beginPath();
-    ctx.moveTo(cx * (r - 5), sy * (r - 5));
-    ctx.lineTo(cx * (r + 5), sy * (r + 5));
+    ctx.moveTo(-5.5, r - 8);
+    ctx.lineTo(0, r + 3);
+    ctx.lineTo(5.5, r - 8);
     ctx.stroke();
+    ctx.restore();
   }
+  ctx.restore();
   ctx.shadowBlur = 0;
 
+  // Core.
+  ctx.save();
+  ctx.rotate(time * 0.45 + v.phase);
   ctx.fillStyle = paints.virus;
-  ctx.beginPath();
-  ctx.arc(0, 0, r - 4, 0, Math.PI * 2);
+  hexPath(ctx, r - 6);
   ctx.fill();
+  hexRim(ctx, r - 6, 'rgba(255,154,165,0.85)', 1.4);
   ctx.fillStyle = COLORS.virusCore;
-  ctx.beginPath();
-  ctx.arc(0, 0, r - 10, 0, Math.PI * 2);
+  hexPath(ctx, r - 12);
   ctx.fill();
+  ctx.restore();
   ctx.restore();
 }
 
+/** Retirement vault: a giant hex gate on a chevron plinth, backlit by the sun. */
 function drawVault(ctx, paints, cfg, x, groundY, time, shadows) {
-  const pulse = 0.5 + 0.5 * Math.sin(time * 2.2);
+  const pulse = 0.5 + 0.5 * Math.sin(time * 1.7);
   ctx.save();
   ctx.translate(x, groundY);
 
-  // Plinth.
-  ctx.fillStyle = 'rgba(10,26,51,0.95)';
+  // Chevron plinth.
+  ctx.fillStyle = 'rgba(4,12,32,0.96)';
   ctx.beginPath();
-  ctx.roundRect(-120, 60, 240, 60, 10);
+  ctx.moveTo(-130, 124);
+  ctx.lineTo(-104, 62);
+  ctx.lineTo(104, 62);
+  ctx.lineTo(130, 124);
+  ctx.closePath();
   ctx.fill();
+  ctx.strokeStyle = COLORS.towerNearRim;
+  ctx.lineWidth = 2;
+  ctx.stroke();
 
   if (shadows) {
-    ctx.shadowColor = `rgba(255,200,69,${0.4 + pulse * 0.45})`;
-    ctx.shadowBlur = 26 + pulse * 22;
+    ctx.shadowColor = `rgba(255,176,32,${0.4 + pulse * 0.5})`;
+    ctx.shadowBlur = 26 + pulse * 26;
   }
-  // Arched door.
+
+  // Hex gate.
+  ctx.save();
+  ctx.translate(0, -44);
   ctx.fillStyle = paints.vault;
-  ctx.beginPath();
-  ctx.moveTo(-86, 62);
-  ctx.lineTo(-86, -40);
-  ctx.quadraticCurveTo(-86, -150, 0, -150);
-  ctx.quadraticCurveTo(86, -150, 86, -40);
-  ctx.lineTo(86, 62);
-  ctx.closePath();
+  hexPath(ctx, 104, 1.02);
   ctx.fill();
   ctx.shadowBlur = 0;
+  hexRim(ctx, 104, 'rgba(255,255,255,0.6)', 3.4);
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  // Inner recess + dial.
-  ctx.fillStyle = 'rgba(6,18,40,0.72)';
-  ctx.beginPath();
-  ctx.moveTo(-62, 50);
-  ctx.lineTo(-62, -38);
-  ctx.quadraticCurveTo(-62, -124, 0, -124);
-  ctx.quadraticCurveTo(62, -124, 62, -38);
-  ctx.lineTo(62, 50);
-  ctx.closePath();
+  // Recess.
+  ctx.fillStyle = 'rgba(3,10,26,0.78)';
+  hexPath(ctx, 76, 1.02);
   ctx.fill();
-
   ctx.strokeStyle = COLORS.goldLt;
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.arc(0, -36, 30, 0, Math.PI * 2);
+  ctx.lineWidth = 2.4;
+  hexPath(ctx, 76, 1.02);
   ctx.stroke();
+
+  // Counter-rotating hex dials.
   ctx.save();
-  ctx.translate(0, -36);
-  ctx.rotate(time * 1.1);
+  ctx.rotate(time * 0.55);
   ctx.strokeStyle = COLORS.gold;
   ctx.lineWidth = 5;
-  ctx.lineCap = 'round';
-  for (let i = 0; i < 4; i++) {
-    ctx.rotate(Math.PI / 2);
-    ctx.beginPath();
-    ctx.moveTo(0, -8);
-    ctx.lineTo(0, -34);
-    ctx.stroke();
-  }
+  hexPath(ctx, 42);
+  ctx.stroke();
+  ctx.restore();
+  ctx.save();
+  ctx.rotate(-time * 0.9);
+  ctx.strokeStyle = `rgba(255,224,163,${0.5 + pulse * 0.4})`;
+  ctx.lineWidth = 3;
+  hexPath(ctx, 24);
+  ctx.stroke();
+  ctx.restore();
   ctx.restore();
 
   ctx.fillStyle = COLORS.goldLt;
-  ctx.font = "800 15px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.font = "900 13px 'Plus Jakarta Sans', system-ui, sans-serif";
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('RETIREMENT VAULT', 0, 24);
+  ctx.fillText('RETIREMENT VAULT', 0, 96);
   ctx.restore();
 }
 
@@ -496,7 +602,7 @@ function drawGuardian(ctx, paints, cfg, s) {
       const b = (s.trailHead - i - 2 + s.trailMax * 2) % s.trailMax;
       const k = 1 - i / s.trailCount;
       ctx.globalAlpha = k * 0.5;
-      ctx.strokeStyle = i < s.trailCount * 0.45 ? COLORS.orangeLt : COLORS.brandBlueLt;
+      ctx.strokeStyle = i < s.trailCount * 0.45 ? COLORS.gold : COLORS.orange;
       ctx.lineWidth = r * 1.05 * k;
       ctx.beginPath();
       ctx.moveTo(s.trailX[a], s.trailY[a]);
@@ -509,18 +615,18 @@ function drawGuardian(ctx, paints, cfg, s) {
   ctx.save();
   ctx.translate(p.x, p.y);
 
-  // Shield aura.
+  // Cover aura: a slowly rotating hex bubble, not a plain ring.
   if (s.shielded) {
-    const pulse = 0.5 + 0.5 * Math.sin(s.time * 5);
-    ctx.strokeStyle = `rgba(126,184,255,${0.45 + pulse * 0.4})`;
-    ctx.lineWidth = 2.6;
-    ctx.beginPath();
-    ctx.arc(0, 0, r + 10 + pulse * 3, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = `rgba(30,107,224,${0.1 + pulse * 0.08})`;
-    ctx.beginPath();
-    ctx.arc(0, 0, r + 10 + pulse * 3, 0, Math.PI * 2);
+    const pulse = 0.5 + 0.5 * Math.sin(s.time * 3.4);
+    ctx.save();
+    ctx.rotate(s.time * 0.6);
+    ctx.fillStyle = `rgba(44,123,239,${0.1 + pulse * 0.08})`;
+    hexPath(ctx, r + 11 + pulse * 3);
     ctx.fill();
+    ctx.strokeStyle = `rgba(140,196,255,${0.45 + pulse * 0.4})`;
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+    ctx.restore();
   }
 
   const tilt = p.state === 'swinging'
@@ -537,53 +643,65 @@ function drawGuardian(ctx, paints, cfg, s) {
     ctx.globalAlpha = 0.35 + 0.65 * Math.abs(Math.sin(s.hurtFlash * 40));
   }
 
-  // Cape.
+  // Chevron cape, orange — the one warm shape on a blue body.
   ctx.fillStyle = COLORS.orange;
   ctx.beginPath();
-  ctx.moveTo(-r * 0.3, -r * 0.45);
-  ctx.quadraticCurveTo(-r * 1.9, -r * 0.1, -r * 1.25, r * 1.15);
-  ctx.quadraticCurveTo(-r * 0.7, r * 0.5, -r * 0.2, r * 0.85);
+  ctx.moveTo(-r * 0.22, -r * 0.5);
+  ctx.lineTo(-r * 1.85, r * 0.05);
+  ctx.lineTo(-r * 1.1, r * 0.42);
+  ctx.lineTo(-r * 1.7, r * 1.2);
+  ctx.lineTo(-r * 0.18, r * 0.9);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = COLORS.orangeDeep;
+  ctx.beginPath();
+  ctx.moveTo(-r * 1.1, r * 0.42);
+  ctx.lineTo(-r * 1.7, r * 1.2);
+  ctx.lineTo(-r * 0.9, r * 1.05);
   ctx.closePath();
   ctx.fill();
 
-  // Torso.
+  // Hex torso.
   ctx.fillStyle = paints.body;
-  ctx.beginPath();
-  ctx.roundRect(-r * 0.68, -r * 0.15, r * 1.36, r * 1.5, r * 0.55);
+  ctx.save();
+  ctx.translate(0, r * 0.55);
+  hexPath(ctx, r * 0.82, 1.15);
   ctx.fill();
+  hexRim(ctx, r * 0.82, 'rgba(255,255,255,0.55)', 1.5);
 
-  // Chest crest.
-  ctx.fillStyle = COLORS.goldLt;
+  // Chest chevron.
+  ctx.strokeStyle = COLORS.goldLt;
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.moveTo(0, r * 0.1);
-  ctx.lineTo(r * 0.36, r * 0.28);
-  ctx.quadraticCurveTo(r * 0.36, r * 0.85, 0, r * 1.02);
-  ctx.quadraticCurveTo(-r * 0.36, r * 0.85, -r * 0.36, r * 0.28);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(-r * 0.34, r * 0.34);
+  ctx.lineTo(0, -r * 0.1);
+  ctx.lineTo(r * 0.34, r * 0.34);
+  ctx.stroke();
+  ctx.restore();
 
-  // Head + visor.
-  ctx.fillStyle = '#F2C29B';
-  ctx.beginPath();
-  ctx.arc(0, -r * 0.55, r * 0.62, 0, Math.PI * 2);
-  ctx.fill();
+  // Helmet: hex dome with a lit visor slot.
+  ctx.save();
+  ctx.translate(0, -r * 0.55);
   ctx.fillStyle = COLORS.brandBlue;
-  ctx.beginPath();
-  ctx.arc(0, -r * 0.62, r * 0.64, Math.PI * 1.05, Math.PI * 1.95);
+  hexPath(ctx, r * 0.66);
   ctx.fill();
-  ctx.fillStyle = 'rgba(126,184,255,0.95)';
+  hexRim(ctx, r * 0.66, 'rgba(255,255,255,0.6)', 1.4);
+  ctx.fillStyle = 'rgba(255,224,163,0.95)';
   ctx.beginPath();
-  ctx.roundRect(-r * 0.5, -r * 0.66, r, r * 0.3, r * 0.15);
+  ctx.roundRect(-r * 0.42, -r * 0.14, r * 0.84, r * 0.26, r * 0.13);
   ctx.fill();
+  ctx.restore();
 
-  // Grip arm reaching up the rope while swinging.
+  // Grip arm reaching up the tether while swinging.
   if (p.state === 'swinging') {
-    ctx.strokeStyle = '#F2C29B';
-    ctx.lineWidth = r * 0.3;
+    ctx.strokeStyle = COLORS.goldLt;
+    ctx.lineWidth = r * 0.26;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(0, -r * 0.05);
-    ctx.lineTo(r * 0.1, -r * 1.35);
+    ctx.moveTo(0, -r * 0.15);
+    ctx.lineTo(r * 0.12, -r * 1.4);
     ctx.stroke();
   }
 
@@ -591,46 +709,70 @@ function drawGuardian(ctx, paints, cfg, s) {
   ctx.restore();
 }
 
-function drawRope(ctx, cfg, ax, ay, px, py, snapT) {
-  const sag = 4 + cfg.rope.sagPx * snapT;
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-  ctx.lineWidth = 3;
+/** Tether: a taut amber filament inside a white core, with travelling pulses. */
+function drawTether(ctx, cfg, ax, ay, px, py, snapT, time) {
+  const sag = 3 + cfg.rope.sagPx * snapT;
+  const mx = (ax + px) / 2;
+  const my = (ay + py) / 2 + sag;
+
   ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(255,176,32,0.35)';
+  ctx.lineWidth = 6;
   ctx.beginPath();
   ctx.moveTo(ax, ay);
-  ctx.quadraticCurveTo((ax + px) / 2, (ay + py) / 2 + sag, px, py);
+  ctx.quadraticCurveTo(mx, my, px, py);
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,200,69,0.55)';
-  ctx.lineWidth = 1.2;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.lineWidth = 2.4;
   ctx.stroke();
+
+  // Energy running down the line, drawn as three points on the same curve.
+  for (let i = 0; i < 3; i++) {
+    const t = ((time * 0.9 + i / 3) % 1);
+    const u = 1 - t;
+    const bx = u * u * ax + 2 * u * t * mx + t * t * px;
+    const by = u * u * ay + 2 * u * t * my + t * t * py;
+    ctx.fillStyle = `rgba(255,224,163,${0.85 * (1 - t)})`;
+    ctx.beginPath();
+    ctx.arc(bx, by, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
+/** Milestone gate: two facing chevrons on a hairline, no label plate. */
 function drawMilestoneMarker(ctx, ms, x, H, hit, time) {
-  const glow = hit ? 0.75 : 0.28 + 0.14 * Math.sin(time * 2 + x);
+  const glow = hit ? 0.8 : 0.3 + 0.16 * Math.sin(time * 1.6 + x);
+  const tint = hit ? COLORS.greenLt : 'rgba(255,255,255,0.55)';
   ctx.save();
-  ctx.strokeStyle = hit ? `rgba(40,167,69,${glow})` : `rgba(255,255,255,${glow * 0.5})`;
-  ctx.lineWidth = 2;
-  ctx.setLineDash([9, 11]);
+  ctx.globalAlpha = glow;
+  ctx.strokeStyle = tint;
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([6, 14]);
   ctx.beginPath();
-  ctx.moveTo(x, 58);
+  ctx.moveTo(x, 24);
   ctx.lineTo(x, H);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.fillStyle = hit ? 'rgba(40,167,69,0.9)' : 'rgba(11,18,33,0.85)';
-  ctx.strokeStyle = hit ? COLORS.greenLt : 'rgba(255,255,255,0.25)';
-  ctx.lineWidth = 1.4;
-  const label = `${ms.label.toUpperCase()} · ${ms.m}m`;
-  ctx.font = "800 11px 'Plus Jakarta Sans', system-ui, sans-serif";
-  const w = ctx.measureText(label).width + 20;
-  ctx.beginPath();
-  ctx.roundRect(x - w / 2, 34, w, 22, 11);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = '#fff';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const y of [40, H - 40]) {
+    const dir = y < 100 ? 1 : -1;
+    ctx.beginPath();
+    ctx.moveTo(x - 11, y - dir * 10);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + 11, y - dir * 10);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = hit ? COLORS.greenLt : 'rgba(255,255,255,0.5)';
+  ctx.font = "900 10px 'Plus Jakarta Sans', system-ui, sans-serif";
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, x, 46);
+  ctx.fillText(`${ms.m}m`, x, 22);
   ctx.restore();
 }
 
@@ -655,6 +797,41 @@ function seek(arr, cur, minX) {
   return i;
 }
 
+/* ─── HUD glyphs ─────────────────────────────────────────── */
+/* Deliberately tiny and label-free: the HUD is three glyph+number chips, so the
+   glyph has to carry the whole meaning at 15 px. Same hex/chevron language as
+   the world art, so the score chip reads as "the thing you just collected". */
+const HEX_D = 'M7.5 0.6 13.5 4.1v6.9L7.5 14.4 1.5 11V4.1z';
+
+function ChipHex({ fill }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true">
+      <path d={HEX_D} fill={fill} />
+      <path d="M5.2 9.1 7.5 5.8l2.3 3.3" stroke="rgba(0,0,0,0.45)" strokeWidth="1.5"
+        strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+function ChipChevron() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"
+      stroke={COLORS.brandBlueLt} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3.5 7 7.5 3 11.5M8 3.5l4 4-4 4" />
+    </svg>
+  );
+}
+
+function ChipClock() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"
+      stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d={HEX_D} />
+      <path d="M7.5 4.6v3.2l2 1.3" />
+    </svg>
+  );
+}
+
 /* ─── Component ──────────────────────────────────────────── */
 export default function SwingToSecureGame({ config, onWin, onLose }) {
   const cfg = config || GAME_CONFIG;
@@ -662,7 +839,6 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const endTimerRef = useRef(null);
-  const bannerTimerRef = useRef(null);
   const scoreElRef = useRef(null);
   const distElRef = useRef(null);
   const barElRef = useRef(null);
@@ -670,7 +846,6 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
   const [timeLeft, setTimeLeft] = useState(cfg.sessionSeconds);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
-  const [banner, setBanner] = useState(null);
   const [hint, setHint] = useState(true);
   const [over, setOver] = useState(false);
 
@@ -790,20 +965,23 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
       s.W = w;
       s.H = h;
       s.paints = buildPaints(ctx, cfg, w, h);
-      const segs = tier === 'low' ? 18 : tier === 'mid' ? 30 : 44;
-      s.layerFar = makeLayer({
-        tileW: cfg.world.backdropTilePx, h, dpr: s.dpr,
-        baseFrac: 0.44, ampFrac: 0.11,
-        top: COLORS.rockFarTop, bottom: COLORS.rockFarBot,
-        alpha: 0.55, crest: 'rgba(143,185,245,0.35)',
-        phases: [0.6, 2.1, 4.3], segments: segs,
+      // Lit windows are the most expensive part of the pre-render and the least
+      // visible on a small, dim screen — skip them on low-tier devices.
+      s.layerFar = makeSkylineLayer({
+        tileW: cfg.world.backdropTilePx, h, dpr: s.dpr, seed: 0x5715,
+        baseFrac: 0.9, minHFrac: 0.18, maxHFrac: 0.42,
+        pitch: cfg.world.towerPitchFar,
+        top: COLORS.towerFarTop, bottom: COLORS.towerFarBot,
+        rim: COLORS.towerFarRim, alpha: 0.62,
+        windows: tier !== 'low', windowColor: COLORS.windowLit,
       });
-      s.layerNear = makeLayer({
-        tileW: cfg.world.backdropTilePx, h, dpr: s.dpr,
-        baseFrac: 0.76, ampFrac: 0.08,
-        top: COLORS.rockNearTop, bottom: COLORS.rockNearBot,
-        alpha: 0.85, crest: 'rgba(30,107,224,0.4)',
-        phases: [3.4, 1.2, 5.7], segments: segs,
+      s.layerNear = makeSkylineLayer({
+        tileW: cfg.world.backdropTilePx, h, dpr: s.dpr, seed: 0x2C0B,
+        baseFrac: 1.0, minHFrac: 0.12, maxHFrac: 0.3,
+        pitch: cfg.world.towerPitchNear,
+        top: COLORS.towerNearTop, bottom: COLORS.towerNearBot,
+        rim: COLORS.towerNearRim, alpha: 0.94,
+        windows: tier === 'high', windowColor: 'rgba(255,145,82,0.5)',
       });
     };
     fit();
@@ -864,12 +1042,6 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
       endTimerRef.current = setTimeout(() => {
         (won ? winRef.current : loseRef.current)?.(stats);
       }, cfg.hud.endBeatMs);
-    };
-
-    const showBanner = (label, points) => {
-      setBanner({ id: s.milestonesHit, label, points });
-      clearTimeout(bannerTimerRef.current);
-      bannerTimerRef.current = setTimeout(() => setBanner(null), cfg.fx.bannerSeconds * 1000);
     };
 
     /* --- rope ----------------------------------------------------------- */
@@ -974,15 +1146,25 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
 
       const p = s.player;
 
+      // Difficulty ramp. Gravity lerps up with course progress, which shortens
+      // the pendulum period and speeds every fall: the opening is deliberately
+      // slow and readable, the last third is not. Applied here (once per step,
+      // multiplied by dt) so it stays delta-time correct at any frame rate.
+      const grav = lerp(
+        cfg.physics.gravityStart,
+        cfg.physics.gravityEnd,
+        clamp(p.x / world.courseLen, 0, 1),
+      );
+
       if (p.state === 'flying') {
-        p.vy = Math.min(p.vy + PHYS.gravity * dt, PHYS.terminalVelocity);
+        p.vy = Math.min(p.vy + grav * dt, cfg.physics.terminalVelocity);
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         if (s.grabLock <= 0 && (s.holding || s.grabBuffer > 0)) tryGrab();
       } else {
         const a = world.anchors[p.anchor];
         const ax = anchorX(a, s.time, cfg);
-        p.omega += (-PHYS.gravity / p.len) * Math.sin(p.theta) * dt;
+        p.omega += (-grav / p.len) * Math.sin(p.theta) * dt;
         // Per second, not per step — see the note on rope.damping in data.js.
         p.omega *= Math.pow(cfg.rope.damping, dt);
         p.theta += p.omega * dt;
@@ -1112,7 +1294,8 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
         addScore(cfg.pickups.milestoneValue);
         audio.powerUp();
         haptic('success');
-        showBanner(ms.label, cfg.pickups.milestoneValue);
+        // Feedback lands at the guardian, not in a mid-screen panel: the player
+        // is already looking at the next beacon, not at the middle of the frame.
         fx.floatText(p.x, p.y - 40, `${ms.label.toUpperCase()} +${cfg.pickups.milestoneValue}`, COLORS.greenLt, 16);
         fx.burst({
           x: p.x, y: p.y, count: cfg.fx.milestoneParticles, color: COLORS.greenLt,
@@ -1137,6 +1320,22 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
       ctx.fillRect(0, 0, W, H);
 
       fx.beginCamera(ctx);
+
+      // Low sun. Parked in screen space with a whisper of drift so it reads as
+      // infinitely far away rather than as a sticker on the canvas.
+      ctx.save();
+      ctx.translate(
+        W * cfg.world.sunXFrac - ((s.camX * 0.02) % (W * 1.6)),
+        H * cfg.world.sunYFrac,
+      );
+      ctx.fillStyle = paints.sun;
+      ctx.beginPath();
+      ctx.arc(0, 0, cfg.world.sunRadiusPx, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,240,205,0.85)';
+      hexPath(ctx, cfg.world.sunRadiusPx * 0.2);
+      ctx.fill();
+      ctx.restore();
 
       // Parallax layers, tiled from the pre-rendered offscreen canvases.
       const tile = cfg.world.backdropTilePx;
@@ -1198,7 +1397,10 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
 
       if (p.state === 'swinging') {
         const a = world.anchors[p.anchor];
-        drawRope(ctx, cfg, anchorX(a, time, cfg), a.y, p.x, p.y, clamp(s.ropeSnap / cfg.rope.snapSeconds, 0, 1));
+        drawTether(
+          ctx, cfg, anchorX(a, time, cfg), a.y, p.x, p.y,
+          clamp(s.ropeSnap / cfg.rope.snapSeconds, 0, 1), time,
+        );
       }
 
       drawGuardian(ctx, paints, cfg, s);
@@ -1269,7 +1471,6 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
       ro?.disconnect();
       window.removeEventListener('orientationchange', fit);
       clearTimeout(endTimerRef.current);
-      clearTimeout(bannerTimerRef.current);
       fx.reset();
       audio.destroy();
       s.effects = null;
@@ -1288,54 +1489,42 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
       <div ref={wrapRef} style={styles.stage} className="sts-stage">
         <canvas ref={canvasRef} style={styles.canvas} />
 
-        {/* HUD ------------------------------------------------------- */}
+        {/* Progress rail: the only full-width chrome in the game. --- */}
+        <div style={styles.rail}>
+          <div ref={barElRef} style={styles.railFill} />
+        </div>
+
+        {/* HUD: three glyph+number chips, no panels, no labels. ------ */}
         <div style={styles.hudTop}>
-          <div style={styles.pill}>
-            <span style={styles.pillLabel}>Score</span>
-            <span ref={scoreElRef} style={styles.pillValue}>0</span>
-          </div>
-          <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Time</span>
-            <span style={{
-              ...styles.pillValue,
-              color: lowTime ? COLORS.orangeLt : '#fff',
-              animation: lowTime ? 'stsPulse 0.9s ease-in-out infinite' : 'none',
-            }}>
-              {timeLeft}s
-            </span>
-          </div>
+          <span style={styles.chip}>
+            <ChipHex fill={COLORS.gold} />
+            <b ref={scoreElRef} style={styles.chipValue}>0</b>
+          </span>
+          <span style={styles.chip}>
+            <ChipChevron />
+            <b ref={distElRef} style={styles.chipValue}>0</b>
+            <i style={styles.chipUnit}>m</i>
+          </span>
+          <span style={{
+            ...styles.chip,
+            color: lowTime ? COLORS.orangeLt : '#fff',
+            animation: lowTime ? 'stsPulse 0.9s ease-in-out infinite' : 'none',
+          }}>
+            <ChipClock />
+            <b style={styles.chipValue}>{timeLeft}</b>
+          </span>
         </div>
 
-        <div style={styles.distanceWrap}>
-          <div style={styles.distancePill}>
-            <span style={styles.distanceText}>
-              <span ref={distElRef}>0</span>
-              <span style={{ opacity: 0.55 }}> / {cfg.goalMeters.toLocaleString()} m</span>
-            </span>
-            <div style={styles.track}>
-              <div ref={barElRef} style={styles.trackFill} />
-            </div>
-          </div>
-        </div>
-
-        {/* Milestone banner ------------------------------------------ */}
-        {banner && (
-          <div key={banner.id} style={styles.bannerWrap} className="sts-banner">
-            <div style={styles.banner}>
-              <span style={styles.bannerLabel}>Milestone secured</span>
-              <span style={styles.bannerTitle}>{banner.label}</span>
-              <span style={styles.bannerPoints}>+{banner.points}</span>
-            </div>
-          </div>
-        )}
-
-        {/* First-run hint -------------------------------------------- */}
+        {/* First-run nudge: a pulsing tap glyph, zero words. --------- */}
         {hint && !over && (
-          <div style={styles.hintWrap} className="sts-hint">
-            <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>Hold</strong> to grab the next pylon ·{' '}
-              <strong style={{ color: COLORS.orangeLt }}>Release</strong> on the forward swing
-            </div>
+          <div style={styles.hintWrap} className="sts-hint" aria-hidden="true">
+            <svg width="46" height="46" viewBox="0 0 46 46" fill="none">
+              <circle cx="23" cy="23" r="20" stroke={COLORS.orangeLt} strokeWidth="2" opacity="0.5" />
+              <path
+                d="M23 11v13M23 24c-4 0-7 2-7 6v4h16v-6c0-3-2-5-5-5z"
+                stroke={COLORS.goldLt} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"
+              />
+            </svg>
           </div>
         )}
 
@@ -1346,10 +1535,7 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
               <rect x="6" y="4" width="4" height="16" rx="1.5" />
               <rect x="14" y="4" width="4" height="16" rx="1.5" />
             </svg>
-            <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Paused</div>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
-              Your timer is safe. Come back and keep swinging.
-            </div>
+            <div style={{ color: '#fff', fontWeight: 900, fontSize: 17, letterSpacing: '0.06em' }}>PAUSED</div>
           </div>
         )}
 
@@ -1380,30 +1566,18 @@ export default function SwingToSecureGame({ config, onWin, onLose }) {
 /* ─── Styles ─────────────────────────────────────────────── */
 const CSS = `
 @keyframes stsIn { from { opacity: 0; transform: scale(0.965) translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes stsPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
-@keyframes stsBanner {
-  0%   { opacity: 0; transform: translateY(18px) scale(0.86); }
-  18%  { opacity: 1; transform: translateY(0) scale(1.06); }
-  30%  { transform: translateY(0) scale(1); }
-  82%  { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-16px) scale(0.96); }
-}
-@keyframes stsHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
+@keyframes stsPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.75; } }
+@keyframes stsHint { 0%,100% { opacity: 0.35; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.06); } }
 .sts-stage { animation: stsIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
-.sts-banner { animation: stsBanner 1.8s ease-out both; }
-.sts-hint { animation: stsHint 1.6s ease-in-out infinite; }
+.sts-hint { animation: stsHint 1.7s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .sts-stage, .sts-banner, .sts-hint { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+  .sts-stage, .sts-hint { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
 }
 `;
 
-const glass = {
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  backdropFilter: 'blur(12px)',
-  WebkitBackdropFilter: 'blur(12px)',
-};
-
+/* The whole HUD is one chip recipe: a hairline capsule sized to its contents.
+   No labels, no panels — a glyph and a number, and nothing that would cover a
+   beacon the player is aiming at. */
 const styles = {
   root: {
     position: 'relative',
@@ -1419,128 +1593,75 @@ const styles = {
     position: 'relative',
     flex: 1,
     minHeight: 420,
-    borderRadius: 20,
+    // Hex-derived corner: cut hard at the top-left and bottom-right so the
+    // frame itself carries the shape language.
+    borderRadius: '26px 10px 26px 10px',
     overflow: 'hidden',
     background: COLORS.bgDark,
-    border: '1.5px solid rgba(255,255,255,0.1)',
-    boxShadow: '0 20px 44px rgba(0,0,0,0.55)',
+    border: `1.5px solid ${COLORS.glassLine}`,
+    boxShadow: '0 20px 44px rgba(0,0,0,0.6), inset 0 0 60px rgba(242,101,34,0.06)',
     touchAction: 'none',
   },
   canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
-  hudTop: {
+  rail: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 10,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    background: 'rgba(255,255,255,0.1)',
     pointerEvents: 'none',
-    zIndex: 4,
+    zIndex: 5,
   },
-  pill: {
-    ...glass,
-    display: 'flex',
-    flexDirection: 'column',
-    borderRadius: 12,
-    padding: '5px 12px',
-    minWidth: 74,
-  },
-  pillLabel: {
-    fontSize: 8,
-    fontWeight: 800,
-    letterSpacing: '0.16em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
-  },
-  pillValue: {
-    fontSize: 19,
-    fontWeight: 900,
-    color: '#fff',
-    lineHeight: 1.15,
-    fontVariantNumeric: 'tabular-nums',
-    display: 'inline-block',
-  },
-  distanceWrap: {
-    position: 'absolute',
-    top: 62,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-    zIndex: 4,
-  },
-  distancePill: { ...glass, borderRadius: 12, padding: '6px 14px 8px', minWidth: 170, textAlign: 'center' },
-  distanceText: {
-    fontSize: 12,
-    fontWeight: 800,
-    color: '#fff',
-    letterSpacing: '0.04em',
-    fontVariantNumeric: 'tabular-nums',
-  },
-  track: {
-    marginTop: 5,
-    height: 5,
-    borderRadius: 3,
-    background: 'rgba(255,255,255,0.14)',
-    overflow: 'hidden',
-  },
-  trackFill: {
+  railFill: {
     height: '100%',
     width: '0%',
-    borderRadius: 3,
-    background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.gold})`,
+    background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.orange} 60%, ${COLORS.gold})`,
+    boxShadow: `0 0 8px ${COLORS.brandBlueGlow}`,
     transition: 'width 180ms linear',
   },
-  bannerWrap: {
+  hudTop: {
     position: 'absolute',
-    top: '32%',
+    top: 11,
+    left: 11,
+    right: 11,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 6,
+    pointerEvents: 'none',
+    zIndex: 6,
+  },
+  chip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    height: 26,
+    padding: '0 9px',
+    borderRadius: 999,
+    background: 'rgba(4,9,28,0.5)',
+    border: `1px solid ${COLORS.glassLine}`,
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    color: '#fff',
+    lineHeight: 1,
+  },
+  chipValue: {
+    fontSize: 15,
+    fontWeight: 900,
+    fontVariantNumeric: 'tabular-nums',
+    letterSpacing: '-0.01em',
+  },
+  chipUnit: { fontSize: 9, fontWeight: 800, fontStyle: 'normal', opacity: 0.5, marginLeft: -2 },
+  hintWrap: {
+    position: 'absolute',
+    bottom: 64,
     left: 0,
     right: 0,
     display: 'flex',
     justifyContent: 'center',
     pointerEvents: 'none',
-    zIndex: 6,
-  },
-  banner: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 2,
-    padding: '12px 26px',
-    borderRadius: 18,
-    background: 'linear-gradient(180deg, rgba(40,167,69,0.95), rgba(18,92,40,0.95))',
-    border: '1px solid rgba(255,255,255,0.28)',
-    boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
-  },
-  bannerLabel: {
-    fontSize: 8,
-    fontWeight: 900,
-    letterSpacing: '0.2em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.8)',
-  },
-  bannerTitle: { fontSize: 21, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' },
-  bannerPoints: { fontSize: 13, fontWeight: 900, color: COLORS.goldLt },
-  hintWrap: {
-    position: 'absolute',
-    bottom: 66,
-    left: 12,
-    right: 12,
-    display: 'flex',
-    justifyContent: 'center',
-    pointerEvents: 'none',
     zIndex: 5,
-  },
-  hint: {
-    ...glass,
-    borderRadius: 999,
-    padding: '9px 16px',
-    fontSize: 12,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.92)',
-    textAlign: 'center',
   },
   pauseVeil: {
     position: 'absolute',
@@ -1550,7 +1671,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    background: 'rgba(11,18,33,0.84)',
+    background: 'rgba(4,9,28,0.86)',
     backdropFilter: 'blur(8px)',
     WebkitBackdropFilter: 'blur(8px)',
     zIndex: 8,
@@ -1561,9 +1682,9 @@ const styles = {
     bottom: 10,
     width: 44,
     height: 44,
-    borderRadius: 14,
-    background: 'rgba(11,18,33,0.6)',
-    border: '1px solid rgba(255,255,255,0.16)',
+    borderRadius: '14px 6px 14px 6px',
+    background: 'rgba(4,9,28,0.62)',
+    border: `1px solid ${COLORS.glassLine}`,
     color: '#fff',
     display: 'flex',
     alignItems: 'center',

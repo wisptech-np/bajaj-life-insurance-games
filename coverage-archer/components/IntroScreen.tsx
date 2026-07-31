@@ -1,128 +1,157 @@
+// IntroScreen — title screen in the repo's shared design language:
+// deep-blue gradient, glassmorphism plate, 12px gradient CTA, framer-motion entry.
 import React from 'react';
+import { motion } from 'framer-motion';
 
 interface Props {
   onPlay: () => void;
 }
 
-/* Vector bow-and-shield hero illustration — no emoji sprites */
-function BowShieldArt() {
+function PlayIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width="150" height="150" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+
+/* Hero plate — the archer against the four risks he actually shoots at. */
+function ArcherHeroArt() {
+  return (
+    <svg width="240" height="240" viewBox="0 0 200 200" style={{ overflow: 'visible' }} aria-hidden="true">
       <defs>
-        <linearGradient id="ga-shield" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#28A745" />
-          <stop offset="100%" stopColor="#0D9488" />
+        <linearGradient id="ga-cell" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fb7185" />
+          <stop offset="100%" stopColor="#7f1d1d" />
         </linearGradient>
-        <linearGradient id="ga-bow" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#FACC15" />
-          <stop offset="100%" stopColor="#D97706" />
+        <linearGradient id="ga-shard" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fcd34d" />
+          <stop offset="100%" stopColor="#78350f" />
+        </linearGradient>
+        <linearGradient id="ga-weight" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#3b1a86" />
+        </linearGradient>
+        <linearGradient id="ga-case" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#94a3b8" />
+          <stop offset="100%" stopColor="#1e293b" />
         </linearGradient>
       </defs>
 
-      {/* Glow */}
-      <circle cx="60" cy="60" r="52" fill="#00AEEF" opacity="0.08" />
-      <circle cx="60" cy="60" r="40" fill="#28A745" opacity="0.08" />
+      {/* Glass plate */}
+      <rect x="10" y="10" width="180" height="180" rx="30" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
 
-      {/* Shield */}
-      <path
-        d="M60 18 L92 30 v26 c0 20 -14 34 -32 42 -18 -8 -32 -22 -32 -42 V30 Z"
-        fill="url(#ga-shield)"
-        stroke="rgba(255,255,255,0.55)"
-        strokeWidth="2.5"
-      />
-      <path d="M46 60 l10 10 l20 -22" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      {/* ILLNESS — hex cell */}
+      <g transform="translate(60 46)">
+        <polygon points="0,-15 13,-7.5 13,7.5 0,15 -13,7.5 -13,-7.5" fill="url(#ga-cell)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2" />
+        <circle cx="0" cy="0" r="4" fill="#fff" />
+      </g>
 
-      {/* Bow overlay */}
-      <path
-        d="M30 96 C 58 84, 58 40, 38 22"
-        stroke="url(#ga-bow)"
-        strokeWidth="4"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <line x1="38" y1="22" x2="30" y2="96" stroke="rgba(255,255,255,0.75)" strokeWidth="1.6" />
-      {/* Arrow */}
-      <line x1="24" y1="70" x2="86" y2="42" stroke="#FFFFFF" strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M86 42 l-9 -1.5 l4.5 8 Z" fill="#00AEEF" stroke="#fff" strokeWidth="1" />
-      <path d="M24 70 l-6 -4 l2 7 l-7 1 l6 4 Z" fill="#003DA6" />
+      {/* ACCIDENT — hazard shard */}
+      <g transform="translate(132 40)">
+        <polygon points="0,-15 14,10 -14,10" fill="url(#ga-shard)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2" strokeLinejoin="round" />
+        <path d="M-2,-7 L3,0 L-3,3 L1,8" stroke="#3c1a04" strokeWidth="2" fill="none" strokeLinecap="round" />
+      </g>
+
+      {/* DEBT — shackled weight */}
+      <g transform="translate(158 92)">
+        <ellipse cx="0" cy="-16" rx="4.5" ry="6" fill="none" stroke="#a5b4fc" strokeWidth="2" />
+        <rect x="-14" y="-10" width="28" height="22" rx="5" fill="url(#ga-weight)" stroke="rgba(255,255,255,0.28)" strokeWidth="1.2" />
+        <rect x="-14" y="-3" width="28" height="3" fill="rgba(15,10,45,0.55)" />
+        <circle cx="0" cy="4" r="3.2" fill="#D6C2FF" />
+      </g>
+
+      {/* JOB LOSS — split briefcase */}
+      <g transform="translate(112 122)">
+        <path d="M-16,-9 L-1,-9 L-3,0 L-1,9 L-16,9 Z" fill="url(#ga-case)" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2" />
+        <path d="M16,-9 L2,-9 L0,0 L2,9 L16,9 Z" fill="url(#ga-case)" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2" />
+        <path d="M-6,-13 a6 6 0 0 1 12 0" fill="none" stroke="#475569" strokeWidth="2" />
+      </g>
+
+      {/* Protection arrow arcing across the plate */}
+      <path d="M44 152 Q100 60 150 74" fill="none" stroke="#00AEEF" strokeWidth="2" strokeDasharray="4 6" opacity="0.7" />
+      <g transform="translate(150 74) rotate(18)">
+        <line x1="-16" y1="0" x2="6" y2="0" stroke="#fff" strokeWidth="2.4" />
+        <polygon points="6,-4.5 14,0 6,4.5" fill="#00AEEF" stroke="#fff" strokeWidth="0.8" />
+        <polygon points="-16,0 -22,-5 -18,0 -22,5" fill="#003DA6" />
+      </g>
+
+      {/* Archer */}
+      <g transform="translate(38 150)">
+        <ellipse cx="0" cy="14" rx="9" ry="13" fill="#003DA6" />
+        <circle cx="0" cy="-2" r="7.5" fill="#FFCDB2" />
+        <path d="M-7.5 -2 a7.5 7.5 0 0 1 15 0" fill="#003DA6" />
+        <path d="M-2,10 L2,10 L3,15 L0,18 L-3,15 Z" fill="#FACC15" />
+        <path d="M10 -14 C 22 -4, 22 18, 10 28" stroke="#D97706" strokeWidth="3.4" strokeLinecap="round" fill="none" />
+        <path d="M10 -14 L-2 7 L10 28" stroke="rgba(255,255,255,0.85)" strokeWidth="1.4" fill="none" />
+        <rect x="-6" y="26" width="4.5" height="8" fill="#fff" />
+        <rect x="1.5" y="26" width="4.5" height="8" fill="#fff" />
+      </g>
     </svg>
   );
 }
 
 const IntroScreen: React.FC<Props> = ({ onPlay }) => {
   return (
-    <div
-      className="relative flex h-full w-full flex-col justify-between px-6 py-8"
-      style={{
-        background: 'linear-gradient(180deg, #030F26 0%, #061839 50%, #0b224d 100%)',
-      }}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 15 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 1.04, y: -15 }}
+      transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+      className="absolute inset-0 flex flex-col items-center justify-between overflow-hidden px-6 pb-14 pt-12"
+      style={{ background: 'linear-gradient(180deg, #04122B 0%, #061839 48%, #0B2450 100%)' }}
     >
-      {/* Vignette */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'linear-gradient(to bottom, rgba(3, 15, 38, 0.85) 0%, rgba(3, 15, 38, 0.4) 15%, rgba(3, 15, 38, 0) 32%, rgba(3, 15, 38, 0) 68%, rgba(3, 15, 38, 0.4) 85%, rgba(3, 15, 38, 0.85) 100%)',
-        }}
-      />
-
       {/* Ambient glows */}
-      <div className="absolute top-1/3 left-1/4 w-36 h-36 bg-[#00AEEF]/10 rounded-full blur-[40px] pointer-events-none"></div>
-      <div className="absolute bottom-1/3 right-1/4 w-40 h-40 bg-[#28A745]/10 rounded-full blur-[50px] pointer-events-none"></div>
+      <div className="pointer-events-none absolute left-1/4 top-1/3 h-36 w-36 rounded-full bg-[#00AEEF]/10 blur-[44px]" />
+      <div className="pointer-events-none absolute bottom-1/3 right-1/4 h-40 w-40 rounded-full bg-[#F26522]/10 blur-[52px]" />
 
-      {/* Header card */}
-      <div className="relative z-10 flex flex-col items-center pt-4 pb-5 px-6 bg-[#030F26]/80 border border-white/10 rounded-2xl backdrop-blur-md shadow-2xl max-w-[340px] mx-auto text-center pop">
-        <div className="mb-2.5 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-[#00AEEF] bg-[#00AEEF]/15 border border-[#00AEEF]/30 rounded-full">
+      {/* Title */}
+      <div className="relative z-10 text-center">
+        <div className="mx-auto mb-3 inline-block rounded-full border border-[#00AEEF]/30 bg-[#00AEEF]/15 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-[#00AEEF]">
           Bajaj Life Insurance
         </div>
-        <h2 className="text-[10px] font-bold tracking-[0.1em] text-blue-200/90 uppercase mb-3.5">
-          Aim True • Protect Your Future
-        </h2>
-        <h1 className="font-black tracking-tight leading-none text-white text-[2rem]">
-          GUARDIAN
-          <br />
-          <span className="bg-gradient-to-r from-[#00AEEF] via-[#28A745] to-[#00AEEF] bg-clip-text text-transparent">
-            ARCHER
-          </span>
-        </h1>
-      </div>
-
-      {/* Hero illustration */}
-      <div className="flex-1 min-h-[140px] flex items-center justify-center relative z-10 pointer-events-none">
-        <div className="w-40 h-40 rounded-full border border-white/10 bg-gradient-to-br from-[#00AEEF]/15 to-[#28A745]/15 flex items-center justify-center float relative">
-          <BowShieldArt />
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="relative z-10 flex flex-col gap-4 items-center pb-2 w-full">
-        <div className="w-full max-w-[340px] bg-[#030F26]/75 border border-white/10 rounded-2xl p-4 backdrop-blur-md shadow-2xl text-center">
-          <p className="text-[10.5px] font-bold text-blue-100/90 leading-relaxed mb-3">
-            Risk viruses are floating in! Take precise aim with your Protection Arrows and
-            neutralize every threat — 12 arrows, 2 minutes, 3 waves. Nothing fires back;
-            only your precision counts.
-          </p>
-
-          <button
-            onClick={onPlay}
-            className="btn-press w-full rounded-full py-3.5 text-xs font-black uppercase tracking-wider text-white shadow-[0_6px_24px_rgba(40,167,69,0.45)] transition-all"
-            style={{
-              background: 'linear-gradient(135deg, #28A745 0%, #16A34A 100%)',
-              textShadow: '0 1px 2px rgba(0,0,0,0.2)',
-            }}
-          >
-            Play Game
-          </button>
-        </div>
-
-        <span
-          className="text-[9px] text-blue-200/50 uppercase tracking-widest font-bold"
-          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
+        <h1
+          className="m-0 text-[32px] font-black uppercase leading-none tracking-tight text-white"
+          style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
         >
+          Guardian Archer
+        </h1>
+        <p
+          className="mt-1.5 text-[13px] font-bold uppercase tracking-[0.12em] text-[#00AEEF]"
+          style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
+        >
+          Precision Coverage
+        </p>
+      </div>
+
+      {/* Hero */}
+      <div className="relative z-[1] float flex items-center justify-center">
+        <ArcherHeroArt />
+      </div>
+
+      {/* CTA */}
+      <div className="relative z-10 flex w-full flex-col items-center gap-4">
+        <div className="glass-card w-full max-w-[340px] px-4 py-3 text-center">
+          <p className="text-[11px] font-bold leading-relaxed text-blue-100/85">
+            Four risks. Twelve arrows. Two minutes.
+          </p>
+        </div>
+
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={onPlay}
+          className="btn-primary"
+          style={{ maxWidth: 320, height: 60, fontSize: 20 }}
+        >
+          <PlayIcon />
+          <span>Start Game</span>
+        </motion.button>
+
+        <span className="text-[9px] font-bold uppercase tracking-widest text-blue-200/50">
           Bajaj Life Protection Arcade
         </span>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

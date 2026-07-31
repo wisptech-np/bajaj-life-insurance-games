@@ -1,359 +1,457 @@
 import Phaser from 'phaser';
 
+/**
+ * Tightrope Protection — procedural art pass.
+ *
+ * Palette / shape language (unique to this game in the repo):
+ *   brand blue  #003DA6   structural, trousers + shield crest
+ *   orange      #F26522   the balance pole — the game's signature accent
+ *   green       #28A745   gain / reward feedback
+ *   crimson     #D92D4E   risk gusts
+ * Motif: long horizontals (rope, pole), a tall thin figure, height + tension.
+ */
+
+const TAU = Math.PI * 2;
+
+const SUIT_LIGHT = '#EDF3FF';
+const SUIT_SHADE = '#A9C2E8';
+const TROUSER = '#0A2C6B';
+const TROUSER_HI = '#1E56B4';
+const SKIN = '#F3D2AE';
+const SHOE = '#FFC845';
+const POLE = '#F26522';
+const POLE_HI = '#FFB988';
+const POLE_LO = '#8E3208';
+const BRAND_BLUE = '#003DA6';
+
 export default class PreloadScene extends Phaser.Scene {
   constructor() {
     super('PreloadScene');
   }
 
   preload() {
-    // Generate Procedural Textures on launch
-    this.createBeetleRunTexture();
-    this.createBeetleJumpTexture();
-    this.createBirdFlyTexture();
+    this.createWalkerRunTexture();
+    this.createWalkerHopTexture();
+    this.createGustTexture();
     this.createCoinTexture();
     this.createShieldTexture();
     this.createParticleTexture();
+    this.createGlowTexture();
   }
 
   create() {
-    // Start gameplay scene directly once resources are processed
     this.scene.start('MainScene');
   }
 
-  private createBeetleRunTexture() {
-    const frameSize = 64;
-    const numFrames = 4;
-    const texture = this.textures.createCanvas('beetle_run_canvas', frameSize * numFrames, frameSize);
-    const ctx = texture.context;
+  // ── helpers ───────────────────────────────────────────────────────────────
 
-    for (let f = 0; f < numFrames; f++) {
-      const ox = f * frameSize + frameSize / 2;
-      const oy = frameSize / 2;
+  private ctxOf(key: string, w: number, h: number) {
+    const tex = this.textures.createCanvas(key, w, h)!;
+    return { tex, ctx: tex.context };
+  }
 
-      // 1. Draw Legs (different phases to animate running)
-      ctx.strokeStyle = '#15803D';
-      ctx.lineWidth = 4.5;
+  /**
+   * A tightrope walker seen from the side, feet planted at `feetY`.
+   * `stride` in -1..1 drives the leg swing; `hop` swaps to a tucked jump pose.
+   */
+  private drawWalker(
+    ctx: CanvasRenderingContext2D,
+    ox: number,
+    feetY: number,
+    stride: number,
+    hop: boolean,
+  ) {
+    const hipY = feetY - 21;
+    const shoulderY = feetY - 35;
+    const headY = feetY - 43;
+    const bob = hop ? -3 : Math.abs(stride) * -1.5;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // ── 1. Balance pole (drawn behind the body so the arms read on top)
+    const tilt = hop ? -0.18 : stride * 0.11;
+    ctx.save();
+    ctx.translate(ox, shoulderY + 2 + bob);
+    ctx.rotate(tilt);
+    ctx.strokeStyle = POLE_LO;
+    ctx.lineWidth = 5.5;
+    ctx.beginPath();
+    ctx.moveTo(-27, 1.8);
+    ctx.lineTo(27, 1.8);
+    ctx.stroke();
+    ctx.strokeStyle = POLE;
+    ctx.lineWidth = 4.6;
+    ctx.beginPath();
+    ctx.moveTo(-27, 0);
+    ctx.lineTo(27, 0);
+    ctx.stroke();
+    ctx.strokeStyle = POLE_HI;
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(-23, -1.5);
+    ctx.lineTo(23, -1.5);
+    ctx.stroke();
+    // counterweights
+    ctx.fillStyle = POLE;
+    ctx.beginPath();
+    ctx.arc(-27, 0, 3.4, 0, TAU);
+    ctx.arc(27, 0, 3.4, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = POLE_HI;
+    ctx.beginPath();
+    ctx.arc(-27.8, -1, 1.4, 0, TAU);
+    ctx.arc(26.2, -1, 1.4, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    // ── 2. Legs
+    ctx.strokeStyle = TROUSER;
+    ctx.lineWidth = 5.4;
+    if (hop) {
+      // both knees tucked forward
+      ctx.beginPath();
+      ctx.moveTo(ox - 1, hipY + bob);
+      ctx.lineTo(ox + 7, hipY + 9 + bob);
+      ctx.lineTo(ox - 1, hipY + 14 + bob);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ox + 1, hipY + bob);
+      ctx.lineTo(ox + 10, hipY + 5 + bob);
+      ctx.lineTo(ox + 4, hipY + 12 + bob);
+      ctx.stroke();
+    } else {
+      const swing = stride * 7.5;
+      // rear leg (darker for depth)
+      ctx.strokeStyle = '#06204F';
+      ctx.beginPath();
+      ctx.moveTo(ox, hipY + bob);
+      ctx.lineTo(ox - swing, feetY);
+      ctx.stroke();
+      // front leg
+      ctx.strokeStyle = TROUSER;
+      ctx.beginPath();
+      ctx.moveTo(ox, hipY + bob);
+      ctx.lineTo(ox + swing, feetY);
+      ctx.stroke();
+      // leg rim light
+      ctx.strokeStyle = TROUSER_HI;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(ox + 1.6, hipY + 1 + bob);
+      ctx.lineTo(ox + swing + 1.6, feetY - 2);
+      ctx.stroke();
+    }
+
+    // ── 3. Shoes
+    ctx.fillStyle = SHOE;
+    if (hop) {
+      ctx.beginPath();
+      ctx.ellipse(ox - 1, hipY + 14 + bob, 3.6, 2.4, 0, 0, TAU);
+      ctx.ellipse(ox + 4, hipY + 12 + bob, 3.6, 2.4, 0, 0, TAU);
+      ctx.fill();
+    } else {
+      const swing = stride * 7.5;
+      ctx.beginPath();
+      ctx.ellipse(ox - swing, feetY, 4, 2.4, 0, 0, TAU);
+      ctx.ellipse(ox + swing, feetY, 4, 2.4, 0, 0, TAU);
+      ctx.fill();
+    }
+
+    // ── 4. Torso (light value against the dark sky = strong figure/ground)
+    const grad = ctx.createLinearGradient(ox - 7, shoulderY, ox + 8, hipY);
+    grad.addColorStop(0, SUIT_LIGHT);
+    grad.addColorStop(1, SUIT_SHADE);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(ox - 6, shoulderY + bob);
+    ctx.quadraticCurveTo(ox - 7.5, hipY - 6 + bob, ox - 5, hipY + 1 + bob);
+    ctx.lineTo(ox + 5, hipY + 1 + bob);
+    ctx.quadraticCurveTo(ox + 7.5, hipY - 6 + bob, ox + 6, shoulderY + bob);
+    ctx.closePath();
+    ctx.fill();
+
+    // sash in brand blue across the chest
+    ctx.strokeStyle = BRAND_BLUE;
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(ox - 5.5, shoulderY + 3 + bob);
+    ctx.lineTo(ox + 5.5, shoulderY + 10 + bob);
+    ctx.stroke();
+
+    // rim light on the leading (right) edge
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(ox + 5.6, shoulderY + 1 + bob);
+    ctx.quadraticCurveTo(ox + 7, hipY - 6 + bob, ox + 5, hipY + bob);
+    ctx.stroke();
+
+    // ── 5. Arms reaching to the pole ends
+    ctx.strokeStyle = SUIT_LIGHT;
+    ctx.lineWidth = 3.4;
+    const poleY = shoulderY + 2 + bob;
+    ctx.beginPath();
+    ctx.moveTo(ox - 4, shoulderY + 3 + bob);
+    ctx.lineTo(ox - 15, poleY - Math.sin(tilt) * 15);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ox + 4, shoulderY + 3 + bob);
+    ctx.lineTo(ox + 15, poleY + Math.sin(tilt) * 15);
+    ctx.stroke();
+
+    // ── 6. Head + helmet
+    ctx.fillStyle = SKIN;
+    ctx.beginPath();
+    ctx.arc(ox + 1, headY + bob, 5.4, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = BRAND_BLUE;
+    ctx.beginPath();
+    ctx.arc(ox + 1, headY - 0.5 + bob, 5.8, Math.PI * 1.02, TAU * 1.02);
+    ctx.fill();
+    ctx.fillStyle = POLE;
+    ctx.fillRect(ox + 4.5, headY - 1.6 + bob, 4, 1.8);
+    // face highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath();
+    ctx.arc(ox + 3.4, headY + 1 + bob, 1.1, 0, TAU);
+    ctx.fill();
+  }
+
+  private createWalkerRunTexture() {
+    const size = 64;
+    const frames = 4;
+    const { tex, ctx } = this.ctxOf('walker_run_canvas', size * frames, size);
+    for (let f = 0; f < frames; f++) {
+      const ox = f * size + size / 2;
+      // -1 .. 1 .. -1 stride cycle
+      this.drawWalker(ctx, ox, 52, Math.sin((f / frames) * TAU), false);
+    }
+    tex.refresh();
+    this.textures.addSpriteSheet(
+      'walker_run',
+      tex.canvas as unknown as HTMLImageElement,
+      { frameWidth: size, frameHeight: size },
+    );
+  }
+
+  private createWalkerHopTexture() {
+    const size = 64;
+    const { tex, ctx } = this.ctxOf('walker_hop', size, size);
+    this.drawWalker(ctx, size / 2, 52, 0, true);
+    tex.refresh();
+  }
+
+  /**
+   * Risk gust — a crimson wind curl with trailing streaks and a warning core.
+   * Reads as "an unplanned event blowing across the rope", not a creature.
+   */
+  private createGustTexture() {
+    const size = 64;
+    const frames = 3;
+    const { tex, ctx } = this.ctxOf('gust_canvas', size * frames, size);
+
+    for (let f = 0; f < frames; f++) {
+      const ox = f * size + size / 2;
+      const oy = size / 2;
+      const spin = (f / frames) * TAU;
+
       ctx.lineCap = 'round';
 
-      const legOffset = Math.sin(f * Math.PI / 2) * 5;
-
-      // Back leg
-      ctx.beginPath();
-      ctx.moveTo(ox - 10, oy + 4);
-      ctx.lineTo(ox - 22, oy + 16 + legOffset);
-      ctx.stroke();
-
-      // Mid leg
-      ctx.beginPath();
-      ctx.moveTo(ox, oy + 4);
-      ctx.lineTo(ox - 4, oy + 18 - legOffset);
-      ctx.stroke();
-
-      // Front leg
-      ctx.beginPath();
-      ctx.moveTo(ox + 10, oy + 4);
-      ctx.lineTo(ox + 18, oy + 16 + legOffset);
-      ctx.stroke();
-
-      // 2. Beetle Carapace / Body (Vibrant Green)
-      ctx.fillStyle = '#22C55E';
-      ctx.beginPath();
-      ctx.ellipse(ox, oy, 16, 12, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 3. Head (Green)
-      ctx.fillStyle = '#16A34A';
-      ctx.beginPath();
-      ctx.arc(ox + 14, oy - 2, 7, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 4. Big Cartoon Eyes
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(ox + 17, oy - 4, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#000000';
-      ctx.beginPath();
-      ctx.arc(ox + 18, oy - 4, 1.2, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 5. Antennae
-      ctx.strokeStyle = '#16A34A';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(ox + 21, oy - 9, 6, Math.PI * 0.8, Math.PI * 1.6);
-      ctx.stroke();
-
-      // 6. Shiny Bajaj Shield Backpack (Blue / Insurance Accent)
-      ctx.fillStyle = '#00AEEF';
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      // Shield shape on its back
-      ctx.moveTo(ox - 14, oy - 8);
-      ctx.lineTo(ox - 2, oy - 12);
-      ctx.lineTo(ox + 4, oy - 6);
-      ctx.lineTo(ox - 2, oy + 4);
-      ctx.lineTo(ox - 14, oy + 2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Mini white checkmark on shield
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(ox - 8, oy - 3);
-      ctx.lineTo(ox - 5, oy);
-      ctx.lineTo(ox - 1, oy - 5);
-      ctx.stroke();
-    }
-
-    texture.refresh();
-    
-    // Register the canvas as a sprite sheet in the texture manager
-    this.textures.addSpriteSheet('beetle_run', texture.canvas as unknown as HTMLImageElement, { frameWidth: frameSize, frameHeight: frameSize });
-  }
-
-  // Draw jump posture (wings split)
-  private createBeetleJumpTexture() {
-    const size = 64;
-    const texture = this.textures.createCanvas('beetle_jump', size, size);
-    const ctx = texture.context;
-    const cx = size / 2;
-    const cy = size / 2;
-
-    // Legs straight down
-    ctx.strokeStyle = '#15803D';
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    [ -10, 0, 10 ].forEach(dx => {
-      ctx.beginPath();
-      ctx.moveTo(cx + dx, cy + 4);
-      ctx.lineTo(cx + dx + 2, cy + 18);
-      ctx.stroke();
-    });
-
-    // Body
-    ctx.fillStyle = '#22C55E';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, 16, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Opened wings (Yellow-Green flap highlight)
-    ctx.fillStyle = '#86EFAC';
-    ctx.beginPath();
-    ctx.ellipse(cx - 6, cy - 8, 8, 14, -Math.PI / 6, 0, Math.PI * 2);
-    ctx.ellipse(cx + 6, cy - 8, 8, 14, Math.PI / 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Head
-    ctx.fillStyle = '#16A34A';
-    ctx.beginPath();
-    ctx.arc(cx + 14, cy - 2, 7, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Eye
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(cx + 17, cy - 4, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#000000';
-    ctx.beginPath();
-    ctx.arc(cx + 18, cy - 4, 1.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Shield Backpack (seen from side-view in jump)
-    ctx.fillStyle = '#00AEEF';
-    ctx.beginPath();
-    ctx.ellipse(cx - 8, cy - 2, 8, 8, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    texture.refresh();
-  }
-
-  // Draw 3 frames of Green Virus Risk hazard onto 192x64 canvas texture
-  private createBirdFlyTexture() {
-    const frameSize = 64;
-    const numFrames = 3;
-    const texture = this.textures.createCanvas('bird_fly_canvas', frameSize * numFrames, frameSize);
-    const ctx = texture.context;
-
-    for (let f = 0; f < numFrames; f++) {
-      const ox = f * frameSize + frameSize / 2;
-      const oy = frameSize / 2;
-
-      // 1. Spiky Green Virus Body (Vibrant Emerald / Toxic Green)
-      const numSpikes = 8;
-      const pulseRadius = 14 + (f % 2) * 2;
-      ctx.fillStyle = '#10B981';
-      ctx.strokeStyle = '#047857';
-      ctx.lineWidth = 2;
-
-      ctx.beginPath();
-      for (let i = 0; i < numSpikes; i++) {
-        const angle = (i * Math.PI * 2) / numSpikes + (f * 0.2);
-        const spikeLen = pulseRadius + 6;
-        const sx = ox + Math.cos(angle) * spikeLen;
-        const sy = oy + Math.sin(angle) * spikeLen;
-        const bx = ox + Math.cos(angle + 0.2) * pulseRadius;
-        const by = oy + Math.sin(angle + 0.2) * pulseRadius;
-        if (i === 0) ctx.moveTo(sx, sy);
-        else ctx.lineTo(sx, sy);
-        ctx.lineTo(bx, by);
+      // 1. Trailing wind streaks (behind, pointing back down-track)
+      ctx.strokeStyle = 'rgba(217, 45, 78, 0.42)';
+      for (let i = 0; i < 3; i++) {
+        const y = oy - 8 + i * 8 + Math.sin(spin + i) * 1.6;
+        ctx.lineWidth = 2.6 - i * 0.4;
+        ctx.beginPath();
+        ctx.moveTo(ox + 6, y);
+        ctx.quadraticCurveTo(ox + 18, y - 3, ox + 28, y);
+        ctx.stroke();
       }
-      ctx.closePath();
-      ctx.fill();
+
+      // 2. Outer curl
+      ctx.strokeStyle = '#FF5C78';
+      ctx.lineWidth = 3.4;
+      ctx.beginPath();
+      ctx.arc(ox, oy, 15, spin + 0.5, spin + TAU * 0.82);
       ctx.stroke();
 
-      // 2. Central Core Sphere
-      ctx.fillStyle = '#059669';
+      // 3. Inner curl (counter direction, gives the vortex read)
+      ctx.strokeStyle = '#D92D4E';
+      ctx.lineWidth = 4.4;
       ctx.beginPath();
-      ctx.arc(ox, oy, 12, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 3. Menacing Glow Eyes
-      ctx.fillStyle = '#FEF08A';
-      ctx.beginPath();
-      ctx.arc(ox - 4, oy - 3, 2.5, 0, Math.PI * 2);
-      ctx.arc(ox + 4, oy - 3, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#065F46';
-      ctx.beginPath();
-      ctx.arc(ox - 3.5, oy - 3, 1, 0, Math.PI * 2);
-      ctx.arc(ox + 4.5, oy - 3, 1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 4. Floating 'RISK' label banner
-      ctx.fillStyle = 'rgba(6, 24, 38, 0.85)';
-      ctx.strokeStyle = '#10B981';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.rect(ox - 18, oy + 12, 36, 10);
-      ctx.fill();
+      ctx.arc(ox, oy, 9.5, -spin + 3.4, -spin + TAU * 0.9);
       ctx.stroke();
 
-      ctx.fillStyle = '#34D399';
-      ctx.font = 'bold 7.5px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('RISK', ox, oy + 17);
+      // 4. Dark core with a bright rim so it survives on a dark background
+      const core = ctx.createRadialGradient(ox - 2, oy - 3, 1, ox, oy, 8);
+      core.addColorStop(0, '#FF9AAC');
+      core.addColorStop(0.55, '#D92D4E');
+      core.addColorStop(1, '#5B0E1E');
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(ox, oy, 7.2, 0, TAU);
+      ctx.fill();
+
+      // 5. Warning chevron inside the core (icon, not text)
+      ctx.strokeStyle = '#FFE3E9';
+      ctx.lineWidth = 1.9;
+      ctx.beginPath();
+      ctx.moveTo(ox - 3.2, oy - 3.4);
+      ctx.lineTo(ox + 0.6, oy);
+      ctx.lineTo(ox - 3.2, oy + 3.4);
+      ctx.stroke();
+
+      // 6. Leading edge highlight
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(ox, oy, 15, Math.PI * 0.85, Math.PI * 1.25);
+      ctx.stroke();
     }
 
-    texture.refresh();
-    
-    // Register the canvas as a sprite sheet
-    this.textures.addSpriteSheet('bird_fly', texture.canvas as unknown as HTMLImageElement, { frameWidth: frameSize, frameHeight: frameSize });
+    tex.refresh();
+    this.textures.addSpriteSheet(
+      'gust',
+      tex.canvas as unknown as HTMLImageElement,
+      { frameWidth: size, frameHeight: size },
+    );
   }
 
-  // Draw gold rupee coin with shine
+  /** Gold savings coin, beveled with a rupee mark. */
   private createCoinTexture() {
     const size = 48;
-    const texture = this.textures.createCanvas('coin', size, size);
-    const ctx = texture.context;
+    const { tex, ctx } = this.ctxOf('coin', size, size);
     const cx = size / 2;
     const cy = size / 2;
 
-    // Beveled rim
-    ctx.fillStyle = '#EAB308';
+    // soft glow halo
+    const halo = ctx.createRadialGradient(cx, cy, 12, cx, cy, 23);
+    halo.addColorStop(0, 'rgba(255, 200, 69, 0.35)');
+    halo.addColorStop(1, 'rgba(255, 200, 69, 0)');
+    ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(cx, cy, 21, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 23, 0, TAU);
     ctx.fill();
 
-    // Metallic face
-    ctx.fillStyle = '#FACC15';
+    // rim
+    const rim = ctx.createLinearGradient(cx, cy - 19, cx, cy + 19);
+    rim.addColorStop(0, '#FFE9A8');
+    rim.addColorStop(0.5, '#E8A317');
+    rim.addColorStop(1, '#A96A05');
+    ctx.fillStyle = rim;
     ctx.beginPath();
-    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 18.5, 0, TAU);
     ctx.fill();
 
-    // Inner bevel rim
-    ctx.fillStyle = '#D97706';
+    // face
+    const face = ctx.createLinearGradient(cx - 10, cy - 12, cx + 10, cy + 12);
+    face.addColorStop(0, '#FFF3C4');
+    face.addColorStop(0.55, '#FFC845');
+    face.addColorStop(1, '#E39408');
+    ctx.fillStyle = face;
     ctx.beginPath();
-    ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 14.5, 0, TAU);
     ctx.fill();
 
-    // Core shine face
-    ctx.fillStyle = '#FDE047';
-    ctx.beginPath();
-    ctx.arc(cx, cy, 13, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Engraved Rupee Sign (₹)
+    // engraved rupee
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = '900 19px "Plus Jakarta Sans", sans-serif';
-    
-    // Engraved shadow
-    ctx.fillStyle = '#78350F';
-    ctx.fillText('₹', cx + 0.5, cy + 0.5);
+    ctx.fillStyle = 'rgba(120, 53, 15, 0.85)';
+    ctx.fillText('₹', cx + 0.6, cy + 0.8);
+    ctx.fillStyle = '#8A5A05';
+    ctx.fillText('₹', cx, cy);
 
-    // Main text
-    ctx.fillStyle = '#D97706';
-    ctx.fillText('₹', cx, cy - 0.5);
+    // specular
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.beginPath();
+    ctx.ellipse(cx - 6, cy - 9, 4.6, 2.4, -0.5, 0, TAU);
+    ctx.fill();
 
-    texture.refresh();
+    tex.refresh();
   }
 
-  // Draw cyan protection shield item
+  /** Protection crest — brand blue with a white tick. */
   private createShieldTexture() {
     const size = 48;
-    const texture = this.textures.createCanvas('shield_item', size, size);
-    const ctx = texture.context;
+    const { tex, ctx } = this.ctxOf('shield_item', size, size);
     const cx = size / 2;
     const cy = size / 2;
 
-    const drawCrest = (c: CanvasRenderingContext2D, x: number, y: number, s: number) => {
-      c.beginPath();
-      c.moveTo(x, y - 20 * s);
-      c.lineTo(x + 16 * s, y - 14 * s);
-      c.lineTo(x + 18 * s, y + 2 * s);
-      c.lineTo(x, y + 20 * s);
-      c.lineTo(x - 18 * s, y + 2 * s);
-      c.lineTo(x - 16 * s, y - 14 * s);
-      c.closePath();
+    const crest = (s: number) => {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 20 * s);
+      ctx.lineTo(cx + 16 * s, cy - 13 * s);
+      ctx.lineTo(cx + 17 * s, cy + 3 * s);
+      ctx.lineTo(cx, cy + 20 * s);
+      ctx.lineTo(cx - 17 * s, cy + 3 * s);
+      ctx.lineTo(cx - 16 * s, cy - 13 * s);
+      ctx.closePath();
     };
 
-    // Glow ring
-    ctx.fillStyle = 'rgba(0, 174, 239, 0.15)';
-    drawCrest(ctx, cx, cy, 1.2);
+    const halo = ctx.createRadialGradient(cx, cy, 8, cx, cy, 24);
+    halo.addColorStop(0, 'rgba(46, 155, 255, 0.35)');
+    halo.addColorStop(1, 'rgba(46, 155, 255, 0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 24, 0, TAU);
     ctx.fill();
 
-    // Outer rim (White edge)
     ctx.fillStyle = '#FFFFFF';
-    drawCrest(ctx, cx, cy, 1.02);
+    crest(1.0);
     ctx.fill();
 
-    // Body (Cyan/Blue insurance gradient)
-    const grad = ctx.createLinearGradient(cx, cy - 15, cx, cy + 15);
-    grad.addColorStop(0, '#00AEEF');
-    grad.addColorStop(1, '#005D9E');
-    ctx.fillStyle = grad;
-    drawCrest(ctx, cx, cy, 0.88);
+    const body = ctx.createLinearGradient(cx, cy - 16, cx, cy + 18);
+    body.addColorStop(0, '#4FB4FF');
+    body.addColorStop(0.55, '#1E6BE0');
+    body.addColorStop(1, BRAND_BLUE);
+    ctx.fillStyle = body;
+    crest(0.86);
     ctx.fill();
 
-    // Core white checkmark (✓)
+    // inner rim light
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 1.2;
+    crest(0.7);
+    ctx.stroke();
+
     ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3.2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(cx - 7, cy - 1);
-    ctx.lineTo(cx - 2, cy + 4);
-    ctx.lineTo(cx + 6, cy - 5);
+    ctx.moveTo(cx - 7, cy - 0.5);
+    ctx.lineTo(cx - 2, cy + 4.5);
+    ctx.lineTo(cx + 7, cy - 5.5);
     ctx.stroke();
 
-    texture.refresh();
+    tex.refresh();
   }
 
-  // Draw particle textures (small white circle sparks)
+  /** Soft spark used by every particle burst. */
   private createParticleTexture() {
-    const texture = this.textures.createCanvas('sparkle', 16, 16);
-    const ctx = texture.context;
-    ctx.fillStyle = '#FFFFFF';
+    const { tex, ctx } = this.ctxOf('sparkle', 16, 16);
+    const g = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.45, 'rgba(255,255,255,0.85)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(8, 8, 6, 0, Math.PI * 2);
+    ctx.arc(8, 8, 8, 0, TAU);
     ctx.fill();
-    texture.refresh();
+    tex.refresh();
+  }
+
+  /** Wide soft glow used for the horizon bloom and the walker's ground light. */
+  private createGlowTexture() {
+    const { tex, ctx } = this.ctxOf('glow', 128, 128);
+    const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(255,255,255,0.55)');
+    g.addColorStop(0.4, 'rgba(255,255,255,0.16)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+    tex.refresh();
   }
 }

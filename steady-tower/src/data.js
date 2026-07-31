@@ -214,10 +214,58 @@ export const GAME_CONFIG = {
     lockedKick: 0.10,
     settleOmega: 0.06,
     settleTheta: 0.012,
-    // Ambient breathing sway, scaled by (1 - stability). Render-only: it never
-    // feeds back into the integrator, so it cannot accumulate into a topple.
-    idleSwayRad: 0.03,
-    idleHz: 0.37,
+  },
+
+  /* -- flexible joint chain (the visible wobble) --------------------------
+     `wobble` above answers "is the tower falling?"; this answers "what does it
+     look like while it decides". One damped-spring joint per layer, each
+     rotating relative to the layer below, so the pose ACCUMULATES up the stack:
+     the base joint barely bends and the top swings most, for free, because every
+     joint above inherits the rotation of every joint below.
+
+     Deliberately render-only — the statics still read `lean.theta`, so nothing
+     here can push a tower over. That separation is what lets the visual be
+     amplified and lagged for feel without retuning the balance gate. */
+  chain: {
+    // Share of the total lean carried by the bottom joint relative to the top,
+    // before normalisation. Low = a stiff plinth and a whippy top.
+    baseRigidity: 0.22,
+    // Exponent on the share ramp. > 1 pushes the bend further up the stack.
+    shareCurve: 1.35,
+    // Visual amplification of lean.theta. The statics are unchanged; this only
+    // decides how far the pose travels for a given imbalance. Calibration knob:
+    // raise it if the tower reads as too rigid on a small phone.
+    leanGain: 1.35,
+    // Base joint spring. sqrt(210) ~ 14.5 rad/s ~ 2.3 Hz — a heavy stack.
+    stiffness: 210,
+    // Top joint keeps (1 - softenTop) of that, so it rings slower and lags the
+    // base by roughly a third of a beat. This is the whip.
+    softenTop: 0.62,
+    // Damping ratios, base -> top. The base is nearly critically damped (snaps
+    // back), the top is not (overshoots, then settles).
+    zetaBase: 0.38,
+    zetaTop: 0.15,
+    // Floor on the stability-scaled stiffness: a critical tower goes floppy but
+    // never becomes a rope.
+    minStiffnessFrac: 0.18,
+    // Ambient breathing torque, scaled by (1 - stability). A torque rather than
+    // a post-hoc angle: it enters the same springs everything else does.
+    breathTorque: 0.85,
+    breathHz: 0.37,
+    // Phase step per joint, so the sway travels up the tower instead of the
+    // whole stack breathing in unison.
+    breathPhase: 0.7,
+    // Joints ride open under stress: px added to the layer pitch, on a squared
+    // curve so it is invisible in normal play and obvious near failure.
+    sepMaxPx: 1.4,
+    // Vertical settle after a pull: the stack drops this far and springs back.
+    dropPx: 26,
+    dropStiffness: 150,
+    dropDamping: 13,
+    // Normalised joint stress (1.0 = bent as far as the topple angle implies)
+    // above which the tower creaks.
+    creakStress: 0.62,
+    creakGapSeconds: 0.62,
   },
 
   /* -- flick input -------------------------------------------------------- */
@@ -274,10 +322,6 @@ export const GAME_CONFIG = {
     verticalSlackFrac: 0.38,
     plinthHeightPx: 16,
     plinthOverhangPx: 26,
-    // Blocks tilt with a fraction of the shear angle. At 0 the tower reads as a
-    // parallelogram of perfectly level bricks, which looks like a rendering bug
-    // rather than a racked stack.
-    blockTiltFrac: 0.45,
     // Forgiveness padding on the block hit test, in px.
     hitPadPx: 7,
   },
@@ -292,11 +336,10 @@ export const GAME_CONFIG = {
     collapseParticles: 30,
     damageShake: 6,
     hitStopSeconds: 0.07,
-    // Ambient dust starts falling from the joints once the lean passes this.
-    leanDustOffset: 0.5,
+    // Dust starts falling from a joint once its normalised stress passes this.
+    leanDustStress: 0.42,
     dustIntervalSeconds: 0.16,
     blockFlightSeconds: 1.2,
-    bannerSeconds: 1.6,
   },
 
   /* -- collapse animation ------------------------------------------------- */
@@ -516,6 +559,124 @@ export function createLeanSolver(cfg) {
       if (Math.abs(theta) >= w.toppleAngle) toppling = true;
       if (Math.abs(theta) >= w.collapseAngle) toppled = true;
       return toppled;
+    },
+  };
+}
+
+/**
+ * Flexible joint chain — the tower's POSE, one damped-spring joint per layer.
+ *
+ * `createLeanSolver` answers "is this tower falling"; this answers "what does it
+ * look like while it decides". Joint i is the interface under layer i and holds
+ * a bend angle relative to the layer below, so the renderer walks the stack
+ * joint by joint and every layer inherits the rotation of every layer beneath
+ * it. Displacement therefore ACCUMULATES: joint 0 bends ~3% of the total and
+ * joint 11 ~15%, but the top block carries the sum of all twelve. That is why
+ * the base looks planted and the top swings — no skew transform, no per-frame
+ * jitter, and no special case for "the tower is leaning a lot now".
+ *
+ * Two things make it read as mass rather than as an easing curve:
+ *
+ *  1. Stiffness falls with height (`softenTop`), so upper joints have a lower
+ *     natural frequency than lower ones and visibly LAG them. Kick the whole
+ *     chain at once and the base has already returned while the top is still
+ *     going out — a travelling wave, which is what a real stack does.
+ *  2. Damping ratio falls with height (`zetaBase` -> `zetaTop`), so the base
+ *     is near-critically damped and snaps back while the top overshoots and
+ *     rings down over about a second.
+ *
+ * Every spring is additionally softened by the live stability margin, the same
+ * coupling `createLeanSolver` uses: a tower one pull from gone is physically
+ * floppy, and looks it, before it commits to falling.
+ *
+ * Pure and allocation-free after construction — the per-frame arrays are
+ * written in place, so this runs inside the 60 fps budget and can be driven
+ * headlessly by scripts/balance.mjs.
+ */
+export function createFlexChain(cfg) {
+  const L = cfg.tower.layers;
+  const c = cfg.chain;
+  // Bend angle and bend rate per joint, plus the derived per-joint constants.
+  const angles = new Float32Array(L);
+  const rates = new Float32Array(L);
+  const share = new Float32Array(L);
+  const stiff = new Float32Array(L);
+  const damp = new Float32Array(L);
+  // Written every step, read by the renderer.
+  const stressPer = new Float32Array(L);
+  const separations = new Float32Array(L);
+
+  let total = 0;
+  for (let i = 0; i < L; i++) {
+    const t = L > 1 ? i / (L - 1) : 0;
+    share[i] = c.baseRigidity + (1 - c.baseRigidity) * Math.pow(t, c.shareCurve);
+    total += share[i];
+    stiff[i] = c.stiffness * (1 - c.softenTop * t);
+    damp[i] = 2 * (c.zetaBase + (c.zetaTop - c.zetaBase) * t) * Math.sqrt(stiff[i]);
+  }
+  for (let i = 0; i < L; i++) share[i] /= total;
+
+  // Bend a joint would hold if the whole tower sat at its topple angle. Joint
+  // stress is measured against this, so "stress 1.0" means the same thing at
+  // every height and the dust, the creak and the joint gap all key off one
+  // number the player can also read on the meter.
+  const refBend = cfg.wobble.toppleAngle * c.leanGain;
+
+  let peak = 0;
+  let peakJoint = 0;
+  let drop = 0;
+  let dropRate = 0;
+
+  return {
+    angles,
+    rates,
+    separations,
+    stressPer,
+    /** Worst normalised joint stress this step. 1.0 = at the topple angle. */
+    get stress() { return peak; },
+    /** Index of the joint carrying it — where the dust should come from. */
+    get stressJoint() { return peakJoint; },
+    /** Current vertical settle offset, px downward. */
+    get drop() { return drop; },
+
+    /** Angular impulse, split across the joints by the same share as the lean. */
+    kick(v) {
+      const g = v * c.leanGain;
+      for (let i = 0; i < L; i++) rates[i] += g * share[i];
+    },
+
+    /** Vertical impulse, px/s downward — the thump after a block comes out. */
+    thump(v) { dropRate += v; },
+
+    /**
+     * @param theta   lean the statics want, from createLeanSolver.
+     * @param margin  live stability, 1 = centred. Softens every joint spring.
+     * @param time    seconds, for the breathing torque.
+     */
+    step(dt, theta, margin, time) {
+      const soft = Math.max(c.minStiffnessFrac, Math.min(1, margin));
+      const breath = c.breathTorque * (1 - Math.max(0, Math.min(1, margin)));
+      const lean = theta * c.leanGain;
+      const phase = time * Math.PI * 2 * c.breathHz;
+      peak = 0;
+      peakJoint = 0;
+
+      for (let i = 0; i < L; i++) {
+        const target = lean * share[i];
+        const drive = breath * share[i] * Math.sin(phase + i * c.breathPhase);
+        rates[i] += (-stiff[i] * soft * (angles[i] - target) - damp[i] * rates[i] + drive) * dt;
+        angles[i] += rates[i] * dt;
+
+        const norm = Math.abs(angles[i]) / (share[i] * refBend);
+        stressPer[i] = norm;
+        // Squared so the joints stay shut in normal play and visibly ride open
+        // only when the tower is actually in trouble.
+        separations[i] = c.sepMaxPx * Math.min(1, norm * norm);
+        if (norm > peak) { peak = norm; peakJoint = i; }
+      }
+
+      dropRate += (-c.dropStiffness * drop - c.dropDamping * dropRate) * dt;
+      drop += dropRate * dt;
     },
   };
 }

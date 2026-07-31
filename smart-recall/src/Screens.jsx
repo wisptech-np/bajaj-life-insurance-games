@@ -236,6 +236,18 @@ const SCREEN_CSS = `
 @keyframes srTapRing{ 0%, 62% { opacity: 0; transform: scale(0.7); } 68% { opacity: 0.9; transform: scale(1); } 82%, 100% { opacity: 0; transform: scale(1.3); } }
 @keyframes srRisk   { 0%, 30% { opacity: 0; } 38%, 66% { opacity: 1; } 74%, 100% { opacity: 0; } }
 @keyframes srHand   { 0%, 55% { opacity: 0; transform: translate(0,10px) scale(1); } 62% { opacity: 1; transform: translate(0,0) scale(0.9); } 78% { opacity: 1; transform: translate(0,0) scale(1); } 88%, 100% { opacity: 0; transform: translate(0,6px) scale(1); } }
+/* How-to-play loop (6 s). First half is the plan playing back on the real 3x3
+   board — three goals in order plus one red detour. Second half is the finger
+   tapping the same three back and arcing around the red one. */
+@keyframes srdLit1  { 0%,4%  { opacity: 0; } 6%,13%  { opacity: 1; } 16%,100% { opacity: 0; } }
+@keyframes srdLit2  { 0%,15% { opacity: 0; } 17%,24% { opacity: 1; } 27%,100% { opacity: 0; } }
+@keyframes srdRisk  { 0%,26% { opacity: 0; } 28%,35% { opacity: 1; } 38%,100% { opacity: 0; } }
+@keyframes srdLit3  { 0%,37% { opacity: 0; } 39%,46% { opacity: 1; } 49%,100% { opacity: 0; } }
+@keyframes srdTap1  { 0%,58% { opacity: 0; } 60%,66% { opacity: 1; } 69%,100% { opacity: 0; } }
+@keyframes srdTap2  { 0%,71% { opacity: 0; } 73%,79% { opacity: 1; } 82%,100% { opacity: 0; } }
+@keyframes srdTap3  { 0%,87% { opacity: 0; } 89%,95% { opacity: 1; } 98%,100% { opacity: 0; } }
+@keyframes srdHand  { 0%,46% { opacity: 0; transform: translate(22px,74px); } 50% { opacity: 1; transform: translate(7px,28px); } 55% { opacity: 1; transform: translate(0,0); } 59% { opacity: 1; transform: translate(0,5px); } 64% { opacity: 1; transform: translate(0,0); } 69% { opacity: 1; transform: translate(51px,51px); } 73% { opacity: 1; transform: translate(51px,56px); } 78% { opacity: 1; transform: translate(51px,51px); } 85% { opacity: 1; transform: translate(-51px,51px); } 89% { opacity: 1; transform: translate(-51px,56px); } 94% { opacity: 1; transform: translate(-51px,51px); } 98%,100% { opacity: 0; transform: translate(-51px,68px); } }
+@keyframes srdWin   { 0%,90% { opacity: 0; transform: scale(0.82); } 94% { opacity: 1; transform: scale(1); } 99%,100% { opacity: 0; transform: scale(1.12); } }
 .sr-title { animation: srTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .sr-float { animation: srFloat 4s ease-in-out infinite; }
 .sr-glow  { animation: srGlow 2.4s ease-in-out infinite; }
@@ -245,9 +257,19 @@ const SCREEN_CSS = `
 .sr-tapring { animation: srTapRing 4.4s ease-in-out infinite; transform-origin: center; }
 .sr-risk  { animation: srRisk 2.6s ease-in-out infinite; }
 .sr-hand  { animation: srHand 2.6s ease-in-out infinite; }
+.srd-lit1 { animation: srdLit1 6s ease-in-out infinite; }
+.srd-lit2 { animation: srdLit2 6s ease-in-out infinite; }
+.srd-risk { animation: srdRisk 6s ease-in-out infinite; }
+.srd-lit3 { animation: srdLit3 6s ease-in-out infinite; }
+.srd-tap1 { animation: srdTap1 6s ease-out infinite; }
+.srd-tap2 { animation: srdTap2 6s ease-out infinite; }
+.srd-tap3 { animation: srdTap3 6s ease-out infinite; }
+.srd-hand { animation: srdHand 6s cubic-bezier(0.3,0,0.3,1) infinite; }
+.srd-win  { animation: srdWin 6s ease-out infinite; transform-origin: center; }
 @media (prefers-reduced-motion: reduce) {
   .sr-title, .sr-float, .sr-glow, .sr-chip, .sr-light, .sr-badge,
-  .sr-tapring, .sr-risk, .sr-hand { animation: none !important; }
+  .sr-tapring, .sr-risk, .sr-hand, .srd-lit1, .srd-lit2, .srd-risk,
+  .srd-lit3, .srd-tap1, .srd-tap2, .srd-tap3, .srd-hand, .srd-win { animation: none !important; }
 }
 `;
 
@@ -461,63 +483,147 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 13,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 60, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {children}
-      </div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
-    </div>
-  );
-}
-
-/** A single face-up tile used in the how-to beats. */
-function MiniTile({ goal, lit, size = 26, badge, risk }) {
+/** A single face-up tile used in the how-to demo. */
+function MiniTile({ goal, lit, size = 26, risk }) {
   return (
     <g>
       <rect width={size} height={size} rx={size * 0.22}
-        fill={lit ? goal.color : `${goal.colorDeep}CC`}
-        stroke={risk ? DANGER_LT : lit ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.16)'}
-        strokeWidth="1.1" />
-      <g transform={`translate(${size * 0.24} ${size * 0.24})`} opacity={lit ? 1 : 0.7}>
-        <GoalGlyph kind={goal.icon} fill={lit ? '#fff' : goal.colorLt} cut={lit ? goal.color : 'rgba(9,20,42,0.95)'} size={size * 0.52} />
+        fill={risk ? DANGER : lit ? goal.color : `${goal.colorDeep}CC`}
+        stroke={risk ? DANGER_LT : lit ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.16)'}
+        strokeWidth="1.2" />
+      <g transform={`translate(${size * 0.24} ${size * 0.24})`} opacity={lit || risk ? 1 : 0.7}>
+        <GoalGlyph kind={goal.icon} fill={lit || risk ? '#fff' : goal.colorLt}
+          cut={risk ? DANGER : lit ? goal.color : 'rgba(9,20,42,0.95)'} size={size * 0.52} />
       </g>
       {risk && (
-        <g stroke="#fff" strokeWidth={size * 0.08} strokeLinecap="round" fill="none">
-          <circle cx={size / 2} cy={size / 2} r={size * 0.26} />
-          <line x1={size * 0.32} y1={size * 0.32} x2={size * 0.68} y2={size * 0.68} />
+        <g stroke="#fff" strokeWidth={size * 0.09} strokeLinecap="round" fill="none">
+          <circle cx={size / 2} cy={size / 2} r={size * 0.3} />
+          <line x1={size * 0.3} y1={size * 0.3} x2={size * 0.7} y2={size * 0.7} />
         </g>
-      )}
-      {badge != null && (
-        <>
-          <circle cx={size - 3} cy={3} r={size * 0.2} fill={risk ? DANGER : ORANGE} stroke="#fff" strokeWidth="1" />
-          <text x={size - 3} y={3} textAnchor="middle" dominantBaseline="central"
-            fontSize={size * 0.26} fontWeight="900" fill="#fff" fontFamily="'Poppins', system-ui, sans-serif">
-            {badge}
-          </text>
-        </>
       )}
     </g>
   );
 }
 
+/** A pointing hand whose fingertip sits on the local origin. */
+function TapFinger({ scale = 1 }) {
+  return (
+    <g transform={`scale(${scale}) translate(-7.8,-1.4)`} fill="rgba(11,18,33,0.6)"
+      stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 10.5V3.2a1.8 1.8 0 0 1 3.6 0v7.3" />
+      <path d="M9.6 8.6a1.7 1.7 0 0 1 3.4 0v2" />
+      <path d="M13 9.6a1.7 1.7 0 0 1 3.4 0v1.6" />
+      <path d="M16.4 11.2a1.6 1.6 0 0 1 3.2 0v4.2a6.4 6.4 0 0 1-6.4 6.4h-2.4a6.4 6.4 0 0 1-6.4-6.4v-2.6a1.7 1.7 0 0 1 3.4 0" />
+    </g>
+  );
+}
+
+/** Icon-led cue under the demo. Label must stay ≤ 4 words. */
+function Cue({ label, tint, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+      <div style={{
+        width: 46, height: 46, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+      }}>
+        {children}
+      </div>
+      <span style={{
+        fontSize: 9.5, fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase',
+        color: tint, lineHeight: 1.2, textAlign: 'center',
+      }}>{label}</span>
+    </div>
+  );
+}
+
+/**
+ * One 6 s loop of the real round on the real 3x3 board of nine goals.
+ * First half — the plan plays itself: Home, Family, a red detour, Retirement,
+ * each lighting in turn exactly the way the canvas plays a sequence back.
+ * Second half — a finger taps Home, Family, Retirement in that same order and
+ * arcs *around* the red tile without touching it, and the board rings green.
+ * Ordering is carried by time and by the drawn route, never by step numerals,
+ * so the demo needs no text at all.
+ */
+const DEMO_CELL = 44;
+const DEMO_STRIDE = 51;              // cell 44 + gap 7
+const DEMO_X0 = 77;                  // (300 - 146) / 2
+const DEMO_Y0 = 15;                  // (176 - 146) / 2
+const demoAt = (i) => [DEMO_X0 + (i % 3) * DEMO_STRIDE, DEMO_Y0 + Math.floor(i / 3) * DEMO_STRIDE];
+const demoMid = (i) => [demoAt(i)[0] + DEMO_CELL / 2, demoAt(i)[1] + DEMO_CELL / 2];
+
+/** Playback order: Home (1) → Family (5) → [red detour: Wedding (7)] → Retirement (3). */
+const DEMO_SEQ = [1, 5, 3];
+const DEMO_RISK = 7;
+const DEMO_LIT_CLASS = ['srd-lit1', 'srd-lit2', 'srd-lit3'];
+const DEMO_TAP_CLASS = ['srd-tap1', 'srd-tap2', 'srd-tap3'];
+
+function RecallDemo() {
+  const route = DEMO_SEQ.map((i, n) => `${n === 0 ? 'M' : 'L'}${demoMid(i)[0]} ${demoMid(i)[1]}`).join(' ');
+  const [hx, hy] = demoMid(DEMO_SEQ[0]);
+  return (
+    <div style={{
+      position: 'relative', width: '100%', height: 176,
+      background: 'rgba(6,18,41,0.6)', borderRadius: 16,
+      border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 16,
+    }}>
+      <svg width="100%" height="100%" viewBox="0 0 300 176" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        {/* Resting board — all nine goals, always face up */}
+        {GOALS.map((g, i) => {
+          const [x, y] = demoAt(i);
+          return <g key={g.id} transform={`translate(${x} ${y})`}><MiniTile goal={g} size={DEMO_CELL} /></g>;
+        })}
+
+        {/* The route the plan traces, so order reads without numbers */}
+        <path d={route} fill="none" stroke={ORANGE_LT} strokeWidth="2.4" strokeLinecap="round"
+          strokeLinejoin="round" strokeDasharray="4 5" opacity="0.55" />
+
+        {/* Playback: each goal lights in turn */}
+        {DEMO_SEQ.map((i, n) => {
+          const [x, y] = demoAt(i);
+          return (
+            <g key={`lit-${i}`} transform={`translate(${x} ${y})`} className={DEMO_LIT_CLASS[n]}>
+              <MiniTile goal={GOALS[i]} size={DEMO_CELL} lit />
+            </g>
+          );
+        })}
+
+        {/* Playback: the red detour, the one step you must not repeat */}
+        <g transform={`translate(${demoAt(DEMO_RISK)[0]} ${demoAt(DEMO_RISK)[1]})`} className="srd-risk">
+          <MiniTile goal={GOALS[DEMO_RISK]} size={DEMO_CELL} risk />
+        </g>
+
+        {/* Recall: the tap confirmations */}
+        {DEMO_SEQ.map((i, n) => {
+          const [x, y] = demoAt(i);
+          return (
+            <g key={`tap-${i}`} transform={`translate(${x} ${y})`} className={DEMO_TAP_CLASS[n]}>
+              <rect width={DEMO_CELL} height={DEMO_CELL} rx={DEMO_CELL * 0.22}
+                fill={GOALS[i].color} stroke="#fff" strokeWidth="2" />
+              <g transform={`translate(${DEMO_CELL * 0.24} ${DEMO_CELL * 0.24})`}>
+                <GoalGlyph kind={GOALS[i].icon} fill="#fff" cut={GOALS[i].color} size={DEMO_CELL * 0.52} />
+              </g>
+            </g>
+          );
+        })}
+
+        {/* Round cleared */}
+        <g transform={`translate(${DEMO_X0 + 73} ${DEMO_Y0 + 73})`}>
+          <g className="srd-win">
+            <rect x="-79" y="-79" width="158" height="158" rx="20" fill="none" stroke={GREEN_LT} strokeWidth="3" />
+          </g>
+        </g>
+
+        {/* The real input */}
+        <g transform={`translate(${hx} ${hy})`}>
+          <g className="srd-hand"><TapFinger scale={1.3} /></g>
+        </g>
+      </svg>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
-  const S = 26;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -556,73 +662,27 @@ export function HowToPlayScreen({ onPlay }) {
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 14px 0', lineHeight: 1.4 }}>
-          Watch the order &middot; Tap it back &middot; Skip the red
-        </p>
+        <RecallDemo />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 14 }}>
-          <Beat n="1" title="Watch the plan" copy="Goal tiles light one at a time, each with its own note. Remember the ORDER.">
-            <svg width="74" height="34" viewBox="0 0 74 34" aria-hidden="true">
-              <g transform="translate(1 4)"><MiniTile goal={GOALS[1]} lit size={S} badge="1" /></g>
-              <g transform="translate(24 4)"><MiniTile goal={GOALS[5]} size={S} /></g>
-              <g transform="translate(47 4)"><MiniTile goal={GOALS[3]} size={S} /></g>
-              <path d="M28 17h14" stroke={ORANGE_LT} strokeWidth="1.6" strokeDasharray="2 3" strokeLinecap="round" />
+        <div style={{ display: 'flex', justifyContent: 'space-around', gap: 6, marginBottom: 16 }}>
+          <Cue label="Watch the order" tint={ORANGE_LT}>
+            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke={ORANGE_LT}
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 15s4.6-7 13-7 13 7 13 7-4.6 7-13 7-13-7-13-7Z" />
+              <circle cx="15" cy="15" r="3.4" fill={ORANGE_LT} stroke="none" />
             </svg>
-          </Beat>
-
-          <Beat n="2" title="Tap it back" copy="Reproduce the same order on the same face-up tiles. Nothing ever flips over.">
-            <svg width="74" height="34" viewBox="0 0 74 34" aria-hidden="true">
-              <g transform="translate(1 4)"><MiniTile goal={GOALS[1]} lit size={S} badge="1" /></g>
-              <g transform="translate(24 4)"><MiniTile goal={GOALS[5]} lit size={S} badge="2" /></g>
-              <g transform="translate(47 4)"><MiniTile goal={GOALS[3]} size={S} badge="3" /></g>
-              <g className="sr-hand" transform="translate(60 22)">
-                <path d="M0 0v-7a1.6 1.6 0 0 1 3.2 0V0" fill="none" stroke={GOLD} strokeWidth="1.8" strokeLinecap="round" />
-                <circle cx="1.6" cy="1.4" r="3.2" fill={GOLD} opacity="0.5" />
-              </g>
+          </Cue>
+          <Cue label="Tap it back" tint="#fff">
+            <svg width="30" height="30" viewBox="0 0 30 30">
+              <circle cx="15" cy="16" r="11" fill="none" stroke="rgba(255,255,255,0.32)" strokeWidth="1.7" />
+              <g transform="translate(14,7)"><TapFinger scale={0.76} /></g>
             </svg>
-          </Beat>
-
-          <Beat n="3" title="Skip the risky ones" copy={`From round 4 some steps flash red. Those are detours — never tap them. ${GAME_CONFIG.maxSlips} slips and the plan is gone.`}>
-            <svg width="74" height="34" viewBox="0 0 74 34" aria-hidden="true">
-              <g transform="translate(1 4)"><MiniTile goal={GOALS[1]} lit size={S} badge="1" /></g>
-              <g transform="translate(24 4)" className="sr-risk"><MiniTile goal={GOALS[7]} lit size={S} risk badge={'×'} /></g>
-              <g transform="translate(24 4)"><MiniTile goal={GOALS[7]} size={S} /></g>
-              <g transform="translate(47 4)"><MiniTile goal={GOALS[3]} lit size={S} badge="2" /></g>
-              <path d="M15 30q11 6 22 0" fill="none" stroke={ORANGE_LT} strokeWidth="1.6" strokeDasharray="2 3" strokeLinecap="round" />
+          </Cue>
+          <Cue label="Skip the red" tint={DANGER_LT}>
+            <svg width="30" height="30" viewBox="0 0 30 30">
+              <g transform="translate(3 3)"><MiniTile goal={GOALS[DEMO_RISK]} size={24} risk /></g>
             </svg>
-          </Beat>
-        </div>
-
-        <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.62)', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{ROUNDS.length} rounds</strong>, plans of{' '}
-          <strong style={{ color: '#fff' }}>{ROUNDS[0].len}&ndash;{LONGEST} steps</strong>, in{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong>. Each step pays{' '}
-          <strong style={{ color: GOLD_LT }}>{GAME_CONFIG.scoring.perStep}&times;</strong> the round number, a cleared round{' '}
-          <strong style={{ color: GREEN_LT }}>{GAME_CONFIG.scoring.roundClear}</strong>, and a round with no slips{' '}
-          <strong style={{ color: GREEN_LT }}>+{GAME_CONFIG.scoring.noSlipRound}</strong>.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 16 }}>
-          {ROUNDS.map((r, i) => (
-            <span
-              key={i}
-              className="sr-chip"
-              style={{
-                animationDelay: `${120 + i * 70}ms`,
-                fontSize: 9.5,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: r.risk ? DANGER_LT : 'rgba(255,255,255,0.82)',
-                background: 'rgba(255,255,255,0.06)',
-                border: `1px solid ${r.risk ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.14)'}`,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              R{i + 1} · {r.len}{r.risk ? ` · ${r.risk} red` : ''}
-            </span>
-          ))}
+          </Cue>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

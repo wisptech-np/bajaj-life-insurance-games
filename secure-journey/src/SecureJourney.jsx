@@ -1,6 +1,8 @@
 // SecureJourney.jsx — Core gameplay component.
-// 3-lane auto-runner crowd shooter: player runs along a bridge, auto-firing bolts at waves of incoming virus blobs.
-// Health shield pickups restore health and stack firing power.
+// 3-lane auto-runner: the Guardian pod runs a narrowing wealth bridge, auto-firing
+// bolts at waves of incoming Risk Barricades (angular road hazards of financial risk).
+// Cover Shield pickups restore health and stack firing power. The run ends at the
+// Wealth Vault (win), at 0 HP, or when the clock beats you to the boss (lose).
 // Clean canvas draw with no emojis, synth sounds, and full integration.
 import React, { useEffect, useRef, useState } from 'react';
 import { GAME_CONFIG, BRAND } from './data';
@@ -216,13 +218,20 @@ const {
   damagePerPower,
   boltSpeed,
   steerLerp,
+  bridgeWidthStart,
+  bridgeWidthEnd,
   spawnIntervalStart,
   spawnIntervalEnd,
-  virusSpeedStart,
-  virusSpeedEnd,
+  multiLaneChanceStart,
+  multiLaneChanceEnd,
+  tripleLaneFrom,
+  tripleLaneChance,
+  hazardSpeedStart,
+  hazardSpeedEnd,
   hpRampMax,
   hpPerPower,
   contactDamage,
+  gapPenalty,
   bossLeadTime,
   bossBaseHp,
   bossHpPerPower,
@@ -231,11 +240,50 @@ const {
   shieldInterval,
   shieldHeal,
   shieldSpeed,
+  vaultRunSpeed,
+  winBeatTime,
   killPoints,
   shieldPoints,
   bossPoints,
   healthBonusFactor,
 } = GAME_CONFIG;
+
+// Risk Barricade palette — angular road-hazard plates, not germs.
+// Small = a late fee, medium = a loan slip, large = a debt slab.
+const HAZARD_TONE = {
+  small:  { hi: '#FFC46B', lo: '#D98211', glow: 'rgba(240, 168, 48, 0.75)' },
+  medium: { hi: '#FF9C5B', lo: '#C43F16', glow: 'rgba(242, 101, 34, 0.8)' },
+  large:  { hi: '#FF7361', lo: '#7E1710', glow: 'rgba(190, 40, 28, 0.85)' },
+};
+const HAZARD_DEBRIS = '#F26522';
+const SPARK = '#FFD37A';
+
+/* HUD glyphs — icon-only, sized to sit inline with a number. */
+function StarGlyph() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="#FFD37A" aria-hidden="true">
+      <path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.6 1.1 6.45L12 17.45 6.2 20.5l1.1-6.45-4.7-4.6 6.5-.95z" />
+    </svg>
+  );
+}
+
+function HeartGlyph({ low }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill={low ? '#EF4444' : '#28A745'} aria-hidden="true">
+      <path d="M12 20.6l-1.5-1.35C5.1 14.4 2 11.6 2 8.2 2 5.5 4.1 3.4 6.8 3.4c1.55 0 3.05.72 4 1.9.95-1.18 2.45-1.9 4-1.9 2.7 0 4.8 2.1 4.8 4.8 0 3.4-3.1 6.2-8.5 11.05z" />
+    </svg>
+  );
+}
+
+function ClockGlyph({ urgent }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+      stroke={urgent ? '#EF4444' : '#3B8DD4'} strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="M12 7.4V12l3.1 2.1" />
+    </svg>
+  );
+}
 
 export default function SecureJourney({ config, onWin, onLose }) {
   void config; // already imported/defined
@@ -253,6 +301,7 @@ export default function SecureJourney({ config, onWin, onLose }) {
   const [progressState, setProgressState] = useState(0);
   const [banner, setBanner] = useState({ title: 'SECURE JOURNEY', sub: 'Steer & Survive' });
   const [showDragHintState, setShowDragHintState] = useState(true);
+  const [bossHpState, setBossHpState] = useState(null); // 0..1 while boss alive, else null
 
   // Mutable game state refs for high speed loop (60fps)
   const score = useRef(0);
@@ -261,7 +310,8 @@ export default function SecureJourney({ config, onWin, onLose }) {
   const timeRemaining = useRef(GAME_CONFIG.duration);
   const progressRatio = useRef(0);
   const isPlaying = useRef(true);
-  const virusesDestroyed = useRef(0);
+  const resolved = useRef(false); // guarantees onWin/onLose fire exactly once
+  const hazardsCleared = useRef(0);
 
   // Layout calculations
   const displaySize = useRef({ width: 400, height: 600 });
@@ -272,7 +322,7 @@ export default function SecureJourney({ config, onWin, onLose }) {
 
   // Arrays of active game entities
   const bolts = useRef([]);
-  const viruses = useRef([]);
+  const hazards = useRef([]);
   const shields = useRef([]);
   const particles = useRef([]);
   const floatingTexts = useRef([]);
@@ -299,6 +349,8 @@ export default function SecureJourney({ config, onWin, onLose }) {
   const vaultSpawned = useRef(false);
   const vaultObj = useRef(null); // { x, y, speed, size }
   const playerControlLocked = useRef(false);
+  const runY = useRef(0);        // accumulated pod Y during the vault cutscene
+  const winTimer = useRef(0);    // >0 while the win beat plays, then resolves
 
   // Banner fade helper
   const bannerTimer = useRef(null);
@@ -310,9 +362,10 @@ export default function SecureJourney({ config, onWin, onLose }) {
     }, duration);
   };
 
-  // Helper: Bridge limits
-  const getBridgeLayout = (width) => {
-    const bridgeWidth = width * 0.72;
+  // Helper: Bridge limits. The deck narrows as the run progresses, so the safe
+  // window shrinks under you — defaults to live progress so callers stay one-liners.
+  const getBridgeLayout = (width, p = progressRatio.current) => {
+    const bridgeWidth = width * (bridgeWidthStart + (bridgeWidthEnd - bridgeWidthStart) * p);
     const bridgeLeft = (width - bridgeWidth) / 2;
     const laneWidth = bridgeWidth / 3;
     return {
@@ -328,6 +381,26 @@ export default function SecureJourney({ config, onWin, onLose }) {
     };
   };
 
+  // Single exit point for the run. Every end path routes through here, so
+  // onWin/onLose can never double-fire and can never be skipped.
+  const finishRun = (didWin) => {
+    if (resolved.current) return;
+    resolved.current = true;
+    isPlaying.current = false;
+    const stats = {
+      score: score.current,
+      cleared: hazardsCleared.current,
+      shields: shieldCount.current,
+      health: Math.max(0, Math.round(hp.current)),
+    };
+    if (didWin) {
+      onWin(stats);
+    } else {
+      synthRef.current.playLose();
+      onLose(stats);
+    }
+  };
+
   // Sound Synth play triggers
   const playLaser = () => synthRef.current.playLaser();
   const playHit = () => synthRef.current.playHit();
@@ -336,7 +409,6 @@ export default function SecureJourney({ config, onWin, onLose }) {
   const playHurt = () => synthRef.current.playHurt();
   const playBossRoar = () => synthRef.current.playBossRoar();
   const playWin = () => synthRef.current.playWin();
-  const playLose = () => synthRef.current.playLose();
 
   // Resize canvas handler
   const handleResize = () => {
@@ -471,7 +543,7 @@ export default function SecureJourney({ config, onWin, onLose }) {
 
   // Initial banner trigger
   useEffect(() => {
-    triggerBanner('START JOURNEY', 'Blaster active. Secure the bridge!');
+    triggerBanner('START JOURNEY', 'Clear the risk barricades', 2200);
   }, []);
 
   // Main Loop logic and Canvas rendering
@@ -504,16 +576,25 @@ export default function SecureJourney({ config, onWin, onLose }) {
         progressRatio.current = Math.min(1, (GAME_CONFIG.duration - timeRemaining.current) / GAME_CONFIG.duration);
       }
 
-      // Check for Game Over: timeout or HP zero
+      // Win beat: the celebration plays for a beat, then the run resolves.
+      if (winTimer.current > 0) {
+        winTimer.current -= dt;
+        if (winTimer.current <= 0) {
+          finishRun(true);
+          return;
+        }
+      }
+
+      // Lose — drained. Health is the primary fail state.
       if (hp.current <= 0) {
-        isPlaying.current = false;
-        playLose();
-        onLose({
-          score: score.current,
-          viruses: virusesDestroyed.current,
-          shields: shieldCount.current,
-          health: 0
-        });
+        finishRun(false);
+        return;
+      }
+
+      // Lose — the clock beat you to the vault. Without this the run could hang
+      // forever once the timer hit zero with the boss still standing.
+      if (timeRemaining.current <= 0 && !vaultSpawned.current) {
+        finishRun(false);
         return;
       }
 
@@ -522,38 +603,45 @@ export default function SecureJourney({ config, onWin, onLose }) {
       scrollOffset.current = (scrollOffset.current + 180 * currentSpeedMultiplier * dt) % 80;
 
       // ─── Spawners ─────────────────────────────────────────
-      // Spawn Regular Viruses
+      // Spawn Risk Barricades
       if (!bossActive.current && !vaultSpawned.current && !playerControlLocked.current) {
         spawnTimer.current += dt;
-        const currentSpawnInterval = spawnIntervalStart + (spawnIntervalEnd - spawnIntervalStart) * progressRatio.current;
+        const p = progressRatio.current;
+        const currentSpawnInterval = spawnIntervalStart + (spawnIntervalEnd - spawnIntervalStart) * p;
         if (spawnTimer.current >= currentSpawnInterval) {
           spawnTimer.current = 0;
-          // Spawn in 1 or 2 lanes randomly
-          const laneIndices = [0, 1, 2].sort(() => 0.5 - Math.random()).slice(0, Math.random() < 0.38 ? 2 : 1);
+          // How many lanes this wave blocks — grows with progress. Late in the
+          // run a wave can wall off all three lanes, so you must shoot a gap.
+          const multiChance = multiLaneChanceStart + (multiLaneChanceEnd - multiLaneChanceStart) * p;
+          let laneCount = 1;
+          if (Math.random() < multiChance) laneCount = 2;
+          if (p >= tripleLaneFrom && Math.random() < tripleLaneChance) laneCount = 3;
+
+          const laneIndices = [0, 1, 2].sort(() => 0.5 - Math.random()).slice(0, laneCount);
           laneIndices.forEach((laneIdx) => {
             const sizeRoll = Math.random();
             let size = 'medium';
             let radius = 18;
             let hpVal = 3;
             let dmg = contactDamage.medium;
-            
-            if (sizeRoll < 0.42) {
+
+            if (sizeRoll < 0.38) {
               size = 'small';
               radius = 12;
               hpVal = 1;
               dmg = contactDamage.small;
-            } else if (sizeRoll > 0.88) {
+            } else if (sizeRoll > 0.82) {
               size = 'large';
               radius = 26;
               hpVal = 6;
               dmg = contactDamage.large;
             }
 
-            // Toughen viruses according to progress & shield level
-            const hpMult = 1 + hpRampMax * progressRatio.current + hpPerPower * shieldCount.current;
+            // Toughen hazards according to progress & shield level
+            const hpMult = 1 + hpRampMax * p + hpPerPower * shieldCount.current;
             const finalHp = Math.ceil(hpVal * hpMult);
 
-            viruses.current.push({
+            hazards.current.push({
               x: layout.laneCenters[laneIdx],
               y: -50,
               lane: laneIdx,
@@ -562,34 +650,34 @@ export default function SecureJourney({ config, onWin, onLose }) {
               maxHp: finalHp,
               hp: finalHp,
               damage: dmg,
-              speed: (virusSpeedStart + (virusSpeedEnd - virusSpeedStart) * progressRatio.current) * height,
-              angle: Math.random() * Math.PI,
-              rotationSpeed: (0.8 + Math.random() * 1.5) * (Math.random() < 0.5 ? -1 : 1)
+              speed: (hazardSpeedStart + (hazardSpeedEnd - hazardSpeedStart) * p) * height,
+              wobble: Math.random() * Math.PI * 2,
+              wobbleSpeed: 1.6 + Math.random() * 1.4
             });
           });
         }
       }
 
-      // Spawn Boss Virus
+      // Spawn the Inflation Storm-Front (boss)
       if (timeRemaining.current <= bossLeadTime && !bossSpawned.current) {
         bossSpawned.current = true;
         bossActive.current = true;
-        
+
         const bossHp = Math.ceil(bossBaseHp + bossHpPerPower * shieldCount.current);
         bossObj.current = {
           x: width / 2,
           y: -80,
-          radius: 46,
+          halfW: Math.min(width * 0.34, 132),
+          halfH: 34,
           maxHp: bossHp,
           hp: bossHp,
           speed: bossSpeed * height,
-          angle: 0,
-          rotationSpeed: 0.6,
+          boltPhase: 0,
           floatTime: 0
         };
 
         playBossRoar();
-        triggerBanner('BOSS ALERT', 'Risk of INFLATION approaching! Blasters up!', 3500);
+        triggerBanner('STORM-FRONT', 'Inflation wall incoming — break it!', 3000);
       }
 
       // Spawn Shield Pickups
@@ -632,10 +720,11 @@ export default function SecureJourney({ config, onWin, onLose }) {
             fireBolt(0, -8);
             fireBolt(0, 8);
           } else {
-            // Triple spread bolts
+            // Triple spread bolts — wide enough to clip the adjacent lanes,
+            // which is what makes stacking shields the answer to 3-lane walls.
             fireBolt(0, 0);
-            fireBolt(-0.16, -10);
-            fireBolt(0.16, 10);
+            fireBolt(-0.24, -10);
+            fireBolt(0.24, 10);
           }
         }
       }
@@ -658,39 +747,28 @@ export default function SecureJourney({ config, onWin, onLose }) {
         const playerRadius = 18;
         playerX.current = Math.max(layout.bridgeLeft + playerRadius, Math.min(layout.bridgeRight - playerRadius, playerX.current));
       } else {
-        // Cut-scene movement to Vault center Y
-        playerX.current += (width / 2 - playerX.current) * 4 * dt;
-        
-        if (vaultObj.current) {
-          const targetY = vaultObj.current.y;
-          playerX.current = width / 2;
-          
-          // Auto run player up to enter the vault
-          const runSpeed = 160;
-          const playerY = height * 0.8;
-          const newPlayerY = playerY - runSpeed * dt;
-          
-          // Check vault entry
-          if (newPlayerY <= targetY + 22) {
-            isPlaying.current = false;
-            playWin();
-            
-            // Calculate health bonus points
+        // Vault cutscene: the pod slides to centre and runs up into the vault.
+        // runY accumulates — the old code recomputed it from height*0.8 every
+        // frame, so the pod never actually advanced and the entry test (and
+        // therefore onWin) could never fire.
+        playerX.current += (width / 2 - playerX.current) * 6 * dt;
+        const entryY = (vaultObj.current ? vaultObj.current.y : height * 0.42) + 22;
+
+        if (runY.current > entryY) {
+          runY.current = Math.max(entryY, runY.current - vaultRunSpeed * dt);
+
+          if (runY.current <= entryY && winTimer.current <= 0) {
+            // Win beat — sound, flash, burst — then the loop resolves it above.
             const hpBonus = Math.round(hp.current * healthBonusFactor);
             score.current += hpBonus;
-            
-            onWin({
-              score: score.current,
-              viruses: virusesDestroyed.current,
-              shields: shieldCount.current,
-              health: hp.current
-            });
-            return;
+            winTimer.current = winBeatTime;
+            playWin();
+            flashTimer.current = 1.0;
+            spawnParticles(width / 2, entryY, SPARK, 34, 2.1);
+            spawnParticles(width / 2, entryY, '#3B8DD4', 22, 1.6);
+            spawnFloatingText(width / 2, entryY - 34, `+${hpBonus} HEALTH BONUS`, SPARK);
+            triggerBanner('VAULT SECURED', 'Wealth protected', 2000);
           }
-          
-          // Render player run up
-          ctx.save();
-          ctx.translate(0, newPlayerY - playerY);
         }
       }
 
@@ -707,66 +785,60 @@ export default function SecureJourney({ config, onWin, onLose }) {
       });
       bolts.current = bolts.current.filter((b) => b.y > -20 && b.x > 0 && b.x < width);
 
-      // Update Regular Viruses
-      viruses.current.forEach((v) => {
+      // Update Risk Barricades + player contact
+      hazards.current.forEach((v) => {
         v.y += v.speed * dt;
-        v.angle += v.rotationSpeed * dt;
-      });
+        v.wobble += v.wobbleSpeed * dt;
 
-      // Regular Viruses hitting player
-      viruses.current.forEach((v) => {
         const dx = v.x - playerX.current;
-        const dy = v.y - (playerControlLocked.current ? height * 0.8 : height * 0.8); // adjusting Y
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const playerRadius = 18;
-        if (dist < (playerRadius + v.radius)) {
-          // Hurt player
+        const dy = v.y - height * 0.8;
+        if (Math.sqrt(dx * dx + dy * dy) < 18 + v.radius) {
           hp.current = Math.max(0, hp.current - v.damage);
           shakeIntensity.current = 14;
           playHurt();
           spawnParticles(playerX.current, height * 0.8 - 10, '#EF4444', 12, 1.2);
+          spawnFloatingText(playerX.current, height * 0.76, `-${v.damage}`, '#FF8A7A');
           v.hp = 0; // mark for deletion
         }
       });
-      // Remove dead/off-screen viruses
-      viruses.current = viruses.current.filter((v) => {
+      // Remove destroyed / escaped barricades
+      hazards.current = hazards.current.filter((v) => {
         if (v.hp <= 0) return false;
         if (v.y > height + 40) {
-          // Missed virus drains a minor safety penalty
-          hp.current = Math.max(0, hp.current - 3);
-          spawnFloatingText(v.x, height - 10, 'GAP PENALTY -3', '#FFB199');
+          // An unblocked risk still costs you
+          hp.current = Math.max(0, hp.current - gapPenalty);
+          spawnFloatingText(v.x, height - 14, `-${gapPenalty}`, '#FFB199');
           return false;
         }
         return true;
       });
 
-      // Update Boss Virus
+      // Update Inflation Storm-Front — a wide wall that sweeps and presses down
       if (bossActive.current && bossObj.current) {
         const b = bossObj.current;
-        b.angle += b.rotationSpeed * dt;
-        
-        // Enter screen scrolling down
-        const targetHoverY = height * 0.23;
+        b.boltPhase += dt * 9;
+        b.halfW = Math.min(layout.bridgeWidth * 0.46, 132);
+
+        // Enter screen, then press steadily lower as the fight drags on
+        const hpRatio = Math.max(0, b.hp / b.maxHp);
+        const targetHoverY = height * (0.20 + (1 - hpRatio) * 0.16);
         if (b.y < targetHoverY) {
           b.y += b.speed * dt;
-        } else {
-          // Hover floating side-to-side
-          b.floatTime += dt;
-          b.x = width / 2 + Math.sin(b.floatTime * 1.8) * (layout.bridgeWidth * 0.38);
         }
+        b.floatTime += dt;
+        b.x = width / 2 + Math.sin(b.floatTime * (1.6 + (1 - hpRatio) * 1.4)) * (layout.bridgeWidth * 0.30);
 
-        // Boss-Player Collision
-        const dx = b.x - playerX.current;
-        const dy = b.y - (height * 0.8);
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < (18 + b.radius)) {
+        // Boss-Player Collision — box, not circle (the boss is a wall)
+        if (Math.abs(b.x - playerX.current) < b.halfW + 14 &&
+            Math.abs(b.y - height * 0.8) < b.halfH + 16) {
           hp.current = Math.max(0, hp.current - bossDamage);
           shakeIntensity.current = 24;
           playHurt();
           spawnParticles(playerX.current, height * 0.8 - 15, '#EF4444', 20, 1.5);
-          
-          // Rebound boss Y slightly to avoid instant drain
-          b.y = Math.max(60, b.y - 120);
+          spawnFloatingText(playerX.current, height * 0.74, `-${bossDamage}`, '#FF8A7A');
+
+          // Rebound the wall upward so it cannot chain-drain in one pass
+          b.y = Math.max(60, b.y - 140);
         }
       }
 
@@ -807,10 +879,10 @@ export default function SecureJourney({ config, onWin, onLose }) {
         }
       }
 
-      // ─── Collisions: Bolts vs Viruses ──────────────────────
+      // ─── Collisions: Bolts vs Hazards ──────────────────────
       bolts.current.forEach((b) => {
-        // Check normal viruses
-        viruses.current.forEach((v) => {
+        // Check barricades
+        hazards.current.forEach((v) => {
           if (v.hp <= 0) return;
           const dx = b.x - v.x;
           const dy = b.y - v.y;
@@ -820,65 +892,62 @@ export default function SecureJourney({ config, onWin, onLose }) {
             v.hp -= b.damage;
             b.hit = true;
             playHit();
-            spawnParticles(b.x, b.y, '#7BF59B', 5, 0.8);
+            spawnParticles(b.x, b.y, SPARK, 5, 0.8);
 
             if (v.hp <= 0) {
               score.current += killPoints;
-              virusesDestroyed.current += 1;
+              hazardsCleared.current += 1;
               playExplode();
-              spawnParticles(v.x, v.y, '#28A745', 14, 1.3);
-              spawnFloatingText(v.x, v.y - 12, `+${killPoints}`, '#28A745');
+              spawnParticles(v.x, v.y, HAZARD_DEBRIS, 14, 1.3);
+              spawnFloatingText(v.x, v.y - 12, `+${killPoints}`, SPARK);
             }
           }
         });
 
-        // Check Boss
+        // Check Boss wall
         if (bossActive.current && bossObj.current) {
           const boss = bossObj.current;
-          const dx = b.x - boss.x;
-          const dy = b.y - boss.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < (boss.radius + 8)) {
+          if (Math.abs(b.x - boss.x) < boss.halfW + 4 && Math.abs(b.y - boss.y) < boss.halfH + 8) {
             boss.hp -= b.damage;
             b.hit = true;
             playHit();
-            spawnParticles(b.x, b.y, '#7BF59B', 6, 0.9);
+            spawnParticles(b.x, b.y, SPARK, 6, 0.9);
 
             if (boss.hp <= 0) {
               bossActive.current = false;
               score.current += bossPoints;
               playExplode();
-              spawnParticles(boss.x, boss.y, '#FF8533', 35, 1.8);
-              spawnFloatingText(boss.x, boss.y, `BOSS ELIMINATED! +${bossPoints}`, '#FF8533');
-              
-              triggerBanner('RISK ELIMINATED', 'Wealth Vault is descending!', 3500);
+              spawnParticles(boss.x, boss.y, '#FF7361', 35, 1.8);
+              spawnFloatingText(boss.x, boss.y, `STORM BROKEN +${bossPoints}`, SPARK);
+
+              triggerBanner('STORM BROKEN', 'Wealth Vault is descending', 2600);
 
               // Spawn the wealth vault
               vaultSpawned.current = true;
               vaultObj.current = {
                 x: width / 2,
                 y: -90,
-                speed: 70 * currentSpeedMultiplier,
+                speed: 110 * currentSpeedMultiplier,
                 size: 78
               };
-              // Clear any remaining regular viruses instantly
-              viruses.current.forEach((v) => {
-                spawnParticles(v.x, v.y, '#28A745', 8, 1);
+              // Clear any remaining barricades instantly
+              hazards.current.forEach((v) => {
+                spawnParticles(v.x, v.y, HAZARD_DEBRIS, 8, 1);
               });
-              viruses.current = [];
+              hazards.current = [];
             }
           }
         }
       });
       bolts.current = bolts.current.filter((b) => !b.hit);
 
-      // Transition to Vault lock once it stops sliding
+      // Transition to Vault lock once it stops sliding. Uses >= (not a distance
+      // window) so a long frame that overshoots the stop line can never skip it.
       if (vaultSpawned.current && vaultObj.current && !playerControlLocked.current) {
-        const v = vaultObj.current;
-        const targetY = height * 0.42;
-        if (Math.abs(v.y - targetY) < 5) {
+        if (vaultObj.current.y >= height * 0.42 - 1) {
           playerControlLocked.current = true;
-          triggerBanner('SECURE WEALTH', 'Enter the vault to finish!', 3000);
+          runY.current = height * 0.8;
+          triggerBanner('SECURE WEALTH', 'Entering the vault', 2200);
         }
       }
 
@@ -1113,124 +1182,189 @@ export default function SecureJourney({ config, onWin, onLose }) {
         ctx.restore();
       });
 
-      // 6. Draw Normal Viruses
-      viruses.current.forEach((v) => {
+      // 6. Draw Risk Barricades — angular hazard wedges sliding down the deck
+      hazards.current.forEach((v) => {
+        const tone = HAZARD_TONE[v.size];
+        const r = v.radius;
+
         ctx.save();
         ctx.translate(v.x, v.y);
-        ctx.rotate(v.angle);
+        ctx.rotate(Math.sin(v.wobble) * 0.13);
 
-        ctx.shadowColor = '#28A745';
-        ctx.shadowBlur = 10;
-
-        // Draw spikes
-        ctx.strokeStyle = '#28A745';
-        ctx.lineWidth = v.size === 'small' ? 2 : (v.size === 'medium' ? 3 : 4);
-        const spikeCount = v.size === 'small' ? 8 : (v.size === 'medium' ? 10 : 12);
-        const spikeLen = v.size === 'small' ? 4 : (v.size === 'medium' ? 7 : 10);
-        for (let i = 0; i < spikeCount; i++) {
-          const angle = (i * Math.PI * 2) / spikeCount;
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(Math.cos(angle) * (v.radius + spikeLen), Math.sin(angle) * (v.radius + spikeLen));
-          ctx.stroke();
-        }
-
-        // Core body
-        const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, v.radius);
-        grad.addColorStop(0, '#7BF59B');
-        grad.addColorStop(1, '#157a30');
-
-        ctx.fillStyle = grad;
+        // Grit trail behind the plate
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
         ctx.beginPath();
-        ctx.arc(0, 0, v.radius, 0, Math.PI * 2);
+        ctx.moveTo(-r * 0.5, -r * 0.9);
+        ctx.lineTo(r * 0.5, -r * 0.9);
+        ctx.lineTo(0, -r * 1.9);
+        ctx.closePath();
         ctx.fill();
 
-        // Stroke highlight
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.lineWidth = 1.2;
+        ctx.shadowColor = tone.glow;
+        ctx.shadowBlur = 12;
+
+        // Down-pointing chevron plate (silhouette: arrowhead, never a blob)
+        ctx.beginPath();
+        ctx.moveTo(0, r);
+        ctx.lineTo(-r * 0.96, r * 0.14);
+        ctx.lineTo(-r * 0.62, -r * 0.9);
+        ctx.lineTo(r * 0.62, -r * 0.9);
+        ctx.lineTo(r * 0.96, r * 0.14);
+        ctx.closePath();
+
+        const grad = ctx.createLinearGradient(0, -r, 0, r);
+        grad.addColorStop(0, tone.hi);
+        grad.addColorStop(1, tone.lo);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Diagonal hazard stripes, clipped to the plate
+        ctx.save();
+        ctx.clip();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(9, 14, 24, 0.5)';
+        ctx.lineWidth = r * 0.3;
+        for (let i = -2; i <= 3; i++) {
+          const ox = i * r * 0.66;
+          ctx.beginPath();
+          ctx.moveTo(ox - r, -r);
+          ctx.lineTo(ox + r * 0.2, r * 1.2);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Rim + warning chevron
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.lineWidth = 1.8;
         ctx.stroke();
+
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = Math.max(2, r * 0.15);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.42, -r * 0.3);
+        ctx.lineTo(0, r * 0.18);
+        ctx.lineTo(r * 0.42, -r * 0.3);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
 
         ctx.restore(); // reset rotate/translate
 
-        // Draw HP bar above virus
-        const barW = v.radius * 1.8;
+        // Integrity bar above the plate
+        const barW = r * 1.8;
         const barH = 3.5;
         const barX = v.x - barW / 2;
-        const barY = v.y - v.radius - 12;
+        const barY = v.y - r - 12;
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(barX, barY, barW, barH);
-
-        const hpRatio = v.hp / v.maxHp;
         ctx.fillStyle = '#EF4444';
-        ctx.fillRect(barX, barY, barW * hpRatio, barH);
+        ctx.fillRect(barX, barY, barW * (v.hp / v.maxHp), barH);
       });
 
-      // 7. Draw Boss Virus
+      // 7. Draw the Inflation Storm-Front — a crimson barricade wall with
+      //    hazard chevrons and lightning forks raking the deck below it.
       if (bossActive.current && bossObj.current) {
         const b = bossObj.current;
+        const w = b.halfW;
+        const h = b.halfH;
+
         ctx.save();
         ctx.translate(b.x, b.y);
-        ctx.rotate(b.angle);
 
-        ctx.shadowColor = '#28A745';
-        ctx.shadowBlur = 18;
+        // Storm haze behind the wall
+        const haze = ctx.createLinearGradient(0, -h * 2.2, 0, h * 2.6);
+        haze.addColorStop(0, 'rgba(126, 23, 16, 0)');
+        haze.addColorStop(0.5, 'rgba(190, 40, 28, 0.32)');
+        haze.addColorStop(1, 'rgba(126, 23, 16, 0)');
+        ctx.fillStyle = haze;
+        ctx.fillRect(-w * 1.3, -h * 2.2, w * 2.6, h * 4.8);
 
-        // Big outer spikes
-        ctx.strokeStyle = '#28A745';
-        ctx.lineWidth = 5;
-        for (let i = 0; i < 14; i++) {
-          const angle = (i * Math.PI * 2) / 14;
+        // Lightning forks stabbing down from the wall
+        ctx.strokeStyle = 'rgba(255, 211, 122, 0.85)';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = SPARK;
+        ctx.shadowBlur = 10;
+        for (let i = 0; i < 3; i++) {
+          const seed = Math.sin(b.boltPhase + i * 2.1);
+          const bx = seed * w * 0.7;
           ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(Math.cos(angle) * (b.radius + 18), Math.sin(angle) * (b.radius + 18));
+          ctx.moveTo(bx, h);
+          ctx.lineTo(bx + seed * 9, h + 16);
+          ctx.lineTo(bx - seed * 7, h + 30);
           ctx.stroke();
         }
 
-        // Inner spikes offset
-        ctx.strokeStyle = '#F26522'; // fiery orange hint
-        ctx.lineWidth = 3.5;
-        for (let i = 0; i < 10; i++) {
-          const angle = ((i + 0.5) * Math.PI * 2) / 10;
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(Math.cos(angle) * (b.radius + 12), Math.sin(angle) * (b.radius + 12));
-          ctx.stroke();
-        }
-
-        // Boss radial body
-        const grad = ctx.createRadialGradient(-10, -10, 2, 0, 0, b.radius);
-        grad.addColorStop(0, '#5eea84');
-        grad.addColorStop(0.7, '#157a30');
-        grad.addColorStop(1, '#052a0a');
-
-        ctx.fillStyle = grad;
+        // Wall slab
+        ctx.shadowColor = 'rgba(190, 40, 28, 0.9)';
+        ctx.shadowBlur = 22;
+        const slab = ctx.createLinearGradient(0, -h, 0, h);
+        slab.addColorStop(0, '#FF7361');
+        slab.addColorStop(0.55, '#B3261E');
+        slab.addColorStop(1, '#4E0D08');
+        ctx.fillStyle = slab;
         ctx.beginPath();
-        ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+        ctx.roundRect(-w, -h, w * 2, h * 2, 10);
         ctx.fill();
 
-        // Stroke core
-        ctx.strokeStyle = '#fff';
+        // Hazard chevrons across the face
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(-w, -h, w * 2, h * 2, 10);
+        ctx.clip();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(9, 14, 24, 0.45)';
+        ctx.lineWidth = h * 0.5;
+        for (let i = -6; i <= 6; i++) {
+          const ox = i * h * 1.15;
+          ctx.beginPath();
+          ctx.moveTo(ox - h, -h);
+          ctx.lineTo(ox + h, h);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Rim + warning lamps
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(-w, -h, w * 2, h * 2, 10);
         ctx.stroke();
 
-        // Angry face detail (eyes)
-        ctx.fillStyle = '#EF4444';
-        ctx.shadowColor = '#EF4444';
-        ctx.shadowBlur = 10;
-        
-        ctx.beginPath();
-        ctx.arc(-14, -8, 6, 0, Math.PI * 2); // left eye
-        ctx.arc(14, -8, 6, 0, Math.PI * 2);  // right eye
-        ctx.fill();
+        const lampOn = Math.sin(b.boltPhase * 0.7) > 0;
+        ctx.shadowColor = SPARK;
+        ctx.shadowBlur = lampOn ? 14 : 4;
+        ctx.fillStyle = lampOn ? SPARK : '#8a6a2c';
+        [-w + 14, w - 14].forEach((lx) => {
+          ctx.beginPath();
+          ctx.arc(lx, -h + 2, 5, 0, Math.PI * 2);
+          ctx.fill();
+        });
 
-        ctx.restore(); // reset rotate/translate
+        // Centre pressure gauge — the weak point readout
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-16, 6);
+        ctx.lineTo(0, -8);
+        ctx.lineTo(16, 6);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+
+        ctx.restore();
       }
 
-      // 8. Draw Player (Guardian)
-      if (!playerControlLocked.current) {
+      // 8. Draw Player (Guardian pod) — also drawn during the vault run-up,
+      //    which the old code skipped entirely (the pod just vanished).
+      {
         ctx.save();
-        ctx.translate(playerX.current, height * 0.8);
+        ctx.translate(playerX.current, playerControlLocked.current ? runY.current : height * 0.8);
 
         // Flash red/white overlay if recently hit (not fully implemented but clean)
         ctx.shadowColor = '#3B8DD4';
@@ -1348,6 +1482,11 @@ export default function SecureJourney({ config, onWin, onLose }) {
         setShieldCountState(shieldCount.current);
         setTimeRemainingState(Math.ceil(timeRemaining.current));
         setProgressState(progressRatio.current);
+        setBossHpState(
+          bossActive.current && bossObj.current
+            ? Math.max(0, bossObj.current.hp / bossObj.current.maxHp)
+            : null
+        );
         lastStateUpdate = nowMs;
       }
 
@@ -1363,10 +1502,10 @@ export default function SecureJourney({ config, onWin, onLose }) {
   }, []);
 
   // UI calculations
-  const displayHp = Math.max(0, hpState);
+  const displayHp = Math.max(0, Math.round(hpState));
   const displayProgressPercent = Math.min(100, Math.round(progressState * 100));
 
-  // Determine HP bar class (below 30 is red pulse)
+  // Determine HP tint (below 30 is red pulse)
   const isHpLow = displayHp < 30;
 
   return (
@@ -1381,80 +1520,49 @@ export default function SecureJourney({ config, onWin, onLose }) {
       {/* 2D Canvas */}
       <canvas ref={canvasRef} className="sj-canvas" />
 
-      {/* HUD Layer */}
+      {/* HUD — one compact strip. Icons + numbers only; the playfield keeps
+          the rest of the screen and score deltas float from the canvas. */}
       <div className="sj-hud">
-        {/* Row 1: Score & Timer */}
-        <div className="sj-hud-row">
-          <div className="sj-hud-chip ls-chip">
-            <span className="hud-label">Score</span>
-            <span className="sj-hud-value ls-num">{scoreState}</span>
+        <div className="sj-hud-strip ls-chip">
+          {/* Score */}
+          <div className="sj-hud-stat" aria-label="Score">
+            <StarGlyph />
+            <span className="sj-hud-num ls-num">{scoreState}</span>
           </div>
 
-          <div className="sj-hud-chip ls-chip">
-            <span className="hud-label">Time Left</span>
-            <span className="sj-hud-value ls-num">{timeRemainingState}s</span>
+          <span className="sj-hud-sep" />
+
+          {/* Health */}
+          <div className={`sj-hud-stat ${isHpLow ? 'low' : ''}`} aria-label="Health">
+            <HeartGlyph low={isHpLow} />
+            <span className="sj-hud-num ls-num">{displayHp}</span>
+          </div>
+
+          <span className="sj-hud-sep" />
+
+          {/* Weapon level pips */}
+          <div className="sj-power-pips" aria-label="Weapon level">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className={`sj-pip ${shieldCountState > i ? 'on' : ''}`} />
+            ))}
+          </div>
+
+          <span className="sj-hud-sep" />
+
+          {/* Timer */}
+          <div className={`sj-hud-stat ${timeRemainingState <= 10 ? 'low' : ''}`} aria-label="Time left">
+            <ClockGlyph urgent={timeRemainingState <= 10} />
+            <span className="sj-hud-num ls-num">{timeRemainingState}</span>
           </div>
         </div>
 
-        {/* Row 2: Health Shield Progress */}
-        <div className="sj-hud-row" style={{ alignItems: 'center' }}>
-          {/* Health Bar (Left) */}
-          <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span className="hud-label" style={{ fontSize: 8 }}>Guardian Health</span>
-            <div className="sj-bar-shell">
-              <div
-                className={`sj-bar-fill hp ${isHpLow ? 'low' : ''}`}
-                style={{ width: `${displayHp}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Stacking Power Pips (Right) */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <span className="hud-label" style={{ fontSize: 8 }}>Weapon Level</span>
-            <div className="sj-power-pips">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`sj-pip ${shieldCountState > i ? 'on' : ''}`}
-                />
-              ))}
-            </div>
-          </div>
+        {/* Hairline route progress — or the storm-front's integrity while it lives */}
+        <div className="sj-progress-shell">
+          <div
+            className={`sj-progress-fill ${bossHpState !== null ? 'boss' : ''}`}
+            style={{ width: `${bossHpState !== null ? bossHpState * 100 : displayProgressPercent}%` }}
+          />
         </div>
-
-        {/* Row 3: Bridge Run Progress */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="hud-label" style={{ fontSize: 7.5 }}>Bridge Progress</span>
-            <span className="hud-label" style={{ fontSize: 7.5, letterSpacing: '0.05em' }}>{displayProgressPercent}%</span>
-          </div>
-          <div className="sj-progress-shell">
-            <div className="sj-progress-fill" style={{ width: `${displayProgressPercent}%` }} />
-          </div>
-        </div>
-
-        {/* Boss HP Bar Overlay */}
-        {bossActive.current && bossObj.current && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4, width: '90%', alignSelf: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="hud-label" style={{ color: '#EF4444', fontSize: 8.5, letterSpacing: '0.12em' }}>INFLATION (BOSS VIRUS)</span>
-              <span className="hud-label" style={{ color: '#EF4444', fontSize: 8.5, letterSpacing: '0.05em' }}>
-                {Math.max(0, Math.round((bossObj.current.hp / bossObj.current.maxHp) * 100))}%
-              </span>
-            </div>
-            <div className="sj-bar-shell" style={{ height: 10 }}>
-              <div
-                className="sj-bar-fill"
-                style={{
-                  background: 'linear-gradient(180deg, #ff6b6b 0%, #EF4444 60%, #991b1b 100%)',
-                  width: `${Math.max(0, (bossObj.current.hp / bossObj.current.maxHp) * 100)}%`,
-                  boxShadow: '0 0 10px rgba(239, 68, 68, 0.7)'
-                }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Screen Banner Display (Announcements) */}
@@ -1475,7 +1583,7 @@ export default function SecureJourney({ config, onWin, onLose }) {
             <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
           </svg>
           <span className="hud-label" style={{ color: '#fff', fontSize: 10, letterSpacing: '0.14em', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
-            DRAG LEFT/RIGHT TO STEER
+            DRAG TO STEER
           </span>
         </div>
       )}

@@ -9,9 +9,14 @@ import ThankYouScreen from './ThankYouScreen.jsx';
 import { LEAD_NO_KEY } from './api.js';
 import { GAME_CONFIG } from './data.js';
 
+// Near-black ground everywhere, so the canvas is the only bright surface. The
+// old mid-blue gradient sat at the same value as the lane and killed the read.
+const APP_BG = `radial-gradient(ellipse at 50% 22%, rgba(255,106,26,0.1), rgba(5,9,18,0) 55%),
+                radial-gradient(ellipse at 50% 78%, rgba(0,61,166,0.3), rgba(5,9,18,0) 62%), #050912`;
+
 const THEME = {
-  homeBg: 'linear-gradient(180deg, #003366 0%, #00509E 50%, #00224B 100%)',
-  gameBg: 'linear-gradient(180deg, #051a3a 0%, #0e4f94 60%, #005BAC 100%)',
+  homeBg: APP_BG,
+  gameBg: APP_BG,
 };
 
 export default function App() {
@@ -69,7 +74,7 @@ export default function App() {
       maxWidth: 430,
       margin: '0 auto',
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, #051a3a 0%, #0e4f94 60%, #005BAC 100%)',
+      background: APP_BG,
     }}>
       {screen === 'home' && (
         <HomeScreen onStart={showHowToPlay} theme={THEME} />

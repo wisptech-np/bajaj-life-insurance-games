@@ -9,9 +9,13 @@ import ThankYouScreen from './ThankYouScreen.jsx';
 import { LEAD_NO_KEY } from './api.js';
 import { GAME_CONFIG } from './data.js';
 
+// The abyss. Every screen sits on the same ground so a transition never flashes
+// a different colour behind the fade.
+const APP_BG = 'linear-gradient(180deg, #03101E 0%, #062134 55%, #041A2B 100%)';
+
 const THEME = {
-  homeBg: 'linear-gradient(180deg, #003366 0%, #00509E 50%, #00224B 100%)',
-  gameBg: 'linear-gradient(180deg, #061634 0%, #0A2444 60%, #0E3160 100%)',
+  homeBg: APP_BG,
+  gameBg: APP_BG,
 };
 
 export default function App() {
@@ -69,7 +73,7 @@ export default function App() {
       maxWidth: 430,
       margin: '0 auto',
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, #061634 0%, #0A2444 60%, #0E3160 100%)',
+      background: APP_BG,
     }}>
       {screen === 'home' && (
         <HomeScreen onStart={showHowToPlay} theme={THEME} />

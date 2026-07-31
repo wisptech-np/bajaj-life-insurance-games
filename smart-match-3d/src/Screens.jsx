@@ -121,12 +121,65 @@ export function HomeScreen({ onStart }) {
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
-const DEMO_LEFTS = [46, 118, 190];
+/* ─── How to play — watch, don't read ─────────────────────
+   One looping demo of the real mechanic: a finger taps three
+   identical goal tiles, each flies into a tray slot, the trio
+   merges. Three icon cues, no instruction prose. */
+const DEMO_LEFTS = [40, 104, 168];
+
+function FingerGlyph({ size = 26, className, style }) {
+  return (
+    <svg
+      viewBox="0 0 28 34"
+      width={size}
+      height={(size * 34) / 28}
+      className={className}
+      style={style}
+      aria-hidden="true"
+    >
+      <path
+        d="M9 3.2a2.7 2.7 0 0 1 5.4 0v10.9h1.5l6.3 2.3a3.6 3.6 0 0 1 2.3 3.4v4.7A6.5 6.5 0 0 1 18 31H13a6.6 6.6 0 0 1-5.6-3.1L3.6 21a2.4 2.4 0 0 1 3.6-3.1L9 19.6Z"
+        fill="#FFE3C4"
+        stroke="rgba(6,18,44,0.85)"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path d="M11.7 6.2v9.4" stroke="rgba(6,18,44,0.28)" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TripleGlyph({ size = 22 }) {
+  return (
+    <svg viewBox="0 0 30 22" width={size * 1.36} height={size} aria-hidden="true">
+      <rect x="1" y="5" width="11" height="11" rx="3.2" fill="#F26522" />
+      <rect x="9.5" y="4" width="11" height="11" rx="3.2" fill="#FFA05C" />
+      <rect x="18" y="5" width="11" height="11" rx="3.2" fill="#F26522" />
+      <path d="M21.5 10.2l2 2.2 4-4.6" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TrayGlyph({ size = 22 }) {
+  return (
+    <svg viewBox="0 0 30 22" width={size * 1.36} height={size} aria-hidden="true">
+      <rect x="1" y="5" width="28" height="14" rx="4" fill="none" stroke="#FF7B6E" strokeWidth="2" />
+      <rect x="4" y="8" width="6" height="8" rx="2" fill="#FF7B6E" />
+      <rect x="12" y="8" width="6" height="8" rx="2" fill="#FF7B6E" />
+      <rect x="20" y="8" width="6" height="8" rx="2" fill="#FF7B6E" />
+      <path d="M15 1.5v-0.2" stroke="#FF7B6E" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const CUES = [
+  { glyph: <FingerGlyph size={18} />, text: 'Tap' },
+  { glyph: <TripleGlyph />, text: 'Match 3' },
+  { glyph: <TrayGlyph />, text: "Don't fill tray" },
+];
 
 export function HowToPlayScreen({ onPlay }) {
-  const demoGoal = GOAL_BY_ID.home;
-  const demoUri = tokenDataUri(demoGoal);
+  const demoUri = tokenDataUri(GOAL_BY_ID.home);
   const sparks = [
     { dx: '-34px', dy: '-30px' },
     { dx: '0px', dy: '-42px' },
@@ -146,50 +199,44 @@ export function HowToPlayScreen({ onPlay }) {
         <h2 className="sm3-howto-title">How to Play</h2>
 
         <div className="sm3-demo" aria-hidden="true">
-          {DEMO_LEFTS.map((left, i) => (
-            <img
-              key={i}
-              src={demoUri}
-              alt=""
-              draggable={false}
-              className="sm3-demo-token"
-              style={{ left, '--d': `${i * 0.28}s` }}
-            />
-          ))}
-          <div className="sm3-demo-tray" />
-          {sparks.map((s, i) => (
-            <span
-              key={i}
-              className="sm3-demo-burst"
-              style={{ '--d': '0.56s', '--dx': s.dx, '--dy': s.dy }}
-            />
-          ))}
+          <div className="sm3-demo-stage">
+            <div className="sm3-demo-tray" />
+            {DEMO_LEFTS.map((left, i) => (
+              <span key={`s${i}`} className="sm3-demo-slot" style={{ left: left - 1 }} />
+            ))}
+            {DEMO_LEFTS.map((left, i) => (
+              <img
+                key={i}
+                src={demoUri}
+                alt=""
+                draggable={false}
+                className="sm3-demo-token"
+                style={{ left, '--d': `${i * 0.28}s` }}
+              />
+            ))}
+            {sparks.map((s, i) => (
+              <span
+                key={`b${i}`}
+                className="sm3-demo-burst"
+                style={{ '--d': '0.56s', '--dx': s.dx, '--dy': s.dy }}
+              />
+            ))}
+            <FingerGlyph className="sm3-demo-finger" />
+          </div>
         </div>
 
-        <div className="sm3-step">
-          <span className="sm3-step-num">1</span>
-          <span className="sm3-step-text">
-            <b>Tap</b> life-goal tokens on the pile to move them into the tray. Dimmed tokens are
-            buried — uncover them first.
-          </span>
-        </div>
-        <div className="sm3-step">
-          <span className="sm3-step-num">2</span>
-          <span className="sm3-step-text">
-            <b>Match 3 identical goals</b> to secure them. Chain matches quickly for combo bonuses.
-          </span>
-        </div>
-        <div className="sm3-step">
-          <span className="sm3-step-num">3</span>
-          <span className="sm3-step-text">
-            Don&apos;t overfill the <b>7-slot tray</b> — clear all 20 goals within <b>2:00</b>.
-            Use <b>Undo</b>, <b>Shuffle</b> and <b>Magnet</b> boosters wisely.
-          </span>
+        <div className="sm3-cues">
+          {CUES.map((c) => (
+            <div key={c.text} className="sm3-cue">
+              <span className="sm3-cue-glyph">{c.glyph}</span>
+              <span className="sm3-cue-text">{c.text}</span>
+            </div>
+          ))}
         </div>
 
         <motion.div whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button type="button" className="sm3-play-btn" onClick={onPlay} style={{ height: 56, maxWidth: '100%' }}>
-            Start Matching
+            Play
           </button>
         </motion.div>
       </div>

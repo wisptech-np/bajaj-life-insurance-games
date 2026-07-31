@@ -93,3 +93,84 @@ timestamp: 2026-07-28
   protected x 40, five wave clears, ~6.2 mean chain depth x 20 x 5).
 - Re-verified: `pnpm build` exit 0; `node scripts/balance-sim.mjs` (default)
   reproduces every figure quoted in `data.js`, `README.md` and `index.md`.
+
+## [2026-07-31] UI revamp — abyss board, aqua wave, animation-only how-to-play
+
+- **Identity.** The game no longer shares the catalog's navy `#0B1221` + gold
+  look. `data.js` COLORS was rewritten around an ABYSS board (`#03101E` →
+  `#062134`) and one signature accent, AQUA `#19E3D6` — the colour of the shield
+  wave. No other game in the repo uses aqua, and gold is gone from this game
+  entirely. Shape language is concentric: every icon, gauge, hero mark, chip
+  radius and background field is built from circles sharing a centre. Colour
+  grammar is unchanged in meaning (blue = exposed, aqua = reached, green = risk,
+  orange = a wave a virus bit) so the board still reads the same way.
+- **Canvas art redrawn end to end** (`RippleShieldGame.jsx`). Backdrop is now two
+  crossing families of standing-wave rings over a graded abyss with a caustic
+  floor band and a heavier vignette — the ground got darker so the figures did
+  not have to get louder. Orbs are built in layers (body gradient offset to the
+  key light, occlusion on the far side, a real rim-light arc on the lower-right,
+  specular cap, containment hairline); the protected orb is re-lit in aqua and
+  carries a detached halo ring. The virus is a darker, jagged husk with
+  alternating spike lengths and a hot red nucleus — the only warm light on the
+  board — so risk can never be mistaken for reward beside the aqua.
+- **Ripples have real falloff.** `buildPaints` now piles energy across only the
+  outer fifth of the radius and dies to zero exactly at the crest; `drawRipple`
+  layers a falloff disc, an outer haze riding ahead of the crest, the crest, a
+  white-hot inner hairline, and two echoes whose spacing widens and alpha halves
+  behind the front. Crest thickness scales with the generation's remaining
+  reach, so a fifth-generation ripple now *looks* as spent as it is. All
+  additive.
+- **HUD is compact: icon + number, nothing else.** The two labelled glass pills,
+  the wide "Wave n · protect x / y of z" panel and the progress bar are gone,
+  replaced by three 30 px chips (wave-mark + score, a concentric ring gauge +
+  `n/target`, clock-mark + seconds) and a row of five wave pips. The gauge is
+  driven by `strokeDashoffset` from `render()` on the same ref the bar used, so
+  the per-frame DOM write cost is unchanged. Points now float as `+200` at the
+  point of impact, `-18` on a virus contact and `+N` on a wave clear.
+- **Aim reticle rebuilt** as four concentric elements (reach fill, rotating
+  dashed reach ring, half-reach tick ring, pulsing four-arc core). The crosshair
+  arms are gone — this game aims in circles.
+- Polish beats: every burst is now ≥ 8 particles (`fx.orbParticles` 7 → 9), the
+  tap fires a second white core burst, the mega-chain beat washes the board in
+  aqua *and* rims the stage edge in light, wave pips animate, the armed
+  indicator pulses, and screen transitions stay at 420 ms.
+- **G1 — email removed** from `LeadCaptureModal.jsx`: `EMAIL_RE`, the `email`
+  state, the field block, the validation branch, both `sessionStorage`
+  reads/writes of `lastSubmittedEmail`, and `email` from the `submitToLMS` and
+  `onSubmitted` payloads. `api.js` untouched — it already sends
+  `email_id: email || ''`, so the LMS payload shape is byte-identical. Name +
+  mobile + T&C are unchanged. `grep -i email src/**/*.jsx` returns only a
+  comment.
+- **G2 — how-to-play is animation only.** The three numbered instruction cards
+  and the closing paragraph are deleted. What is left is one 3.4 s looping demo
+  on a miniature of the real board: a drawn finger descends, the aim reticle
+  appears at its tip, the wave leaves on release, two orbs flip to aqua and one
+  spawns a second wave, a `+200` floats at the impact, and a virus takes an
+  orange bite out of the ring. Text on the screen is now the heading, three
+  icon-led labels of three words each ("Hold to aim" / "Waves chain" / "Avoid
+  green"), and the Play button. Fits 360×640 without scrolling.
+- **Home and Results restyled to match.** Home gets the ring field, a wave rule
+  under the title and a shield-core emblem at the centre of the staggered hero
+  rings. Results keeps the repo-standard structure (count-up score, r=75 SVG
+  progress ring, confetti on win, Share, glass Call/Book card, ghost Play again,
+  disclaimer) and adds two still echo rings inside the progress ring. Every
+  action on every screen is now 52 px tall on a 4/8/12/16/20 spacing scale.
+- **Contrast audited and fixed.** Chip substrate went to `rgba(3,16,30,0.72)` so
+  white HUD ink measures 9.8:1 even with a full-strength crest passing under it
+  (6.2:1 before) and the dim ink beside it 4.6:1. The Share button gradient runs
+  aquaLt → aqua instead of aqua → aquaDeep, which had put dark ink at 2.8:1 on
+  its lower half; it is now 14.2:1 → 10.3:1. Small orange numerals use a new
+  `COLORS.orangeInk` `#FFB27A` at 5.6:1 in place of `#FF8A3D` at 4.2:1. The
+  three orange CTAs went to 19px/900 so white-on-orange (3.14:1) is judged
+  against the 3:1 large-text threshold rather than 4.5:1.
+- **G3** — `ripple-shield/asset-from-here.md` written: 14 Nano Banana prompts
+  (background, exposed orb, protected orb, risk husk, three wave energy states,
+  shield core, three HUD icons, gesture hand, win mark, loss mark), each with a
+  negative list, all keyed to the aqua/abyss identity rather than the house
+  navy/gold sheet.
+- **No gameplay or balance change.** `waves`, `orb`, `ripple`, `slowMo` and
+  `scoring` in `data.js` are untouched; the only non-colour edit there is
+  `fx.orbParticles` 7 → 9. Physics, chain resolution, input and the run
+  lifecycle in `RippleShieldGame.jsx` are unmodified.
+- Verified: `pnpm install` and `pnpm build` exit 0 (`✓ built in 2.95s`);
+  `node scripts/balance-sim.mjs` still runs against the shipped `data.js`.

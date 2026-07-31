@@ -27,6 +27,9 @@ years to retirement — and the vault at the bottom is the destination. The feve
 streak is the reward for a run of good years: three rings in one fall lights the
 flame and, for three seconds, a drawdown costs nothing at all. Cover is what
 turns a crash from the end of the story into something you go straight through.
+Falling is not free, though: more than four rings without landing destroys the
+ball. A few years of not landing anywhere is luck; five in a row is a plan with
+no floor under it, and cover does not protect you from never landing.
 
 ## Shape of the build
 
@@ -87,7 +90,20 @@ verbatim (see the game README's "Balance notes"):
    without that latch the smash re-satisfies the streak test while the clock is
    momentarily zero and `smashLimit: 1` is not enforced at all.
 
-Measured with the shipped values across 400 generated towers and 1,200 simulated
+## 2026-07-31 revamp
+
+Ball 14 → 20 px with every fit retuned around it (gaps 80→46°, landing arc ≥ 60°,
+slices ≥ 14°, slab 16 px). New `fall` block: more than 4 rings in one uninterrupted
+fall destroys the ball, telegraphed from ring 3 by a hot-metal shell, fracture
+crackle, red vignette, a rising pass tone, a `Fall n/4` HUD chip and a 700 px/s
+stress cap that buys 429 ms to steer onto a landing arc. Fever threshold (3) sits
+exactly one ring below the limit (4) and its immunity covers crash arcs only.
+Difficulty now eases on `arcs.rampExp: 1.7` — crash coverage 8% → 46%, up to four
+crash arcs, gaps 80° → 46°, bounce period 0.70 s → 0.55 s via `ball.lateSpeedup`.
+How to Play is an animation-only loop with three icon labels. See the game README
+and this folder's log.md.
+
+Measured with the pre-revamp values across 400 generated towers and 1,200 simulated
 runs: 0 unpassable rings in 16,400 generated rings, every run lit the fever (mean
 4.0 activations), and ring 40 is reached in a 34.3 s median by the slowest
 profile against a 120 s budget — the clock only bites at roughly four bounces per

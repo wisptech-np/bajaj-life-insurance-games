@@ -325,147 +325,221 @@ export function HowToPlayScreen({ onPlay }) {
           How to Play
         </h2>
 
-        {/* CSS Animation Demonstration */}
+        {/* Looping demo of the real mechanic: drag a shield out of the tray,
+            drop it over the family, watch the storm particle deflect.
+            Deliberately wordless — everything is taught by the animation. */}
         <div style={{
           position: 'relative',
           width: '100%',
-          height: 180,
-          background: 'rgba(5, 20, 45, 0.5)',
+          height: 186,
+          background: 'linear-gradient(180deg, rgba(3,14,35,0.75) 0%, rgba(8,32,68,0.6) 100%)',
           borderRadius: 16,
-          border: '1px solid rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.08)',
           overflow: 'hidden',
-          marginBottom: 20
+          marginBottom: 16
         }}>
-          {/* Floor */}
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes gsHand {
+              0%        { transform: translate(72px, 28px) scale(1);    opacity: 0; }
+              6%        { transform: translate(72px, 28px) scale(1);    opacity: 1; }
+              12%       { transform: translate(72px, 28px) scale(0.8);  opacity: 1; }
+              42%       { transform: translate(0px, -22px)  scale(0.8);  opacity: 1; }
+              50%       { transform: translate(0px, -22px)  scale(1);    opacity: 1; }
+              58%       { transform: translate(4px, -30px)  scale(1);    opacity: 0; }
+              100%      { transform: translate(72px, 28px) scale(1);    opacity: 0; }
+            }
+            @keyframes gsShield {
+              0%, 10%   { transform: translate(72px, 44px) scale(0.42); opacity: 0; }
+              14%       { transform: translate(72px, 44px) scale(0.42); opacity: 1; }
+              22%       { transform: translate(64px, 30px) scale(0.7);  opacity: 1; }
+              42%       { transform: translate(0px, -22px) scale(1);    opacity: 1; }
+              50%       { transform: translate(0px, 0px)   scale(1);    opacity: 1; }
+              54%       { transform: translate(0px, 0px)   scaleX(1.16) scaleY(0.84); opacity: 1; }
+              60%       { transform: translate(0px, 0px)   scaleX(0.97) scaleY(1.04); opacity: 1; }
+              66%, 100% { transform: translate(0px, 0px)   scale(1);    opacity: 1; }
+            }
+            @keyframes gsGhost {
+              0%, 16%   { opacity: 0; }
+              24%, 46%  { opacity: 0.85; }
+              52%, 100% { opacity: 0; }
+            }
+            @keyframes gsVirus {
+              0%, 56%   { transform: translate(-4px, -74px); opacity: 0; }
+              60%       { transform: translate(-4px, -68px); opacity: 1; }
+              76%       { transform: translate(0px, 0px);    opacity: 1; }
+              83%       { transform: translate(18px, -18px); opacity: 1; }
+              92%       { transform: translate(56px, -28px); opacity: 1; }
+              100%      { transform: translate(110px, 48px); opacity: 0; }
+            }
+            @keyframes gsThreat {
+              0%, 100%  { opacity: 0.35; }
+              50%       { opacity: 0.75; }
+            }
+            @keyframes gsIdle {
+              0%, 100%  { transform: translateX(-50%) translateY(0)      scaleY(1); }
+              50%       { transform: translateX(-50%) translateY(-2px)   scaleY(1.03); }
+            }
+          `}} />
+
+          {/* Storm band along the top — the source of the threat */}
           <div style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 12,
-            background: 'rgba(255,255,255,0.1)'
+            position: 'absolute', top: 0, left: 0, right: 0, height: 34,
+            background: 'linear-gradient(180deg, rgba(73,226,75,0.22) 0%, rgba(73,226,75,0) 100%)',
+            animation: 'gsThreat 2s ease-in-out infinite'
           }} />
 
-          {/* Simple Animation container */}
+          {/* Floor */}
           <div style={{
-            position: 'absolute',
-            inset: 0
+            position: 'absolute', bottom: 0, left: 0, right: 0, height: 10,
+            background: 'linear-gradient(180deg, #0a2a5a 0%, #021028 100%)',
+            borderTop: '2px solid #005BAC'
+          }} />
+
+          {/* Tray slot the shield is dragged out of */}
+          <div style={{
+            position: 'absolute', bottom: 4, left: 'calc(50% + 54px)',
+            width: 36, height: 36, borderRadius: '50%',
+            border: '1.5px dashed rgba(30,107,224,0.85)',
+            background: 'rgba(15,23,42,0.6)'
+          }} />
+
+          {/* Family member to protect */}
+          <div style={{
+            position: 'absolute', bottom: 10, left: '50%',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            transformOrigin: 'bottom center',
+            animation: 'gsIdle 2.4s ease-in-out infinite',
+            filter: 'drop-shadow(0 0 8px rgba(255,200,69,0.55))',
+            zIndex: 2
           }}>
-            {/* Style injections for keyframes */}
-            <style dangerouslySetInnerHTML={{__html: `
-              @keyframes tutShieldDrop {
-                0% { transform: translateY(-70px) scale(0.9); opacity: 0; }
-                40% { transform: translateY(0) scale(1); opacity: 1; }
-                100% { transform: translateY(0) scale(1); opacity: 1; }
-              }
-              @keyframes tutVirusFall {
-                0%, 45% { transform: translate(0, -90px); opacity: 0; }
-                65% { transform: translate(0, -35px); opacity: 1; }
-                80% { transform: translate(45px, -70px); opacity: 1; }
-                100% { transform: translate(90px, 60px); opacity: 0; }
-              }
-              @keyframes tutHandMove {
-                0% { transform: translate(30px, 40px); opacity: 0; }
-                15% { transform: translate(30px, 40px); opacity: 1; }
-                40% { transform: translate(0px, 0px); opacity: 1; }
-                55% { transform: translate(0px, 0px); opacity: 0; }
-                100% { transform: translate(30px, 40px); opacity: 0; }
-              }
-            `}} />
+            <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#F2C29B', border: '2px solid #FFC845' }} />
+            <div style={{ width: 34, height: 18, borderTopLeftRadius: 11, borderTopRightRadius: 11, background: '#28A745', border: '2px solid #FFC845', borderBottom: 'none' }} />
+          </div>
 
-            {/* Target family member */}
-            <div style={{
-              position: 'absolute',
-              bottom: 12,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              zIndex: 1
-            }}>
-              {/* Head */}
-              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#F2C29B', border: '1.5px solid #146C2E' }} />
-              {/* Body */}
-              <div style={{ width: 32, height: 18, borderTopLeftRadius: 10, borderTopRightRadius: 10, background: '#28A745' }} />
-            </div>
+          {/* Ghost footprint — shows exactly where the shield will rest */}
+          <div style={{
+            position: 'absolute', bottom: 58, left: 'calc(50% - 34px)',
+            width: 68, height: 44, borderRadius: 12,
+            border: '2px dashed rgba(255,255,255,0.55)',
+            animation: 'gsGhost 4.2s linear infinite',
+            zIndex: 1
+          }} />
 
-            {/* Dropping Shield Umbrella */}
-            <div style={{
-              position: 'absolute',
-              bottom: 40,
-              left: 'calc(50% - 30px)',
-              width: 60,
-              height: 40,
-              animation: 'tutShieldDrop 3.5s infinite ease-out',
-              zIndex: 2
-            }}>
-              <svg width="60" height="40" viewBox="0 0 60 40">
-                <path d="M 0 20 A 30 30 0 0 1 60 20 Z" fill="#1E6BE0" stroke="#fff" strokeWidth="1" />
-                <rect x="29" y="20" width="2" height="15" fill="#fff" />
-              </svg>
-            </div>
+          {/* The shield being dragged */}
+          <div style={{
+            position: 'absolute', bottom: 58, left: 'calc(50% - 34px)',
+            width: 68, height: 44, transformOrigin: 'bottom center',
+            animation: 'gsShield 4.2s ease-in-out infinite',
+            zIndex: 3
+          }}>
+            <svg width="68" height="44" viewBox="0 0 68 44" aria-hidden="true">
+              <path d="M2 26 A 32 32 0 0 1 66 26 A 12 12 0 0 0 50 26 A 12 12 0 0 0 34 26 A 12 12 0 0 0 18 26 A 12 12 0 0 0 2 26 Z" fill="url(#gsDome)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+              <path d="M34 0 L34 -5" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+              <path d="M34 26 L34 40 A 5 5 0 0 0 44 40" fill="none" stroke="#94A3B8" strokeWidth="3" strokeLinecap="round" />
+              <defs>
+                <linearGradient id="gsDome" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#1E6BE0" />
+                  <stop offset="45%" stopColor="#3B8DD4" />
+                  <stop offset="100%" stopColor="#001B5A" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
 
-            {/* Hand Cursor demonstrating placing */}
-            <div style={{
-              position: 'absolute',
-              bottom: 30,
-              left: 'calc(50% + 15px)',
-              width: 32,
-              height: 32,
-              animation: 'tutHandMove 3.5s infinite ease-in-out',
-              zIndex: 5
-            }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.5">
-                <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-                <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-                <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
-                <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
-              </svg>
-            </div>
+          {/* Finger doing the drag */}
+          <div style={{
+            position: 'absolute', bottom: 34, left: 'calc(50% - 16px)',
+            width: 32, height: 32, transformOrigin: 'center',
+            animation: 'gsHand 4.2s ease-in-out infinite',
+            zIndex: 5
+          }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(15,23,42,0.55)" stroke="#FACC15" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+              <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+              <path d="M10 10.5V7a2 2 0 0 0-4 0v7" />
+              <path d="M6 14v-2a2 2 0 0 0-4 0v4a7 7 0 0 0 7 7h4a7 7 0 0 0 7-7v-4a2 2 0 0 0-4 0" />
+            </svg>
+          </div>
 
-            {/* Falling virus bouncing off */}
-            <div style={{
-              position: 'absolute',
-              bottom: 80,
-              left: 'calc(50% - 8px)',
-              width: 16,
-              height: 16,
-              animation: 'tutVirusFall 3.5s infinite ease-in-out',
-              zIndex: 3
-            }}>
-              <svg width="16" height="16" viewBox="0 0 16 16">
-                <circle cx="8" cy="8" r="6" fill="#49E24B" />
-                <path d="M1,8 L15,8 M8,1 L8,15 M3,3 L13,13 M3,13 L13,3" stroke="#49E24B" strokeWidth="1.5" />
-                <circle cx="8" cy="8" r="3" fill="#0E5C1D" />
-              </svg>
-            </div>
+          {/* Storm particle that hits the dome and ricochets away */}
+          <div style={{
+            position: 'absolute', bottom: 98, left: 'calc(50% - 9px)',
+            width: 18, height: 18,
+            animation: 'gsVirus 4.2s ease-in-out infinite',
+            filter: 'drop-shadow(0 0 5px rgba(73,226,75,0.9))',
+            zIndex: 4
+          }}>
+            <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M1,8 L15,8 M8,1 L8,15 M3,3 L13,13 M3,13 L13,3" stroke="#49E24B" strokeWidth="1.8" />
+              <circle cx="8" cy="8" r="5.5" fill="#49E24B" />
+              <circle cx="8" cy="8" r="3" fill="#0E5C1D" />
+            </svg>
           </div>
         </div>
 
-        {/* Instructions Text */}
+        {/* Three icon-led labels — the only copy on this screen */}
         <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 14,
-          lineHeight: 1.45,
-          marginBottom: 24,
           display: 'flex',
-          flexDirection: 'column',
-          gap: 12
+          justifyContent: 'space-between',
+          gap: 8,
+          marginBottom: 18
         }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>1.</span>
-            <span>Drag protective shields (umbrellas, crates, barrels) from the tray onto the playfield.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>2.</span>
-            <span>Arrange them carefully to build a secure shelter over the family members.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>3.</span>
-            <span>Tap <strong>Start Storm</strong>. If the family survives the bouncing virus particles, you win the round!</span>
-          </div>
+          {[
+            {
+              color: '#FACC15',
+              label: 'DRAG',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+                  <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+                  <path d="M10 10.5V7a2 2 0 0 0-4 0v7" />
+                  <path d="M6 14v-2a2 2 0 0 0-4 0v4a7 7 0 0 0 7 7h4a7 7 0 0 0 7-7v-4a2 2 0 0 0-4 0" />
+                </svg>
+              ),
+            },
+            {
+              color: '#3B8DD4',
+              label: 'COVER',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M2 12a10 10 0 0 1 20 0 4 4 0 0 0-5 0 4 4 0 0 0-5 0 4 4 0 0 0-5 0 4 4 0 0 0-5 0z" fill="rgba(59,141,212,0.25)" />
+                  <path d="M12 12v7a3 3 0 0 0 6 0" />
+                </svg>
+              ),
+            },
+            {
+              color: '#49E24B',
+              label: 'DEFLECT',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="8" cy="8" r="4" fill="rgba(73,226,75,0.3)" />
+                  <path d="M4 8h8M8 4v8M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" />
+                  <path d="M13 15l7 6M20 13l-7 8" />
+                </svg>
+              ),
+            },
+          ].map((chip) => (
+            <div
+              key={chip.label}
+              style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 5,
+                padding: '9px 2px',
+                borderRadius: 12,
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.09)',
+                color: chip.color,
+              }}
+            >
+              {chip.icon}
+              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', color: '#fff', whiteSpace: 'nowrap' }}>
+                {chip.label}
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Play Button */}

@@ -7,7 +7,6 @@ import LeadCaptureModal from './LeadCaptureModal.jsx';
 import SlotBookingModal from './SlotBookingModal.jsx';
 import ThankYouScreen from './ThankYouScreen.jsx';
 import { LEAD_NO_KEY } from './api.js';
-import { GAME_CONFIG } from './data.js';
 
 const THEME = {
   homeBg: 'linear-gradient(180deg, #003366 0%, #00509E 50%, #00224B 100%)',

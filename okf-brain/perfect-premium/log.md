@@ -253,3 +253,72 @@ Two presentation-layer decisions worth recording because they are not obvious:
   `scripts/sync-game-kit.mjs` GAMES list, `scripts/build-status.json`,
   `scripts/build_tracker.py` CATALOG_NOTE, `GAMES_TRACKER.xlsx`) are the
   controller's single post-batch task and were deliberately **not** touched here.
+
+## 2026-07-31 — Lead-form slim, animation-first tutorial, asset prompt sheet
+
+**G1 — email field removed from lead capture** (`src/LeadCaptureModal.jsx`)
+
+- Deleted `EMAIL_RE`, the `email` `useState` seeded from
+  `sessionStorage.lastSubmittedEmail`, the whole "Email Field"
+  `<div className="sl-lead-field">` block and the `errs.email` branch of
+  `validate()`.
+- Removed the `sessionStorage.setItem('lastSubmittedEmail', …)` write and the
+  `email` key from the `submitToLMS({…})` call and from both `onSubmitted({…})`
+  payloads.
+- `src/api.js` untouched — `submitToLMS` already sends `email_id: email || ''`,
+  so the LMS body is unchanged.
+- Grep of the game folder afterwards is clean outside `src/kit/` and
+  `src/api.js`. Name, Mobile and T&C untouched.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first** (`src/Screens.jsx`)
+
+- Deleted the `Beat` step component, all three numbered step blocks, the orange
+  one-line subtitle, the paragraph quoting `TOTAL_STAGES` / `STAGES[…].age` /
+  `sessionSeconds` / `gracePeriods`, and the row of rule chips. The `data.js`
+  import is unchanged because `ResultsScreen` still uses all three symbols.
+- New 6 s CSS `@keyframes` loop (`PP_TUT_CSS`) in two beats that between them
+  cover the entire rule set, drawn with the canvas's own shapes:
+  - **Beat 1 (straight bar).** The milled track with its green safe band and
+    the gold PERFECT sliver at the centre; the orange needle sweeps right,
+    left, then a finger glyph taps once and the needle locks dead on the gold
+    sliver; a gold ring bursts and the first combo pip lights.
+  - **Beat 2 (arc bar).** The same rules on the bent geometry every 4th stage
+    uses — the track drawn as an SVG arc, the needle rotating about the arc
+    centre, one tap landing inside the **green** band but off the gold, with a
+    green burst. This is the first time the arc variant has been shown before
+    the player meets it.
+- Persistent above both beats: the 12-pin timeline ribbon (first three pins
+  green) and the three grace-period shields, so the run's shape is visible
+  without a sentence about it.
+- The arc needle rotates via a nested `<g>` pinned to `transform-origin: 0 0`
+  inside a `<g transform="translate(150 168)">`, so it pivots on the true arc
+  centre.
+- Remaining text is exactly: the "How to Play" heading, three icon-led labels
+  ("Tap to lock" / "Gold is perfect" / "Three grace periods", 3 words each,
+  each with an inline SVG glyph) and the "Play" button.
+- Card padding tightened to `22px 18px 20px`, outer padding 18 px,
+  `overflow: hidden` — ~430 px tall, so 360×640 does not scroll.
+- `prefers-reduced-motion` disables the whole demo.
+- `stages.js`, the canvas component, HUD layout, balance and `ResultsScreen`
+  untouched.
+
+**G3 — `asset-from-here.md`**
+
+- New `perfect-premium/asset-from-here.md`, 14 Nano Banana prompts.
+- Motif chosen for this game: **precision horology** — brushed and bead-blasted
+  steel, guilloché engine-turned plates, polished chamfers catching exactly one
+  specular line, vitreous enamel inserts and synthetic ruby jewel bearings.
+  Every part reads as machined rather than moulded or drawn, which is the right
+  dress for a game whose whole subject is millisecond precision.
+- The sheet restates the `data.js` colour grammar (green = paid on time, gold =
+  the reward tier, orange = the player's own hand, red = a grace period burned,
+  blue = the 25→60 timeline).
+- Covers: movement plate background, straight track, safe band, PERFECT sliver,
+  sweep needle, arc track, grace jewel (set and burned), combo rail, top-up
+  band, milestone pin (due and paid), perfect burst, lapse flare, and both
+  result states.
+
+**Verification**
+
+- `pnpm install` — OK.
+- `pnpm build` (vite --mode uat) — **passes**, `✓ built in 2.42s`.

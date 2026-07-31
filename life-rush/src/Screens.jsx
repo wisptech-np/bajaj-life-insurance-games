@@ -327,42 +327,129 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
-    </div>
-  );
+/**
+ * Animation-first tutorial. One looping demo that cycles the run itself:
+ * three microgame scenes back to back, each with its own command banner glyph,
+ * its own shrinking action window and its own verb — tap a target, swipe a
+ * path, hold and release into a band — performed by a finger glyph, each
+ * landing on a green clear. The three scenes share one keyframe set and are
+ * offset with negative animation-delays, so the whole thing is CSS.
+ */
+const LR_TUT_CSS = `
+@keyframes lrTutScene {
+  0% { opacity: 0; transform: translateY(7px); }
+  4%, 28% { opacity: 1; transform: translateY(0); }
+  33%, 100% { opacity: 0; transform: translateY(-7px); }
 }
+@keyframes lrTutBanner {
+  0% { opacity: 0; transform: translateX(-46px); }
+  5%, 26% { opacity: 1; transform: translateX(0); }
+  31%, 100% { opacity: 0; transform: translateX(24px); }
+}
+@keyframes lrTutTick {
+  0%, 24% { opacity: 0; transform: scale(0.4); }
+  27% { opacity: 1; transform: scale(1.2); }
+  30%, 32% { opacity: 1; transform: scale(1); }
+  33%, 100% { opacity: 0; transform: scale(1); }
+}
+@keyframes lrTutTap {
+  0%, 9% { opacity: 0; transform: translate(0px, 16px); }
+  13% { opacity: 1; transform: translate(0px, 5px); }
+  17%, 20% { opacity: 1; transform: translate(0px, 0px); }
+  25% { opacity: 1; transform: translate(0px, 7px); }
+  29%, 100% { opacity: 0; transform: translate(0px, 14px); }
+}
+@keyframes lrTutRipple {
+  0%, 16% { opacity: 0; transform: scale(0.3); }
+  20% { opacity: 0.95; transform: scale(1); }
+  27%, 100% { opacity: 0; transform: scale(1.7); }
+}
+@keyframes lrTutSwipeHand {
+  0%, 9% { opacity: 0; transform: translate(-46px, 4px); }
+  13% { opacity: 1; transform: translate(-46px, 0px); }
+  25% { opacity: 1; transform: translate(46px, 0px); }
+  29%, 100% { opacity: 0; transform: translate(46px, 4px); }
+}
+@keyframes lrTutSign {
+  0%, 12% { stroke-dashoffset: 96; }
+  25%, 32% { stroke-dashoffset: 0; }
+  33%, 100% { stroke-dashoffset: 96; }
+}
+@keyframes lrTutHoldHand {
+  0%, 9% { opacity: 0; transform: translate(0px, 16px) scale(1); }
+  13%, 24% { opacity: 1; transform: translate(0px, 0px) scale(0.88); }
+  29%, 100% { opacity: 0; transform: translate(0px, 12px) scale(1); }
+}
+@keyframes lrTutGrow {
+  0%, 12% { transform: scaleY(0.08); }
+  25%, 32% { transform: scaleY(0.74); }
+  33%, 100% { transform: scaleY(0.08); }
+}
+@keyframes lrTutWindow {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0.05); }
+}
+.lr-tut-scene  { animation: lrTutScene 6.6s ease-in-out infinite; }
+.lr-tut-banner { animation: lrTutBanner 6.6s cubic-bezier(0.22,1,0.36,1) infinite; }
+.lr-tut-tick   { transform-box: fill-box; transform-origin: center; animation: lrTutTick 6.6s cubic-bezier(0.34,1.56,0.64,1) infinite; }
+.lr-tut-tap    { animation: lrTutTap 6.6s ease-in-out infinite; }
+.lr-tut-ripple { transform-box: fill-box; transform-origin: center; animation: lrTutRipple 6.6s ease-out infinite; }
+.lr-tut-swipe  { animation: lrTutSwipeHand 6.6s ease-in-out infinite; }
+.lr-tut-sign   { stroke-dasharray: 96; animation: lrTutSign 6.6s ease-out infinite; }
+.lr-tut-hold   { animation: lrTutHoldHand 6.6s ease-in-out infinite; }
+.lr-tut-grow   { transform-box: fill-box; transform-origin: bottom; animation: lrTutGrow 6.6s cubic-bezier(0.4,0,0.2,1) infinite; }
+.lr-tut-window { transform-box: fill-box; transform-origin: left center; animation: lrTutWindow 2.2s linear infinite; }
+.lr-d2 { animation-delay: -4.4s; }
+.lr-d3 { animation-delay: -2.2s; }
+@media (prefers-reduced-motion: reduce) {
+  .lr-tut-scene, .lr-tut-banner, .lr-tut-tick, .lr-tut-tap, .lr-tut-ripple,
+  .lr-tut-swipe, .lr-tut-sign, .lr-tut-hold, .lr-tut-grow, .lr-tut-window { animation: none !important; }
+}
+`;
 
-/** A pointing hand, used by the gesture diagrams. */
-function HandGlyph({ x, y, cls }) {
+/** The finger glyph that performs every verb in the demo. */
+function TutHand({ scale = 1.5 }) {
   return (
-    <g className={cls} transform={`translate(${x},${y})`}>
-      <path d="M0 0c0-1.6 1.3-2.9 2.9-2.9S5.8-1.6 5.8 0v-8.7c0-1.6 1.3-2.9 2.9-2.9s2.9 1.3 2.9 2.9V2.9c0 5.6-4.5 10.1-10.1 10.1S-8.7 8.5-8.7 2.9V-2c0-1.6 1.3-2.9 2.9-2.9S-2.9-3.6-2.9-2"
-        fill="rgba(255,255,255,0.9)" stroke="#0B1221" strokeWidth="1.1" strokeLinejoin="round"
-        transform="scale(0.8)" />
+    <g transform={`scale(${scale})`}>
+      <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
     </g>
   );
 }
 
+/** The cleared-scene mark. */
+function TutTick({ x, y, delayCls }) {
+  return (
+    <g className={`lr-tut-tick ${delayCls}`} transform={`translate(${x} ${y})`}>
+      <circle r="15" fill={GREEN} />
+      <path d="M-7 0 L-2 5.5 L7.5 -5.5" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  );
+}
+
+/** Icon-led label under the demo. Max three, max four words each. */
+function TutLabel({ icon, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      {icon}
+      <span style={{
+        fontSize: 9.5,
+        fontWeight: 900,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.82)',
+        lineHeight: 1.15,
+        textAlign: 'center',
+      }}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
-  const cfg = GAME_CONFIG;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -376,18 +463,18 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
-      <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: LR_TUT_CSS }} />
 
       <div style={{
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '22px 18px 20px',
         width: '100%',
         maxWidth: 360,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
@@ -396,92 +483,115 @@ export function HowToPlayScreen({ onPlay }) {
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 14px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Read the word &middot; Do the one thing &middot; {cfg.gamesPerRun} times, faster and faster
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="One word, one verb" copy="A command slams in — PAY!, SWAT!, LOCK! — and tells you the only thing that counts.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <rect x="2" y="6" width="70" height="50" rx="8" fill="rgba(255,255,255,0.06)"
-                stroke="rgba(255,255,255,0.16)" strokeWidth="1" />
-              <rect x="8" y="12" width="58" height="3" rx="1.5" fill="rgba(255,255,255,0.18)" />
-              <rect className="lr-bar" x="8" y="12" width="58" height="3" rx="1.5" fill={ORANGE_LT} />
-              <rect className="lr-slam1" x="2" y="26" width="70" height="14" fill={ORANGE} opacity="0.85" />
-              <text className="lr-slam1" x="37" y="36" fill="#fff" fontSize="9" fontWeight="900"
-                textAnchor="middle" fontFamily="'Poppins', sans-serif">PAY!</text>
-              <text className="lr-slam2" x="37" y="36" fill={ORANGE_LT} fontSize="9" fontWeight="900"
-                textAnchor="middle" fontFamily="'Poppins', sans-serif">SIGN!</text>
-              <text className="lr-slam3" x="37" y="36" fill={GOLD} fontSize="9" fontWeight="900"
-                textAnchor="middle" fontFamily="'Poppins', sans-serif">GROW!</text>
-            </svg>
-          </Beat>
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          borderRadius: 16,
+          background: 'linear-gradient(180deg, #0D1A33 0%, #0A1E42 50%, #061229 100%)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          overflow: 'hidden',
+          marginBottom: 16,
+        }}>
+          <svg width="100%" viewBox="0 0 300 196" aria-hidden="true" style={{ display: 'block' }}>
+            {/* HUD: the action window draining, and the three shield lives. */}
+            <rect x="16" y="14" width="200" height="7" rx="3.5" fill="rgba(255,255,255,0.14)" />
+            <rect className="lr-tut-window" x="16" y="14" width="200" height="7" rx="3.5" fill={ORANGE_LT} />
+            {[0, 1, 2].map((i) => (
+              <path key={i} transform={`translate(${232 + i * 20} 10)`}
+                d="M9 0 1 2.8v5.2c0 4.4 3.1 7.9 8 9.7 4.9-1.8 8-5.3 8-9.7V2.8L9 0z"
+                fill="rgba(30,107,224,0.9)" stroke="#A6D0FF" strokeWidth="1.2" />
+            ))}
 
-          <Beat n="2" title="Wait for the cue" copy="Nothing counts until the scene goes live. Touch it early and you have jumped the gun.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <rect x="14" y="14" width="46" height="20" rx="9" fill={ORANGE} opacity="0.9" />
-              <text x="37" y="27" fill="#fff" fontSize="7.5" fontWeight="900" textAnchor="middle"
-                fontFamily="'Poppins', sans-serif">PAY NOW</text>
-              <circle className="lr-tap" cx="37" cy="24" r="14" fill="none" stroke={GOLD} strokeWidth="2" />
-              <HandGlyph x={37} y={44} cls="lr-drag" />
-            </svg>
-          </Beat>
-
-          <Beat n="3" title="Tap, swipe, hold or drag" copy="Fourteen scenes, four verbs. Three shield lives — a miss costs one, three misses ends the run.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <line x1="14" y1="24" x2="60" y2="24" stroke={ORANGE_LT} strokeWidth="2"
-                strokeDasharray="4 3" strokeLinecap="round" />
-              <HandGlyph x={37} y={30} cls="lr-swipe" />
-              <g transform="translate(16,46)">
-                {[0, 1, 2].map((i) => (
-                  <path key={i} transform={`translate(${i * 15},0)`}
-                    d="M7 0 1 2.2v4c0 3.4 2.4 6.1 6 7.5 3.6-1.4 6-4.1 6-7.5v-4L7 0z"
-                    fill={i === 2 ? 'rgba(255,255,255,0.10)' : 'rgba(30,107,224,0.85)'}
-                    stroke={i === 2 ? 'rgba(255,255,255,0.35)' : '#A6D0FF'} strokeWidth="1" />
-                ))}
+            {/* ── Scene 1: tap a fixed target (the PAY family). ── */}
+            <g className="lr-tut-scene">
+              <g className="lr-tut-banner">
+                <rect x="20" y="34" width="260" height="26" rx="6" fill={ORANGE} opacity="0.92" />
+                <g transform="translate(150 47)" stroke="#fff" strokeWidth="2.6" fill="none">
+                  <circle r="4.5" fill="#fff" stroke="none" />
+                  <circle r="10" opacity="0.85" />
+                </g>
               </g>
-            </svg>
-          </Beat>
+              <rect x="96" y="78" width="108" height="72" rx="10" fill="#1E6BE0" />
+              <rect x="104" y="86" width="92" height="9" rx="4.5" fill="#F4F7FD" opacity="0.85" />
+              <rect x="104" y="100" width="60" height="6" rx="3" fill="#9FB1CC" />
+              <circle cx="150" cy="128" r="17" fill={ORANGE} />
+              <circle className="lr-tut-ripple" cx="150" cy="128" r="17" fill="none" stroke={GOLD} strokeWidth="2.6" />
+              <g className="lr-tut-tap" transform="translate(150 140)">
+                <g transform="translate(-12 0)"><TutHand /></g>
+              </g>
+              <TutTick x={150} y={128} delayCls="" />
+            </g>
+
+            {/* ── Scene 2: swipe along a path (the SIGN family). ── */}
+            <g className="lr-tut-scene lr-d2">
+              <g className="lr-tut-banner lr-d2">
+                <rect x="20" y="34" width="260" height="26" rx="6" fill={ORANGE} opacity="0.92" />
+                <g transform="translate(150 47)" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M-14 0 H12" />
+                  <path d="M5 -7 L12 0 L5 7" />
+                </g>
+              </g>
+              <rect x="84" y="78" width="132" height="72" rx="8" fill="#F4F7FD" />
+              <rect x="94" y="88" width="82" height="5" rx="2.5" fill="#CBD8EC" />
+              <rect x="94" y="99" width="104" height="5" rx="2.5" fill="#CBD8EC" />
+              <path d="M98 128 H198" stroke="#9FB1CC" strokeWidth="2.4" strokeDasharray="6 5" strokeLinecap="round" />
+              <path className="lr-tut-sign lr-d2" d="M98 128 H198" stroke={GREEN} strokeWidth="4.6" strokeLinecap="round" fill="none" />
+              <g className="lr-tut-swipe lr-d2" transform="translate(148 136)">
+                <g transform="translate(-12 0)"><TutHand /></g>
+              </g>
+              <TutTick x={216} y={128} delayCls="lr-d2" />
+            </g>
+
+            {/* ── Scene 3: hold and release into a band (the GROW family). ── */}
+            <g className="lr-tut-scene lr-d3">
+              <g className="lr-tut-banner lr-d3">
+                <rect x="20" y="34" width="260" height="26" rx="6" fill={ORANGE} opacity="0.92" />
+                <g transform="translate(150 47)">
+                  <circle r="5" fill="#fff" />
+                  <circle r="10.5" fill="none" stroke="#fff" strokeWidth="2.4" strokeDasharray="4 3.4" />
+                </g>
+              </g>
+              <rect x="126" y="76" width="48" height="74" rx="9" fill="rgba(255,255,255,0.07)" stroke={GOLD} strokeWidth="1.8" />
+              <rect className="lr-tut-grow lr-d3" x="130" y="80" width="40" height="66" rx="6" fill={GOLD} />
+              <rect x="122" y="94" width="56" height="14" rx="4" fill="none" stroke={GREEN_LT} strokeWidth="2.4" strokeDasharray="5 4" />
+              <g className="lr-tut-hold lr-d3" transform="translate(150 152)">
+                <g transform="translate(-12 0)"><TutHand /></g>
+              </g>
+              <TutTick x={196} y={112} delayCls="lr-d3" />
+            </g>
+          </svg>
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{cfg.gamesPerRun} microgames.</strong> The window shrinks from{' '}
-          <strong style={{ color: GOLD }}>{cfg.duration.startSeconds}s</strong> to{' '}
-          <strong style={{ color: DANGER }}>{cfg.duration.endSeconds}s</strong>. Survive all{' '}
-          {cfg.gamesPerRun} with a shield left and you win.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {[
-            { k: 'clear', label: `Clear +${cfg.scoring.clear}`, color: GREEN_LT },
-            { k: 'speed', label: `Speed +${cfg.scoring.speedBonusMax}`, color: ORANGE_LT },
-            { k: 'perfect', label: `Perfect +${cfg.scoring.perfectBonus}`, color: GOLD },
-            { k: 'life', label: `Shield left +${cfg.scoring.lifeBonus}`, color: BLUE_LT },
-          ].map((c, i) => (
-            <span
-              key={c.k}
-              className="lr-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: c.color,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {c.label}
-            </span>
-          ))}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <circle cx="13" cy="13" r="4" fill={ORANGE} />
+              <circle cx="13" cy="13" r="9" stroke={ORANGE_LT} strokeWidth="2.2" />
+              <path d="M20 6 L24 2 M6 20 L2 24" stroke={ORANGE_LT} strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          }>Tap, swipe or hold</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <circle cx="13" cy="15" r="9" stroke={GOLD} strokeWidth="2.2" />
+              <path d="M9 2h8M13 2v3M13 15V9" stroke={GOLD} strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M13 15 L18 18" stroke={DANGER} strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          }>Beat the clock</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <path key={i} transform={`translate(${i * 8} 6)`}
+                  d="M5 0 1 1.6v3c0 2.5 1.6 4.5 4 5.5 2.4-1 4-3 4-5.5v-3L5 0z"
+                  fill="rgba(30,107,224,0.9)" stroke="#A6D0FF" strokeWidth="1" />
+              ))}
+            </svg>
+          }>Three shields only</TutLabel>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
@@ -496,7 +606,7 @@ export function HowToPlayScreen({ onPlay }) {
               cursor: 'pointer',
             }}
           >
-            Play Game
+            Play
           </button>
         </motion.div>
       </div>

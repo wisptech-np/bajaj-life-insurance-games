@@ -7,132 +7,260 @@ import { shortenUrl } from './utils/shortener';
 import { GAME_CONFIG, RESULT_TARGET_SCORE } from './data.js';
 
 const GAME_TITLE = 'Steady Tower';
-const GAME_TAGLINE = 'Remove the risks. Keep your life plan standing.';
-const GAME_HOWTO = "Flick red risk blocks out · Watch the stability meter · Don't topple the tower";
+const GAME_TAGLINE = 'De-risk. Stay standing.';
 
-/* ─── Inline icons ─────────────────────────────────────── */
-function PlayIcon({ size = 18 }) {
+/* ─── Icon set ───────────────────────────────────────────
+   One family, shared by the screens AND the in-game HUD (SteadyTowerGame.jsx
+   imports from here, so there is exactly one set to keep coherent).
+
+   House rules, applied to every glyph below without exception:
+     · 24x24 viewBox, so a size prop is the only thing that ever changes
+     · currentColor, never a baked fill — the call site owns the colour
+     · stroke width 2, round caps and joins
+     · rx 1.5 on every rectangle, matching the block corners on the canvas
+   All of them stay readable at 20px, which is the HUD size. */
+const ICON = {
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  'aria-hidden': true,
+  style: { display: 'block', flexShrink: 0 },
+};
+
+/** Score — the stack itself. Three courses, the top one offset. */
+export function StackIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M8 5v14l11-7z" />
+    <svg width={size} height={size} {...ICON}>
+      <rect x="3" y="17" width="18" height="4" rx="1.5" />
+      <rect x="4.5" y="10.5" width="15" height="4" rx="1.5" />
+      <rect x="7" y="4" width="11" height="4" rx="1.5" />
     </svg>
   );
 }
 
+/** Risks — the same spiked mark the red blocks carry on the canvas. */
+export function HazardIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} {...ICON}>
+      <circle cx="12" cy="12" r="5" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
+    </svg>
+  );
+}
+
+/** Stability — a spirit level: vial, bubble, centre marks. */
+export function LevelIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} {...ICON}>
+      <rect x="2" y="8" width="20" height="8" rx="1.5" />
+      <circle cx="14" cy="12" r="2" />
+      <path d="M9 9.5v5M19 9.5v5" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} {...ICON}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
+function PlayIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} {...ICON}>
+      <path d="M8 5.5 18.5 12 8 18.5z" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Win mark — the stack, squared up and crowned. */
 function TrophyIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M9 5h14v5a7 7 0 0 1-14 0V5z" fill="#fff" />
-      <path d="M5 7h4v3a3 3 0 0 1-3-3z" fill="#fff" opacity="0.85" />
-      <path d="M27 7h-4v3a3 3 0 0 0 3-3z" fill="#fff" opacity="0.85" />
-      <rect x="13" y="16" width="6" height="6" fill="#fff" opacity="0.92" />
-      <rect x="9" y="22" width="14" height="4" rx="1.5" fill="#fff" />
+    <svg width={size} height={size} {...ICON}>
+      <rect x="6" y="17" width="12" height="4" rx="1.5" />
+      <rect x="6" y="10.5" width="12" height="4" rx="1.5" />
+      <path d="M8.5 8V4h7v4" />
+      <path d="M12 4 13.4 6.2 12 8 10.6 6.2z" fill="currentColor" stroke="none" />
     </svg>
   );
 }
 
-/** Run-ended mark: a stack that did not stay up. */
+/** Lose mark — the same stack, off its footing. */
 function ToppleIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <rect x="7" y="23" width="18" height="5" rx="1.6" fill="#fff" />
-      <rect x="8" y="16" width="16" height="5" rx="1.6" fill="#fff" opacity="0.9"
-        transform="rotate(-7 16 18.5)" />
-      <rect x="10" y="9" width="16" height="5" rx="1.6" fill="#fff" opacity="0.78"
-        transform="rotate(-17 18 11.5)" />
-      <rect x="2" y="4" width="14" height="5" rx="1.6" fill="#fff" opacity="0.6"
-        transform="rotate(-42 9 6.5)" />
+    <svg width={size} height={size} {...ICON}>
+      <rect x="4" y="17" width="16" height="4" rx="1.5" />
+      <rect x="5" y="10.5" width="14" height="4" rx="1.5" transform="rotate(-8 12 12.5)" />
+      <rect x="8" y="4" width="12" height="4" rx="1.5" transform="rotate(-24 14 6)" />
     </svg>
   );
 }
 
-function CalendarIcon({ size = 18 }) {
+function CalendarIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 9h18M8 3v4M16 3v4" />
+    <svg width={size} height={size} {...ICON}>
+      <rect x="3" y="5" width="18" height="16" rx="1.5" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
     </svg>
   );
 }
 
-function ShareIcon({ size = 18 }) {
+function ShareIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    <svg width={size} height={size} {...ICON}>
+      <circle cx="18" cy="5" r="2.6" />
+      <circle cx="6" cy="12" r="2.6" />
+      <circle cx="18" cy="19" r="2.6" />
+      <path d="M8.4 13.4 15.6 17.6M15.6 6.4 8.4 10.6" />
     </svg>
   );
 }
 
-function PhoneIcon({ size = 18 }) {
+function PhoneIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+    <svg width={size} height={size} {...ICON}>
+      <path d="M21 16.9v2.6a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 1.1 3.8 2 2 0 0 1 3.1 2h2.6a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L6.7 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z" />
     </svg>
   );
 }
 
-function RotateIcon({ size = 18 }) {
+function RotateIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+    <svg width={size} height={size} {...ICON}>
       <path d="M21 12a9 9 0 1 1-2.64-6.36" />
       <path d="M21 3v6h-6" />
     </svg>
   );
 }
 
-function HomeIcon({ size = 18 }) {
+function HomeIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+    <svg width={size} height={size} {...ICON}>
       <path d="M3 10.5 12 3l9 7.5" />
-      <path d="M5 10v10h14V10" />
+      <path d="M5.5 10v10h13V10" />
     </svg>
   );
 }
 
-/* ─── Shared keyframes ───────────────────────────────── */
+/* ─── Shared keyframes ─────────────────────────────────
+   No skew anywhere. The tower leans exactly the way the canvas leans it: a
+   chain of nested joints, each rotating a degree or so about the seam below it,
+   so the pose ACCUMULATES up the stack and the base stays planted. The lag is a
+   per-level animation-delay, which is the CSS-sized version of the softer,
+   slower springs the real model gives the upper joints. */
 const SCREEN_CSS = `
 @keyframes stTitleIn { from { opacity: 0; letter-spacing: 0.24em; transform: translateY(10px); } to { opacity: 1; letter-spacing: -0.03em; transform: none; } }
-@keyframes stHeroLean { 0%,100% { transform: skewX(0deg); } 45% { transform: skewX(-3.2deg); } 70% { transform: skewX(1.4deg); } }
-@keyframes stHeroPull {
-  0%, 12%   { transform: translateX(-88px); opacity: 1; }
-  38%, 100% { transform: translateX(0); opacity: 0; }
+@keyframes stIdleJoint {
+  0%, 100% { transform: rotate(0deg); }
+  40%      { transform: rotate(0.52deg); }
+  72%      { transform: rotate(-0.3deg); }
 }
-@keyframes stHeroArrow { 0%,100% { opacity: 0.25; transform: translateX(-4px); } 45% { opacity: 1; transform: translateX(4px); } }
-@keyframes stBeatFlick { 0%,18% { transform: translateX(0); opacity: 1; } 48%,100% { transform: translateX(26px); opacity: 0; } }
-@keyframes stBeatNeedle { 0%,20% { transform: translateX(0); } 55%,100% { transform: translateX(13px); } }
-@keyframes stBeatTip { 0%,25% { transform: skewX(0deg); } 60%,100% { transform: skewX(-9deg); } }
+@keyframes stPullJoint {
+  0%, 26%  { transform: rotate(0deg); }
+  46%      { transform: rotate(1.15deg); }
+  64%      { transform: rotate(-0.52deg); }
+  80%      { transform: rotate(0.22deg); }
+  100%     { transform: rotate(0deg); }
+}
+@keyframes stFlickOut {
+  0%, 26%  { transform: translateX(0); opacity: 1; }
+  58%, 88% { transform: translateX(48px); opacity: 0; }
+  100%     { transform: translateX(0); opacity: 1; }
+}
+@keyframes stThumbFlick {
+  0%       { transform: translateX(0); opacity: 0; }
+  18%      { transform: translateX(0); opacity: 1; }
+  58%, 88% { transform: translateX(48px); opacity: 0; }
+  100%     { transform: translateX(0); opacity: 0; }
+}
+@keyframes stArrowPulse { 0%, 100% { opacity: 0.2; } 44% { opacity: 1; } }
 @keyframes stChip { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
-.st-title      { animation: stTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
-.st-hero-lean  { animation: stHeroLean 4.2s ease-in-out infinite; }
-.st-hero-pull  { animation: stHeroPull 4.2s cubic-bezier(0.22,1,0.36,1) infinite; }
-.st-hero-arrow { animation: stHeroArrow 4.2s ease-in-out infinite; }
-.st-beat-flick { animation: stBeatFlick 2.6s cubic-bezier(0.22,1,0.36,1) infinite; }
-.st-beat-needle{ animation: stBeatNeedle 2.6s cubic-bezier(0.22,1,0.36,1) infinite; }
-.st-beat-tip   { animation: stBeatTip 2.6s cubic-bezier(0.22,1,0.36,1) infinite; transform-origin: 37px 56px; }
-.st-chip       { animation: stChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
+.st-title { animation: stTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
+.st-joint { transform-box: view-box; }
+.st-idle  { animation: stIdleJoint 4.2s ease-in-out infinite; }
+.st-pull  { animation: stPullJoint 3.4s cubic-bezier(0.34,1.3,0.5,1) infinite; }
+.st-fly   { animation: stFlickOut 3.4s cubic-bezier(0.22,1,0.36,1) infinite; }
+.st-thumb { animation: stThumbFlick 3.4s cubic-bezier(0.22,1,0.36,1) infinite; }
+.st-arrow { animation: stArrowPulse 3.4s ease-in-out infinite; }
+.st-chip  { animation: stChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
 @media (prefers-reduced-motion: reduce) {
-  .st-title, .st-hero-lean, .st-hero-pull, .st-hero-arrow,
-  .st-beat-flick, .st-beat-needle, .st-beat-tip, .st-chip { animation: none !important; }
+  .st-title, .st-idle, .st-pull, .st-fly, .st-thumb, .st-arrow, .st-chip {
+    animation: none !important;
+  }
 }
 `;
 
-/* Bottom layer first. 'blue' | 'red' | 'gone' — the gap in layer 4 is the risk
-   this hero has just pulled, which is why the stack is leaning. */
-const HERO_LAYERS = [
-  ['blue', 'blue', 'blue'],
-  ['blue', 'blue', 'blue'],
-  ['blue', 'red', 'blue'],
-  ['blue', 'blue', 'blue'],
-  ['gone', 'blue', 'blue'],
-  ['blue', 'blue', 'red'],
-  ['blue', 'blue', 'blue'],
-  ['red', 'blue', 'blue'],
-];
+/* ─── Tower demo ─────────────────────────────────────────
+   One recursive component drives both screens: layer i is drawn inside layer
+   i-1's group, so each joint's rotation is inherited by everything above it.
+   That nesting IS the physics model the canvas runs, at SVG scale — which is
+   why the hero and the how-to-play loop look like the game rather than like an
+   illustration of it. `redAt` marks the block that flicks out. */
+const DEMO = { cx: 80, baseY: 132, pitch: 12, blockH: 10, blockW: 26, gap: 2, layers: 8 };
+const DEMO_REDS = [[2, 0], [5, 2]];
+
+function DemoTower({ i = 0, joint, flick }) {
+  if (i >= DEMO.layers) return null;
+  const jointY = DEMO.baseY - i * DEMO.pitch;
+  const y = jointY - DEMO.blockH;
+  const x0 = DEMO.cx - (DEMO.blockW * 1.5 + DEMO.gap);
+  return (
+    <g
+      className={`st-joint ${joint}`}
+      style={{ transformOrigin: `${DEMO.cx}px ${jointY}px`, animationDelay: `${i * 45}ms` }}
+    >
+      {[0, 1, 2].map((s) => {
+        const red = DEMO_REDS.some(([l, sl]) => l === i && sl === s);
+        const flies = flick && flick[0] === i && flick[1] === s;
+        const x = x0 + s * (DEMO.blockW + DEMO.gap);
+        const block = (
+          <>
+            <rect x={x} y={y} width={DEMO.blockW} height={DEMO.blockH} rx="2.4"
+              fill={red || flies ? 'url(#stRed)' : 'url(#stBlue)'} />
+            <rect x={x + 0.7} y={y + 0.7} width={DEMO.blockW - 1.4} height="2.6" rx="1.2"
+              fill={red || flies ? '#FF8A72' : '#5C9AEA'} opacity="0.85" />
+          </>
+        );
+        return flies
+          ? <g key={s} className="st-fly">{block}</g>
+          : <g key={s}>{block}</g>;
+      })}
+      <DemoTower i={i + 1} joint={joint} flick={flick} />
+    </g>
+  );
+}
+
+function DemoBase() {
+  return (
+    <>
+      <rect x={DEMO.cx - 52} y={DEMO.baseY} width="104" height="10" rx="3" fill="#24406E" />
+      <rect x={DEMO.cx - 52} y={DEMO.baseY} width="104" height="2.4" rx="1.2" fill="rgba(143,185,245,0.45)" />
+    </>
+  );
+}
+
+function DemoDefs() {
+  return (
+    <defs>
+      <linearGradient id="stBlue" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#2C6BC8" />
+        <stop offset="65%" stopColor="#154B94" />
+        <stop offset="100%" stopColor="#0B2F6A" />
+      </linearGradient>
+      <linearGradient id="stRed" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#E8563F" />
+        <stop offset="65%" stopColor="#B32B2B" />
+        <stop offset="100%" stopColor="#7C1522" />
+      </linearGradient>
+    </defs>
+  );
+}
 
 /* ─── Confetti (lightweight) ─────────────────────────── */
 function Confetti() {
@@ -213,9 +341,7 @@ export function HomeScreen({ onStart }) {
         </p>
       </div>
 
-      {/* Hero: the tower itself, mid-pull and leaning. Same construction the
-          canvas uses — a sheared stack of three-block layers — so the screen
-          previews the game rather than illustrating it. */}
+      {/* Hero: the tower, breathing on its joints. */}
       <div style={{
         position: 'relative',
         width: 250,
@@ -226,62 +352,13 @@ export function HomeScreen({ onStart }) {
         justifyContent: 'center',
         zIndex: 1
       }}>
-        <svg width="250" height="240" viewBox="0 0 200 190" style={{ overflow: 'visible' }} aria-hidden="true">
-          <defs>
-            <linearGradient id="stBlue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2C6BC8" />
-              <stop offset="65%" stopColor="#154B94" />
-              <stop offset="100%" stopColor="#0B2F6A" />
-            </linearGradient>
-            <linearGradient id="stRed" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#E8563F" />
-              <stop offset="65%" stopColor="#B32B2B" />
-              <stop offset="100%" stopColor="#7C1522" />
-            </linearGradient>
-            <clipPath id="stHeroClip"><rect x="6" y="6" width="188" height="178" rx="28" /></clipPath>
-          </defs>
-
-          <rect x="6" y="6" width="188" height="178" rx="28" fill="rgba(255,255,255,0.06)"
+        <svg width="250" height="240" viewBox="0 0 160 152" aria-hidden="true">
+          <DemoDefs />
+          <rect x="2" y="2" width="156" height="148" rx="24" fill="rgba(255,255,255,0.06)"
             stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
-
-          <g clipPath="url(#stHeroClip)">
-            {HERO_LAYERS.map((row, i) => {
-              const y = 156 - i * 12;
-              const shift = i * 1.15;
-              return (
-                <g key={i} className="st-hero-lean" style={{ transformOrigin: '100px 162px' }}>
-                  {row.map((kind, s) => {
-                    if (kind === 'gone') return null;
-                    const x = 62 + s * 26 + shift;
-                    return (
-                      <g key={s}>
-                        <rect x={x} y={y} width="24" height="10" rx="2.4"
-                          fill={kind === 'red' ? 'url(#stRed)' : 'url(#stBlue)'} />
-                        <rect x={x + 0.6} y={y + 0.6} width="22.8" height="2.6" rx="1.2"
-                          fill={kind === 'red' ? '#FF8A72' : '#5C9AEA'} opacity="0.85" />
-                      </g>
-                    );
-                  })}
-                </g>
-              );
-            })}
-
-            {/* Base plate */}
-            <rect x="48" y="164" width="104" height="10" rx="3" fill="#24406E" />
-            <rect x="48" y="164" width="104" height="2.4" rx="1.2" fill="rgba(143,185,245,0.45)" />
-
-            {/* The block being flicked out, with its motion arrow */}
-            <g className="st-hero-pull">
-              <rect x="150" y="96" width="24" height="10" rx="2.4" fill="url(#stRed)" />
-              <rect x="150.6" y="96.6" width="22.8" height="2.6" rx="1.2" fill="#FF8A72" opacity="0.85" />
-            </g>
-            <path className="st-hero-arrow" d="M140 101 h30 m-7 -5 l7 5 l-7 5"
-              fill="none" stroke="#FF8A3D" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-
-            {/* Stability read-out under the stack */}
-            <rect x="56" y="176" width="88" height="5" rx="2.5" fill="rgba(255,255,255,0.14)" />
-            <rect x="70" y="176" width="60" height="5" rx="2.5" fill="#28A745" />
-            <rect x="118" y="173.5" width="3" height="10" rx="1.5" fill="#FF8A3D" />
+          <g transform="translate(0 -4)">
+            <DemoBase />
+            <DemoTower joint="st-idle" />
           </g>
         </svg>
       </div>
@@ -318,51 +395,29 @@ export function HomeScreen({ onStart }) {
             gap: 8,
           }}
         >
-          <PlayIcon size={20} />
-          <span>Start Game</span>
+          <PlayIcon size={22} />
+          <span>Start</span>
         </button>
       </motion.div>
     </motion.div>
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
-/** A three-layer stub of the tower, reused by two of the three beats. */
-function BeatStack() {
-  return (
-    <g>
-      {[0, 1, 2, 3].map((i) => (
-        <g key={i} transform={`translate(${i * 1.4}, ${52 - i * 10})`}>
-          <rect x="16" y="0" width="42" height="9" rx="2.2" fill="url(#stBlueB)" />
-          <rect x="16.6" y="0.6" width="40.8" height="2.4" rx="1.2" fill="#5C9AEA" opacity="0.8" />
-          <line x1="30" y1="0" x2="30" y2="9" stroke="rgba(0,0,0,0.3)" strokeWidth="1" />
-          <line x1="44" y1="0" x2="44" y2="9" stroke="rgba(0,0,0,0.3)" strokeWidth="1" />
-        </g>
-      ))}
-    </g>
-  );
-}
-
-/** One beat of the flick - read - hold loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
+/* ─── How to play ──────────────────────────────────────────
+   Animation only. One loop of the actual mechanic — thumb flicks a red block
+   sideways, the block leaves, the tower leans on its joints and comes back —
+   plus three wordless icon chips. No numbered steps, no instruction copy: the
+   loop says all of it faster than a sentence could. */
+function ChipIcon({ tint, children }) {
   return (
     <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
+      width: 46, height: 46, borderRadius: 14,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
+      border: `1px solid ${tint}55`,
+      color: tint,
     }}>
-      <div style={{ width: 74, height: 66, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: '#FF8A3D', textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+      {children}
     </div>
   );
 }
@@ -388,89 +443,56 @@ export function HowToPlayScreen({ onPlay }) {
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
 
-      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-        <defs>
-          <linearGradient id="stBlueB" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#2C6BC8" />
-            <stop offset="65%" stopColor="#154B94" />
-            <stop offset="100%" stopColor="#0B2F6A" />
-          </linearGradient>
-          <linearGradient id="stRedB" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#E8563F" />
-            <stop offset="65%" stopColor="#B32B2B" />
-            <stop offset="100%" stopColor="#7C1522" />
-          </linearGradient>
-        </defs>
-      </svg>
-
       <div style={{
         background: 'rgba(11, 18, 33, 0.72)',
         border: '1px solid rgba(255, 255, 255, 0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '20px 18px 20px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 340,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
-        {/* Title */}
         <h2 style={{
-          fontSize: 25,
+          fontSize: 22,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 16px 0',
+          margin: '0 0 12px 0',
           color: '#fff',
         }}>
           How to Play
         </h2>
 
-        {/* Three beats of the loop, as CSS-animated SVG */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-          <Beat n="1" title="Flick a red risk out" copy="Red blocks are debt, junk funds, punts. Flick one sideways to pull it.">
-            <svg width="74" height="66" viewBox="0 0 74 66" aria-hidden="true">
-              <BeatStack />
-              <g className="st-beat-flick">
-                <rect x="45" y="30" width="22" height="9" rx="2.2" fill="url(#stRedB)" />
-                <rect x="45.6" y="30.6" width="20.8" height="2.4" rx="1.2" fill="#FF8A72" opacity="0.85" />
-              </g>
-              <path d="M40 34.5 h22 m-6 -4.5 l6 4.5 l-6 4.5" fill="none" stroke="#FF8A3D"
-                strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-            </svg>
-          </Beat>
+        {/* The loop: thumb flicks the red block out, tower leans, tower recovers. */}
+        <svg width="100%" viewBox="0 0 210 152" style={{ display: 'block', maxHeight: 210 }} aria-hidden="true">
+          <DemoDefs />
+          <DemoBase />
+          <DemoTower joint="st-pull" flick={[4, 2]} />
 
-          <Beat n="2" title="Watch the stability meter" copy="It shows how far the centre of mass has drifted. It heartbeats when critical.">
-            <svg width="74" height="66" viewBox="0 0 74 66" aria-hidden="true">
-              <rect x="6" y="26" width="62" height="7" rx="3.5" fill="rgba(255,255,255,0.14)" />
-              <rect x="17" y="26" width="40" height="7" rx="3.5" fill="#28A745" />
-              <rect x="36.5" y="23" width="1.4" height="13" fill="rgba(255,255,255,0.42)" />
-              <g className="st-beat-needle">
-                <rect x="35.5" y="22" width="3" height="15" rx="1.5" fill="#FF8A3D" />
-              </g>
-              <text x="37" y="49" fill="rgba(255,255,255,0.72)" fontSize="9" fontWeight="900"
-                textAnchor="middle" fontFamily="'Plus Jakarta Sans', sans-serif">STABILITY</text>
-            </svg>
-          </Beat>
+          {/* Motion arrow off the block that leaves, at its resting height. */}
+          <path className="st-arrow" d="M126 79h44m-11-8 11 8-11 8" fill="none" stroke="#FF8A3D"
+            strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
-          <Beat n="3" title="Don't topple the tower" copy="Yanking, or pulling the wrong support, racks the stack until it goes.">
-            <svg width="74" height="66" viewBox="0 0 74 66" aria-hidden="true">
-              <g className="st-beat-tip"><BeatStack /></g>
-              <rect x="16" y="56" width="42" height="5" rx="2" fill="#24406E" />
-            </svg>
-          </Beat>
+          {/* Thumb, travelling with the flick. Outer group places it so the CSS
+              transform on the inner one is free to animate. */}
+          <g transform="translate(120 78)">
+            <g className="st-thumb">
+              <path d="M3 22V9a4 4 0 0 1 8 0v4h5a4 4 0 0 1 4 4v5a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5z"
+                fill="#fff" stroke="rgba(11,18,33,0.55)" strokeWidth="2" strokeLinejoin="round" />
+            </g>
+          </g>
+        </svg>
+
+        {/* Three wordless chips: the risk, the balance, the fall. */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, margin: '10px 0 16px' }}>
+          <ChipIcon tint="#FF7A6E"><HazardIcon size={24} /></ChipIcon>
+          <ChipIcon tint="#4ADE80"><LevelIcon size={24} /></ChipIcon>
+          <ChipIcon tint="#FFC845"><ToppleIcon size={24} /></ChipIcon>
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.62)', margin: '0 0 16px 0', lineHeight: 1.45 }}>
-          {GAME_HOWTO}
-          <br />
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.tower.redCount} risks</strong> ·{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.tower.layers} layers</strong> ·{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong>
-        </p>
-
-        {/* Play Button */}
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button
             onClick={onPlay}
@@ -486,10 +508,15 @@ export function HowToPlayScreen({ onPlay }) {
               letterSpacing: '0.05em',
               background: 'linear-gradient(180deg, #1E6BE0 0%, #003DA6 100%)',
               boxShadow: '0 4px 15px rgba(0, 61, 166, 0.4)',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
             }}
           >
-            Play Game
+            <PlayIcon size={22} />
+            <span>Play</span>
           </button>
         </motion.div>
       </div>
@@ -497,22 +524,27 @@ export function HowToPlayScreen({ onPlay }) {
   );
 }
 
-/* ─── Results ────────────────────────────────────────────── */
-function StatTile({ label, value, accent }) {
+/* ─── Results ──────────────────────────────────────────────
+   Repo-standard structure (count-up score, radius-75 progress ring, confetti,
+   share, glass action card, ghost replay, disclaimer). The prose is cut to what
+   a result actually needs: the icons carry the labels. */
+function StatTile({ icon, value, accent }) {
   return (
     <div style={{
       flex: 1,
-      padding: '10px 6px',
+      padding: '9px 6px',
       borderRadius: 14,
       background: 'rgba(255,255,255,0.05)',
       border: '1px solid rgba(255,255,255,0.12)',
-      textAlign: 'center',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 4,
+      color: accent,
     }}>
-      <div style={{ fontSize: 19, fontWeight: 900, color: accent, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+      {icon}
+      <div style={{ fontSize: 18, fontWeight: 900, color: accent, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
         {value}
-      </div>
-      <div style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>
-        {label}
       </div>
     </div>
   );
@@ -605,14 +637,15 @@ De-risk your portfolio without destabilising your life plan. Take your run here:
           border: `1px solid ${won ? 'rgba(40,167,69,0.5)' : 'rgba(239,68,68,0.45)'}`,
           marginBottom: 10,
         }}>
-          {won ? <TrophyIcon size={20} /> : <ToppleIcon size={20} />}
+          <span style={{ color: won ? '#4ADE80' : '#FF7A6E', display: 'flex' }}>
+            {won ? <TrophyIcon size={20} /> : <ToppleIcon size={20} />}
+          </span>
           <span style={{ fontSize: 13, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {won ? 'Tower secured' : 'Run ended'}
+            {won ? 'Secured' : 'Toppled'}
           </span>
         </div>
         <p style={{ color: '#fff', fontSize: 21, fontWeight: 900, lineHeight: 1.25, margin: 0 }}>
-          Hi <span style={{ color: '#1E6BE0' }}>{leadName || 'Friend'}!</span>{' '}
-          <span style={{ color: 'rgba(255,255,255,0.85)' }}>Here&rsquo;s your run.</span>
+          Hi <span style={{ color: '#1E6BE0' }}>{leadName || 'Friend'}!</span>
         </p>
       </div>
 
@@ -633,11 +666,11 @@ De-risk your portfolio without destabilising your life plan. Take your run here:
             position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center',
           }}>
-            <span style={{ fontSize: 30, fontWeight: 900, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: 32, fontWeight: 900, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
               {animatedScore.toLocaleString()}
             </span>
-            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.55)', marginTop: 5, letterSpacing: '0.16em' }}>
-              POINTS
+            <span style={{ color: 'rgba(255,255,255,0.5)', marginTop: 6 }}>
+              <StackIcon size={18} />
             </span>
           </div>
         </div>
@@ -645,12 +678,14 @@ De-risk your portfolio without destabilising your life plan. Take your run here:
 
       {/* Run stats — the { score, risks, stability, time } contract, on screen */}
       <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 12, zIndex: 2 }}>
-        <StatTile label="Risks out" value={`${risks}/${totalRisks}`} accent="#FF7A6E" />
-        <StatTile label="Avg stability" value={`${stability}%`} accent="#28A745" />
-        <StatTile label="Time left" value={`${timeLeft}s`} accent="#FFC845" />
+        <StatTile icon={<HazardIcon size={17} />} value={`${risks}/${totalRisks}`} accent="#FF7A6E" />
+        <StatTile icon={<LevelIcon size={17} />} value={`${stability}%`} accent="#4ADE80" />
+        <StatTile icon={<ClockIcon size={17} />} value={`${timeLeft}s`} accent="#FFC845" />
       </div>
 
-      {/* One chip per risk block, cleared or left standing */}
+      {/* One block per risk: filled green = pulled, hollow red = left standing.
+          The same shape the player spent the run looking at, so it needs no
+          caption to say which is which. */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6,
         width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2,
@@ -663,17 +698,13 @@ De-risk your portfolio without destabilising your life plan. Take your run here:
               className="st-chip"
               style={{
                 animationDelay: `${180 + i * 70}ms`,
-                fontSize: 10.5,
-                fontWeight: 800,
-                padding: '5px 11px',
-                borderRadius: 999,
-                color: cleared ? '#fff' : 'rgba(255,255,255,0.45)',
-                background: cleared ? 'rgba(40,167,69,0.85)' : 'rgba(239,68,68,0.18)',
-                border: `1px solid ${cleared ? 'rgba(255,255,255,0.3)' : 'rgba(239,68,68,0.4)'}`,
+                width: 30,
+                height: 14,
+                borderRadius: 4,
+                background: cleared ? '#28A745' : 'rgba(239,68,68,0.16)',
+                border: `1.5px solid ${cleared ? '#4ADE80' : 'rgba(239,68,68,0.6)'}`,
               }}
-            >
-              {cleared ? 'Cleared' : 'Left'}
-            </span>
+            />
           );
         })}
       </div>
@@ -689,8 +720,8 @@ De-risk your portfolio without destabilising your life plan. Take your run here:
           width: '100%', maxWidth: 300, marginBottom: 18, zIndex: 2,
         }}
       >
-        <ShareIcon />
-        <span>Share Score</span>
+        <ShareIcon size={20} />
+        <span>Share</span>
       </button>
 
       {/* Lead / booking card */}
@@ -704,8 +735,7 @@ De-risk your portfolio without destabilising your life plan. Take your run here:
         textAlign: 'center', marginBottom: 16, zIndex: 2,
       }}>
         <p style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.35, margin: '0 0 16px 0' }}>
-          You cleared the risks on screen. A specialist can help you take the real
-          ones out without destabilising your plan.
+          Take the real risks out without destabilising your plan.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -721,8 +751,8 @@ De-risk your portfolio without destabilising your life plan. Take your run here:
                 boxShadow: '0 4px 16px rgba(242,101,34,0.35)',
               }}
             >
-              <CalendarIcon size={18} />
-              <span>Book a Slot</span>
+              <CalendarIcon size={20} />
+              <span>Book</span>
             </button>
           </motion.div>
 
@@ -737,8 +767,8 @@ De-risk your portfolio without destabilising your life plan. Take your run here:
                 border: '1px solid rgba(255,255,255,0.18)',
               }}
             >
-              <PhoneIcon />
-              <span>Call Specialist</span>
+              <PhoneIcon size={20} />
+              <span>Call</span>
             </a>
           )}
         </div>

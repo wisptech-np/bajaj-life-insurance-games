@@ -1,4 +1,4 @@
-// LeadCaptureModal — collects name + mobile (+optional email) and posts to LMS.
+// LeadCaptureModal — collects name + mobile and posts to LMS.
 // Logic copied from life-goals-bubble-shooter/src/LeadCaptureModal.jsx; restyled for Guardian Archer.
 import React, { useState } from 'react';
 import { submitToLMS, extractLeadNo, LEAD_NO_KEY } from '../services/api';
@@ -6,7 +6,6 @@ import { LeadDetails } from '../types';
 
 const NAME_RE = /^[A-Za-z\s]+$/;
 const MOBILE_RE = /^[6-9]\d{9}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface Props {
   score?: number;
@@ -16,14 +15,12 @@ interface Props {
 interface Errors {
   name?: string;
   mobile?: string;
-  email?: string;
   terms?: string;
 }
 
 export default function LeadCaptureModal({ score, onSubmitted }: Props) {
   const [name, setName] = useState(sessionStorage.getItem('lastSubmittedName') || '');
   const [mobile, setMobile] = useState(sessionStorage.getItem('lastSubmittedPhone') || '');
-  const [email, setEmail] = useState(sessionStorage.getItem('lastSubmittedEmail') || '');
   const [terms, setTerms] = useState(true);
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -43,10 +40,6 @@ export default function LeadCaptureModal({ score, onSubmitted }: Props) {
       errs.mobile = 'Invalid 10-digit number';
     }
 
-    if (email.trim() && !EMAIL_RE.test(email.trim())) {
-      errs.email = 'Invalid email address';
-    }
-
     if (!terms) {
       errs.terms = 'Please agree to Terms and Conditions';
     }
@@ -64,7 +57,6 @@ export default function LeadCaptureModal({ score, onSubmitted }: Props) {
       const result = await submitToLMS({
         name: name.trim(),
         mobile,
-        email: email.trim(),
         score,
         summaryDtls: 'Guardian Archer - Post Game Lead',
       });
@@ -72,11 +64,10 @@ export default function LeadCaptureModal({ score, onSubmitted }: Props) {
       if (leadNo) sessionStorage.setItem(LEAD_NO_KEY, leadNo);
       sessionStorage.setItem('lastSubmittedName', name.trim());
       sessionStorage.setItem('lastSubmittedPhone', mobile);
-      sessionStorage.setItem('lastSubmittedEmail', email.trim());
-      onSubmitted({ name: name.trim(), mobile, email: email.trim(), leadNo });
+      onSubmitted({ name: name.trim(), mobile, leadNo });
     } catch (err) {
       console.error(err);
-      onSubmitted({ name: name.trim(), mobile, email: email.trim(), leadNo: null });
+      onSubmitted({ name: name.trim(), mobile, leadNo: null });
     } finally {
       setSubmitting(false);
     }
@@ -132,22 +123,6 @@ export default function LeadCaptureModal({ score, onSubmitted }: Props) {
                 />
               </div>
               {errors.mobile && <p className="text-[10px] font-bold text-red-400">{errors.mobile}</p>}
-            </div>
-
-            {/* Email */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-wider text-blue-200 block">Email Address (Optional)</label>
-              <input
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (errors.email) setErrors({ ...errors, email: '' });
-                }}
-                className={inputCls(errors.email)}
-              />
-              {errors.email && <p className="text-[10px] font-bold text-red-400">{errors.email}</p>}
             </div>
 
             {/* Consent */}

@@ -176,109 +176,103 @@ body,
   touch-action: none;
 }
 
+/* Compact HUD: one strip + a hairline bar. Everything else is playfield. */
 .sj-hud {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  padding: calc(10px + env(safe-area-inset-top)) 12px 0;
+  padding: calc(8px + env(safe-area-inset-top)) 10px 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
   pointer-events: none;
   z-index: 5;
 }
 
-.sj-hud-row {
+.sj-hud-strip {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 14px;
 }
 
-.sj-hud-chip {
-  flex: 1;
-  padding: 7px 12px 8px;
+.sj-hud-stat {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 5px;
   min-width: 0;
 }
 
-.sj-hud-value {
-  font-size: 18px;
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
+.sj-hud-stat svg {
+  flex: 0 0 auto;
+  display: block;
+}
+
+.sj-hud-num {
+  font-size: 15px;
   line-height: 1;
-  letter-spacing: -0.02em;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 
-.sj-bar-shell {
-  position: relative;
-  height: 12px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.45);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 2px 4px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
-}
-
-.sj-bar-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: 8px;
-  transition: width 180ms ease-out, background 250ms;
-}
-
-.sj-bar-fill.hp {
-  background: linear-gradient(180deg, #5eea84 0%, #28A745 60%, #157a30 100%);
-  box-shadow: 0 0 10px rgba(40, 167, 69, 0.65);
-}
-
-.sj-bar-fill.hp.low {
-  background: linear-gradient(180deg, #ff8a7a 0%, #EF4444 60%, #a51818 100%);
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+.sj-hud-stat.low .sj-hud-num {
+  color: #FF8A7A;
   animation: sj-pulse 0.7s ease-in-out infinite;
+}
+
+.sj-hud-sep {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .sj-progress-shell {
   position: relative;
-  height: 8px;
-  border-radius: 6px;
+  height: 4px;
+  border-radius: 3px;
   background: rgba(0, 0, 0, 0.45);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
 
 .sj-progress-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 6px;
+  border-radius: 3px;
   background: linear-gradient(90deg, #3B8DD4, #FFD37A);
   box-shadow: 0 0 8px rgba(255, 211, 122, 0.55);
+  transition: width 180ms linear;
+}
+
+.sj-progress-fill.boss {
+  background: linear-gradient(90deg, #7E1710, #FF7361);
+  box-shadow: 0 0 10px rgba(190, 40, 28, 0.85);
 }
 
 .sj-power-pips {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   align-items: center;
   justify-content: center;
 }
 
 .sj-pip {
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.14);
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
   transition: background 200ms, box-shadow 200ms, transform 200ms;
 }
 
 .sj-pip.on {
   background: linear-gradient(180deg, #FF8533, #F26522);
-  box-shadow: 0 0 8px rgba(242, 101, 34, 0.8);
-  transform: scale(1.15);
+  box-shadow: 0 0 7px rgba(242, 101, 34, 0.85);
+  transform: scale(1.2);
 }
 
 .sj-banner {
@@ -416,42 +410,179 @@ body,
   gap: 14px;
 }
 
-.sj-howto-step {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.06);
+/* ── How-to-play: looping animated demo, no instruction paragraphs ────── */
+.sj-demo {
+  position: relative;
+  width: 100%;
+  height: 210px;
+  border-radius: 20px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(4, 16, 31, 0.2), rgba(4, 16, 31, 0.85)),
+    #06182c;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-  text-align: left;
 }
 
-.sj-howto-icon {
-  flex: 0 0 46px;
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+/* Bridge deck + rails */
+.sj-demo-deck {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 18%;
+  right: 18%;
+  background: #08172b;
+  box-shadow: 0 0 12px rgba(59, 141, 212, 0.35);
+  border-left: 3px solid #3B8DD4;
+  border-right: 3px solid #3B8DD4;
+}
+
+.sj-demo-lane {
+  position: absolute;
+  top: -24px;
+  bottom: -24px;
+  width: 0;
+  border-left: 2px dashed rgba(255, 255, 255, 0.16);
+  animation: sj-demo-scroll 0.7s linear infinite;
+}
+
+/* Falling risk barricade — same chevron silhouette as the canvas sprite */
+.sj-demo-hazard {
+  position: absolute;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  background: linear-gradient(180deg, #FF9C5B 0%, #C43F16 100%);
+  clip-path: polygon(50% 100%, 2% 57%, 20% 0%, 80% 0%, 98% 57%);
+  filter: drop-shadow(0 0 8px rgba(242, 101, 34, 0.8));
+  animation: sj-demo-hazard 3.4s linear infinite;
+}
+
+/* Cover shield pickup */
+.sj-demo-shield {
+  position: absolute;
+  left: 26%;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  background: rgba(59, 141, 212, 0.95);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  box-shadow: 0 0 10px rgba(59, 141, 212, 0.9);
+  animation: sj-demo-shield 3.4s linear infinite;
+}
+
+.sj-demo-shield::after {
+  content: '';
+  position: absolute;
+  inset: 28%;
+  background: #fff;
+  clip-path: polygon(40% 0, 60% 0, 60% 40%, 100% 40%, 100% 60%, 60% 60%, 60% 100%, 40% 100%, 40% 60%, 0 60%, 0 40%, 40% 40%);
+}
+
+/* Auto-fired bolt */
+.sj-demo-bolt {
+  position: absolute;
+  width: 5px;
+  height: 15px;
+  margin-left: -2.5px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fff, #3B8DD4);
+  box-shadow: 0 0 8px #3B8DD4;
+  animation: sj-demo-bolt 3.4s linear infinite;
+}
+
+/* Guardian pod */
+.sj-demo-pod {
+  position: absolute;
+  bottom: 26px;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3B8DD4 0%, #003DA6 65%, #051833 100%);
+  box-shadow: 0 0 14px rgba(59, 141, 212, 0.85);
+  animation: sj-demo-steer 3.4s ease-in-out infinite;
+}
+
+.sj-demo-pod::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* Finger glyph mirroring the drag */
+.sj-demo-hand {
+  position: absolute;
+  bottom: 2px;
+  margin-left: -11px;
+  color: #F26522;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+  animation: sj-demo-steer 3.4s ease-in-out infinite;
+}
+
+.sj-demo-legend {
   display: flex;
   align-items: center;
-  justify-content: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 6px 14px rgba(0, 0, 0, 0.3);
+  justify-content: space-around;
+  gap: 8px;
+  width: 100%;
 }
 
-.sj-howto-text b {
-  display: block;
-  font-size: 13.5px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+.sj-demo-legend > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
 }
 
-.sj-howto-text span {
-  display: block;
-  margin-top: 2px;
-  font-size: 11.5px;
-  font-weight: 500;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.72);
+.sj-demo-legend span {
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+@keyframes sj-demo-scroll {
+  from { transform: translateY(0); }
+  to { transform: translateY(24px); }
+}
+
+/* Barricade drops into the centre lane, then is destroyed mid-screen */
+@keyframes sj-demo-hazard {
+  0%      { top: -40px; opacity: 1; transform: scale(1) rotate(-4deg); }
+  46%     { top: 96px;  opacity: 1; transform: scale(1) rotate(4deg); }
+  54%     { top: 100px; opacity: 0; transform: scale(1.9) rotate(0deg); }
+  100%    { top: 100px; opacity: 0; transform: scale(1.9); }
+}
+
+/* Bolt leaves the pod and meets the barricade at the same instant */
+@keyframes sj-demo-bolt {
+  0%, 24%  { left: 50%; bottom: 44px; opacity: 0; }
+  25%      { left: 50%; bottom: 44px; opacity: 1; }
+  46%      { left: 50%; bottom: 104px; opacity: 1; }
+  47%,100% { left: 50%; bottom: 104px; opacity: 0; }
+}
+
+/* Shield pickup falls into the left lane and is collected */
+@keyframes sj-demo-shield {
+  0%, 55% { top: -30px; opacity: 0; }
+  56%     { top: -30px; opacity: 1; }
+  92%     { top: 150px; opacity: 1; transform: scale(1); }
+  97%,100%{ top: 150px; opacity: 0; transform: scale(1.8); }
+}
+
+/* Pod holds centre for the shot, then drags left onto the shield */
+@keyframes sj-demo-steer {
+  0%, 55%   { left: 50%; }
+  78%, 100% { left: 26%; }
 }
 
 /* ─────────────────────────────────────────────────────────────

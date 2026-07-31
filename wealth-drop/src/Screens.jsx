@@ -4,22 +4,45 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { BUCKET_LADDER, GAME_CONFIG, RESULT_TARGET_SCORE } from './data.js';
+import { GAME_CONFIG, RESULT_TARGET_SCORE } from './data.js';
 
 const GAME_TITLE = 'Wealth Drop';
 
 /* Brand palette, inline. These screens are chrome rather than gameplay, so they
-   deliberately do not pull the canvas palette in from data.js. */
+   deliberately do not pull the canvas palette in from data.js.
+
+   Every value here was picked against the screen background and measured:
+   INK 17.5:1, INK_DIM 11.2:1, INK_FAINT 6.9:1, ORANGE_LT 9.9:1, GREEN_LT 12.4:1
+   — so body copy clears WCAG AA 4.5:1 and every meaningful icon clears 3:1.
+   The old screens leaned on rgba(255,255,255,0.4-0.5) for the ring caption and
+   the disclaimer, which measured 3.81:1 and failed. */
 const BLUE = '#003DA6';
-const BLUE_LT = '#1E6BE0';
+const BLUE_LT = '#2C7BF0';
 const ORANGE = '#F26522';
-const ORANGE_LT = '#FF8A3D';
+const ORANGE_LT = '#FFA469';
 const GREEN = '#28A745';
-const GREEN_LT = '#4ADE80';
+const GREEN_LT = '#5CE68F';
 const GOLD = '#FFC845';
-const GOLD_LT = '#FFE38A';
+const GOLD_LT = '#FFD75E';
+const TEAL_LT = '#6FE3F0';
 const DANGER = '#EF4444';
-const SCREEN_BG = 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221';
+const DANGER_LT = '#FFA8A8';
+const INK = '#FFFFFF';
+const INK_DIM = '#B7C6DA';
+const INK_FAINT = '#8C9CB2';
+const OUTLINE = 'rgba(3,6,11,0.92)';
+const SCREEN_BG = 'radial-gradient(ellipse at 50% 26%, rgba(24,58,104,0.42), rgba(6,10,20,0.98) 68%), #05090F';
+/* One spacing scale, one control height and one type size for every button.
+   19px/900 puts button labels over the WCAG "large text" line (18.66px bold),
+   which is what lets the brand orange #F26522 stay as the primary CTA: white on
+   it is 3.15:1 — AA for large text, and it would fail at the old 17px. Blue
+   buttons use #1E6BE0 rather than #2C7BF0 so they clear 4.5:1 outright. */
+const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
+const BTN_H = 52;
+const BTN_FS = 19;
+const BLUE_BTN = '#1E6BE0';
+const ORANGE_GRAD = `linear-gradient(180deg, ${ORANGE} 0%, #C94E12 100%)`;
+const BLUE_GRAD = `linear-gradient(180deg, ${BLUE_BTN} 0%, ${BLUE} 100%)`;
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function PlayIcon({ size = 18 }) {
@@ -120,21 +143,65 @@ const SCREEN_CSS = `
   82%,100%{ transform: translate(147px, 166px); }
 }
 @keyframes wdHeroPeg { 0%,58% { opacity: 0.55; } 66% { opacity: 1; } 100% { opacity: 0.55; } }
-@keyframes wdBeatAim { 0%,20% { transform: translateX(-15px); } 55%,100% { transform: translateX(13px); } }
-@keyframes wdBeatFall { 0%,25% { transform: translate(0,0); opacity: 0; } 35% { opacity: 1; } 70%,100% { transform: translate(9px, 34px); opacity: 1; } }
-@keyframes wdBeatShield { 0%,40% { opacity: 0.4; } 60%,100% { opacity: 1; } }
+/* How-to-play demo loop. One 4s cycle: the finger drags along the rail and
+   lifts, the coin drops on that exact release point, grazes a cover peg (which
+   flares and hands the coin a shield ring) and lands in the x5 pocket, which
+   lights and throws a floating +500. Every keyframe below is a percentage of
+   the same 4s, so the beats stay locked to each other. */
+@keyframes wdDemoFinger {
+  0%        { transform: translate(-58px, 0); opacity: 0; }
+  8%        { transform: translate(-52px, 0); opacity: 1; }
+  30%       { transform: translate(0, 0); opacity: 1; }
+  34%       { transform: translate(0, 4px); opacity: 1; }
+  42%       { transform: translate(0, -10px); opacity: 0; }
+  100%      { transform: translate(0, -10px); opacity: 0; }
+}
+@keyframes wdDemoCoin {
+  0%, 34%   { transform: translate(0, 0); opacity: 0; }
+  36%       { transform: translate(0, 0); opacity: 1; }
+  46%       { transform: translate(-8px, 32px); }
+  56%       { transform: translate(2px, 60px); }
+  66%       { transform: translate(-14px, 88px); }
+  76%, 100% { transform: translate(-20px, 136px); opacity: 1; }
+}
+@keyframes wdDemoCover {
+  0%, 52%   { opacity: 0.6; transform: scale(1); }
+  58%       { opacity: 1; transform: scale(1.45); }
+  70%, 100% { opacity: 0.85; transform: scale(1); }
+}
+@keyframes wdDemoShield {
+  0%, 56%   { opacity: 0; transform: scale(0.5); }
+  63%       { opacity: 1; transform: scale(1.2); }
+  100%      { opacity: 1; transform: scale(1); }
+}
+@keyframes wdDemoPocket {
+  0%, 74%   { opacity: 0; }
+  80%       { opacity: 1; }
+  100%      { opacity: 0; }
+}
+@keyframes wdDemoPlus {
+  0%, 76%   { opacity: 0; transform: translateY(0); }
+  82%       { opacity: 1; transform: translateY(-8px); }
+  100%      { opacity: 0; transform: translateY(-26px); }
+}
+@keyframes wdDemoRail { 0%,100% { opacity: 0.4; } 20%,32% { opacity: 1; } }
 .wd-title { animation: wdTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .wd-float { animation: wdFloat 4s ease-in-out infinite; }
 .wd-glow  { animation: wdGlow 2.2s ease-in-out infinite; }
 .wd-chip  { animation: wdChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .wd-hero-drop { animation: wdHeroDrop 3.6s cubic-bezier(0.4,0,0.7,1) infinite; }
 .wd-hero-peg  { animation: wdHeroPeg 3.6s ease-in-out infinite; }
-.wd-aim    { animation: wdBeatAim 2.4s ease-in-out infinite; }
-.wd-fall   { animation: wdBeatFall 2.4s cubic-bezier(0.4,0,0.8,1) infinite; }
-.wd-shield { animation: wdBeatShield 2.4s ease-in-out infinite; }
+.wd-demo-finger { animation: wdDemoFinger 4s ease-in-out infinite; }
+.wd-demo-coin   { animation: wdDemoCoin 4s linear infinite; }
+.wd-demo-cover  { animation: wdDemoCover 4s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.wd-demo-shield { animation: wdDemoShield 4s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.wd-demo-pocket { animation: wdDemoPocket 4s ease-out infinite; }
+.wd-demo-plus   { animation: wdDemoPlus 4s ease-out infinite; }
+.wd-demo-rail   { animation: wdDemoRail 4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .wd-title, .wd-float, .wd-glow, .wd-chip, .wd-hero-drop, .wd-hero-peg,
-  .wd-aim, .wd-fall, .wd-shield { animation: none !important; }
+  .wd-demo-finger, .wd-demo-coin, .wd-demo-cover, .wd-demo-shield,
+  .wd-demo-pocket, .wd-demo-plus, .wd-demo-rail { animation: none !important; }
 }
 `;
 
@@ -185,8 +252,8 @@ const HERO_ROW_GAP = 21;
 // disciplined middle.
 const HERO_MULTS = [1, 1, 5, 0, 2, 3, 2, 0, 5, 1, 1];
 const HERO_POCKET = [
-  '#4E7FB8', '#4E7FB8', '#FFC845', '#EF4444', '#3B8DD4',
-  '#1E6BE0', '#3B8DD4', '#EF4444', '#FFC845', '#4E7FB8', '#4E7FB8',
+  '#BBD6F0', '#BBD6F0', GOLD_LT, DANGER_LT, TEAL_LT,
+  '#A8C8FF', TEAL_LT, DANGER_LT, GOLD_LT, '#BBD6F0', '#BBD6F0',
 ];
 
 function HeroPegs() {
@@ -204,10 +271,10 @@ function HeroPegs() {
           className={cover ? undefined : 'wd-hero-peg'}
           cx={cx}
           cy={cy}
-          r={cover ? 3.2 : 2}
-          fill={cover ? BLUE_LT : '#8FB8E8'}
-          stroke={cover ? '#A6D0FF' : 'none'}
-          strokeWidth={cover ? 1.2 : 0}
+          r={cover ? 3.4 : 2}
+          fill={cover ? BLUE_LT : '#4A6C93'}
+          stroke={cover ? '#CDE4FF' : OUTLINE}
+          strokeWidth={cover ? 1.3 : 0.7}
           style={{ animationDelay: `${r * 0.11}s` }}
         />,
       );
@@ -224,11 +291,11 @@ function HeroPockets() {
         return (
           <g key={i}>
             <rect x={x + 0.4} y={158} width={HERO_PITCH - 0.8} height={22} rx="2.5"
-              fill={m === 0 ? 'rgba(239,68,68,0.32)' : 'rgba(255,255,255,0.07)'}
-              stroke={m === 0 ? 'rgba(255,139,139,0.7)' : 'rgba(255,255,255,0.18)'} strokeWidth="0.7" />
-            <rect x={x + 0.4} y={158} width={HERO_PITCH - 0.8} height={2.4} rx="1.2" fill={HERO_POCKET[i]} />
-            <text x={x + HERO_PITCH / 2} y={172} fill={m === 0 ? '#FF8B8B' : HERO_POCKET[i]}
-              fontSize="7" fontWeight="900" textAnchor="middle"
+              fill={m === 0 ? 'rgba(122,20,20,0.6)' : 'rgba(4,7,14,0.72)'}
+              stroke={m === 0 ? DANGER_LT : 'rgba(255,255,255,0.24)'} strokeWidth="0.8" />
+            <rect x={x + 0.4} y={158} width={HERO_PITCH - 0.8} height={2.8} rx="1.4" fill={HERO_POCKET[i]} />
+            <text x={x + HERO_PITCH / 2} y={172.5} fill={HERO_POCKET[i]}
+              fontSize="7.5" fontWeight="900" textAnchor="middle"
               fontFamily="'Poppins', sans-serif">x{m}</text>
           </g>
         );
@@ -287,37 +354,39 @@ export function HomeScreen({ onStart }) {
         <svg width="262" height="240" viewBox="0 0 200 190" style={{ overflow: 'visible' }} aria-hidden="true">
           <defs>
             <linearGradient id="wdSky" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0A1E42" />
-              <stop offset="100%" stopColor="#061229" />
+              <stop offset="0%" stopColor="#0A1220" />
+              <stop offset="100%" stopColor="#050A12" />
             </linearGradient>
             <radialGradient id="wdCoin" cx="0.36" cy="0.32" r="0.75">
               <stop offset="0%" stopColor="#FFF6D6" />
               <stop offset="55%" stopColor="#FFE38A" />
-              <stop offset="100%" stopColor="#B07B12" />
+              <stop offset="100%" stopColor="#6B4A05" />
             </radialGradient>
             <clipPath id="wdClip"><rect x="4" y="4" width="192" height="182" rx="26" /></clipPath>
           </defs>
 
           <rect x="4" y="4" width="192" height="182" rx="26" fill="url(#wdSky)"
-            stroke="rgba(255,255,255,0.12)" strokeWidth="1.4" />
+            stroke="rgba(255,255,255,0.16)" strokeWidth="1.4" />
 
           <g clipPath="url(#wdClip)">
             <g className="wd-glow">
-              <ellipse cx="100" cy="100" rx="88" ry="76" fill="rgba(38,102,196,0.22)" />
+              <ellipse cx="100" cy="100" rx="88" ry="76" fill="rgba(40,72,110,0.2)" />
             </g>
 
             {/* Aim rail and drop marker. */}
             <line x1={HERO_X0} y1="30" x2={HERO_X0 + HERO_W} y2="30"
-              stroke="rgba(255,255,255,0.18)" strokeWidth="2.4" strokeLinecap="round" />
-            <path d="M100 24 l-5 -1 l0 -7 l10 0 l0 7 z" fill={ORANGE} />
+              stroke="rgba(255,255,255,0.22)" strokeWidth="2.4" strokeLinecap="round" />
+            <path d="M100 24 l-5 -1 l0 -7 l10 0 l0 7 z" fill="#FF7A33" stroke={OUTLINE} strokeWidth="1" />
 
             <HeroPegs />
             <HeroPockets />
 
-            {/* The coin, tracing a real path down the field. */}
+            {/* The coin, tracing a real path down the field. Dark rim first, so
+                it never disappears where it crosses a peg or a gold lip. */}
             <g className="wd-hero-drop">
-              <circle cx="0" cy="0" r="6.4" fill="url(#wdCoin)" />
-              <circle cx="0" cy="0" r="4" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.1" />
+              <circle cx="0" cy="0" r="6.9" fill={OUTLINE} />
+              <circle cx="0" cy="0" r="6.2" fill="url(#wdCoin)" />
+              <circle cx="0" cy="0" r="4" fill="none" stroke="#FFF6D6" strokeWidth="1.2" />
             </g>
           </g>
         </svg>
@@ -337,15 +406,15 @@ export function HomeScreen({ onStart }) {
           style={{
             width: '100%',
             maxWidth: 320,
-            height: 60,
+            height: BTN_H,
             border: 'none',
             borderRadius: 14,
-            fontSize: 20,
+            fontSize: BTN_FS,
             fontWeight: 900,
             color: '#fff',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
-            background: `linear-gradient(180deg, ${ORANGE_LT} 0%, ${ORANGE} 100%)`,
+            background: ORANGE_GRAD,
             boxShadow: '0 6px 22px rgba(242,101,34,0.45)',
             cursor: 'pointer',
             display: 'flex',
@@ -362,50 +431,51 @@ export function HomeScreen({ onStart }) {
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
-/** One beat of the aim - drop - protect loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
-    </div>
-  );
-}
+/* ─── How to play ──────────────────────────────────────────
+   Animation only. One looping 4s demo of the real input (a finger dragging the
+   aim rail and lifting) and the real outcome (the coin bouncing down, picking
+   up cover, landing in the x5 pocket for a floating +500), drawn with the
+   game's own shapes and colours. No instruction paragraphs — three icon-led
+   labels of two words each carry the whole tutorial. */
 
-/** A miniature peg field for the tutorial diagrams. */
-function BeatPegs({ rows = 3, y0 = 20, gap = 13 }) {
+/** Staggered peg rows for the demo board, same construction as the canvas. */
+function DemoPegs() {
   const pegs = [];
-  for (let r = 0; r < rows; r++) {
-    for (let j = 0; j < 5; j++) {
+  const rows = [{ y: 62, n: 5, off: 0 }, { y: 90, n: 6, off: -18 }, { y: 118, n: 5, off: 0 }];
+  rows.forEach((row, r) => {
+    for (let j = 0; j < row.n; j++) {
+      const cx = 58 + row.off + j * 36;
+      if (r === 1 && j === 3) continue; // the cover peg lives here
       pegs.push(
-        <circle key={`${r}-${j}`} cx={9 + j * 14 + (r % 2 ? 7 : 0)} cy={y0 + r * gap} r="2" fill="#8FB8E8" opacity="0.75" />,
+        <circle key={`${r}-${j}`} cx={cx} cy={row.y} r="4.4"
+          fill="#4A6C93" stroke={OUTLINE} strokeWidth="1.6" />,
       );
     }
-  }
+  });
   return <g>{pegs}</g>;
 }
 
-function BeatCoin({ x = 0, y = 0, r = 5 }) {
+/** Icon + two words. The only text on the screen besides the heading. */
+function DemoLabel({ tint, label, children }) {
   return (
-    <g transform={`translate(${x},${y})`}>
-      <circle cx="0" cy="0" r={r} fill={GOLD} />
-      <circle cx="0" cy="0" r={r * 0.6} fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="1" />
-    </g>
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SP.xs,
+      flex: 1, minWidth: 0,
+    }}>
+      <div style={{
+        width: 38, height: 38, borderRadius: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(255,255,255,0.06)', border: `1px solid ${tint}`,
+      }}>
+        {children}
+      </div>
+      <span style={{
+        fontSize: 10, fontWeight: 900, letterSpacing: '0.06em',
+        color: tint, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.2,
+      }}>
+        {label}
+      </span>
+    </div>
   );
 }
 
@@ -423,115 +493,158 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: SP.lg,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
 
       <div style={{
-        background: 'rgba(11,18,33,0.72)',
-        border: '1px solid rgba(255,255,255,0.14)',
+        background: 'rgba(6,10,20,0.82)',
+        border: '1px solid rgba(255,255,255,0.16)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: `${SP.xl}px ${SP.lg}px ${SP.lg}px`,
         width: '100%',
         maxWidth: 360,
-        boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
+        boxShadow: '0 14px 40px rgba(0,0,0,0.55)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: `0 0 ${SP.md}px 0`, color: INK,
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Drag to aim your coin &middot; Release to drop &middot; Shield pegs protect against Risk buckets
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Drag to aim" copy="Slide along the rail to choose where the coin enters the board.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <line x1="8" y1="10" x2="66" y2="10" stroke="rgba(255,255,255,0.22)" strokeWidth="2.6" strokeLinecap="round" />
-              <BeatPegs rows={3} y0={26} />
-              <g className="wd-aim" transform="translate(37,10)">
-                <path d="M0 7 l-6 -8 l0 -5 l12 0 l0 5 z" fill={ORANGE} />
+        {/* The demo. Everything the player needs to know, shown. */}
+        <svg viewBox="0 0 260 190" width="100%" style={{ display: 'block', maxHeight: 210 }}
+          role="img" aria-label="Drag the marker along the rail, release, and the coin bounces into a pocket">
+          <defs>
+            <radialGradient id="wdDemoCoinFill" cx="0.36" cy="0.32" r="0.75">
+              <stop offset="0%" stopColor="#FFF6D6" />
+              <stop offset="55%" stopColor="#FFE38A" />
+              <stop offset="100%" stopColor="#6B4A05" />
+            </radialGradient>
+            <linearGradient id="wdDemoSky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#0A1220" />
+              <stop offset="100%" stopColor="#050A12" />
+            </linearGradient>
+          </defs>
+
+          <rect x="1" y="1" width="258" height="188" rx="18" fill="url(#wdDemoSky)"
+            stroke="rgba(255,255,255,0.16)" strokeWidth="1.5" />
+
+          {/* Aim rail */}
+          <line className="wd-demo-rail" x1="34" y1="26" x2="226" y2="26"
+            stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
+
+          <DemoPegs />
+
+          {/* Cover peg — the one blue thing on the board */}
+          <g className="wd-demo-cover">
+            <path d="M152 80 l9 3.4 l0 7 c0 5.6 -3.8 10 -9 12.2 c-5.2 -2.2 -9 -6.6 -9 -12.2 l0 -7 z"
+              fill={BLUE_LT} stroke={OUTLINE} strokeWidth="2.4" />
+            <path d="M152 80 l9 3.4 l0 7 c0 5.6 -3.8 10 -9 12.2 c-5.2 -2.2 -9 -6.6 -9 -12.2 l0 -7 z"
+              fill="none" stroke="#CDE4FF" strokeWidth="1.1" />
+            <path d="M147.5 90.5 l3 3 l5.5 -6" fill="none" stroke="#FFFFFF" strokeWidth="2.2"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+
+          {/* Pockets: risk / jackpot / goal */}
+          <g>
+            <rect x="18" y="150" width="70" height="30" rx="6"
+              fill="rgba(122,20,20,0.62)" stroke={DANGER_LT} strokeWidth="1.6" />
+            <rect x="18" y="150" width="70" height="4" rx="2" fill={DANGER} />
+            <text x="53" y="171" fill={DANGER_LT} fontSize="14" fontWeight="900" textAnchor="middle"
+              fontFamily="'Poppins', sans-serif">x0</text>
+
+            <rect x="95" y="150" width="70" height="30" rx="6"
+              fill="rgba(4,7,14,0.8)" stroke={GOLD_LT} strokeWidth="1.6" />
+            <rect x="95" y="150" width="70" height="4" rx="2" fill={GOLD} />
+            <text x="130" y="171" fill={GOLD_LT} fontSize="14" fontWeight="900" textAnchor="middle"
+              fontFamily="'Poppins', sans-serif">x5</text>
+            <rect className="wd-demo-pocket" x="95" y="150" width="70" height="30" rx="6" fill="rgba(255,215,94,0.5)" />
+
+            <rect x="172" y="150" width="70" height="30" rx="6"
+              fill="rgba(4,7,14,0.8)" stroke="#A8C8FF" strokeWidth="1.6" />
+            <rect x="172" y="150" width="70" height="4" rx="2" fill={BLUE_LT} />
+            <text x="207" y="171" fill="#A8C8FF" fontSize="14" fontWeight="900" textAnchor="middle"
+              fontFamily="'Poppins', sans-serif">x3</text>
+          </g>
+
+          {/* The coin: dark rim, gold body, shield ring once it takes cover */}
+          <g transform="translate(150,26)">
+            <g className="wd-demo-coin">
+              <circle className="wd-demo-shield" cx="0" cy="0" r="14"
+                fill="rgba(44,123,240,0.2)" stroke="#CDE4FF" strokeWidth="2" />
+              <circle cx="0" cy="0" r="9.4" fill={OUTLINE} />
+              <circle cx="0" cy="0" r="8.4" fill="url(#wdDemoCoinFill)" />
+              <circle cx="0" cy="0" r="5" fill="none" stroke="#FFF6D6" strokeWidth="1.4" />
+            </g>
+          </g>
+
+          {/* Floating payout at the point of action */}
+          <g className="wd-demo-plus">
+            <text x="130" y="146" fill={GOLD_LT} fontSize="16" fontWeight="900" textAnchor="middle"
+              stroke={OUTLINE} strokeWidth="3.2" paintOrder="stroke"
+              fontFamily="'Poppins', sans-serif">+500</text>
+          </g>
+
+          {/* The finger doing the real input. Its tip sits exactly on the rail
+              at the release point, so the demo shows the input and the outcome
+              sharing one x. */}
+          <g transform="translate(150,26)">
+            <g className="wd-demo-finger">
+              <g transform="translate(-18,-6) scale(1.5)" fill="#FFFFFF"
+                stroke={OUTLINE} strokeWidth="1.6" strokeLinejoin="round">
+                <path d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v3.74c1.21-.81 2-2.18 2-3.74a4 4 0 1 0-8 0c0 1.56.79 2.93 2 3.74z" />
+                <path d="M18.84 15.87l-4.54-2.26a1.2 1.2 0 0 0-.54-.11H13v-6a1.5 1.5 0 0 0-3 0v10.74l-3.44-.72a1 1 0 0 0-.95.27l-.93.94 5.02 5.02c.27.27.64.42 1.02.42h6.1c.75 0 1.38-.55 1.49-1.29l.72-5.02c.09-.62-.23-1.23-.79-1.51z" />
               </g>
+            </g>
+          </g>
+        </svg>
+
+        <div style={{ display: 'flex', gap: SP.sm, margin: `${SP.lg}px 0` }}>
+          <DemoLabel tint={ORANGE_LT} label="Drag rail">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ORANGE_LT}
+              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 8h16" />
+              <path d="M9 4 5 8l4 4M15 4l4 4-4 4" />
+              <path d="M12 14v6" />
             </svg>
-          </Beat>
-
-          <Beat n="2" title="Release and watch" copy="Every peg deflects the coin. The same drop never lands twice.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatPegs rows={3} y0={16} />
-              <rect x="4" y="52" width="20" height="9" rx="2.5" fill="rgba(255,255,255,0.08)" stroke={BLUE_LT} strokeWidth="0.9" />
-              <rect x="27" y="52" width="20" height="9" rx="2.5" fill="rgba(239,68,68,0.3)" stroke="#FF8B8B" strokeWidth="0.9" />
-              <rect x="50" y="52" width="20" height="9" rx="2.5" fill="rgba(255,255,255,0.08)" stroke={GOLD} strokeWidth="0.9" />
-              <g className="wd-fall"><BeatCoin x={30} y={10} /></g>
+          </DemoLabel>
+          <DemoLabel tint="#A8C8FF" label="Cover saves">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A8C8FF"
+              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
+              <path d="m8.5 11.5 2.4 2.4 4.6-5" />
             </svg>
-          </Beat>
-
-          <Beat n="3" title="Cover the downside" copy="Graze a blue shield peg and a red Risk pocket still pays x1.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatPegs rows={2} y0={12} />
-              <g className="wd-shield">
-                <path d="M37 22 l7 2.6 l0 5.4 c0 4.4 -3 7.8 -7 9.6 c-4 -1.8 -7 -5.2 -7 -9.6 l0 -5.4 z"
-                  fill={BLUE_LT} stroke="#A6D0FF" strokeWidth="1.1" />
-                <path d="M34 30.5 l2.2 2.2 l4 -4.4" fill="none" stroke="#fff" strokeWidth="1.7"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </g>
-              <rect x="24" y="50" width="26" height="10" rx="2.5" fill="rgba(239,68,68,0.32)" stroke="#FF8B8B" strokeWidth="0.9" />
-              <text x="37" y="57.5" fill={GOLD_LT} fontSize="7" fontWeight="900" textAnchor="middle"
-                fontFamily="'Poppins', sans-serif">x1</text>
+          </DemoLabel>
+          <DemoLabel tint={GOLD_LT} label="x5 pocket">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.6" fill={GOLD} stroke={OUTLINE} strokeWidth="1.8" />
+              <path d="M12 7v10M9.5 9.5h5M9.5 13h5" stroke="#3A2800" strokeWidth="1.8"
+                strokeLinecap="round" fill="none" />
             </svg>
-          </Beat>
-        </div>
-
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.coinsPerSession} coins</strong> worth{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.coinValue}</strong> each, or{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong> &mdash; whichever runs out first.
-          Reach <strong style={{ color: GREEN_LT }}>{RESULT_TARGET_SCORE.toLocaleString()}</strong> total payout to win.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {BUCKET_LADDER.map((b, i) => (
-            <span
-              key={b.key}
-              className="wd-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: b.kind === 'risk' ? '#FF8B8B' : b.colorLt,
-                background: b.kind === 'risk' ? 'rgba(239,68,68,0.18)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${b.kind === 'risk' ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.14)'}`,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {b.full} x{b.mult}
-            </span>
-          ))}
+          </DemoLabel>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button
             onClick={onPlay}
             style={{
-              width: '100%', height: 52, border: 'none', borderRadius: 12,
-              fontSize: 18, fontWeight: 900, color: '#fff',
+              width: '100%', height: BTN_H, border: 'none', borderRadius: 12,
+              fontSize: BTN_FS, fontWeight: 900, color: '#fff',
               textTransform: 'uppercase', letterSpacing: '0.05em',
-              background: `linear-gradient(180deg, ${BLUE_LT} 0%, ${BLUE} 100%)`,
+              background: BLUE_GRAD,
               boxShadow: '0 4px 16px rgba(0,61,166,0.45)',
               cursor: 'pointer',
             }}
           >
-            Play Game
+            Play
           </button>
         </motion.div>
       </div>
@@ -544,16 +657,16 @@ function StatTile({ label, value, accent }) {
   return (
     <div style={{
       flex: 1,
-      padding: '10px 6px',
+      padding: `${SP.sm + 2}px ${SP.xs + 2}px`,
       borderRadius: 14,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
+      background: 'rgba(255,255,255,0.06)',
+      border: '1px solid rgba(255,255,255,0.16)',
       textAlign: 'center',
     }}>
       <div style={{ fontSize: 19, fontWeight: 900, color: accent, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
         {value}
       </div>
-      <div style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#A9BACF', marginTop: SP.xs }}>
         {label}
       </div>
     </div>
@@ -649,9 +762,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             {won ? 'Target beaten' : 'Short of target'}
           </span>
         </div>
-        <p style={{ color: '#fff', fontSize: 21, fontWeight: 900, lineHeight: 1.25, margin: 0 }}>
-          Hi <span style={{ color: BLUE_LT }}>{leadName || 'Friend'}!</span>{' '}
-          <span style={{ color: 'rgba(255,255,255,0.85)' }}>Here&rsquo;s your payout.</span>
+        <p style={{ color: INK, fontSize: 21, fontWeight: 900, lineHeight: 1.25, margin: 0 }}>
+          Hi <span style={{ color: '#8CB6FF' }}>{leadName || 'Friend'}!</span>{' '}
+          <span style={{ color: INK_DIM }}>Here&rsquo;s your payout.</span>
         </p>
       </div>
 
@@ -672,13 +785,13 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center',
           }}>
-            <span style={{ fontSize: 30, fontWeight: 900, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: 30, fontWeight: 900, color: INK, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
               {animatedScore.toLocaleString()}
             </span>
-            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.55)', marginTop: 5, letterSpacing: '0.16em' }}>
+            <span style={{ fontSize: 10, fontWeight: 900, color: INK_DIM, marginTop: SP.xs, letterSpacing: '0.16em' }}>
               PAYOUT
             </span>
-            <span style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#9AACC3', marginTop: 2 }}>
               target {RESULT_TARGET_SCORE.toLocaleString()}
             </span>
           </div>
@@ -687,19 +800,19 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
 
       {/* Run stats — the {score, coins, shielded, combo} contract */}
       <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2 }}>
-        <StatTile label="Coins dropped" value={`${coins}/${GAME_CONFIG.coinsPerSession}`} accent={GOLD} />
-        <StatTile label="Cover saves" value={shielded} accent={BLUE_LT} />
-        <StatTile label="Best streak" value={`x${combo}`} accent={GREEN_LT} />
+        <StatTile label="Coins" value={`${coins}/${GAME_CONFIG.coinsPerSession}`} accent={GOLD_LT} />
+        <StatTile label="Saves" value={shielded} accent="#A8C8FF" />
+        <StatTile label="Streak" value={`x${combo}`} accent={GREEN_LT} />
       </div>
 
       <button
         onClick={handleShare}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          background: BLUE_LT, color: '#fff', fontWeight: 900,
-          height: 50, borderRadius: 12, border: 'none', cursor: 'pointer',
-          fontSize: 17, textTransform: 'uppercase', letterSpacing: '0.05em',
-          boxShadow: '0 4px 18px rgba(30,107,224,0.4)',
+          background: BLUE_BTN, color: '#fff', fontWeight: 900,
+          height: BTN_H, borderRadius: 12, border: 'none', cursor: 'pointer',
+          fontSize: BTN_FS, textTransform: 'uppercase', letterSpacing: '0.05em',
+          boxShadow: '0 4px 18px rgba(44,123,240,0.4)',
           width: '100%', maxWidth: 300, marginBottom: 18, zIndex: 2,
         }}
       >
@@ -710,27 +823,27 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
       {/* Lead / booking card */}
       <div style={{
         width: '100%', maxWidth: 360,
-        background: 'rgba(255,255,255,0.05)',
+        background: 'rgba(255,255,255,0.06)',
         WebkitBackdropFilter: 'blur(12px)',
         backdropFilter: 'blur(12px)',
-        borderRadius: 22, padding: '18px 16px',
-        border: '1px solid rgba(255,255,255,0.12)',
-        textAlign: 'center', marginBottom: 16, zIndex: 2,
+        borderRadius: 22, padding: `${SP.lg + 2}px ${SP.lg}px`,
+        border: '1px solid rgba(255,255,255,0.16)',
+        textAlign: 'center', marginBottom: SP.lg, zIndex: 2,
       }}>
-        <p style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.35, margin: '0 0 16px 0' }}>
+        <p style={{ color: INK, fontSize: 15, fontWeight: 700, lineHeight: 1.35, margin: `0 0 ${SP.lg}px 0` }}>
           Markets bounce both ways. A specialist can show you how cover keeps your goals funded either way.
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm + 2 }}>
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', display: 'flex' }}>
             <button
               onClick={onBookSlot}
               style={{
-                width: '100%',
-                background: `linear-gradient(180deg, ${ORANGE_LT} 0%, ${ORANGE} 100%)`,
-                color: '#fff', fontWeight: 900, padding: '15px 20px', borderRadius: 12,
+                width: '100%', height: BTN_H,
+                background: ORANGE_GRAD,
+                color: '#fff', fontWeight: 900, borderRadius: 12,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                fontSize: 17, border: 'none', cursor: 'pointer', textTransform: 'uppercase',
+                fontSize: BTN_FS, border: 'none', cursor: 'pointer', textTransform: 'uppercase',
                 boxShadow: '0 4px 16px rgba(242,101,34,0.35)',
               }}
             >
@@ -743,11 +856,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             <a
               href={`tel:${empPhone}`}
               style={{
-                background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: 900,
-                padding: '14px 20px', borderRadius: 12,
+                background: 'rgba(255,255,255,0.06)', color: INK, fontWeight: 900,
+                height: BTN_H, borderRadius: 12,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 fontSize: 16, textDecoration: 'none', textTransform: 'uppercase',
-                border: '1px solid rgba(255,255,255,0.18)',
+                border: '1px solid rgba(255,255,255,0.22)',
               }}
             >
               <PhoneIcon />
@@ -758,13 +871,13 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
       </div>
 
       {/* Retry / Home */}
-      <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 360, marginBottom: 16, zIndex: 2 }}>
+      <div style={{ display: 'flex', gap: SP.sm + 2, width: '100%', maxWidth: 360, marginBottom: SP.lg, zIndex: 2 }}>
         <button
           onClick={onRetry}
           style={{
-            flex: 2, height: 48, borderRadius: 12, cursor: 'pointer',
-            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
-            color: '#fff', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
+            flex: 2, height: BTN_H, borderRadius: 12, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.22)',
+            color: INK, fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
         >
@@ -774,9 +887,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         <button
           onClick={onHome}
           style={{
-            flex: 1, height: 48, borderRadius: 12, cursor: 'pointer',
-            background: 'transparent', border: '1px solid rgba(255,255,255,0.18)',
-            color: 'rgba(255,255,255,0.72)', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
+            flex: 1, height: BTN_H, borderRadius: 12, cursor: 'pointer',
+            background: 'transparent', border: '1px solid rgba(255,255,255,0.22)',
+            color: '#D5DEEA', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
         >
@@ -785,9 +898,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         </button>
       </div>
 
-      <div style={{ width: '100%', maxWidth: 360, opacity: 0.4, padding: '0 12px 20px', zIndex: 2 }}>
-        <p style={{ fontSize: 8, textAlign: 'center', color: '#fff', lineHeight: 1.4, fontWeight: 'bold', margin: 0 }}>
-          <span style={{ opacity: 0.7, marginRight: 4 }}>Disclaimer:</span>
+      <div style={{ width: '100%', maxWidth: 360, padding: `0 ${SP.md}px ${SP.xl - 4}px`, zIndex: 2 }}>
+        <p style={{ fontSize: 9, textAlign: 'center', color: INK_FAINT, lineHeight: 1.45, fontWeight: 600, margin: 0 }}>
+          <span style={{ color: '#7C8CA2', marginRight: 4 }}>Disclaimer:</span>
           The results shown in this game are indicative and based solely on the information provided by the participant. They are intended for engagement and awareness purposes only and do not constitute financial advice or a recommendation to purchase any life insurance product. Participants should seek independent professional advice before making any financial or insurance decisions. While due care has been taken in designing the game, Bajaj Life Insurance Ltd. assumes no liability for its outcomes.
         </p>
       </div>

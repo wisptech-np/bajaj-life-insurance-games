@@ -139,3 +139,75 @@ gesture and suspended on pause. Full teardown on unmount.
    of a loop the trail is necessarily short.
 3. `kit/input.js` is single-pointer (kit-inherited): a resting second finger
    swallows input. Documented repo-wide; kit is immutable.
+
+## 2026-07-31 — Lead-form slim, animation-first tutorial, asset prompt sheet
+
+**G1 — email field removed from lead capture** (`src/LeadCaptureModal.jsx`)
+
+- Deleted `EMAIL_RE`, the `email` `useState` seeded from
+  `sessionStorage.lastSubmittedEmail`, the whole "Email Field"
+  `<div className="sl-lead-field">` block and the `errs.email` branch of
+  `validate()`.
+- Removed the `sessionStorage.setItem('lastSubmittedEmail', …)` write and the
+  `email` key from the `submitToLMS({…})` call and from both `onSubmitted({…})`
+  payloads.
+- `src/api.js` untouched — `submitToLMS` already sends `email_id: email || ''`,
+  so the LMS request body is unchanged.
+- Grep of the game folder afterwards is clean outside `src/kit/` and
+  `src/api.js`; `ThankYouScreen.jsx` and `SlotBookingModal.jsx` never read the
+  field.
+- Name, Mobile and the T&C checkbox untouched.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first** (`src/Screens.jsx`)
+
+- Deleted all three numbered instruction paragraphs and the "VAULT" text label
+  that sat inside the old demo box. `GAME_CONFIG` is still imported — it is
+  used by `ResultsScreen` for the loops/coins stat tiles — but no longer
+  referenced on this screen.
+- New 7 s CSS `@keyframes` loop (`LE_TUT_CSS`) that plays the whole time-loop
+  co-op idea in one pass, in the canvas's own colour grammar: the orange living
+  guardian is dragged by a finger glyph out into the left wing onto a pressure
+  plate, the plate latches green and the blue vault gate slides open; a cyan
+  scrub band sweeps up the frame and the loop rewinds, snapping the guardian
+  back to spawn and briefly dropping the plate and gate; the loop-1 **echo**
+  fades in on that plate at 60% opacity and holds it, re-opening the gate; the
+  finger then drags the guardian up the spine, it picks up the gold policy
+  chest, passes through the open gate and the dashed family-vault mouth at the
+  top flares gold.
+- Everything is one inline `<svg viewBox="0 0 300 200">` — spine walls
+  `#233B6E`, floor `rgba(16,29,60,.75)`, plate `#4ADE80`, gate `#2C4C8F`,
+  living body `#F26522`/`#FFD9B8`, echo `#4FC3F7`/`#B3E5FC` (that is
+  `GHOST_TINTS[0]`), chest `#FFC845`/`#B07B12`. Shared `TutBody` helper draws
+  the same core+shell+halo disc the canvas draws.
+- The gate uses `transform-box: fill-box; transform-origin: left center` so it
+  retracts into the left wall instead of shrinking about its middle.
+- Remaining text is exactly: the "How to Play" heading, three icon-led labels
+  ("Drag to move" / "Echoes hold plates" / "Carry chest home", 3 words each,
+  each with an inline SVG glyph) and the "Play" button.
+- Card padding tightened to `22px 18px 20px`, outer padding 18 px and
+  `overflow: hidden` — the card is ~420 px tall so 360×640 fits with no scroll.
+- `prefers-reduced-motion` disables the whole demo.
+- `rules.js`, the canvas component, HUD, balance, `gate.mjs` and
+  `ResultsScreen` all untouched.
+
+**G3 — `asset-from-here.md`**
+
+- New `legacy-echo/asset-from-here.md`, 14 Nano Banana prompts.
+- Motif chosen for this game: **long-exposure light-painting in a black marble
+  vault** — architecture is unlit polished stone catching only a cold rim
+  light, and everything that moves is pure emitted light with
+  persistence-of-vision smear. It is the one motif in this batch that makes the
+  *ghost/after-image* idea the whole art direction, which is exactly the
+  game's hook.
+- The sheet restates the `data.js` colour grammar (orange = the you that is
+  alive now, a cool tint = a recorded past self, green = held/open/safe, red =
+  the beam and only the beam) and pins the four `GHOST_TINTS` hues.
+- Covers: vault floor plate, living guardian orb, echo after-image (with the
+  three tint re-rolls), policy chest, idle and held pressure plates, vault
+  gate, hazard beam, sync lever, bonus coin, loop-pip HUD strip, rewind scrub
+  wipe, and both result states.
+
+**Verification**
+
+- `pnpm install` — OK.
+- `pnpm build` (vite --mode uat) — **passes**, `✓ built in 3.37s`.

@@ -242,6 +242,111 @@ export function HomeScreen({ onStart }) {
   );
 }
 
+/* ─── How to play ────────────────────────────────────────── */
+/**
+ * Animation-first tutorial. One looping SVG demo of the actual time-loop
+ * co-op: drag the living guardian onto a plate, the loop rewinds, your run
+ * comes back as a cyan echo that keeps that plate held, and the now-open vault
+ * gate lets you carry the policy chest up the spine into the family vault.
+ * Palette and shapes are the canvas ones (COLORS + GHOST_TINTS[0]).
+ */
+const LE_TUT_CSS = `
+@keyframes leTutHero {
+  0%, 4%   { transform: translate(0px, 0px); }
+  26%, 34% { transform: translate(-90px, -32px); }
+  37%, 44% { transform: translate(0px, 0px); }
+  72%, 96% { transform: translate(0px, -112px); }
+  100%     { transform: translate(0px, -112px); }
+}
+@keyframes leTutChest {
+  0%, 44%  { transform: translate(0px, 0px); }
+  72%, 96% { transform: translate(0px, -112px); }
+  100%     { transform: translate(0px, -112px); }
+}
+@keyframes leTutFinger {
+  0%   { opacity: 0; transform: translate(0px, 6px); }
+  5%   { opacity: 1; transform: translate(0px, 0px); }
+  26%, 32% { opacity: 1; transform: translate(-90px, -32px); }
+  34%, 43% { opacity: 0; transform: translate(-45px, -16px); }
+  46% { opacity: 1; transform: translate(0px, 0px); }
+  72%, 90% { opacity: 1; transform: translate(0px, -112px); }
+  96%, 100% { opacity: 0; transform: translate(0px, -112px); }
+}
+@keyframes leTutGhost {
+  0%, 38% { opacity: 0; }
+  44%, 96% { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+@keyframes leTutPlate {
+  0%, 22% { opacity: 0.25; }
+  28%, 34% { opacity: 1; }
+  38% { opacity: 0.25; }
+  44%, 96% { opacity: 1; }
+  100% { opacity: 0.25; }
+}
+@keyframes leTutDoor {
+  0%, 24% { transform: scaleX(1); }
+  30%, 34% { transform: scaleX(0.1); }
+  38%, 44% { transform: scaleX(1); }
+  50%, 96% { transform: scaleX(0.1); }
+  100% { transform: scaleX(1); }
+}
+@keyframes leTutRewind {
+  0%, 33% { opacity: 0; transform: translateY(0px); }
+  35% { opacity: 0.9; transform: translateY(0px); }
+  40% { opacity: 0.9; transform: translateY(-152px); }
+  42%, 100% { opacity: 0; transform: translateY(-152px); }
+}
+@keyframes leTutVault {
+  0%, 70% { opacity: 0.3; }
+  76%, 94% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+.le-tut-hero   { animation: leTutHero 7s cubic-bezier(0.4,0,0.2,1) infinite; }
+.le-tut-chest  { animation: leTutChest 7s cubic-bezier(0.4,0,0.2,1) infinite; }
+.le-tut-finger { animation: leTutFinger 7s cubic-bezier(0.4,0,0.2,1) infinite; }
+.le-tut-ghost  { animation: leTutGhost 7s ease-in-out infinite; }
+.le-tut-plate  { animation: leTutPlate 7s ease-in-out infinite; }
+.le-tut-door   { transform-box: fill-box; transform-origin: left center; animation: leTutDoor 7s ease-in-out infinite; }
+.le-tut-rewind { animation: leTutRewind 7s linear infinite; }
+.le-tut-vault  { animation: leTutVault 7s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .le-tut-hero, .le-tut-chest, .le-tut-finger, .le-tut-ghost,
+  .le-tut-plate, .le-tut-door, .le-tut-rewind, .le-tut-vault { animation: none !important; }
+}
+`;
+
+/** A guardian body: the same glowing disc the canvas draws. */
+function TutBody({ core, rim, glow, r = 11 }) {
+  return (
+    <>
+      <circle r={r + 5} fill={glow} />
+      <circle r={r} fill={rim} />
+      <circle cx={-r * 0.3} cy={-r * 0.3} r={r * 0.45} fill={core} />
+    </>
+  );
+}
+
+/** Icon-led label under the demo. Max three, max four words each. */
+function TutLabel({ icon, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      {icon}
+      <span style={{
+        fontSize: 9.5,
+        fontWeight: 900,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.82)',
+        lineHeight: 1.15,
+        textAlign: 'center',
+      }}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
   return (
     <motion.div
@@ -256,16 +361,18 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: '18px',
         background: ECHO_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: LE_TUT_CSS }} />
+
       <div style={{
         background: 'rgba(6, 16, 45, 0.65)',
         border: '1px solid rgba(255, 255, 255, 0.14)',
         borderRadius: 24,
-        padding: '28px 24px 24px',
+        padding: '22px 18px 20px',
         width: '100%',
         maxWidth: 360,
         boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
@@ -274,126 +381,106 @@ export function HowToPlayScreen({ onPlay }) {
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 26,
+          fontSize: 24,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 18px 0',
+          margin: '0 0 14px 0',
           color: '#fff',
           textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           How to Play
         </h2>
 
-        {/* CSS animation demo: the loop-relay in miniature */}
         <div style={{
           position: 'relative',
           width: '100%',
-          height: 170,
-          background: 'rgba(5, 12, 32, 0.6)',
+          background: 'linear-gradient(180deg, #0A1A38 0%, #070E22 100%)',
           borderRadius: 16,
           border: '1px solid rgba(255,255,255,0.06)',
           overflow: 'hidden',
-          marginBottom: 18,
+          marginBottom: 16,
         }}>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes tutGhost {
-              0%   { transform: translate(0, 0); opacity: 0; }
-              10%  { transform: translate(0, 0); opacity: 0.5; }
-              38%  { transform: translate(-64px, 26px); opacity: 0.5; }
-              92%  { transform: translate(-64px, 26px); opacity: 0.5; }
-              100% { transform: translate(-64px, 26px); opacity: 0; }
-            }
-            @keyframes tutHero {
-              0%, 40% { transform: translate(0, 0); opacity: 1; }
-              72%  { transform: translate(0, -58px); opacity: 1; }
-              88%  { transform: translate(0, -84px); opacity: 1; }
-              100% { transform: translate(0, -84px); opacity: 0; }
-            }
-            @keyframes tutDoor {
-              0%, 40% { transform: scaleX(1); }
-              52%, 92% { transform: scaleX(0.12); }
-              100% { transform: scaleX(1); }
-            }
-            @keyframes tutPlateGlow {
-              0%, 36% { opacity: 0.25; }
-              44%, 92% { opacity: 1; }
-              100% { opacity: 0.25; }
-            }
-          ` }} />
+          <svg width="100%" viewBox="0 0 300 200" aria-hidden="true" style={{ display: 'block' }}>
+            {/* Spine walls — the chest only fits between them. */}
+            <rect x="100" y="16" width="7" height="156" rx="3" fill="#233B6E" />
+            <rect x="193" y="16" width="7" height="156" rx="3" fill="#233B6E" />
+            <rect x="107" y="16" width="86" height="156" fill="rgba(16,29,60,0.75)" />
 
-          {/* Vault at top */}
-          <div style={{
-            position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
-            width: 54, height: 20, borderRadius: 6,
-            border: '2px dashed rgba(255,200,69,0.8)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ fontSize: 7, fontWeight: 900, color: '#FFE38A', letterSpacing: '0.1em' }}>VAULT</span>
-          </div>
+            {/* Family vault mouth at the top of the spine. */}
+            <g className="le-tut-vault">
+              <rect x="112" y="10" width="76" height="20" rx="6" fill="none"
+                stroke="#FFC845" strokeWidth="2.2" strokeDasharray="7 5" />
+              <path d="M138 26 L150 15 L162 26" fill="none" stroke="#FFE38A" strokeWidth="2.4"
+                strokeLinecap="round" strokeLinejoin="round" />
+            </g>
 
-          {/* Door bar */}
-          <div style={{
-            position: 'absolute', top: 52, left: 'calc(50% - 40px)', width: 80, height: 8,
-            background: 'linear-gradient(180deg,#2C4C8F,#16264C)', borderRadius: 3,
-            transformOrigin: 'left center',
-            animation: 'tutDoor 5s ease-in-out infinite',
-          }} />
+            {/* Vault gate across the spine — open only while its plate is held. */}
+            <rect className="le-tut-door" x="103" y="72" width="94" height="9" rx="4" fill="#2C4C8F" />
 
-          {/* Plate on the left */}
-          <div style={{
-            position: 'absolute', top: 96, left: 'calc(50% - 84px)',
-            width: 26, height: 26, borderRadius: '50%',
-            border: '2px solid #4ADE80',
-            animation: 'tutPlateGlow 5s ease-in-out infinite',
-            boxShadow: '0 0 10px rgba(74,222,128,0.6)',
-          }} />
+            {/* Pressure plate out in the left wing. */}
+            <g transform="translate(58 118)">
+              <circle r="17" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
+              <g className="le-tut-plate">
+                <circle r="14" fill="none" stroke="#4ADE80" strokeWidth="2.6" />
+                <circle r="6" fill="#4ADE80" />
+              </g>
+            </g>
 
-          {/* Ghost echo replaying toward the plate */}
-          <div style={{
-            position: 'absolute', top: 78, left: 'calc(50% + 40px)',
-            width: 20, height: 20, borderRadius: '50%',
-            background: 'radial-gradient(circle at 35% 30%, #B3E5FC, #4FC3F7)',
-            animation: 'tutGhost 5s ease-in-out infinite',
-          }} />
+            {/* Loop-1 echo, parked on the plate it finished on. */}
+            <g className="le-tut-ghost" transform="translate(58 118)">
+              <TutBody core="#B3E5FC" rim="#4FC3F7" glow="rgba(79,195,247,0.28)" />
+            </g>
 
-          {/* The living guardian carrying the chest */}
-          <div style={{
-            position: 'absolute', top: 120, left: 'calc(50% - 11px)',
-            width: 22, height: 22, borderRadius: '50%',
-            background: 'radial-gradient(circle at 35% 30%, #FFD9B8, #F26522)',
-            boxShadow: '0 0 12px rgba(242,101,34,0.7)',
-            animation: 'tutHero 5s ease-in-out infinite',
-          }}>
-            <div style={{
-              position: 'absolute', left: 4, top: 22, width: 14, height: 10, borderRadius: 3,
-              background: 'linear-gradient(180deg,#FFE38A,#B07B12)',
-            }} />
-          </div>
+            {/* The policy chest, carried once the guardian picks it up. */}
+            <g className="le-tut-chest" transform="translate(148 168)">
+              <rect x="-11" y="-8" width="22" height="16" rx="3" fill="#B07B12" />
+              <rect x="-11" y="-8" width="22" height="7" rx="3" fill="#FFC845" />
+              <rect x="-2.5" y="-4" width="5" height="7" rx="1.5" fill="#FFE38A" />
+            </g>
+
+            {/* The living guardian. */}
+            <g className="le-tut-hero" transform="translate(148 150)">
+              <TutBody core="#FFD9B8" rim="#F26522" glow="rgba(242,101,34,0.32)" />
+            </g>
+
+            {/* Rewind scrub between loops. */}
+            <rect className="le-tut-rewind" x="0" y="168" width="300" height="4"
+              fill="#4FC3F7" />
+
+            {/* The real input: a finger dragging the guardian. */}
+            <g className="le-tut-finger" transform="translate(148 150)">
+              <g transform="translate(0 6) scale(1.5)">
+                <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+                <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+                <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+                <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+              </g>
+            </g>
+          </svg>
         </div>
 
-        <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 13.5,
-          lineHeight: 1.45,
-          marginBottom: 20,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 11,
-        }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>1.</span>
-            <span><strong>Drag</strong> to move. You get <strong>{GAME_CONFIG.loops.count} loops of {GAME_CONFIG.loops.seconds}s</strong> — after each loop, your run replays as a living <strong>echo</strong>.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>2.</span>
-            <span>Vault gates open only while their <strong style={{ color: '#4ADE80' }}>plates are held</strong> — gate 3 needs 3 bodies at once. Stand on plates now so your echoes hold them later. Echoes can also block the <strong style={{ color: '#FF8B8B' }}>red beam</strong> and sync the twin levers.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>3.</span>
-            <span>On a later loop, carry the <strong style={{ color: '#FFE38A' }}>policy chest</strong> up the middle, through every open gate, into the <strong>family vault</strong> before loop {GAME_CONFIG.loops.count} ends. Grab coins for bonus points.</span>
-          </div>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <circle cx="9" cy="9" r="6" fill="#F26522" />
+              <path d="M14 17 L21 21 M21 21 L19 15 M21 21 L15 19" stroke="#FF8A3D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          }>Drag to move</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <circle cx="9" cy="10" r="5.5" fill="#4FC3F7" opacity="0.6" />
+              <circle cx="16" cy="10" r="5.5" fill="#B39DDB" opacity="0.45" />
+              <path d="M4 21 H22" stroke="#4ADE80" strokeWidth="3.2" strokeLinecap="round" />
+            </svg>
+          }>Echoes hold plates</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <rect x="4" y="12" width="18" height="11" rx="2.5" fill="#B07B12" />
+              <rect x="4" y="12" width="18" height="5" rx="2.5" fill="#FFC845" />
+              <path d="M8 8 L13 3 L18 8" stroke="#FFE38A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+          }>Carry chest home</TutLabel>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
@@ -414,7 +501,7 @@ export function HowToPlayScreen({ onPlay }) {
               cursor: 'pointer',
             }}
           >
-            Play Game
+            Play
           </button>
         </motion.div>
       </div>

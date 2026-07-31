@@ -118,9 +118,19 @@ function isChainRing(cfg, i) {
   return (i - f.chainStartRing) % f.chainEveryRings < f.chainLength;
 }
 
+/**
+ * Eased depth for every difficulty lerp: gap width, crash coverage, crash arc
+ * count and the late descent speed-up all ride this one curve, so the tower
+ * gets harder as a whole rather than in unrelated steps. `rampExp > 1` keeps the
+ * top of the tower near the easy end of every pair and back-loads the squeeze.
+ */
+function difficultyT(cfg, index) {
+  return Math.pow(clamp(index / cfg.tower.rings, 0, 1), cfg.arcs.rampExp);
+}
+
 function buildHazardRing(cfg, rand, index, prevGapCenter) {
   const A = cfg.arcs;
-  const t = clamp(index / cfg.tower.rings, 0, 1);
+  const t = difficultyT(cfg, index);
   const gapSpan = lerp(A.gapSpanDeg[0], A.gapSpanDeg[1], t);
 
   // Crash budget is whatever is left after the guaranteed landing run and a
@@ -305,7 +315,21 @@ function buildPaints(ctx, cfg, W, H, R, innerR, ballR) {
   feverBall.addColorStop(0.4, COLORS.orangeLt);
   feverBall.addColorStop(1, '#B93F09');
 
-  return { sky, core, topFade, depthFog, glow, ball, feverBall, fog: buildFogPalette(cfg) };
+  // Over-fall stress: the shield loses its blue and goes to hot metal.
+  const stressBall = ctx.createRadialGradient(-ballR * 0.34, -ballR * 0.38, 1, 0, 0, ballR);
+  stressBall.addColorStop(0, '#FFE2E2');
+  stressBall.addColorStop(0.38, '#FF6A4A');
+  stressBall.addColorStop(1, '#7A0F0F');
+
+  // Danger vignette for the same state: clear in the middle, red at the edges.
+  const vignette = ctx.createRadialGradient(
+    cx, H * 0.5, Math.min(W, H) * 0.26, cx, H * 0.5, Math.max(W, H) * 0.72,
+  );
+  vignette.addColorStop(0, 'rgba(239,68,68,0)');
+  vignette.addColorStop(0.55, 'rgba(239,68,68,0.16)');
+  vignette.addColorStop(1, 'rgba(239,68,68,0.72)');
+
+  return { sky, core, topFade, depthFog, glow, ball, feverBall, stressBall, vignette, fog: buildFogPalette(cfg) };
 }
 
 /* ─── Pseudo-3D arc drawing (all programmatic — no emoji, no images) ── */
@@ -382,6 +406,9 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
   const [over, setOver] = useState(false);
   const [feverOn, setFeverOn] = useState(false);
   const [smashes, setSmashes] = useState(0);
+  // Rings skipped in the current fall. Changes at most once per ring, so React
+  // state is fine here — the per-frame values still go straight to the DOM.
+  const [fallRings, setFallRings] = useState(0);
 
   // Latest callbacks without re-running the setup effect (which would restart
   // the run every time App re-renders).
@@ -420,6 +447,11 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       feverLitThisFall: false,
       streak: 0,
       bestStreak: 0,
+      // 0 while the fall is safe, then 0..1 across the telegraphed rings before
+      // the over-fall destroy. Drives the ball's colour, its crackle, the
+      // vignette and the HUD tint.
+      stress: 0,
+      shownStreak: -1,
       smashes: 0,
       score: 0,
       scoreShown: 0,
@@ -471,7 +503,12 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
 
     const N = cfg.tower.rings;
     const gapPx = cfg.tower.ringGapPx;
-    const GRAV = BOUNCE_GRAVITY;
+
+    // Depth speed-up. Scaling launch speed by k and gravity by k^2 shortens the
+    // bounce period to T/k and leaves the apex at exactly bounceHeightPx: deep
+    // rings give you less time to aim without the ball changing weight on screen.
+    const speedK = () => lerp(1, cfg.ball.lateSpeedup, difficultyT(cfg, s.depth));
+    const launchSpeed = () => BOUNCE_SPEED * speedK();
 
     /* --- canvas sizing --------------------------------------------------- */
     // Contact width depends on the measured tower radius, so the tower is built
@@ -516,7 +553,7 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
     s.tower = tower;
     s.camY = 0;
     s.ballY = 0;
-    s.ballVY = -BOUNCE_SPEED;
+    s.ballVY = -launchSpeed();
     s.rot = norm360(90 - tower[0].gapCenter + 150); // start clear of the first gap
 
     // Milestone copy, resolved once. milestoneFor() builds a template string, and
@@ -586,13 +623,24 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
         haptic('failure');
         fx.addShake(cfg.fx.damageShake * 1.4);
         s.squashT = cfg.ball.squashSeconds;
+        const causeColor = cause === 'timeout' ? COLORS.orangeLt
+          : cause === 'overfall' ? COLORS.danger : COLORS.virus;
         fx.burst({
-          x: bx, y: by, count: cfg.fx.hitParticles,
-          color: cause === 'timeout' ? COLORS.orangeLt : COLORS.virus,
+          x: bx, y: by, count: cfg.fx.hitParticles, color: causeColor,
           speed: 260, spread: TAU, size: 4, life: 0.8, gravity: 640, drag: 0.9,
         });
+        // The over-fall death also throws shell fragments — the ball did not get
+        // hit by something, it came apart.
+        if (cause === 'overfall') {
+          fx.burst({
+            x: bx, y: by, count: cfg.fx.hitParticles, color: '#FFE2E2',
+            speed: 380, spread: TAU, size: 3, life: 0.6, gravity: 520, drag: 0.88,
+          });
+        }
         fx.floatText(bx, Math.max(30, by - 44),
-          cause === 'timeout' ? 'TIME UP' : 'CRASH ZONE', COLORS.danger, 17);
+          cause === 'timeout' ? 'TIME UP'
+            : cause === 'overfall' ? 'BALL DESTROYED' : 'CRASH ZONE',
+          COLORS.danger, 17);
       }
 
       endTimerRef.current = setTimeout(() => {
@@ -634,13 +682,36 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       fx.floatText(p.x, Math.max(34, p.y - 40), 'FEVER', COLORS.goldLt, 17);
     };
 
+    /** Push the fall counter (and its stress ramp) to the HUD. */
+    const syncStreak = () => {
+      const { warnRings, maxRings } = cfg.fall;
+      s.stress = s.streak >= warnRings
+        ? clamp((s.streak - warnRings + 1) / (maxRings - warnRings + 1), 0, 1)
+        : 0;
+      if (s.shownStreak !== s.streak) {
+        s.shownStreak = s.streak;
+        setFallRings(s.streak);
+      }
+    };
+
     /** Descend past the ring plane the ball is on. */
     const passRing = () => {
       const planeY = s.depth * gapPx; // the plane being crossed, before the step
       s.depth += 1;
       s.streak += 1;
       if (s.streak > s.bestStreak) s.bestStreak = s.streak;
+      syncStreak();
       s.score += cfg.scoring.ring;
+
+      // Over-fall. The shield is cover, not a parachute: past `maxRings` rings
+      // in one uninterrupted fall it comes apart. The ring is still counted and
+      // still scored — you fell past it — and the check is deliberately NOT
+      // gated on fever: fever buys you through a crash arc, never through the
+      // drop itself.
+      if (s.streak > cfg.fall.maxRings) {
+        endRun(false, 'overfall');
+        return;
+      }
 
       const p = burstPoint(sampleDeg(), planeY);
       fx.burst({
@@ -648,7 +719,10 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
         speed: 130, spread: Math.PI, angle: -Math.PI / 2, size: 2.6, life: 0.34,
         gravity: 300, drag: 0.9,
       });
-      audio.combo(Math.min(s.streak, 8));
+      // Rising pass tone. Once the fall is in the danger band the pitch jumps a
+      // register and keeps climbing, so the ear hears the limit coming even if
+      // the thumb is covering the counter.
+      audio.combo(s.stress > 0 ? Math.min(4 + s.streak * 2, 12) : Math.min(s.streak, 8));
 
       if (s.streak >= cfg.fever.ringsPerStreak && s.fever <= 0 && !s.feverLitThisFall) {
         lightFever();
@@ -695,10 +769,11 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
 
     const landOn = (ring) => {
       s.ballY = s.depth * gapPx;
-      s.ballVY = -BOUNCE_SPEED;
+      s.ballVY = -launchSpeed();
       s.squashT = cfg.ball.squashSeconds;
       s.landRing = s.depth;
       s.streak = 0;
+      syncStreak();
       // A safe landing is what ends a fall, so it is what re-arms the fever.
       s.feverLitThisFall = false;
       ring.pulse = 1;
@@ -761,8 +836,13 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       }
 
       if (!s.ended) {
-        s.ballVY += GRAV * dt;
-        if (s.ballVY > cfg.ball.terminalVelocityPx) s.ballVY = cfg.ball.terminalVelocityPx;
+        const k = speedK();
+        s.ballVY += BOUNCE_GRAVITY * k * k * dt;
+        // A stressed fall drags: the ball is fighting the drop, and the slower
+        // ring cadence is what makes the destroy limit steerable rather than a
+        // coin flip at terminal velocity.
+        const vCap = s.stress > 0 ? cfg.fall.stressVelocityPx : cfg.ball.terminalVelocityPx;
+        if (s.ballVY > vCap) s.ballVY = vCap;
         s.ballY += s.ballVY * dt;
 
         // Resolve every ring plane crossed this step. A single step can never
@@ -909,6 +989,7 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       const r = cfg.ball.radiusPx;
       const y = ballScreenY();
       const feverOnNow = s.fever > 0;
+      const stress = s.stress;
 
       // Trail — fading discs behind a fast or flaming ball.
       if (s.trail.length > 1) {
@@ -916,7 +997,7 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
         for (let i = 0; i < s.trail.length; i++) {
           const a = (i + 1) / s.trail.length;
           ctx.globalAlpha = a * 0.3;
-          ctx.fillStyle = feverOnNow ? COLORS.orangeLt : COLORS.brandBlueLt;
+          ctx.fillStyle = stress > 0 ? COLORS.danger : feverOnNow ? COLORS.orangeLt : COLORS.brandBlueLt;
           ctx.beginPath();
           ctx.arc(s.cx, s.trail[i], r * (0.35 + a * 0.5), 0, TAU);
           ctx.fill();
@@ -960,14 +1041,34 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       }
 
       if (s.shadows) {
-        ctx.shadowColor = feverOnNow ? 'rgba(242,101,34,0.75)' : COLORS.brandBlueGlow;
-        ctx.shadowBlur = feverOnNow ? 20 : 14;
+        ctx.shadowColor = stress > 0 ? 'rgba(239,68,68,0.85)'
+          : feverOnNow ? 'rgba(242,101,34,0.75)' : COLORS.brandBlueGlow;
+        ctx.shadowBlur = stress > 0 ? 16 + stress * 12 : feverOnNow ? 20 : 14;
       }
-      ctx.fillStyle = feverOnNow ? s.paints.feverBall : s.paints.ball;
+      // Stress outranks fever on the shell: a flaming ball that is also one ring
+      // from coming apart must read as the second thing first.
+      ctx.fillStyle = stress > 0 ? s.paints.stressBall : feverOnNow ? s.paints.feverBall : s.paints.ball;
       ctx.beginPath();
       ctx.arc(0, 0, r, 0, TAU);
       ctx.fill();
       ctx.shadowBlur = 0;
+
+      // Crackle: fracture lines that multiply and jitter as the fall runs long.
+      if (stress > 0) {
+        const cracks = 3 + Math.round(stress * 3);
+        const jitter = Math.sin(s.time * 47) * 0.12 + Math.sin(s.time * 31) * 0.08;
+        ctx.strokeStyle = stress > 0.75 ? '#FFF3F3' : 'rgba(255,226,226,0.85)';
+        ctx.lineWidth = 1.2 + stress * 1.1;
+        ctx.lineJoin = 'round';
+        for (let i = 0; i < cracks; i++) {
+          const a = (i / cracks) * TAU + jitter;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * r * 0.08, Math.sin(a) * r * 0.08);
+          ctx.lineTo(Math.cos(a + 0.22) * r * 0.5, Math.sin(a + 0.22) * r * 0.5);
+          ctx.lineTo(Math.cos(a - 0.16) * r * 0.82, Math.sin(a - 0.16) * r * 0.82);
+          ctx.stroke();
+        }
+      }
 
       // Shield crest — the ball is cover, not a marble.
       ctx.fillStyle = 'rgba(255,255,255,0.92)';
@@ -980,7 +1081,7 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       ctx.lineTo(-r * 0.46, -r * 0.3);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = feverOnNow ? COLORS.orange : COLORS.brandBlue;
+      ctx.strokeStyle = stress > 0 ? '#7A0F0F' : feverOnNow ? COLORS.orange : COLORS.brandBlue;
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
       ctx.beginPath();
@@ -1052,6 +1153,16 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
       ctx.fillRect(0, H - H * 0.34, W, H * 0.34);
       ctx.fillStyle = paints.topFade;
       ctx.fillRect(0, 0, W, 118);
+
+      // Danger vignette — the last layer, so the whole frame reddens while the
+      // fall is over-running. Pulses faster the closer the ball is to breaking.
+      if (s.stress > 0) {
+        ctx.save();
+        ctx.globalAlpha = s.stress * (0.62 + 0.38 * Math.abs(Math.sin(s.time * (7 + s.stress * 7))));
+        ctx.fillStyle = paints.vignette;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
 
       /* --- HUD values written straight to the DOM ---------------------
          The score counter and ring readout change many times a second. Routing
@@ -1133,6 +1244,7 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
   }, []);
 
   const lowTime = timeLeft <= cfg.hud.lowTimeSeconds;
+  const danger = fallRings >= cfg.fall.warnRings;
 
   return (
     <div style={styles.root}>
@@ -1171,8 +1283,28 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
           </div>
         </div>
 
-        {/* Fever + smash indicators ---------------------------------- */}
+        {/* Fall counter + fever + smash indicators -------------------- */}
         <div style={styles.statusWrap}>
+          {fallRings > 0 && (
+            <div
+              className={danger ? 'ss-fever' : undefined}
+              style={{
+                ...styles.status,
+                borderColor: danger ? 'rgba(239,68,68,0.85)' : 'rgba(255,255,255,0.18)',
+                background: danger ? 'rgba(239,68,68,0.22)' : 'rgba(255,255,255,0.05)',
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+                stroke={danger ? COLORS.danger : '#fff'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 5l6 6 6-6M6 13l6 6 6-6" />
+              </svg>
+              <span style={{ color: danger ? '#FFD9D9' : '#fff' }}>
+                {/* Clamped: the fatal 5th ring would otherwise leave a "5/4"
+                    on screen for the whole end beat, which reads as a bug. */}
+                Fall {Math.min(fallRings, cfg.fall.maxRings)}/{cfg.fall.maxRings}
+              </span>
+            </div>
+          )}
           {feverOn && (
             <div className="ss-fever" style={{ ...styles.status, borderColor: 'rgba(255,138,61,0.6)' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill={COLORS.orangeLt} aria-hidden="true">
@@ -1202,8 +1334,8 @@ export default function SpiralSprintGame({ config, onWin, onLose }) {
         {hint && !over && (
           <div style={styles.hintWrap} className="ss-hint">
             <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>Drag</strong> to spin the tower &middot;
-              drop through the gaps
+              <strong style={{ color: COLORS.orangeLt }}>Drag</strong> to spin &middot; land within{' '}
+              <strong style={{ color: COLORS.danger }}>{cfg.fall.maxRings}</strong> drops
             </div>
           </div>
         )}

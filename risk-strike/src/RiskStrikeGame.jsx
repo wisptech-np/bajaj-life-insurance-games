@@ -101,7 +101,7 @@ function makePinSprite({ w, h, dpr, spikes = 7 }) {
   const g = c.createLinearGradient(-bw, 0, bw, -h);
   g.addColorStop(0, COLORS.virusDeep);
   g.addColorStop(0.42, COLORS.virus);
-  g.addColorStop(1, '#B6FBAE');
+  g.addColorStop(1, '#9CF08F');
   c.fillStyle = g;
   c.fill(body);
 
@@ -122,10 +122,33 @@ function makePinSprite({ w, h, dpr, spikes = 7 }) {
   c.beginPath();
   c.ellipse(-bw * 0.42, -h * 0.36, bw * 0.2, h * 0.16, 0, 0, Math.PI * 2);
   c.fill();
+
+  // Depth: a directional shade across the belly, so the bottle is a cylinder
+  // rather than a flat green blob at the 12 px it actually renders at.
+  const shade = c.createLinearGradient(-bw, 0, bw, 0);
+  shade.addColorStop(0, 'rgba(3,26,11,0)');
+  shade.addColorStop(0.5, 'rgba(3,26,11,0.3)');
+  shade.addColorStop(1, 'rgba(3,26,11,0.78)');
+  c.fillStyle = shade;
+  c.fillRect(-bw * 1.1, -h * 1.05, bw * 2.2, h * 1.1);
+
+  // Rim light, inside the silhouette: cool key from the arena above, then a
+  // warm impact rim from the game's orange accent. Two lights read as volume;
+  // one reads as an outline.
+  c.lineWidth = Math.max(1.1, w * 0.13);
+  c.strokeStyle = COLORS.virusRim;
+  c.globalAlpha = 0.5;
+  c.stroke(body);
+  c.lineWidth = Math.max(0.8, w * 0.07);
+  c.strokeStyle = COLORS.impact;
+  c.globalAlpha = 0.42;
+  c.stroke(body);
+  c.globalAlpha = 1;
   c.restore();
 
-  c.strokeStyle = 'rgba(6,44,20,0.55)';
-  c.lineWidth = Math.max(0.6, w * 0.05);
+  // Outer contour last: the silhouette has to hold against a near-black lane.
+  c.strokeStyle = 'rgba(2,18,8,0.8)';
+  c.lineWidth = Math.max(0.7, w * 0.06);
   c.stroke(body);
 
   return { cv, w: w + pad * 2, h: h + pad * 2, pad };
@@ -146,21 +169,21 @@ function buildPaints(ctx, s, cfg) {
 
   const deckY = projY(s, projK(s, cfg.lane.length));
   const wall = ctx.createLinearGradient(0, s.horizonY - H * 0.12, 0, deckY);
-  wall.addColorStop(0, '#071B3C');
-  wall.addColorStop(0.55, '#0B2C58');
-  wall.addColorStop(1, '#061428');
+  wall.addColorStop(0, '#040811');
+  wall.addColorStop(0.55, '#0A1428');
+  wall.addColorStop(1, '#04080F');
 
   const nearY = s.nearY;
   const farY = projY(s, projK(s, cfg.lane.length + cfg.lane.deckDepth));
   const lane = ctx.createLinearGradient(0, farY, 0, nearY);
   lane.addColorStop(0, COLORS.laneFar);
-  lane.addColorStop(0.55, '#1B4480');
+  lane.addColorStop(0.55, COLORS.laneMid);
   lane.addColorStop(1, COLORS.laneNear);
 
   const gloss = ctx.createLinearGradient(0, farY, 0, nearY);
-  gloss.addColorStop(0, 'rgba(180,214,255,0.0)');
-  gloss.addColorStop(0.45, 'rgba(180,214,255,0.10)');
-  gloss.addColorStop(1, 'rgba(214,236,255,0.26)');
+  gloss.addColorStop(0, 'rgba(160,200,255,0.0)');
+  gloss.addColorStop(0.45, 'rgba(160,200,255,0.07)');
+  gloss.addColorStop(1, 'rgba(190,220,255,0.18)');
 
   const gutter = ctx.createLinearGradient(0, farY, 0, nearY);
   gutter.addColorStop(0, COLORS.gutterLow);
@@ -168,24 +191,93 @@ function buildPaints(ctx, s, cfg) {
 
   const approach = ctx.createLinearGradient(0, nearY - 10, 0, H);
   approach.addColorStop(0, COLORS.approach);
-  approach.addColorStop(1, '#0A1122');
+  approach.addColorStop(1, '#03060D');
 
   const br = cfg.ball.radius * s.pxPerU;
   const ball = ctx.createRadialGradient(-br * 0.36, -br * 0.4, br * 0.1, 0, 0, br);
-  ball.addColorStop(0, '#BBD9FF');
-  ball.addColorStop(0.4, COLORS.brandBlueLt);
-  ball.addColorStop(1, '#00205C');
+  ball.addColorStop(0, '#D6E8FF');
+  ball.addColorStop(0.38, COLORS.brandBlueLt);
+  ball.addColorStop(1, '#001A4A');
 
-  const vignette = ctx.createLinearGradient(0, 0, 0, H * 0.24);
-  vignette.addColorStop(0, 'rgba(6,16,34,0.8)');
-  vignette.addColorStop(1, 'rgba(6,16,34,0)');
+  // Arena bloom behind the deck: one soft pool of light that the pins stand
+  // inside. It is the only bright thing in the backdrop, so the eye lands on
+  // the deck before anything else.
+  const bloomR = Math.max(60, W * 0.62);
+  const deckGlow = ctx.createRadialGradient(s.cx, deckY, 0, s.cx, deckY, bloomR);
+  deckGlow.addColorStop(0, 'rgba(46,123,240,0.30)');
+  deckGlow.addColorStop(0.42, 'rgba(24,64,140,0.14)');
+  deckGlow.addColorStop(1, 'rgba(6,12,26,0)');
 
-  return { hall, wall, lane, gloss, gutter, approach, ball, vignette };
+  // The foul line is screen-anchored, so its gradient belongs here rather than
+  // being rebuilt on every frame inside drawLane.
+  const halfNear = cfg.lane.halfWidth * s.pxPerU;
+  const foul = ctx.createLinearGradient(s.cx - halfNear, 0, s.cx + halfNear, 0);
+  foul.addColorStop(0, 'rgba(255,106,26,0)');
+  foul.addColorStop(0.5, COLORS.foulLine);
+  foul.addColorStop(1, 'rgba(255,106,26,0)');
+
+  const vignette = ctx.createLinearGradient(0, 0, 0, H * 0.26);
+  vignette.addColorStop(0, 'rgba(3,6,14,0.88)');
+  vignette.addColorStop(1, 'rgba(3,6,14,0)');
+
+  return { hall, wall, lane, gloss, gutter, approach, ball, deckGlow, foul, vignette, bloomR };
+}
+
+/* ─── Shockwave rings ────────────────────────────────────────
+   The signature of this game. Every impact pushes a ring out along the lane
+   plane, so it is drawn as a flattened ellipse rather than a circle: a circle
+   would read as a HUD overlay, an ellipse reads as energy on the ground.
+
+   Fixed-size pool, recycled oldest-first. Nothing is allocated per impact — a
+   full rack collapse fires a dozen of these inside 200 ms. */
+function createRings(cap) {
+  const a = new Array(cap);
+  for (let i = 0; i < cap; i++) {
+    a[i] = { x: 0, y: 0, t: 0, life: 0, r0: 0, r1: 0, w: 2, flat: 0.34, color: '#fff' };
+  }
+  return { a, cursor: 0 };
+}
+
+function spawnRing(rs, x, y, r0, r1, life, w, color, flat = 0.34) {
+  const r = rs.a[rs.cursor];
+  rs.cursor = (rs.cursor + 1) % rs.a.length;
+  r.x = x; r.y = y; r.t = 0; r.life = life;
+  r.r0 = r0; r.r1 = r1; r.w = w; r.color = color; r.flat = flat;
+}
+
+function updateRings(rs, dt) {
+  for (let i = 0; i < rs.a.length; i++) {
+    const r = rs.a[i];
+    if (r.life > 0) {
+      r.t += dt;
+      if (r.t >= r.life) r.life = 0;
+    }
+  }
+}
+
+function drawRings(ctx, rs) {
+  for (let i = 0; i < rs.a.length; i++) {
+    const r = rs.a[i];
+    if (r.life <= 0) continue;
+    const p = r.t / r.life;
+    const rr = lerp(r.r0, r.r1, Easing.outCubic(p));
+    ctx.globalAlpha = (1 - p) * (1 - p);
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = Math.max(1, r.w * (1 - p * 0.75));
+    ctx.beginPath();
+    ctx.ellipse(r.x, r.y, rr, Math.max(1, rr * r.flat), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
 }
 
 /* ─── Draw helpers (all programmatic — no emoji, no images) ── */
 
-/** The hall behind the deck: masking unit, light bars, and a soft floor glow. */
+/**
+ * The arena behind the deck. Quiet on purpose: one bloom, one breathing ring
+ * set, one dark masking slab. Everything here is low-value so the deck, the
+ * ball and the impact are the only things with contrast.
+ */
 function drawBackdrop(ctx, s, cfg, paints, time) {
   const kDeck = projK(s, cfg.lane.length + cfg.lane.deckDepth);
   const deckY = projY(s, kDeck);
@@ -194,37 +286,48 @@ function drawBackdrop(ctx, s, cfg, paints, time) {
   ctx.fillStyle = paints.wall;
   ctx.fillRect(0, 0, s.W, deckY);
 
-  // Masking unit above the pit — the panel a real house hangs over the deck.
-  const mw = halfFar * 3.4;
-  const mh = (deckY - s.horizonY) * 1.25;
+  // Target rings on the back wall — the game's motif stated once, statically,
+  // at the point the player is aiming at. Breathing, never loud.
+  const breathe = 0.5 + 0.5 * Math.sin(time * 1.1);
+  const baseR = halfFar * 1.5;
+  for (let i = 0; i < 3; i++) {
+    ctx.strokeStyle = i === 1 ? COLORS.impact : 'rgba(46,123,240,1)';
+    ctx.globalAlpha = (i === 1 ? 0.13 : 0.09) + breathe * 0.05;
+    ctx.lineWidth = i === 1 ? 2 : 1.2;
+    ctx.beginPath();
+    ctx.ellipse(s.cx, deckY - baseR * 0.28, baseR * (0.7 + i * 0.55), baseR * (0.5 + i * 0.4), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // Arena bloom: the pool of light the rack stands inside.
+  ctx.fillStyle = paints.deckGlow;
+  ctx.fillRect(s.cx - paints.bloomR, deckY - paints.bloomR, paints.bloomR * 2, paints.bloomR * 2);
+
+  // Masking slab over the pit, dark against the bloom so the pins have a
+  // silhouette to sit against.
+  const mw = halfFar * 3.6;
+  const mh = (deckY - s.horizonY) * 1.05;
   const mx = s.cx - mw / 2;
   const my = deckY - mh;
-  ctx.fillStyle = 'rgba(4,14,32,0.92)';
+  ctx.fillStyle = 'rgba(3,6,14,0.9)';
   ctx.beginPath();
-  ctx.roundRect(mx, my, mw, mh, Math.min(18, mw * 0.08));
+  ctx.roundRect(mx, my, mw, mh * 0.62, Math.min(14, mw * 0.06));
   ctx.fill();
-  ctx.strokeStyle = 'rgba(126,184,255,0.22)';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
+  // One ignition line under the slab: the accent, used once.
+  const bar = ctx.createLinearGradient(mx, 0, mx + mw, 0);
+  bar.addColorStop(0, 'rgba(255,106,26,0)');
+  bar.addColorStop(0.5, `rgba(255,106,26,${0.35 + breathe * 0.35})`);
+  bar.addColorStop(1, 'rgba(255,106,26,0)');
+  ctx.fillStyle = bar;
+  ctx.fillRect(mx, my + mh * 0.62 - 2, mw, 2);
 
-  // Two brand light bars, breathing.
-  const pulse = 0.5 + 0.5 * Math.sin(time * 1.4);
-  for (let i = 0; i < 2; i++) {
-    const by = my + mh * (0.28 + i * 0.3);
-    const g = ctx.createLinearGradient(mx, by, mx + mw, by);
-    g.addColorStop(0, 'rgba(0,61,166,0)');
-    g.addColorStop(0.5, i === 0 ? `rgba(30,107,224,${0.5 + pulse * 0.3})` : `rgba(242,101,34,${0.32 + pulse * 0.18})`);
-    g.addColorStop(1, 'rgba(0,61,166,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(mx, by, mw, Math.max(2, mh * 0.05));
-  }
-
-  // Pit shadow so the pins have something to stand against.
-  const pit = ctx.createLinearGradient(0, deckY - mh * 0.2, 0, deckY);
+  // Pit shadow.
+  const pit = ctx.createLinearGradient(0, deckY - mh * 0.24, 0, deckY);
   pit.addColorStop(0, 'rgba(0,0,0,0)');
-  pit.addColorStop(1, 'rgba(0,0,0,0.55)');
+  pit.addColorStop(1, 'rgba(0,0,0,0.7)');
   ctx.fillStyle = pit;
-  ctx.fillRect(mx, deckY - mh * 0.2, mw, mh * 0.2);
+  ctx.fillRect(mx, deckY - mh * 0.24, mw, mh * 0.24);
 }
 
 /** Lane surface, gutters, gloss, arrows and the foul line. */
@@ -315,26 +418,49 @@ function drawLane(ctx, s, cfg, paints, time) {
   ctx.closePath();
   ctx.fill();
 
-  // Aiming arrows.
+  // Pocket ring: the target, stated in the game's own ring language and
+  // pulsing so the thing worth aiming at is the thing that moves. Presentation
+  // only — it marks where the pocket already was.
+  const kPocket = projK(s, L.length - cfg.pins.spacing * 0.5);
+  const py = projY(s, kPocket);
+  const prBase = cfg.pins.spacing * 1.05 * s.pxPerU * kPocket;
+  const pulse = (time * 0.6) % 1;
+  for (let i = 0; i < 2; i++) {
+    const t = (pulse + i * 0.5) % 1;
+    ctx.globalAlpha = 0.3 * (1 - t);
+    ctx.strokeStyle = COLORS.impact;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.ellipse(s.cx, py, prBase * (0.5 + t * 0.9), prBase * (0.5 + t * 0.9) * 0.3, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // Aiming chevrons — open V marks rather than solid triangles, so they read as
+  // direction at the 6 px they render at.
   const kArrow = projK(s, L.length * L.arrowFrac);
   const ay = projY(s, kArrow);
-  const aw = cfg.pins.spacing * 0.34 * s.pxPerU * kArrow;
-  const ah = aw * 1.5;
-  ctx.fillStyle = COLORS.arrow;
+  const aw = cfg.pins.spacing * 0.32 * s.pxPerU * kArrow;
+  const ah = aw * 1.35;
+  ctx.strokeStyle = COLORS.arrow;
+  ctx.lineWidth = Math.max(1.2, aw * 0.34);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   for (let i = -2; i <= 2; i++) {
     const ax = projX(s, i * cfg.pins.spacing * 0.62, kArrow);
-    const off = Math.abs(i) * ah * 0.55;
+    const off = Math.abs(i) * ah * 0.6;
+    ctx.globalAlpha = i === 0 ? 1 : 0.6;
     ctx.beginPath();
-    ctx.moveTo(ax, ay - ah - off);
+    ctx.moveTo(ax - aw, ay - off);
+    ctx.lineTo(ax, ay - ah - off);
     ctx.lineTo(ax + aw, ay - off);
-    ctx.lineTo(ax - aw, ay - off);
-    ctx.closePath();
-    ctx.fill();
+    ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 
-  // Foul line.
-  ctx.strokeStyle = COLORS.foulLine;
-  ctx.lineWidth = 2;
+  // Foul line: a lit bar, not a hairline — it is the edge the throw starts from.
+  ctx.strokeStyle = paints.foul;
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(s.cx - edge(kNear), yNear);
   ctx.lineTo(s.cx + edge(kNear), yNear);
@@ -408,8 +534,8 @@ function drawPinLabel(ctx, s, cfg, p, offset, font) {
   const down = !p.standing;
 
   ctx.save();
-  ctx.globalAlpha = down ? 0.42 : 1;
-  ctx.strokeStyle = down ? 'rgba(255,255,255,0.2)' : 'rgba(126,184,255,0.5)';
+  ctx.globalAlpha = down ? 0.4 : 1;
+  ctx.strokeStyle = down ? 'rgba(255,255,255,0.16)' : 'rgba(255,138,61,0.45)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(cxp, cyp + 7);
@@ -418,14 +544,15 @@ function drawPinLabel(ctx, s, cfg, p, offset, font) {
 
   ctx.font = font;
   const w = ctx.measureText(p.label).width + 12;
-  ctx.fillStyle = down ? 'rgba(11,18,33,0.7)' : 'rgba(11,18,33,0.82)';
+  // Near-opaque plate: these sit over a bloom, and AA body contrast has to hold.
+  ctx.fillStyle = down ? 'rgba(4,8,16,0.8)' : 'rgba(4,8,16,0.92)';
   ctx.beginPath();
   ctx.roundRect(cxp - w / 2, cyp - 8, w, 16, 8);
   ctx.fill();
-  ctx.strokeStyle = down ? 'rgba(255,255,255,0.14)' : COLORS.brandBlueGlow;
+  ctx.strokeStyle = down ? 'rgba(255,255,255,0.14)' : 'rgba(255,138,61,0.55)';
   ctx.stroke();
 
-  ctx.fillStyle = down ? 'rgba(255,255,255,0.45)' : '#fff';
+  ctx.fillStyle = down ? 'rgba(255,255,255,0.5)' : '#fff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(p.label, cxp, cyp);
@@ -440,7 +567,7 @@ function drawPinLabel(ctx, s, cfg, p, offset, font) {
   ctx.restore();
 }
 
-/** The shield ball: trail, reflection, body, emblem. */
+/** The shield ball: timing rings, trail, reflection, body, emblem. */
 function drawBall(ctx, s, cfg, paints, b, trail, trailN, time, wobble, ready) {
   const k = projK(s, b.y);
   // A ball waiting to be thrown breathes, so the thing you are meant to touch
@@ -449,6 +576,22 @@ function drawBall(ctx, s, cfg, paints, b, trail, trailN, time, wobble, ready) {
   const wob = wobble ? Math.sin(time * 24) * r * 0.34 : 0;
   const sx = projX(s, b.x, k) + wob;
   const sy = projY(s, k);
+
+  // Timing rings on a ball at rest: two rings breathing outward off the ball,
+  // the same ring language the impacts use. This is the "touch here" signal.
+  if (ready) {
+    const cyc = (time * 0.72) % 1;
+    for (let i = 0; i < 2; i++) {
+      const t = (cyc + i * 0.5) % 1;
+      ctx.globalAlpha = 0.55 * (1 - t) * (1 - t);
+      ctx.strokeStyle = COLORS.impact;
+      ctx.lineWidth = 2 * (1 - t * 0.6);
+      ctx.beginPath();
+      ctx.ellipse(sx, sy + r * 0.45, r * (1.05 + t * 1.5), r * (1.05 + t * 1.5) * 0.36, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
 
   // Trail — oldest first so the newest sits on top.
   for (let i = 0; i < trailN; i++) {
@@ -486,10 +629,17 @@ function drawBall(ctx, s, cfg, paints, b, trail, trailN, time, wobble, ready) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.strokeStyle = 'rgba(190,222,255,0.75)';
-  ctx.lineWidth = Math.max(1, r * 0.08);
+  // Two rim lights on the ball as well: cool key from above-left, warm impact
+  // rim from below-right. Partial arcs, not a full outline — an outline flattens
+  // a sphere, a rim light rounds it.
+  ctx.lineWidth = Math.max(1, r * 0.09);
+  ctx.strokeStyle = 'rgba(214,232,255,0.85)';
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.94, 0, Math.PI * 2);
+  ctx.arc(0, 0, r * 0.93, Math.PI * 1.05, Math.PI * 1.75);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,138,61,0.8)';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.93, Math.PI * 0.1, Math.PI * 0.72);
   ctx.stroke();
 
   // Shield emblem, rolling with the ball.
@@ -509,41 +659,140 @@ function drawBall(ctx, s, cfg, paints, b, trail, trailN, time, wobble, ready) {
   ctx.restore();
 }
 
-/** Dotted aim line, truncated at the arrows, plus the live power meter. */
+/**
+ * Dotted aim line, truncated at the arrows, plus the power read.
+ *
+ * The power meter used to be a bar bolted to the right edge — a static panel
+ * miles from where the player is looking. It is now a ring around the ball
+ * itself: same information, at the point of action, in the game's own ring
+ * language. It fills clockwise from the top and goes hot at full power.
+ */
 function drawAim(ctx, s, cfg, path, n, power) {
   for (let i = 0; i < n; i++) {
     const y = path[i * 2 + 1];
     const k = projK(s, y);
     const t = i / Math.max(1, n - 1);
-    ctx.globalAlpha = 0.75 * (1 - t * 0.85);
-    ctx.fillStyle = i === n - 1 ? COLORS.orangeLt : '#BBD9FF';
+    ctx.globalAlpha = 0.8 * (1 - t * 0.8);
+    ctx.fillStyle = i === n - 1 ? COLORS.impactHot : '#CFE4FF';
     ctx.beginPath();
-    ctx.arc(projX(s, path[i * 2], k), projY(s, k), Math.max(1.2, 4.2 * k), 0, Math.PI * 2);
+    ctx.arc(projX(s, path[i * 2], k), projY(s, k), Math.max(1.3, 4.4 * k), 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
 
-  const bx = s.W - 26;
-  const by = s.H * 0.52;
-  const bh = s.H * 0.24;
-  ctx.fillStyle = 'rgba(11,18,33,0.6)';
+  const p = clamp(power, 0, 1);
+  const bk = projK(s, cfg.ball.startY);
+  const bx = projX(s, cfg.ball.startX, bk);
+  const by = projY(s, bk);
+  const rr = cfg.ball.radius * s.pxPerU * bk * 1.55;
+
+  ctx.lineWidth = Math.max(3, rr * 0.16);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
   ctx.beginPath();
-  ctx.roundRect(bx - 7, by - bh / 2, 14, bh, 7);
-  ctx.fill();
-  const fh = bh * clamp(power, 0, 1);
-  const g = ctx.createLinearGradient(0, by + bh / 2 - fh, 0, by + bh / 2);
-  g.addColorStop(0, COLORS.orangeLt);
-  g.addColorStop(1, COLORS.brandBlueLt);
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.roundRect(bx - 5, by + bh / 2 - fh, 10, fh, 5);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.roundRect(bx - 7, by - bh / 2, 14, bh, 7);
+  ctx.arc(bx, by, rr, 0, Math.PI * 2);
   ctx.stroke();
+
+  const g = ctx.createLinearGradient(bx - rr, by - rr, bx + rr, by + rr);
+  g.addColorStop(0, COLORS.brandBlueLt);
+  g.addColorStop(1, p > 0.86 ? COLORS.impactHot : COLORS.impact);
+  ctx.strokeStyle = g;
+  ctx.beginPath();
+  ctx.arc(bx, by, rr, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p);
+  ctx.stroke();
+
+  // Full power gets a hot tick so the ceiling is felt, not guessed.
+  if (p > 0.86) {
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = Math.max(1.5, rr * 0.08);
+    ctx.strokeStyle = COLORS.impactHot;
+    ctx.beginPath();
+    ctx.arc(bx, by, rr * 1.22, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
 }
+
+/* ─── HUD glyphs ─────────────────────────────────────────────
+   Every HUD readout is a glyph plus a number. No word labels: at 360 px the
+   word "Score" costs more width than the score does, and an impact burst says
+   the same thing faster. */
+const GS = { display: 'block', flexShrink: 0 };
+
+/** Score: an impact burst — the game's motif at 15 px. */
+function StrikeGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={GS}>
+      <circle cx="12" cy="12" r="3.4" fill={COLORS.impact} />
+      <circle cx="12" cy="12" r="6.4" stroke={COLORS.impactHot} strokeWidth="1.3" opacity="0.55" />
+      <g stroke={COLORS.impactHot} strokeWidth="2" strokeLinecap="round">
+        <path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6" />
+      </g>
+    </svg>
+  );
+}
+
+/** Risks down: the bottle silhouette the deck is made of. */
+function PinGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={GS}>
+      <path
+        d="M9 21v-5.8c0-2.1 1.1-2.7 1.1-4.2V6.4C10.1 4.9 10.8 3.6 12 3.6s1.9 1.3 1.9 2.8v4.6c0 1.5 1.1 2.1 1.1 4.2V21z"
+        fill={COLORS.greenLt} stroke={COLORS.virusDeep} strokeWidth="1.3" strokeLinejoin="round"
+      />
+      <rect x="9" y="13.4" width="6" height="1.9" fill="#fff" opacity="0.92" />
+    </svg>
+  );
+}
+
+/** Time: a ring with a hand — the same ring language as everything else. */
+function ClockGlyph({ hot }) {
+  const c = hot ? COLORS.orangeLt : 'rgba(255,255,255,0.9)';
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={GS}>
+      <circle cx="12" cy="12" r="8.4" stroke={c} strokeWidth="2" />
+      <path d="M12 7.2V12l3.2 2" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** The input itself: a thumb pad flicking up. */
+function FlickGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={GS}>
+      <path d="M12 20V6" stroke={COLORS.impact} strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M7.4 10.6 12 5.6l4.6 5" stroke={COLORS.impact} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="20.4" r="2.4" fill="#fff" />
+    </svg>
+  );
+}
+
+/** The hook: a swipe that turns. */
+function CurlGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={GS}>
+      <path d="M12 21C5 15.5 9 8 17 5.4" stroke={COLORS.brandBlueLt} strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M12.6 5.6 17.4 5l-1.2 4.6" stroke={COLORS.brandBlueLt} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Spare marks need more lift than #2E7BF0 to clear AA on the strip. */
+const SPARE_INK = '#9CC6FF';
+
+const BANNER_BG = {
+  strike: `linear-gradient(180deg, ${COLORS.impactHot} 0%, ${COLORS.gold} 55%, ${COLORS.impact} 100%)`,
+  spare: 'linear-gradient(180deg, rgba(46,123,240,0.97), rgba(0,45,124,0.97))',
+  miss: 'linear-gradient(180deg, rgba(255,90,90,0.96), rgba(104,16,16,0.96))',
+  count: 'linear-gradient(180deg, rgba(63,211,74,0.96), rgba(14,100,32,0.96))',
+};
+
+const BANNER_HALO = {
+  strike: 'rgba(255,106,26,0.22)',
+  spare: 'rgba(46,123,240,0.2)',
+  miss: 'rgba(255,90,90,0.2)',
+  count: 'rgba(63,211,74,0.18)',
+};
 
 /* ─── Component ──────────────────────────────────────────── */
 export default function RiskStrikeGame({ config, onWin, onLose }) {
@@ -625,6 +874,14 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       won: false,
       effects: null,
       audio: null,
+
+      // Impact signature.
+      rings: null,
+      flashT: 0,
+      flashLife: 1,
+      flashPeak: 0,
+      flashColor: '255,138,61',
+      hitStopped: false,
     };
   }
 
@@ -653,6 +910,7 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
     s.audio = audio;
     s.shadows = budget.shadows;
     s.rand = mulberry32((Math.random() * 0xffffffff) >>> 0);
+    s.rings = createRings(cfg.fx.shockCap);
     s.trail = new Float32Array(cfg.ball.trailPoints * 2);
     s.aimPath = new Float32Array(cfg.aim.previewDots * 2);
     s.order = new Uint8Array(10);
@@ -742,6 +1000,34 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       s.bannerT = cfg.fx.bannerSeconds;
     };
 
+    /** Full-screen impact flash. `rgb` is a bare "r,g,b" triple. */
+    const flash = (peak, life, rgb) => {
+      if (fx.reducedMotion) return;
+      s.flashT = life;
+      s.flashLife = life;
+      s.flashPeak = peak;
+      s.flashColor = rgb;
+    };
+
+    /** Where this throw's pinfall happened, in screen space. */
+    const impactPoint = () => {
+      let ix = 0;
+      let iy = 0;
+      let n = 0;
+      for (const p of s.throwState.pins) {
+        if (p.standing || p.gone) continue;
+        ix += p.x;
+        iy += p.y;
+        n += 1;
+      }
+      const k = projK(s, n ? iy / n : cfg.lane.length);
+      return {
+        x: clamp(projX(s, n ? ix / n : 0, k), 46, s.W - 46),
+        y: clamp(projY(s, k), 76, s.H - 92),
+        k,
+      };
+    };
+
     const endRun = (won, cause) => {
       if (s.ended) return;
       s.ended = true;
@@ -765,6 +1051,9 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       if (won) {
         audio.victory();
         haptic('success');
+        flash(cfg.fx.strikeFlashPeak, cfg.fx.flashSeconds * 1.4, '255,224,184');
+        spawnRing(s.rings, bx, by, 10, Math.max(120, s.W * 0.85), cfg.fx.shockStrikeSeconds * 1.3, 7, COLORS.impactHot);
+        spawnRing(s.rings, bx, by, 6, Math.max(90, s.W * 0.6), cfg.fx.shockStrikeSeconds, 5, COLORS.gold);
         fx.burst({
           x: bx, y: by, count: cfg.fx.winParticles, color: COLORS.gold,
           speed: 300, spread: Math.PI * 2, size: 5, life: 1.1, gravity: 420, drag: 0.93,
@@ -778,6 +1067,8 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
         audio.failure();
         haptic('failure');
         fx.addShake(cfg.fx.hitShake * 1.4);
+        flash(cfg.fx.flashPeak, cfg.fx.flashSeconds * 1.2, '255,90,90');
+        spawnRing(s.rings, bx, by, 8, Math.max(90, s.W * 0.6), cfg.fx.shockSeconds * 1.4, 5, COLORS.danger);
         fx.burst({
           x: bx, y: by, count: cfg.fx.pinParticles, color: COLORS.virus,
           speed: 210, spread: Math.PI * 2, size: 4, life: 0.8, gravity: 520, drag: 0.9,
@@ -821,6 +1112,7 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       b.rolled = 0;
       s.trailN = 0;
       s.gutterShame = false;
+      s.hitStopped = false;
       s.phase = 'ready';
       setTurn({ frame: s.frame + 1, ball: s.frameRolls.length + 1 });
     };
@@ -838,8 +1130,11 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       s.score = scoreGame(s.rolls, cfg.frames) * cfg.scoreMultiplier;
       setCard(buildScorecard(s.rolls, cfg.frames));
 
-      const deckY = clamp(projY(s, projK(s, cfg.lane.length)), 60, s.H - 80);
+      // Everything below is anchored to where the pins actually went down, not
+      // to the middle of the screen: the reward has to land where the eye is.
+      const hit = impactPoint();
       const cleared = standing === 0;
+      const ringR = Math.max(70, s.W * 0.5);
 
       if (cleared && s.rackBalls === 1) {
         s.strikes += 1;
@@ -848,11 +1143,14 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
         haptic('success');
         fx.addShake(cfg.fx.strikeShake);
         fx.addHitStop(budget.hitStopSeconds > 0 ? cfg.fx.hitStopSeconds : 0);
+        flash(cfg.fx.strikeFlashPeak, cfg.fx.flashSeconds, '255,224,184');
+        spawnRing(s.rings, hit.x, hit.y, 8, ringR, cfg.fx.shockStrikeSeconds, 6, COLORS.impactHot);
+        spawnRing(s.rings, hit.x, hit.y, 4, ringR * 0.68, cfg.fx.shockStrikeSeconds * 0.8, 4, COLORS.gold);
         for (let i = 0; i < 3; i++) {
           fx.burst({
-            x: s.cx + (i - 1) * 46, y: deckY - i * 6, count: Math.round(cfg.fx.strikeParticles / 3),
-            color: i === 1 ? COLORS.goldLt : COLORS.virus,
-            speed: 300, spread: Math.PI * 2, size: 4.4, life: 0.95, gravity: 420, drag: 0.92,
+            x: hit.x + (i - 1) * 44, y: hit.y - i * 6, count: Math.round(cfg.fx.strikeParticles / 3),
+            color: i === 1 ? COLORS.impactHot : COLORS.virus,
+            speed: 320, spread: Math.PI * 2, size: 4.4, life: 0.95, gravity: 420, drag: 0.92,
           });
         }
       } else if (cleared) {
@@ -861,8 +1159,10 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
         crowdCheer(false);
         haptic('medium');
         fx.addShake(cfg.fx.hitShake);
+        flash(cfg.fx.flashPeak * 0.7, cfg.fx.flashSeconds, '140,200,255');
+        spawnRing(s.rings, hit.x, hit.y, 6, ringR * 0.8, cfg.fx.shockSeconds, 4.5, COLORS.shockCool);
         fx.burst({
-          x: s.cx, y: deckY, count: cfg.fx.spareParticles, color: COLORS.brandBlueLt,
+          x: hit.x, y: hit.y, count: cfg.fx.spareParticles, color: COLORS.brandBlueLt,
           speed: 240, spread: Math.PI * 2, size: 4, life: 0.8, gravity: 400, drag: 0.92,
         });
       } else if (down === 0) {
@@ -871,10 +1171,11 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       } else {
         showBanner('count', `${down}`, down === 1 ? 'risk down' : 'risks down');
         audio.coin();
+        spawnRing(s.rings, hit.x, hit.y, 5, ringR * (0.3 + down * 0.05), cfg.fx.shockSeconds, 3, COLORS.shock);
       }
 
       if (down > 0) {
-        fx.floatText(s.cx, deckY - 30, `+${down * cfg.scoring.pinPoints}`, COLORS.goldLt, 15);
+        fx.floatText(hit.x, hit.y - 26, `+${down * cfg.scoring.pinPoints}`, COLORS.impactHot, 17);
       }
 
       s.phase = 'tally';
@@ -1021,11 +1322,24 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       const sx = projX(s, x, k);
       const sy = projY(s, k);
       if (type === 'ballpin') {
+        const heft = clamp(strength / 900, 0.2, 1);
         if (strength > cfg.pins.pinHitAudioImpulse) {
           audio.hit();
-          fx.addShake(cfg.fx.hitShake * clamp(strength / 900, 0.2, 1));
+          fx.addShake(cfg.fx.hitShake * heft);
           haptic('medium');
+          // The moment of contact, once per throw: a frame of hit-stop, a
+          // flash and a shockwave. Once, because a rack in collapse fires this
+          // event a dozen times and stuttering on all of them feels broken.
+          if (!s.hitStopped && heft > 0.45) {
+            s.hitStopped = true;
+            fx.addHitStop(budget.hitStopSeconds > 0 ? cfg.fx.hitStopSeconds * 0.6 : 0);
+            flash(cfg.fx.flashPeak * heft, cfg.fx.flashSeconds * 0.7, '255,138,61');
+          }
         }
+        spawnRing(
+          s.rings, sx, sy, 3, Math.max(26, 90 * k * heft + 18),
+          cfg.fx.shockSeconds, 3, COLORS.shock,
+        );
         fx.burst({
           x: sx, y: sy, count: cfg.fx.ballHitParticles, color: COLORS.greenLt,
           speed: 180, spread: Math.PI * 2, size: 3, life: 0.5, gravity: 380, drag: 0.9,
@@ -1047,6 +1361,10 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
           s.gutterShame = true;
           audio.hit();
           haptic('failure');
+          // Damage feedback: shake and a red wash, so a lost ball is felt.
+          fx.addShake(cfg.fx.hitShake * 1.3);
+          flash(cfg.fx.flashPeak * 0.6, cfg.fx.flashSeconds, '255,90,90');
+          spawnRing(s.rings, sx, sy, 3, 46, cfg.fx.shockSeconds, 2.5, COLORS.danger);
           fx.floatText(clamp(sx, 40, s.W - 40), sy - 22, 'GUTTER', COLORS.danger, 15);
           fx.burst({
             x: sx, y: sy, count: cfg.fx.gutterParticles, color: COLORS.danger,
@@ -1083,6 +1401,8 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
 
       s.time += dt;
       s.scoreShown = damp(s.scoreShown, s.score, BALANCE.scoring.counterLerpPerSecond, dt);
+      updateRings(s.rings, dt);
+      if (s.flashT > 0) s.flashT = Math.max(0, s.flashT - dt);
 
       // Scheduled audio: the crowd swell is a sequence, and driving it from the
       // loop rather than setTimeout means it pauses when the game does.
@@ -1153,6 +1473,8 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
 
       drawBackdrop(ctx, s, cfg, paints, time);
       drawLane(ctx, s, cfg, paints, time);
+      // Shockwaves sit on the lane, under the pins: ground energy, not overlay.
+      drawRings(ctx, s.rings);
 
       // Painter order on the deck: far pins first so near ones overlap them.
       const pins = s.throwState.pins;
@@ -1172,7 +1494,13 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       const b = s.throwState.ball;
       const inPit = b.y > cfg.lane.length + cfg.lane.deckDepth * 0.55;
       if (!inPit && s.phase !== 'racking') {
-        drawBall(ctx, s, cfg, paints, b, s.trail, s.trailN, time, b.gutter !== 0, s.phase === 'ready');
+        // The idle timing rings stand down the moment the thumb is on the
+        // glass: the power ring takes over that space, and two ring systems
+        // at once is noise.
+        drawBall(
+          ctx, s, cfg, paints, b, s.trail, s.trailN, time,
+          b.gutter !== 0, s.phase === 'ready' && !s.aiming,
+        );
       }
 
       // Labels sit above everything on the deck so a falling pin cannot hide
@@ -1190,7 +1518,14 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       fx.endCamera(ctx);
 
       ctx.fillStyle = paints.vignette;
-      ctx.fillRect(0, 0, s.W, s.H * 0.24);
+      ctx.fillRect(0, 0, s.W, s.H * 0.26);
+
+      // Impact flash, outside the shake camera so it never smears.
+      if (s.flashT > 0) {
+        const a = (s.flashT / s.flashLife) * s.flashPeak;
+        ctx.fillStyle = `rgba(${s.flashColor},${a})`;
+        ctx.fillRect(0, 0, s.W, s.H);
+      }
 
       /* --- HUD values written straight to the DOM ---------------------
          The score counter changes many times a second. Routing it through React
@@ -1290,88 +1625,85 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
       <div ref={wrapRef} style={styles.stage} className="rs-stage">
         <canvas ref={canvasRef} style={styles.canvas} />
 
-        {/* HUD ------------------------------------------------------- */}
+        {/* HUD — icon + number chips only, no panels, no word labels ---- */}
         <div style={styles.hudTop}>
-          <div style={styles.pill}>
-            <span style={styles.pillLabel}>Score</span>
-            <span ref={scoreElRef} style={styles.pillValue}>0</span>
+          <div style={styles.chipGroup}>
+            <div style={styles.chip} aria-label="Score">
+              <StrikeGlyph />
+              <span ref={scoreElRef} style={styles.chipValue}>0</span>
+            </div>
+            <div style={styles.chip} aria-label="Risks down">
+              <PinGlyph />
+              <span style={styles.chipValue}>
+                <span ref={pinsElRef}>0</span>
+                <span style={styles.chipDim}>/{cfg.winPins}</span>
+              </span>
+            </div>
           </div>
-          <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Time</span>
-            <span style={{
-              ...styles.pillValue,
-              color: lowTime ? COLORS.orangeLt : '#fff',
-              animation: lowTime ? 'rsPulse 0.9s ease-in-out infinite' : 'none',
-            }}>
-              {timeLeft}s
+          <div
+            style={{
+              ...styles.chip,
+              borderColor: lowTime ? 'rgba(255,138,61,0.6)' : 'rgba(255,255,255,0.14)',
+            }}
+            className={lowTime ? 'rs-lowtime' : undefined}
+            aria-label="Time left"
+          >
+            <ClockGlyph hot={lowTime} />
+            <span style={{ ...styles.chipValue, color: lowTime ? COLORS.orangeLt : '#fff' }}>
+              {timeLeft}
             </span>
           </div>
         </div>
 
-        {/* Frame scorecard ------------------------------------------- */}
-        <div style={styles.cardWrap}>
-          <div style={styles.card}>
-            <div style={styles.cardRow}>
-              {card.map((f, i) => (
-                <div
-                  key={i}
-                  style={{
-                    ...styles.frameBox,
-                    borderColor: i === turn.frame - 1 ? COLORS.orangeLt : 'rgba(255,255,255,0.14)',
-                    background: i === turn.frame - 1 ? 'rgba(242,101,34,0.16)' : 'rgba(255,255,255,0.04)',
-                  }}
-                >
-                  <div style={styles.marks}>
-                    {[0, 1, 2].map((m) => (
-                      <span
-                        key={m}
-                        style={{
-                          ...styles.mark,
-                          display: m === 2 && i !== card.length - 1 ? 'none' : 'inline-flex',
-                          color: f.marks[m] === 'X' ? COLORS.goldLt
-                            : f.marks[m] === '/' ? COLORS.brandBlueLt : '#fff',
-                        }}
-                      >
-                        {f.marks[m] || ''}
-                      </span>
-                    ))}
-                  </div>
-                  <div style={styles.frameTotal}>{f.total === null ? '' : f.total}</div>
-                </div>
-              ))}
-            </div>
-            <div style={styles.cardFoot}>
-              <span>Frame {turn.frame}/{cfg.frames} &middot; Ball {turn.ball}</span>
-              <span>
-                Pins <strong ref={pinsElRef} style={{ color: COLORS.goldLt }}>0</strong>
-                <span style={{ opacity: 0.55 }}> / {cfg.winPins}</span>
-              </span>
-            </div>
-          </div>
+        {/* Frame strip — five marks, nothing else ---------------------- */}
+        <div style={styles.frameStrip}>
+          {card.map((f, i) => {
+            const live = i === turn.frame - 1;
+            return (
+              <div
+                key={i}
+                className={live ? 'rs-live' : undefined}
+                style={{
+                  ...styles.frameCell,
+                  borderColor: live ? COLORS.impact : 'rgba(255,255,255,0.14)',
+                  background: live ? 'rgba(255,106,26,0.18)' : 'rgba(6,11,22,0.55)',
+                }}
+              >
+                {[0, 1, 2].map((m) => (
+                  <span
+                    key={m}
+                    style={{
+                      ...styles.mark,
+                      display: m === 2 && i !== card.length - 1 ? 'none' : 'inline-flex',
+                      color: f.marks[m] === 'X' ? COLORS.goldLt
+                        : f.marks[m] === '/' ? SPARE_INK : 'rgba(255,255,255,0.94)',
+                    }}
+                  >
+                    {f.marks[m] || ''}
+                  </span>
+                ))}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Throw banner ---------------------------------------------- */}
+        {/* Throw banner — a struck mark, not a card -------------------- */}
         {banner && (
           <div key={banner.id} style={styles.bannerWrap} className="rs-banner">
             <div style={{
               ...styles.banner,
-              background: banner.kind === 'strike'
-                ? 'linear-gradient(180deg, rgba(255,200,69,0.96), rgba(176,123,18,0.96))'
-                : banner.kind === 'spare'
-                  ? 'linear-gradient(180deg, rgba(30,107,224,0.96), rgba(0,61,166,0.96))'
-                  : banner.kind === 'miss'
-                    ? 'linear-gradient(180deg, rgba(239,68,68,0.94), rgba(120,20,20,0.94))'
-                    : 'linear-gradient(180deg, rgba(40,167,69,0.94), rgba(18,92,40,0.94))',
+              background: BANNER_BG[banner.kind] || BANNER_BG.count,
+              boxShadow: `0 10px 30px rgba(0,0,0,0.5), 0 0 0 6px ${BANNER_HALO[banner.kind] || BANNER_HALO.count}`,
             }}>
               <span style={{
                 ...styles.bannerTitle,
-                color: banner.kind === 'strike' ? '#3B2500' : '#fff',
+                color: banner.kind === 'strike' ? '#2A1500' : '#fff',
               }}>
                 {banner.text}
               </span>
               <span style={{
                 ...styles.bannerSub,
-                color: banner.kind === 'strike' ? 'rgba(59,37,0,0.75)' : 'rgba(255,255,255,0.82)',
+                color: banner.kind === 'strike' ? 'rgba(42,21,0,0.78)' : 'rgba(255,255,255,0.86)',
               }}>
                 {banner.sub}
               </span>
@@ -1379,12 +1711,15 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
           </div>
         )}
 
-        {/* First-run hint -------------------------------------------- */}
+        {/* First-run hint — glyph led, two words ----------------------- */}
         {hint && !over && (
           <div style={styles.hintWrap} className="rs-hint">
             <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>Flick</strong> up the lane to bowl &middot;{' '}
-              <strong style={{ color: COLORS.orangeLt }}>Curl</strong> your swipe to hook
+              <FlickGlyph />
+              <span>Flick up</span>
+              <span style={styles.hintDot} />
+              <CurlGlyph />
+              <span>Curl to hook</span>
             </div>
           </div>
         )}
@@ -1397,7 +1732,7 @@ export default function RiskStrikeGame({ config, onWin, onLose }) {
               <rect x="14" y="4" width="4" height="16" rx="1.5" />
             </svg>
             <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Paused</div>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
+            <div style={{ color: 'rgba(255,255,255,0.78)', fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
               Your timer is safe. Come back and take your shot.
             </div>
           </div>
@@ -1435,31 +1770,43 @@ const LABEL_OFFSETS = {
   5: [0, -70],
 };
 
-/* ─── Styles ─────────────────────────────────────────────── */
+/* ─── Styles ───────────────────────────────────────────────
+   One spacing scale everywhere on this screen: 5 / 10 / 16 / 22.
+   Three control heights: 22 (frame cell), 32 (HUD chip), 44 (touch target).
+   Nothing is placed off that grid, at any of 360x640, 375x812 or 414x896. */
 const CSS = `
 @keyframes rsIn { from { opacity: 0; transform: scale(0.965) translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes rsPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
 @keyframes rsBanner {
-  0%   { opacity: 0; transform: translateY(16px) scale(0.84); }
-  16%  { opacity: 1; transform: translateY(0) scale(1.08); }
-  28%  { transform: translateY(0) scale(1); }
+  0%   { opacity: 0; transform: translateY(16px) scale(0.8); }
+  14%  { opacity: 1; transform: translateY(0) scale(1.12); }
+  26%  { transform: translateY(0) scale(1); }
   80%  { opacity: 1; transform: translateY(0) scale(1); }
   100% { opacity: 0; transform: translateY(-14px) scale(0.96); }
 }
-@keyframes rsHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
-.rs-stage { animation: rsIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
+@keyframes rsHint { 0%,100% { opacity: 0.7; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
+@keyframes rsLive {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,106,26,0.0); }
+  50%     { box-shadow: 0 0 0 3px rgba(255,106,26,0.26); }
+}
+@keyframes rsLowTime { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+.rs-stage  { animation: rsIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .rs-banner { animation: rsBanner 1.25s ease-out both; }
-.rs-hint { animation: rsHint 1.6s ease-in-out infinite; }
+.rs-hint   { animation: rsHint 1.8s ease-in-out infinite; }
+.rs-live   { animation: rsLive 1.5s ease-in-out infinite; }
+.rs-lowtime{ animation: rsLowTime 0.9s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .rs-stage, .rs-banner, .rs-hint { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+  .rs-stage, .rs-banner, .rs-hint, .rs-live, .rs-lowtime {
+    animation-duration: 1ms !important; animation-iteration-count: 1 !important;
+  }
 }
 `;
 
-const glass = {
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  backdropFilter: 'blur(12px)',
-  WebkitBackdropFilter: 'blur(12px)',
+/** Chips and pills sit on the canvas, so they need their own ground, not a tint. */
+const chrome = {
+  background: 'rgba(5,10,20,0.66)',
+  border: '1px solid rgba(255,255,255,0.14)',
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
 };
 
 const styles = {
@@ -1477,14 +1824,15 @@ const styles = {
     position: 'relative',
     flex: 1,
     minHeight: 420,
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: 'hidden',
     background: COLORS.bgDark,
-    border: '1.5px solid rgba(255,255,255,0.1)',
-    boxShadow: '0 20px 44px rgba(0,0,0,0.55)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    boxShadow: '0 22px 48px rgba(0,0,0,0.6)',
     touchAction: 'none',
   },
   canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
+
   hudTop: {
     position: 'absolute',
     top: 10,
@@ -1492,83 +1840,70 @@ const styles = {
     right: 10,
     display: 'flex',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: 10,
     pointerEvents: 'none',
     zIndex: 4,
   },
-  pill: {
-    ...glass,
-    display: 'flex',
-    flexDirection: 'column',
-    borderRadius: 12,
-    padding: '5px 12px',
-    minWidth: 74,
+  chipGroup: { display: 'flex', gap: 5 },
+  chip: {
+    ...chrome,
+    height: 32,
+    boxSizing: 'border-box',
+    borderRadius: 999,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '0 11px 0 9px',
+    transition: 'border-color 220ms ease',
   },
-  pillLabel: {
-    fontSize: 8,
-    fontWeight: 800,
-    letterSpacing: '0.16em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
-  },
-  pillValue: {
-    fontSize: 19,
+  chipValue: {
+    fontSize: 15,
     fontWeight: 900,
     color: '#fff',
-    lineHeight: 1.15,
+    lineHeight: 1,
     fontVariantNumeric: 'tabular-nums',
-    display: 'inline-block',
+    display: 'inline-flex',
+    alignItems: 'baseline',
   },
-  cardWrap: {
+  chipDim: { fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.66)' },
+
+  frameStrip: {
     position: 'absolute',
-    top: 62,
+    top: 50,
     left: 10,
     right: 10,
     display: 'flex',
-    justifyContent: 'center',
+    gap: 5,
     pointerEvents: 'none',
     zIndex: 4,
   },
-  card: { ...glass, borderRadius: 12, padding: '6px 8px 5px', width: '100%' },
-  cardRow: { display: 'flex', gap: 4 },
-  frameBox: {
+  frameCell: {
     flex: 1,
-    borderRadius: 8,
+    height: 22,
+    boxSizing: 'border-box',
+    borderRadius: 7,
     border: '1px solid rgba(255,255,255,0.14)',
-    padding: '2px 0 1px',
-    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 1,
     transition: 'background 220ms ease, border-color 220ms ease',
   },
-  marks: { display: 'flex', justifyContent: 'center', gap: 1, height: 14 },
   mark: {
-    width: 13,
+    minWidth: 11,
     height: 14,
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: 11,
     fontWeight: 900,
+    lineHeight: 1,
     fontVariantNumeric: 'tabular-nums',
   },
-  frameTotal: {
-    fontSize: 11,
-    fontWeight: 900,
-    color: 'rgba(255,255,255,0.9)',
-    fontVariantNumeric: 'tabular-nums',
-    minHeight: 13,
-  },
-  cardFoot: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    fontSize: 9,
-    fontWeight: 800,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.6)',
-  },
+
   bannerWrap: {
     position: 'absolute',
-    top: '34%',
+    top: '36%',
     left: 0,
     right: 0,
     display: 'flex',
@@ -1581,37 +1916,49 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: 1,
-    padding: '10px 26px',
+    padding: '10px 22px',
     borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.3)',
-    boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
+    border: '1px solid rgba(255,255,255,0.32)',
   },
-  bannerTitle: { fontSize: 26, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 },
+  bannerTitle: { fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1 },
   bannerSub: {
     fontSize: 9,
     fontWeight: 900,
     letterSpacing: '0.18em',
     textTransform: 'uppercase',
   },
+
   hintWrap: {
     position: 'absolute',
-    bottom: 66,
-    left: 12,
-    right: 12,
+    bottom: 64,
+    left: 10,
+    right: 10,
     display: 'flex',
     justifyContent: 'center',
     pointerEvents: 'none',
     zIndex: 5,
   },
   hint: {
-    ...glass,
+    ...chrome,
     borderRadius: 999,
-    padding: '9px 16px',
-    fontSize: 12,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.92)',
-    textAlign: 'center',
+    padding: '8px 14px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    fontSize: 11.5,
+    fontWeight: 800,
+    letterSpacing: '0.02em',
+    color: '#fff',
+    whiteSpace: 'nowrap',
   },
+  hintDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.4)',
+    margin: '0 1px',
+  },
+
   pauseVeil: {
     position: 'absolute',
     inset: 0,
@@ -1619,21 +1966,20 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    background: 'rgba(11,18,33,0.84)',
+    gap: 10,
+    background: 'rgba(5,9,18,0.88)',
     backdropFilter: 'blur(8px)',
     WebkitBackdropFilter: 'blur(8px)',
     zIndex: 8,
   },
   muteBtn: {
+    ...chrome,
     position: 'absolute',
     right: 10,
     bottom: 10,
     width: 44,
     height: 44,
-    borderRadius: 14,
-    background: 'rgba(11,18,33,0.6)',
-    border: '1px solid rgba(255,255,255,0.16)',
+    borderRadius: 16,
     color: '#fff',
     display: 'flex',
     alignItems: 'center',

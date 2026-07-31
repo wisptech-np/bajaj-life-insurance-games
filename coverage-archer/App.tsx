@@ -1,6 +1,7 @@
 // App — home > howtoplay > game > results (+LeadCaptureModal) > [Book a Slot > SlotBookingModal] > thankyou
 // Screen flow mirrors life-goals-bubble-shooter/src/App.jsx.
 import React, { useCallback, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { ScreenName, GameResult, BookedDetails } from './types';
 import IntroScreen from './components/IntroScreen';
 import HowToPlayPopup from './components/HowToPlayPopup';
@@ -66,25 +67,27 @@ const App: React.FC = () => {
 
   return (
     <div className="game-wrap mx-auto">
-      {screen === 'home' && <IntroScreen onPlay={showHowToPlay} />}
+      <AnimatePresence>
+        {(screen === 'home' || screen === 'howtoplay') && (
+          <IntroScreen key="home" onPlay={showHowToPlay} />
+        )}
 
-      {screen === 'howtoplay' && (
-        <>
-          <IntroScreen onPlay={showHowToPlay} />
-          <HowToPlayPopup onStart={startGame} onBack={goHome} />
-        </>
-      )}
+        {screen === 'howtoplay' && (
+          <HowToPlayPopup key="howtoplay" onStart={startGame} onBack={goHome} />
+        )}
+
+        {screen === 'results' && result && (
+          <ResultsScreen
+            key="results"
+            result={result}
+            onRetry={startGame}
+            onHome={goHome}
+            onBookSlot={handleBookSlot}
+          />
+        )}
+      </AnimatePresence>
 
       {screen === 'game' && <GameScreen key={gameKey} onGameEnd={handleGameEnd} />}
-
-      {screen === 'results' && result && (
-        <ResultsScreen
-          result={result}
-          onRetry={startGame}
-          onHome={goHome}
-          onBookSlot={handleBookSlot}
-        />
-      )}
 
       {screen === 'thankyou' && (
         <ThankYouScreen

@@ -1120,47 +1120,60 @@ body,
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
-.sm3-step {
+/* Icon cues — the only words allowed on the how-to-play screen */
+.sm3-cues {
   display: flex;
+  gap: 8px;
+}
+
+.sm3-cue {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 6px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.05);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  text-align: left;
 }
 
-.sm3-step-num {
-  flex: 0 0 34px;
-  height: 34px;
-  border-radius: 12px;
+.sm3-cue-glyph {
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 24px;
+}
+
+.sm3-cue-text {
+  font-size: 10px;
   font-weight: 900;
-  font-size: 15px;
-  background: linear-gradient(180deg, #FF8533, #F26522);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 10px rgba(242, 101, 34, 0.35);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.82);
 }
 
-.sm3-step-text {
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.88);
-}
-
-.sm3-step-text b { color: #FFC08A; }
-
-/* Tray demo animation */
+/* Looping tap → tray → merge demo */
 .sm3-demo {
   position: relative;
-  height: 132px;
+  height: 150px;
   border-radius: 18px;
   overflow: hidden;
   background: radial-gradient(ellipse at 50% 20%, rgba(59, 141, 212, 0.25), rgba(5, 26, 58, 0.7) 75%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.sm3-demo-stage {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 252px;
+  height: 150px;
+  margin-left: -126px;
 }
 
 .sm3-demo-token {
@@ -1175,10 +1188,10 @@ body,
 @keyframes sm3-demo-drop {
   0%       { transform: translateY(0) scale(1);        opacity: 1; }
   18%      { transform: translateY(0) scale(1.12);     opacity: 1; }
-  36%      { transform: translateY(62px) scale(1);     opacity: 1; }
-  72%      { transform: translateY(62px) scale(1);     opacity: 1; }
-  82%      { transform: translateY(62px) scale(1.35);  opacity: 0.95; }
-  92%, 100%{ transform: translateY(62px) scale(0);     opacity: 0; }
+  36%      { transform: translateY(76px) scale(1);     opacity: 1; }
+  72%      { transform: translateY(76px) scale(1);     opacity: 1; }
+  82%      { transform: translateY(76px) scale(1.35);  opacity: 0.95; }
+  92%, 100%{ transform: translateY(76px) scale(0);     opacity: 0; }
 }
 
 .sm3-demo-tray {
@@ -1191,6 +1204,41 @@ body,
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.07);
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2);
+}
+
+.sm3-demo-slot {
+  position: absolute;
+  top: 86px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+/* The finger taps each tile at the moment that tile lifts off */
+.sm3-demo-finger {
+  position: absolute;
+  left: 0;
+  top: 0;
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.45));
+  animation: sm3-demo-finger 3s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes sm3-demo-finger {
+  0%   { transform: translate(50px, 52px) scale(1);    opacity: 0; }
+  7%   { transform: translate(50px, 39px) scale(1);    opacity: 1; }
+  18%  { transform: translate(50px, 32px) scale(0.9);  opacity: 1; }
+  22%  { transform: translate(50px, 39px) scale(1);    opacity: 1; }
+  25%  { transform: translate(114px, 39px) scale(1);   opacity: 1; }
+  27%  { transform: translate(114px, 32px) scale(0.9); opacity: 1; }
+  31%  { transform: translate(114px, 39px) scale(1);   opacity: 1; }
+  34%  { transform: translate(178px, 39px) scale(1);   opacity: 1; }
+  37%  { transform: translate(178px, 32px) scale(0.9); opacity: 1; }
+  41%  { transform: translate(178px, 39px) scale(1);   opacity: 1; }
+  50%  { transform: translate(178px, 56px) scale(1);   opacity: 0; }
+  100% { transform: translate(50px, 52px) scale(1);    opacity: 0; }
 }
 
 .sm3-demo-burst {
@@ -1220,48 +1268,28 @@ body,
   overflow: hidden;
 }
 
-.sm3-hud {
+/* Minimal in-game readout: time ring + collection rail + score number.
+   Deliberately no labels and no stat block — feedback lives on the board. */
+.sm3-rail {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px 14px 8px;
+  gap: 11px;
+  padding: 12px 16px 8px;
   z-index: 5;
 }
 
-.sm3-chip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 86px;
-  padding: 7px 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.07);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 6px 16px rgba(0, 0, 0, 0.25);
+.sm3-ring {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  color: rgba(255, 255, 255, 0.72);
+  transition: color 0.4s;
 }
 
-.sm3-chip-label {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
-}
+.sm3-ring circle:last-child { transition: stroke-dashoffset 0.5s linear; }
 
-.sm3-chip-value {
-  font-size: 18px;
-  font-weight: 900;
-  line-height: 1.15;
-  font-variant-numeric: tabular-nums;
-  color: #fff;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-.sm3-chip-value.danger {
+.sm3-ring.low {
   color: #FF7B6E;
   animation: ls-pulse-tap 0.8s ease-in-out infinite;
 }
@@ -1271,25 +1299,51 @@ body,
   50%      { transform: scale(1.12); opacity: 1; }
 }
 
-.sm3-timerbar {
-  flex: 0 0 auto;
-  height: 5px;
-  margin: 0 14px;
+.sm3-collect {
+  position: relative;
+  flex: 1 1 auto;
+  height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   overflow: hidden;
-  z-index: 5;
 }
 
-.sm3-timerbar-fill {
+.sm3-collect-fill {
   height: 100%;
   border-radius: 3px;
-  background: linear-gradient(90deg, #28A745, #7CD98A);
-  transition: width 0.5s linear, background 0.5s;
+  background: linear-gradient(90deg, #F26522, #FFC08A);
+  box-shadow: 0 0 10px rgba(242, 101, 34, 0.55);
+  transition: width 0.35s cubic-bezier(.2, .8, .2, 1);
 }
 
-.sm3-timerbar-fill.warn { background: linear-gradient(90deg, #F6B93B, #FFD97A); }
-.sm3-timerbar-fill.danger { background: linear-gradient(90deg, #EF4444, #FF8A80); }
+/* 20 hairline notches — one per triplet still to collect */
+.sm3-collect-ticks {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(5% - 1px),
+    rgba(5, 26, 58, 0.55) calc(5% - 1px) 5%
+  );
+}
+
+.sm3-score {
+  flex: 0 0 auto;
+  min-width: 46px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.72);
+  animation: sm3-score-bump 0.32s cubic-bezier(.2, .8, .2, 1);
+}
+
+@keyframes sm3-score-bump {
+  0%   { transform: scale(1.22); color: #FFD97A; }
+  100% { transform: scale(1);    color: rgba(255, 255, 255, 0.72); }
+}
 
 .sm3-canvas-wrap {
   flex: 1 1 auto;
@@ -1361,19 +1415,6 @@ body,
   color: #fff;
   background: linear-gradient(180deg, #FF8533, #F26522);
   box-shadow: 0 3px 8px rgba(242, 101, 34, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-
-.sm3-booster-label {
-  position: absolute;
-  bottom: -16px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-  white-space: nowrap;
 }
 
 .sm3-loading {

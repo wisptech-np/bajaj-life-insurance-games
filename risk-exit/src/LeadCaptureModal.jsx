@@ -7,12 +7,10 @@ import { submitToLMS, extractLeadNo, LEAD_NO_KEY } from './api.js';
 
 const NAME_RE = /^[A-Za-z\s]+$/;
 const MOBILE_RE = /^[6-9]\d{9}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LeadCaptureModal({ score, onSubmitted }) {
   const [name, setName] = useState(sessionStorage.getItem('lastSubmittedName') || '');
   const [mobile, setMobile] = useState(sessionStorage.getItem('lastSubmittedPhone') || '');
-  const [email, setEmail] = useState(sessionStorage.getItem('lastSubmittedEmail') || '');
   const [terms, setTerms] = useState(true);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -33,10 +31,6 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
       errs.mobile = 'Invalid 10-digit number';
     }
 
-    if (email.trim() && !EMAIL_RE.test(email.trim())) {
-      errs.email = 'Invalid email address';
-    }
-
     if (!terms) {
       errs.terms = 'Please agree to Terms and Conditions';
     }
@@ -54,7 +48,6 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
       const result = await submitToLMS({
         name: name.trim(),
         mobile,
-        email: email.trim(),
         score,
         summaryDtls: 'Risk Exit - Post Game Lead',
       });
@@ -62,11 +55,10 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
       if (leadNo) sessionStorage.setItem(LEAD_NO_KEY, leadNo);
       sessionStorage.setItem('lastSubmittedName', name.trim());
       sessionStorage.setItem('lastSubmittedPhone', mobile);
-      sessionStorage.setItem('lastSubmittedEmail', email.trim());
-      onSubmitted({ name: name.trim(), mobile, email: email.trim(), leadNo });
+      onSubmitted({ name: name.trim(), mobile, leadNo });
     } catch (err) {
       console.error(err);
-      onSubmitted({ name: name.trim(), mobile, email: email.trim(), leadNo: null });
+      onSubmitted({ name: name.trim(), mobile, leadNo: null });
     } finally {
       setSubmitting(false);
     }
@@ -127,28 +119,6 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
               {errors.mobile && (
                 <p className="sl-error-text">
                   {errors.mobile}
-                </p>
-              )}
-            </div>
-
-            {/* Email Field */}
-            <div className="sl-lead-field">
-              <label className="sl-lead-label">
-                Email Address (Optional)
-              </label>
-              <input
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (errors.email) setErrors({ ...errors, email: '' });
-                }}
-                className={`sl-lead-input ${errors.email ? 'has-error' : ''}`}
-              />
-              {errors.email && (
-                <p className="sl-error-text">
-                  {errors.email}
                 </p>
               )}
             </div>

@@ -1,20 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import canyonBgImg from './canyon_bg.png';
 import gliderImg from './hang_glider.png';
+import { WORLD, FLIGHT, RAMP, LAYOUT, MILESTONES, SCORING } from './data.js';
 
-// Game Configuration
-const WORLD_M_TO_PX = 12; // 1m = 12 pixels
-const MAX_DISTANCE = 2000; // 2000m
-const WORLD_WIDTH = MAX_DISTANCE * WORLD_M_TO_PX; // 24000px
-const DURATION_SECONDS = 105;
+// Derived from data.js — do not tune here, tune in data.js.
+const WORLD_M_TO_PX = WORLD.metresToPx;
+const MAX_DISTANCE = WORLD.maxDistanceM;
+const WORLD_WIDTH = MAX_DISTANCE * WORLD_M_TO_PX;
+const DURATION_SECONDS = WORLD.durationSeconds;
 
-const MILESTONES = [
-  { m: 200, name: 'Graduation', unlocked: false, color: '#3B8DD4', tip: 'Start building emergency funds!' },
-  { m: 500, name: 'First Job', unlocked: false, color: '#22C55E', tip: 'Invest early to compound wealth!' },
-  { m: 900, name: 'Marriage', unlocked: false, color: '#FF8533', tip: 'Get joint cover for your partner!' },
-  { m: 1400, name: 'Home Purchase', unlocked: false, color: '#EC4899', tip: 'Secure your mortgage with Term Insurance!' },
-  { m: 2000, name: 'Retirement', unlocked: false, color: '#FACC15', tip: 'Enjoy guaranteed lifelong pension!' }
-];
+// Forward-speed multiplier for the difficulty ramp (1.0 at the start of the run).
+const rampAt = (elapsedSec) =>
+  RAMP.start + (RAMP.end - RAMP.start) * Math.min(1, elapsedSec / RAMP.seconds);
 
 // Synth SFX Player (Web Audio API)
 const playSynthSound = (type) => {
@@ -105,13 +102,15 @@ export default function LifeSoarGame({ onWin, onLose }) {
   const [hasShield, setHasShield] = useState(false);
   const [timeLeft, setTimeLeft] = useState(DURATION_SECONDS);
   const [activeMilestone, setActiveMilestone] = useState(null);
+  const [pressed, setPressed] = useState(false);   // touch-down visual feedback
 
-  // Keep mutables inside refs for 60fps canvas loop
+  // Keep mutables inside refs for the canvas loop
   const stateRef = useRef({
-    isDiving: false,
-    x: 100,
+    diveHeld: false,       // finger is physically down
+    diveBufferUntil: 0,    // input buffer — a flick still dives until this ms
+    x: WORLD.startX,
     y: 320,
-    vx: 6,
+    vx: FLIGHT.cruiseSpeed,
     vy: 0,
     coinsCollected: 0,
     hasShield: false,
@@ -119,17 +118,18 @@ export default function LifeSoarGame({ onWin, onLose }) {
     timeLeft: DURATION_SECONDS,
     gameOver: false,
     win: false,
-    milestones: JSON.parse(JSON.stringify(MILESTONES)),
+    milestones: MILESTONES.map((m) => ({ ...m, unlocked: false })),
     particles: [], // sparks, dust
     cameraX: 0,
     screenShake: 0,
     lastTime: 0,
-    elapsedTime: 0,
+    elapsed: 0,            // seconds since the run started
+    outOfBounds: 0,        // seconds spent clipping a wall (coyote time)
+    coyoteFlash: 0,        // 0..1 danger vignette
     // procedural entities
     coins: [],
     shields: [],
     hazards: [],
-    stageBanners: [],
   });
 
   // Height generator for undulating ceiling & floor
@@ -205,23 +205,25 @@ export default function LifeSoarGame({ onWin, onLose }) {
 
     // Pre-generate coins and shields in gaps between spikes, with spacing
     const baseHeight = 660;
-    for (let x = 400; x < WORLD_WIDTH - 500; x += 550) {
+    let slot = 0;
+    for (let x = 400; x < WORLD_WIDTH - 500; x += LAYOUT.pickupSpacingPx, slot++) {
       // Don't place right on milestones to prevent overlapping
-      const nearestMilestone = state.milestones.find(m => Math.abs(m.m * WORLD_M_TO_PX - x) < 250);
+      const nearestMilestone = state.milestones.find(
+        (m) => Math.abs(m.m * WORLD_M_TO_PX - x) < LAYOUT.milestoneClearancePx
+      );
       if (nearestMilestone) continue;
 
       const cyCeiling = getCeilingY(x, baseHeight);
       const fyFloor = getFloorY(x, baseHeight);
       const centerY = (cyCeiling + fyFloor) / 2; // ~320px
 
-      // Spawn a shield instead of a coin cluster at periodic intervals (approx. 2200px)
-      if (x % 2200 === 0 || (x - 400) % 2200 === 0 && x > 800) {
+      if (slot % LAYOUT.shieldEveryNPickups === 0) {
         shieldsList.push({ x, y: centerY + Math.sin(x) * 40, radius: 12, collected: false });
       } else {
         // Spawn small 3-coin cluster safely inside the navigable zone (around centerY)
         const count = 3;
-        const pattern = Math.floor((x / 550) % 3); // 0: wave, 1: diagonal, 2: straight horizontal
-        
+        const pattern = slot % 3; // 0: wave, 1: diagonal, 2: straight horizontal
+
         for (let i = 0; i < count; i++) {
           const cx = x + i * 35;
           let cy = centerY;
@@ -238,22 +240,23 @@ export default function LifeSoarGame({ onWin, onLose }) {
     }
 
     // Pre-generate static ceiling/floor spikes & floating hazards
-    for (let x = 500; x < WORLD_WIDTH - 300; x += 380) {
+    let hSlot = 0;
+    for (let x = 500; x < WORLD_WIDTH - 300; x += LAYOUT.hazardSpacingPx, hSlot++) {
       const cyCeiling = getCeilingY(x, baseHeight);
       const fyFloor = getFloorY(x, baseHeight);
       const centerY = (cyCeiling + fyFloor) / 2;
 
-      // Bobbing floating virus
-      if (x % 760 === 0) {
+      // Bobbing floating risk blob
+      if (hSlot % LAYOUT.floatHazardEveryN === 0) {
         hazardsList.push({
           type: 'float',
           x,
           baseY: centerY,
           y: centerY,
-          bobSpeed: 0.03 + (x % 3) * 0.01,
-          bobRange: 50 + (x % 2) * 20,
+          bobSpeed: 1.8 + (hSlot % 3) * 0.6, // rad/s
+          bobRange: 50 + (hSlot % 2) * 20,
           radius: 14,
-          angle: x
+          angle: hSlot,
         });
       } else {
         // Ceiling spike
@@ -267,7 +270,7 @@ export default function LifeSoarGame({ onWin, onLose }) {
         // Floor spike
         hazardsList.push({
           type: 'floor_spike',
-          x: x + 190,
+          x: x + LAYOUT.spikeOffsetPx,
           y: 0, // dynamic floor attachment
           width: 32,
           height: 50,
@@ -286,6 +289,8 @@ export default function LifeSoarGame({ onWin, onLose }) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     let animationId;
+    let skyGrad = null;
+    let skyGradH = 0;
 
     // Handle high DPI screens
     const resizeCanvas = () => {
@@ -325,8 +330,8 @@ export default function LifeSoarGame({ onWin, onLose }) {
 
       // Calculate final score
       const distanceScore = state.distanceM;
-      const coinScore = state.coinsCollected * 25;
-      const stageScore = state.milestones.filter(m => m.unlocked).length * 300;
+      const coinScore = state.coinsCollected * SCORING.perCoin;
+      const stageScore = state.milestones.filter(m => m.unlocked).length * SCORING.perMilestone;
       const totalScore = Math.floor(distanceScore + coinScore + stageScore);
 
       playSynthSound(didWin ? 'win' : 'lose');
@@ -347,53 +352,65 @@ export default function LifeSoarGame({ onWin, onLose }) {
       const height = canvas.height / (window.devicePixelRatio || 1);
 
       if (!state.lastTime) state.lastTime = timestamp;
-      const delta = timestamp - state.lastTime;
+      // Delta-time, clamped so a backgrounded tab or a dropped frame can't
+      // teleport the glider through a wall.
+      const dt = Math.min((timestamp - state.lastTime) / 1000, 1 / 20);
       state.lastTime = timestamp;
 
-      const GRACE_PERIOD_FRAMES = 120; // 2 seconds at 60fps
+      // Input buffer: a flick-tap keeps diving for FLIGHT.inputBufferMs even if
+      // the finger is already back up, so a slightly-early tap still counts.
+      const isDiving = state.diveHeld || timestamp < state.diveBufferUntil;
 
       if (!state.gameOver) {
-        // --- 1. GLIDER PHYSICS ---
-        if (state.elapsedTime < GRACE_PERIOD_FRAMES && !state.isDiving) {
+        state.elapsed += dt;
+
+        // Difficulty ramp — only forward speed scales, so handling feel is constant.
+        const ramp = rampAt(state.elapsed);
+        const minSpeed = FLIGHT.minSpeed * ramp;
+        const cruiseSpeed = FLIGHT.cruiseSpeed * ramp;
+        const maxSpeed = FLIGHT.maxSpeed * ramp;
+        const inGrace = state.elapsed < WORLD.graceSeconds;
+
+        // --- 1. GLIDER PHYSICS (all px/s and px/s², scaled by dt) ---
+        if (inGrace && !isDiving) {
           state.vy = 0;
-          state.vx = 6.0;
+          state.vx = cruiseSpeed;
           const cyCeiling = getCeilingY(state.x, height);
           const fyFloor = getFloorY(state.x, height);
           state.y = (cyCeiling + fyFloor) / 2; // lock to center
         } else {
           // Gravity
-          state.vy += 0.13;
+          state.vy += FLIGHT.gravity * dt;
 
-          if (state.isDiving) {
+          if (isDiving) {
             // Hold to Dive
-            state.vy += 0.28; // gain down momentum
-            state.vx = Math.min(state.vx + 0.16, 11); // gain horizontal speed
-            
+            state.vy += FLIGHT.diveAccelY * dt;
+            state.vx = Math.min(state.vx + FLIGHT.diveAccelX * dt, maxSpeed);
+
             // Spawn dive trail particles
-            if (Math.random() < 0.3) {
+            if (Math.random() < 18 * dt) {
               state.particles.push({
                 x: state.x - 15,
                 y: state.y + (Math.random() - 0.5) * 8,
-                vx: -state.vx * 0.4 + (Math.random() - 0.5),
-                vy: (Math.random() - 0.5) * 2,
+                vx: -state.vx * 0.4 + (Math.random() - 0.5) * 60,
+                vy: (Math.random() - 0.5) * 120,
                 color: 'rgba(242, 105, 34, 0.65)',
                 size: 3 + Math.random() * 4,
                 life: 1.0,
-                decay: 0.05
+                decay: 3.0
               });
             }
           } else {
-            // Release to lift (Convert speed to lift)
-            const excessSpeed = Math.max(0, state.vx - 5.0);
-            const cruiseLift = 0.04; // small baseline (gravity is 0.13, so it naturally falls if slow)
-            const lift = cruiseLift + excessSpeed * 0.28;
-            state.vy -= lift;
-            
+            // Release to lift (convert speed into lift)
+            const excessSpeed = Math.max(0, state.vx - minSpeed);
+            const lift = FLIGHT.cruiseLift + excessSpeed * FLIGHT.liftPerExcessSpeed;
+            state.vy -= lift * dt;
+
             // Drag decelerates glider back to baseline speed
-            state.vx = Math.max(state.vx - 0.05, 4.8);
+            state.vx = Math.max(state.vx - FLIGHT.dragX * dt, minSpeed);
 
             // Spawn wind trail particles
-            if (Math.random() < 0.2) {
+            if (Math.random() < 12 * dt) {
               state.particles.push({
                 x: state.x - 15,
                 y: state.y + (Math.random() - 0.5) * 6,
@@ -402,19 +419,19 @@ export default function LifeSoarGame({ onWin, onLose }) {
                 color: 'rgba(255, 255, 255, 0.45)',
                 size: 2 + Math.random() * 3,
                 life: 0.8,
-                decay: 0.04
+                decay: 2.4
               });
             }
           }
         }
 
         // Clamp velocities
-        state.vy = Math.max(-6, Math.min(state.vy, 7));
-        state.vx = Math.max(4.8, Math.min(state.vx, 11));
+        state.vy = Math.max(-FLIGHT.maxRiseSpeed, Math.min(state.vy, FLIGHT.maxFallSpeed));
+        state.vx = Math.max(minSpeed, Math.min(state.vx, maxSpeed));
 
         // Update Position
-        state.x += state.vx;
-        state.y += state.vy;
+        state.x += state.vx * dt;
+        state.y += state.vy * dt;
 
         // Map world X to distance in meters
         state.distanceM = Math.floor(state.x / WORLD_M_TO_PX);
@@ -426,15 +443,18 @@ export default function LifeSoarGame({ onWin, onLose }) {
           triggerEnd(true);
         }
 
-        // --- 2. COLLISION WITH CANYON BOUNDS ---
-        if (state.elapsedTime >= GRACE_PERIOD_FRAMES) {
+        // --- 2. COLLISION WITH CANYON BOUNDS (with coyote time) ---
+        state.coyoteFlash = Math.max(0, state.coyoteFlash - dt * 4);
+        if (!inGrace) {
           const cy = getCeilingY(state.x, height);
           const fy = getFloorY(state.x, height);
-          const gliderRadius = 14;
+          const gliderRadius = FLIGHT.gliderRadius;
+          const outTop = state.y - gliderRadius < cy;
+          const outBottom = state.y + gliderRadius > fy;
 
-          if (state.y - gliderRadius < cy || state.y + gliderRadius > fy) {
-            // Collision!
+          if (outTop || outBottom) {
             if (state.hasShield) {
+              state.outOfBounds = 0;
               // Shield protects from 1 crash
               state.hasShield = false;
               setHasShield(false);
@@ -442,12 +462,12 @@ export default function LifeSoarGame({ onWin, onLose }) {
               state.screenShake = 16;
               
               // Push player away from boundary
-              if (state.y - gliderRadius < cy) {
+              if (outTop) {
                 state.y = cy + gliderRadius + 5;
-                state.vy = 2;
+                state.vy = 120;
               } else {
                 state.y = fy - gliderRadius - 5;
-                state.vy = -3;
+                state.vy = -180;
               }
 
               // Create blast particles
@@ -455,38 +475,68 @@ export default function LifeSoarGame({ onWin, onLose }) {
                 state.particles.push({
                   x: state.x,
                   y: state.y,
-                  vx: (Math.random() - 0.5) * 8,
-                  vy: (Math.random() - 0.5) * 8,
+                  vx: (Math.random() - 0.5) * 480,
+                  vy: (Math.random() - 0.5) * 480,
                   color: 'rgba(59, 141, 212, 0.8)',
                   size: 4 + Math.random() * 5,
                   life: 1.0,
-                  decay: 0.04
+                  decay: 2.4
                 });
               }
             } else {
-              // Crash!
-              state.screenShake = 22;
-              playSynthSound('hit');
-              // Create explosion particles
-              for (let i = 0; i < 20; i++) {
+              // Coyote time — scrape along the rock for a beat before it kills.
+              // Inward momentum is killed so the glider grinds instead of burying.
+              state.outOfBounds += dt;
+              state.coyoteFlash = 1;
+              if (outTop) {
+                state.y = cy + gliderRadius * 0.9;
+                if (state.vy < 0) state.vy = 0;
+              } else {
+                state.y = fy - gliderRadius * 0.9;
+                if (state.vy > 0) state.vy = 0;
+              }
+              // Scrape sparks so the near-miss is legible
+              if (Math.random() < 30 * dt) {
                 state.particles.push({
                   x: state.x,
                   y: state.y,
-                  vx: (Math.random() - 0.5) * 10,
-                  vy: (Math.random() - 0.5) * 10,
-                  color: 'rgba(239, 68, 68, 0.85)',
-                  size: 5 + Math.random() * 6,
+                  vx: -state.vx * 0.5,
+                  vy: (outTop ? 1 : -1) * (60 + Math.random() * 120),
+                  color: 'rgba(255, 170, 60, 0.9)',
+                  size: 2 + Math.random() * 3,
                   life: 1.0,
-                  decay: 0.03
+                  decay: 4.0
                 });
               }
-              triggerEnd(false);
+
+              if (state.outOfBounds >= FLIGHT.coyoteMs / 1000) {
+                // Crash!
+                state.screenShake = 22;
+                playSynthSound('hit');
+                // Create explosion particles
+                for (let i = 0; i < 20; i++) {
+                  state.particles.push({
+                    x: state.x,
+                    y: state.y,
+                    vx: (Math.random() - 0.5) * 600,
+                    vy: (Math.random() - 0.5) * 600,
+                    color: 'rgba(239, 68, 68, 0.85)',
+                    size: 5 + Math.random() * 6,
+                    life: 1.0,
+                    decay: 1.8
+                  });
+                }
+                triggerEnd(false);
+              }
             }
+          } else {
+            // Recover the coyote budget at 2x, so repeated scraping still punishes.
+            state.outOfBounds = Math.max(0, state.outOfBounds - dt * 2);
           }
         }
 
         // --- 3. ENTITY INTERACTIONS ---
-        const gliderRadius = 14;
+        const gliderRadius = FLIGHT.gliderRadius;
         // Coin collection
         state.coins.forEach(c => {
           if (!c.collected && Math.hypot(state.x - c.x, state.y - c.y) < c.radius + gliderRadius) {
@@ -499,12 +549,12 @@ export default function LifeSoarGame({ onWin, onLose }) {
               state.particles.push({
                 x: c.x,
                 y: c.y,
-                vx: (Math.random() - 0.5) * 4,
-                vy: (Math.random() - 0.5) * 4,
+                vx: (Math.random() - 0.5) * 240,
+                vy: (Math.random() - 0.5) * 240,
                 color: '#FACC15',
                 size: 2 + Math.random() * 3,
                 life: 1.0,
-                decay: 0.08
+                decay: 4.8
               });
             }
           }
@@ -524,87 +574,87 @@ export default function LifeSoarGame({ onWin, onLose }) {
               state.particles.push({
                 x: s.x,
                 y: s.y,
-                vx: (Math.random() - 0.5) * 5,
-                vy: (Math.random() - 0.5) * 5,
+                vx: (Math.random() - 0.5) * 300,
+                vy: (Math.random() - 0.5) * 300,
                 color: '#3B8DD4',
                 size: 2.5 + Math.random() * 3.5,
                 life: 1.0,
-                decay: 0.07
+                decay: 4.2
               });
             }
           }
         });
 
-        // Hazard Collision (Disabled during grace period)
-        if (state.elapsedTime >= GRACE_PERIOD_FRAMES) {
-          state.hazards.forEach(h => {
-            // Compute dynamic coordinate for spikes
-            let hx = h.x;
-            let hy = h.y;
-            let hr = h.radius || 15;
+        // Hazard Collision (disabled during the opening grace period)
+        state.hazards.forEach(h => {
+          // Bobbing hazards animate even in grace so the scene reads as alive
+          if (h.type === 'float') {
+            h.angle += h.bobSpeed * dt;
+            h.y = h.baseY + Math.sin(h.angle) * h.bobRange;
+          }
+          if (inGrace) return;
 
-            if (h.type === 'ceiling_spike') {
-              hy = getCeilingY(hx, height);
-            } else if (h.type === 'floor_spike') {
-              hy = getFloorY(hx, height);
-            } else if (h.type === 'float') {
-              h.angle += h.bobSpeed;
-              h.y = h.baseY + Math.sin(h.angle) * h.bobRange;
-              hy = h.y;
-            }
+          const hx = h.x;
+          let collided = false;
 
-            // Simple distance check for float, or bbox/line for spikes
-            let collided = false;
-            if (h.type === 'float') {
-              collided = Math.hypot(state.x - hx, state.y - hy) < hr + gliderRadius;
-            } else {
-              // Triangle approximation spike collision
-              const distToSpikeTip = Math.hypot(state.x - hx, state.y - hy);
-              collided = distToSpikeTip < gliderRadius + 18;
-            }
-
-            if (collided) {
-              // Remove hazard to avoid multi-hitting
-              state.hazards = state.hazards.filter(item => item !== h);
-              
-              if (state.hasShield) {
-                state.hasShield = false;
-                setHasShield(false);
-                playSynthSound('shield_break');
-                state.screenShake = 14;
-                for (let i = 0; i < 12; i++) {
-                  state.particles.push({
-                    x: state.x,
-                    y: state.y,
-                    vx: (Math.random() - 0.5) * 7,
-                    vy: (Math.random() - 0.5) * 7,
-                    color: 'rgba(59, 141, 212, 0.75)',
-                    size: 3 + Math.random() * 4,
-                    life: 1.0,
-                    decay: 0.06
-                  });
-                }
+          if (h.type === 'float') {
+            collided = Math.hypot(state.x - hx, state.y - h.y) < (h.radius || 15) + gliderRadius;
+          } else {
+            // Real triangle test: the spike narrows toward its tip, so clipping
+            // the outer edge is survivable instead of a flat radius kill-box.
+            const halfW = h.width / 2 + gliderRadius * 0.55;
+            const dx = Math.abs(state.x - hx);
+            if (dx < halfW) {
+              const reach = h.height * (1 - dx / halfW);
+              if (h.type === 'ceiling_spike') {
+                collided = state.y - gliderRadius < getCeilingY(hx, height) + reach;
               } else {
-                // Crash
-                state.screenShake = 22;
-                playSynthSound('hit');
-                for (let i = 0; i < 18; i++) {
-                  state.particles.push({
-                    x: state.x,
-                    y: state.y,
-                    vx: (Math.random() - 0.5) * 9,
-                    vy: (Math.random() - 0.5) * 9,
-                    color: 'rgba(220, 38, 38, 0.85)',
-                    size: 4.5 + Math.random() * 5.5,
-                    life: 1.0,
-                    decay: 0.04
-                  });
-                }
-                triggerEnd(false);
+                collided = state.y + gliderRadius > getFloorY(hx, height) - reach;
               }
             }
-          });
-        }
+          }
+
+          if (collided) {
+            // Remove hazard to avoid multi-hitting
+            state.hazards = state.hazards.filter(item => item !== h);
+
+            if (state.hasShield) {
+              state.hasShield = false;
+              setHasShield(false);
+              playSynthSound('shield_break');
+              state.screenShake = 14;
+              for (let i = 0; i < 12; i++) {
+                state.particles.push({
+                  x: state.x,
+                  y: state.y,
+                  vx: (Math.random() - 0.5) * 420,
+                  vy: (Math.random() - 0.5) * 420,
+                  color: 'rgba(59, 141, 212, 0.75)',
+                  size: 3 + Math.random() * 4,
+                  life: 1.0,
+                  decay: 3.6
+                });
+              }
+            } else {
+              // Crash
+              state.screenShake = 22;
+              playSynthSound('hit');
+              for (let i = 0; i < 18; i++) {
+                state.particles.push({
+                  x: state.x,
+                  y: state.y,
+                  vx: (Math.random() - 0.5) * 540,
+                  vy: (Math.random() - 0.5) * 540,
+                  color: 'rgba(220, 38, 38, 0.85)',
+                  size: 4.5 + Math.random() * 5.5,
+                  life: 1.0,
+                  decay: 2.4
+                });
+              }
+              triggerEnd(false);
+            }
+          }
+        });
 
         // --- 4. MILESTONES DETECTION ---
         state.milestones.forEach(m => {
@@ -624,32 +674,29 @@ export default function LifeSoarGame({ onWin, onLose }) {
               state.particles.push({
                 x: state.x,
                 y: state.y,
-                vx: -2 + Math.random() * 6,
-                vy: -3 + Math.random() * 6,
+                vx: -120 + Math.random() * 360,
+                vy: -180 + Math.random() * 360,
                 color: m.color,
                 size: 3 + Math.random() * 4,
                 life: 1.2,
-                decay: 0.04
+                decay: 2.4
               });
             }
           }
         });
 
         // --- 5. CAMERA & SHAKE SCROLL ---
-        // Camera centers glider horizontally (offset by 120px)
-        state.cameraX = state.x - 120;
-        if (state.screenShake > 0.1) {
-          state.screenShake *= 0.88;
-        } else {
-          state.screenShake = 0;
-        }
+        state.cameraX = state.x - WORLD.cameraLeadPx;
+        state.screenShake = state.screenShake > 0.1
+          ? state.screenShake * Math.pow(0.88, dt * 60)
+          : 0;
       }
 
       // Update Particles
       state.particles.forEach(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= p.decay;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= p.decay * dt;
       });
       state.particles = state.particles.filter(p => p.life > 0);
 
@@ -664,12 +711,15 @@ export default function LifeSoarGame({ onWin, onLose }) {
         ctx.translate(dx, dy);
       }
 
-      // Parallax Day-Sky Gradient
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
-      skyGrad.addColorStop(0, '#040d21');   // Deep space blue
-      skyGrad.addColorStop(0.4, '#0e2b5e'); // Midnight blue
-      skyGrad.addColorStop(0.8, '#1e5ca1'); // Sky blue
-      skyGrad.addColorStop(1, '#ff9e59');   // Horizon warm glow
+      // Parallax Day-Sky Gradient (cached — no per-frame allocation)
+      if (!skyGrad || skyGradH !== height) {
+        skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+        skyGrad.addColorStop(0, '#040d21');   // Deep space blue
+        skyGrad.addColorStop(0.4, '#0e2b5e'); // Midnight blue
+        skyGrad.addColorStop(0.8, '#1e5ca1'); // Sky blue
+        skyGrad.addColorStop(1, '#ff9e59');   // Horizon warm glow
+        skyGradH = height;
+      }
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, width, height);
 
@@ -870,7 +920,7 @@ export default function LifeSoarGame({ onWin, onLose }) {
             ctx.strokeStyle = '#22C55E';
             ctx.lineWidth = 2.5;
             for (let i = 0; i < numSpikes; i++) {
-              const ang = (i / numSpikes) * Math.PI * 2 + state.elapsedTime * 0.05;
+              const ang = (i / numSpikes) * Math.PI * 2 + state.elapsed * 3;
               const sx1 = hx + Math.cos(ang) * h.radius;
               const sy1 = h.y + Math.sin(ang) * h.radius;
               const sx2 = hx + Math.cos(ang) * (h.radius + 6);
@@ -1003,8 +1053,15 @@ export default function LifeSoarGame({ onWin, onLose }) {
 
       ctx.restore(); // restore screen shake translation
 
-      // Increment elapsed frames
-      state.elapsedTime += 1;
+      // Coyote-time danger vignette — you are scraping the rock, pull away NOW.
+      if (state.coyoteFlash > 0) {
+        ctx.save();
+        ctx.globalAlpha = state.coyoteFlash * 0.9;
+        ctx.strokeStyle = '#EF4444';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(5, 5, width - 10, height - 10);
+        ctx.restore();
+      }
 
       // Keep animation running
       if (!state.gameOver) {
@@ -1021,15 +1078,22 @@ export default function LifeSoarGame({ onWin, onLose }) {
     };
   }, [onWin, onLose]);
 
-  // Handle touch/mouse diving input
+  // Pointer events cover mouse + touch + pen with one path, and pointer capture
+  // means sliding the thumb off the play area never drops the hold.
   const handleStartDive = (e) => {
     e.preventDefault();
-    stateRef.current.isDiving = true;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* not supported */ }
+    const s = stateRef.current;
+    s.diveHeld = true;
+    // Input buffer: even a flick that releases instantly dives for this long.
+    s.diveBufferUntil = performance.now() + FLIGHT.inputBufferMs;
+    setPressed(true);
   };
 
   const handleEndDive = (e) => {
     e.preventDefault();
-    stateRef.current.isDiving = false;
+    stateRef.current.diveHeld = false;
+    setPressed(false);
   };
 
   // Safe percentage calculation for milestone display
@@ -1055,18 +1119,68 @@ export default function LifeSoarGame({ onWin, onLose }) {
       {/* Canvas */}
       <canvas
         ref={canvasRef}
-        onMouseDown={handleStartDive}
-        onMouseUp={handleEndDive}
-        onMouseLeave={handleEndDive}
-        onTouchStart={handleStartDive}
-        onTouchEnd={handleEndDive}
         style={{
           display: 'block',
           width: '100%',
           height: '100%',
-          cursor: 'pointer',
         }}
       />
+
+      {/* Full-bleed input zone — the whole play area is the button, so a thumb
+          anywhere in portrait works one-handed. Sits under the HUD (z 10). */}
+      <div
+        onPointerDown={handleStartDive}
+        onPointerUp={handleEndDive}
+        onPointerCancel={handleEndDive}
+        onContextMenu={(e) => e.preventDefault()}
+        role="button"
+        aria-label="Hold to dive, release to soar"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 5,
+          cursor: 'pointer',
+          touchAction: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          background: pressed
+            ? 'radial-gradient(ellipse at 50% 100%, rgba(242,101,34,0.30) 0%, rgba(242,101,34,0.10) 40%, transparent 72%)'
+            : 'transparent',
+          transition: 'background 90ms linear',
+        }}
+      >
+        {/* Touch-down feedback bar — full width, 56px tall, ≥44px target */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 56,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            letterSpacing: '0.3em',
+            fontSize: 11,
+            fontWeight: 900,
+            textTransform: 'uppercase',
+            color: pressed ? '#fff' : 'rgba(255,255,255,0.55)',
+            background: pressed
+              ? 'linear-gradient(0deg, rgba(242,101,34,0.70) 0%, rgba(242,101,34,0.05) 100%)'
+              : 'linear-gradient(0deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 100%)',
+            borderTop: pressed
+              ? '2px solid rgba(255,180,120,0.95)'
+              : '2px solid rgba(255,255,255,0.16)',
+            transform: pressed ? 'translateY(0)' : 'translateY(2px)',
+            transition: 'background 90ms linear, color 90ms linear, transform 90ms linear',
+            textShadow: '0 2px 6px rgba(0,0,0,0.7)',
+          }}
+        >
+          <span>{pressed ? 'Diving' : 'Hold anywhere'}</span>
+        </div>
+      </div>
 
       {/* --- HUD OVERLAYS (Glassmorphic) --- */}
       <div
@@ -1197,12 +1311,12 @@ export default function LifeSoarGame({ onWin, onLose }) {
         </div>
       )}
 
-      {/* Tap Instruction Indicator (Shows only at the start) */}
-      {distance < 10 && (
+      {/* Tap Instruction Indicator (shows through the opening grace period) */}
+      {distance < 80 && (
         <div
           style={{
             position: 'absolute',
-            bottom: '22%',
+            bottom: '26%',
             left: '50%',
             transform: 'translateX(-50%)',
             display: 'flex',

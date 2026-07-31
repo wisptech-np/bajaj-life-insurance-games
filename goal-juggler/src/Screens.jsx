@@ -216,9 +216,27 @@ const SCREEN_CSS = `
 @keyframes gjJugD { 0%,100% { transform: translateY(-60px); } 50% { transform: translateY(-8px); } }
 @keyframes gjTapRing { 0% { r: 4; opacity: 0.9; } 100% { r: 26; opacity: 0; } }
 @keyframes gjFinger { 0%,42% { opacity: 0; transform: translateY(10px); } 50% { opacity: 1; transform: translateY(0); } 66%,100% { opacity: 0; transform: translateY(0); } }
-@keyframes gjBeatTap { 0%,45% { transform: translateY(0); } 55% { transform: translateY(3px) scaleY(0.86); } 100% { transform: translateY(-26px); } }
-@keyframes gjBeatSteer { 0%,40% { transform: translate(0,0); } 100% { transform: translate(20px,-22px); } }
-@keyframes gjBeatFall { 0% { transform: translateY(-24px); opacity: 1; } 70% { transform: translateY(16px); opacity: 1; } 100% { transform: translateY(16px); opacity: 0.25; } }
+/* How-to-play demo — one seamless 2.6s parabola. The orb falls down-and-right
+   (spacing widens = accelerating), the finger taps its RIGHT side at 46%, and it
+   rebounds up-and-LEFT (spacing narrows = decelerating) back to where it began,
+   so the loop closes with no snap and the off-centre steer is the reason it
+   changes direction. */
+@keyframes gjDOrb {
+  0%   { transform: translate(110px, 46px); }
+  20%  { transform: translate(120px, 76px); }
+  34%  { transform: translate(129px, 110px); }
+  46%  { transform: translate(138px, 148px); }
+  50%  { transform: translate(137px, 141px); }
+  62%  { transform: translate(130px, 106px); }
+  78%  { transform: translate(120px, 70px); }
+  100% { transform: translate(110px, 46px); }
+}
+@keyframes gjDSquash { 0%,44% { transform: scale(1,1); } 47% { transform: scale(1.16,0.84); } 54%,100% { transform: scale(1,1); } }
+@keyframes gjDFinger { 0%,34% { opacity: 0; transform: translate(12px,10px); } 44%,52% { opacity: 1; transform: translate(0,0); } 62%,100% { opacity: 0; transform: translate(12px,10px); } }
+@keyframes gjDRing   { 0%,46% { r: 4; opacity: 0.95; } 64%,100% { r: 30; opacity: 0; } }
+@keyframes gjDBobA   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-34px); } }
+@keyframes gjDBobB   { 0%,100% { transform: translateY(-30px); } 50% { transform: translateY(6px); } }
+@keyframes gjDFloor  { 0%,40% { opacity: 0.5; } 48% { opacity: 1; } 70%,100% { opacity: 0.5; } }
 .gj-title { animation: gjTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .gj-float { animation: gjFloat 4s ease-in-out infinite; }
 .gj-glow  { animation: gjGlow 2.2s ease-in-out infinite; }
@@ -228,12 +246,17 @@ const SCREEN_CSS = `
 .gj-jug-c { animation: gjJugC 2.4s ease-in-out infinite; }
 .gj-jug-d { animation: gjJugD 2.4s ease-in-out infinite; }
 .gj-finger { animation: gjFinger 2.0s ease-in-out infinite; }
-.gj-beat-tap { animation: gjBeatTap 1.9s ease-out infinite; }
-.gj-beat-steer { animation: gjBeatSteer 1.9s ease-out infinite; }
-.gj-beat-fall { animation: gjBeatFall 1.9s ease-in infinite; }
+.gj-d-orb    { animation: gjDOrb 2.6s linear infinite; }
+.gj-d-squash { animation: gjDSquash 2.6s ease-out infinite; }
+.gj-d-finger { animation: gjDFinger 2.6s ease-out infinite; }
+.gj-d-ring   { animation: gjDRing 2.6s ease-out infinite; }
+.gj-d-bob-a  { animation: gjDBobA 2.6s ease-in-out infinite; }
+.gj-d-bob-b  { animation: gjDBobB 2.6s ease-in-out infinite; }
+.gj-d-floor  { animation: gjDFloor 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .gj-title, .gj-float, .gj-glow, .gj-chip, .gj-jug-a, .gj-jug-b, .gj-jug-c, .gj-jug-d,
-  .gj-finger, .gj-beat-tap, .gj-beat-steer, .gj-beat-fall { animation: none !important; }
+  .gj-finger, .gj-d-orb, .gj-d-squash, .gj-d-finger, .gj-d-ring, .gj-d-bob-a,
+  .gj-d-bob-b, .gj-d-floor { animation: none !important; }
 }
 `;
 
@@ -417,47 +440,83 @@ export function HomeScreen({ onStart }) {
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
+/* ─── How to play ─────────────────────────────────────────
+   No instructions: one looping 2.6 s demo of the real court. A goal orb falls
+   under gravity, a finger taps its RIGHT side just above the red floor, and it
+   rebounds up and to the LEFT — which is the whole game, because where you tap
+   relative to the orb's centre is what steers it. Two more orbs keep bobbing in
+   the background so "several at once" needs no sentence either. */
+function DemoCourt() {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
-    </div>
-  );
-}
-
-/** A miniature court for the tutorial diagrams. */
-function BeatCourt({ children }) {
-  return (
-    <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
+    <svg width="100%" viewBox="0 0 300 200" style={{ display: 'block' }} aria-hidden="true">
       <OrbDefs />
-      <rect x="4" y="4" width="2" height="48" rx="1" fill="rgba(150,190,240,0.4)" />
-      <rect x="68" y="4" width="2" height="48" rx="1" fill="rgba(150,190,240,0.4)" />
-      <line x1="4" y1="4" x2="70" y2="4" stroke="rgba(190,220,255,0.3)" strokeWidth="1" />
-      <rect x="0" y="52" width="74" height="10" fill="rgba(239,68,68,0.16)" />
-      <line x1="2" y1="52" x2="72" y2="52" stroke="#EF4444" strokeWidth="1.8" strokeLinecap="round" />
-      {children}
+      <defs>
+        <linearGradient id="gjDSky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#08152F" />
+          <stop offset="60%" stopColor="#0C2A57" />
+          <stop offset="100%" stopColor="#061229" />
+        </linearGradient>
+        <clipPath id="gjDClip"><rect x="0" y="0" width="300" height="200" rx="16" /></clipPath>
+      </defs>
+
+      <g clipPath="url(#gjDClip)">
+        <rect x="0" y="0" width="300" height="200" fill="url(#gjDSky)" />
+
+        {/* Walls and ceiling — the orbs bounce off these */}
+        <rect x="6" y="8" width="3" height="164" rx="1.5" fill={'rgba(150,190,240,0.30)'} />
+        <rect x="291" y="8" width="3" height="164" rx="1.5" fill={'rgba(150,190,240,0.30)'} />
+        <line x1="8" y1="9" x2="292" y2="9" stroke={'rgba(190,220,255,0.62)'} strokeWidth="1.4" />
+
+        {/* The floor: the one place an orb must never reach */}
+        <g className="gj-d-floor">
+          <rect x="0" y="172" width="300" height="28" fill={'rgba(239,68,68,0.20)'} />
+          <line x1="4" y1="172" x2="296" y2="172" stroke={DANGER} strokeWidth="2.6" strokeLinecap="round" />
+        </g>
+
+        {/* Two more goals held up in the background */}
+        <g className="gj-d-bob-a" style={{ transformOrigin: '58px 100px' }}>
+          <Orb goal={GOALS[3]} r={13} x={58} y={104} />
+        </g>
+        <g className="gj-d-bob-b" style={{ transformOrigin: '236px 100px' }}>
+          <Orb goal={GOALS[1]} r={13} x={236} y={104} />
+        </g>
+
+        {/* The orb being played, on its closed fall-tap-rebound loop */}
+        <g className="gj-d-orb">
+          <g className="gj-d-squash">
+            <Orb goal={GOALS[0]} r={16} x={0} y={0} />
+          </g>
+        </g>
+
+        {/* The real input: a finger on the orb's RIGHT, so it kicks away LEFT */}
+        <circle className="gj-d-ring" cx="160" cy="150" r="4" fill="none" stroke="#fff" strokeWidth="2.2" />
+        <g transform="translate(160,168)">
+          <g className="gj-d-finger">
+            <rect x="-4.5" y="-18" width="9" height="21" rx="4.5" fill="#EAF3FF" />
+            <rect x="-9" y="-5" width="19" height="16" rx="7" fill="#BBD3F0" />
+          </g>
+        </g>
+      </g>
     </svg>
   );
 }
 
+/** Icon + ≤4 words. The only prose allowed on this screen. */
+function Cue({ tint, label, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+      <svg width="28" height="26" viewBox="0 0 28 26" aria-hidden="true">{children}</svg>
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: tint,
+        textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.15,
+      }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
-  const cfg = GAME_CONFIG;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -471,9 +530,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -482,98 +541,45 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '20px 16px 18px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 14px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Tap to bounce &middot; Tap off-centre to steer &middot; Never let one reach the floor
-        </p>
-        {/* The shared input kit tracks a single pointer, so a second finger
-            resting on the glass swallows every tap. The kit is immutable, so the
-            player is told rather than fixed. */}
-        <p style={{
-          fontSize: 10.5, fontWeight: 800, color: 'rgba(255,255,255,0.55)',
-          margin: '-8px 0 14px 0', lineHeight: 1.4, letterSpacing: '0.02em',
-        }}>
-          Use <strong style={{ color: '#fff' }}>one finger</strong> &mdash; keep your other hand off the screen.
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Tap to keep it up" copy="A tap knocks the orb straight back up. Tap anywhere near it — the target is far bigger than it looks.">
-            <BeatCourt>
-              <g className="gj-beat-tap">
-                <Orb goal={GOALS[0]} r={9} x={37} y={38} />
-              </g>
-              <circle className="gj-finger" cx="37" cy="46" r="4" fill="none" stroke="#fff" strokeWidth="1.6" />
-            </BeatCourt>
-          </Beat>
-
-          <Beat n="2" title="Off-centre to steer" copy="Tap the left of an orb and it goes right. That is how you pull one back from a wall — or out of a gust.">
-            <BeatCourt>
-              <g className="gj-beat-steer">
-                <Orb goal={GOALS[1]} r={9} x={26} y={34} />
-              </g>
-              <circle className="gj-finger" cx="18" cy="40" r="3.6" fill="none" stroke="#fff" strokeWidth="1.6" />
-              <path d="M30 30 L46 18" stroke={ORANGE_LT} strokeWidth="1.6" strokeDasharray="3 3" strokeLinecap="round" opacity="0.8" />
-            </BeatCourt>
-          </Beat>
-
-          <Beat n="3" title="The floor costs a cover" copy={`Miss one and it shatters — ${cfg.covers} covers and the run is over. It comes back after ${cfg.serve.respawnSeconds}s.`}>
-            <BeatCourt>
-              <g className="gj-beat-fall">
-                <Orb goal={GOALS[2]} r={9} x={37} y={36} />
-              </g>
-              <path d="M26 58l-2 3M37 58l0 3M48 58l2 3" stroke={DANGER} strokeWidth="1.6" strokeLinecap="round" opacity="0.8" />
-            </BeatCourt>
-          </Beat>
+        <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <DemoCourt />
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{cfg.sessionSeconds} seconds.</strong> Orbs grow{' '}
-          <strong style={{ color: GOLD }}>1 &rarr; {cfg.maxOrbs}</strong> at{' '}
-          {cfg.orbSchedule.join('s / ')}s, and a{' '}
-          <strong style={{ color: ORANGE_LT }}>risk gust</strong> starts blowing at{' '}
-          {cfg.gust.startSeconds}s. Survive with fewer than{' '}
-          <strong style={{ color: DANGER }}>{cfg.covers}</strong> drops and at least{' '}
-          <strong style={{ color: GREEN_LT }}>{cfg.targetScore.toLocaleString()}</strong> points to win.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {[
-            { k: 'b', label: `Bounce +${cfg.scoring.bouncePerOrb} x orbs`, color: GREEN_LT },
-            { k: 'h', label: `High keep +${cfg.scoring.highKeep}`, color: GOLD },
-            { k: 's', label: `All four ${cfg.scoring.allUpSeconds}s +${cfg.scoring.allUpBonus}`, color: ORANGE_LT },
-          ].map((c, i) => (
-            <span
-              key={c.k}
-              className="gj-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: c.color,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {c.label}
-            </span>
-          ))}
+        <div style={{ display: 'flex', gap: 6, margin: '14px 0 16px' }}>
+          {/* The shared input kit tracks a single pointer: a second finger resting
+              on the glass swallows every tap. Stated as a glyph, not a sentence. */}
+          <Cue tint="#fff" label="One finger only">
+            <rect x="9" y="4" width="7" height="16" rx="3.5" fill="#EAF3FF" />
+            <rect x="6" y="14" width="14" height="10" rx="5" fill="#BBD3F0" />
+            <path d="M20 6 l6 6 M26 6 l-6 6" stroke={DANGER} strokeWidth="2.2" strokeLinecap="round" />
+          </Cue>
+          <Cue tint={ORANGE_LT} label="Off-centre steers">
+            <circle cx="16" cy="13" r="7.5" fill={GOLD} opacity="0.9" />
+            <circle cx="16" cy="13" r="1.8" fill={'#B07B12'} />
+            <circle cx="25" cy="17" r="3" fill="#EAF3FF" />
+            <path d="M11 8 L2 4" stroke={ORANGE_LT} strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M2 4 l5 0.2 M2 4 l0.4 5" stroke={ORANGE_LT} strokeWidth="2.2" strokeLinecap="round" />
+          </Cue>
+          <Cue tint={DANGER} label="Floor costs cover">
+            <path d="M14 4 l5.5 5 l-3.6 2.4 l4.6 5.6 l-8 -4.6 l3.2 -2.6 z" fill={GOLD} opacity="0.9" />
+            <line x1="2" y1="21" x2="26" y2="21" stroke={DANGER} strokeWidth="2.6" strokeLinecap="round" />
+            <path d="M7 24 l-1.6 2 M14 24 l0 2 M21 24 l1.6 2" stroke={DANGER} strokeWidth="1.8" strokeLinecap="round" opacity="0.8" />
+          </Cue>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

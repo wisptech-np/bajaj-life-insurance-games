@@ -88,3 +88,49 @@ refs; React state only for values that change a handful of times per run.
 4. "At each 10-combo" frenzy trigger is implemented as a cumulative combo meter
    (10 risks sliced without hitting a shield) — a literal 10-slice gesture is
    impossible under the briefed 8-slices-per-gesture cap.
+
+---
+
+## 2026-07-31 — Lead-form slim-down, animation-first how-to-play, asset prompt sheet
+
+Scope was deliberately narrow: no gameplay, balance, physics, HUD or
+`ResultsScreen` changes. Three edits only.
+
+### G1 — email field removed from lead capture
+
+`src/LeadCaptureModal.jsx`: deleted `EMAIL_RE`, the `email` `useState`, the whole
+"Email Field" `sl-lead-field` block, the `errs.email` validation branch, both the
+read and the write of `sessionStorage.lastSubmittedEmail`, and the `email` key
+from the `submitToLMS({...})` call and both `onSubmitted({...})` payloads.
+`src/api.js` untouched — `submitToLMS` already does `email_id: email || ''`, so
+omitting the key keeps the LMS payload shape byte-identical. Grep for
+`email`/`lastSubmittedEmail` across `src/` now returns hits only in `api.js`;
+`ThankYouScreen.jsx` and `SlotBookingModal.jsx` never read it. Name (letters +
+spaces), Mobile (`^[6-9]\d{9}$`) and the T&C checkbox are unchanged.
+
+### G2 — `HowToPlayScreen` is now animation-first
+
+`src/Screens.jsx`: deleted all four numbered instruction paragraphs. The existing
+4-second looping CSS demo — a jade risk orb rising, a yellow finger glyph swiping
+through it, the orb splitting into two tumbling halves, the blue Family Shield
+orb drifting past untouched — is now the whole explanation and is unchanged. Under
+it sits a new `CueChip` row of exactly three icon-led labels: a finger glyph +
+"SWIPE", the game's own `RiskOrbArt` sprite + "SLASH RISK", and `ShieldOrbArt`
+struck through in red + "SPARE SHIELDS". Remaining text on the screen: the
+heading, three labels of ≤ 2 words, and the Play button. Nothing else.
+Card height at 360×640 is ~470 px inside a 640 px viewport — no scroll.
+
+### G3 — `asset-from-here.md`
+
+14 Nano Banana prompts written to `risk-slash/asset-from-here.md`. Motif is
+**sumi-e ink on black lacquer**: wet calligraphy brush geometry, gold-leaf
+kintsugi seams, washi paper grain, risk sprites as carved jade fruit and the
+blade as an ink stroke rather than steel. Covers background, blade ribbon, all
+six `RISK_TYPES` orbs, the Family Shield orb, the goo splat decal, the HUD icon
+set, the frenzy banner, and win/loss result tableaus.
+
+### Verification
+
+- `pnpm install` + `pnpm build` — **green**: `dist/assets/index-DSqWPey4.js`
+  423.54 kB (140.34 kB gzip), `index-bneSBdfR.css` 33.60 kB, built in 2.46 s.
+- No `src/kit/`, `api.js`, `services/`, `utils/` or `ResultsScreen` edits.

@@ -18,12 +18,14 @@ import {
   COLORS,
   GAME_CONFIG,
   buildVerifiedTower,
+  createFlexChain,
   createLeanSolver,
   evaluateMasks,
   masksForState,
   mulberry32,
   pullImpulse,
 } from './data.js';
+import { ClockIcon, HazardIcon, LevelIcon, StackIcon } from './Screens.jsx';
 import { BALANCE } from './kit/config.js';
 import { createGameLoop } from './kit/loop.js';
 import { createInput } from './kit/input.js';
@@ -35,17 +37,17 @@ import { detectTier, effectBudget, fitCanvas, haptic } from './kit/device.js';
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /* ─── Geometry ───────────────────────────────────────────────
-   One object describing where every block sits, rebuilt only on resize. Layer 0
-   is the bottom; `heightOf` is the height of a layer's centre above the base
-   plate, which is the moment arm the shear uses.
+   One object describing the tower's RESTING proportions, rebuilt only on resize.
+   Where a block actually is at any instant comes from the joint chain (see
+   `layoutTower`), not from here.
 
    The block aspect ratio is NOT a free layout choice. `solver.layerHeight` is
    the layer pitch expressed in block widths, and the statics model multiplies it
-   by the layer index to get the arm the shear acts on. Sizing the blocks to fill
-   whatever height happened to be available would silently retune the physics per
-   device — a short phone would play a measurably different game from a tall one.
-   So width is chosen from whichever of the two limits binds, and height follows
-   from the ratio; any leftover height becomes sky. */
+   by the layer index to get the arm the imbalance acts on. Sizing the blocks to
+   fill whatever height happened to be available would silently retune the
+   physics per device — a short phone would play a measurably different game from
+   a tall one. So width is chosen from whichever of the two limits binds, and
+   height follows from the ratio; any leftover height becomes sky. */
 function buildGeometry(cfg, W, H) {
   const L = cfg.tower.layers;
   const lay = cfg.layout;
@@ -73,17 +75,70 @@ function buildGeometry(cfg, W, H) {
     pitchY,
     baseY,
     pivotX: W / 2,
-    heightOf: (layer) => layer * pitchY + blockH / 2,
-    centerYOf: (layer) => baseY - layer * pitchY - blockH / 2,
   };
 }
 
-/** World-space centre of a block at the current shear. */
-function blockCenter(geom, layer, slot, shear) {
-  return {
-    x: geom.pivotX + (slot - 1) * geom.pitchX + shear * geom.heightOf(layer),
-    y: geom.centerYOf(layer),
-  };
+/* ─── Pose ───────────────────────────────────────────────────
+   Walk the joint chain from the base plate upward and write out where every
+   layer ended up. Seven floats per layer:
+
+     0,1  centre of the layer in world space
+     2,3  cos/sin of its accumulated rotation — the renderer feeds these
+          straight to ctx.transform, the hit test uses them to go the other way
+     4,5  velocity of that centre, from the joint rates. Free here, and it is
+          what makes the collapse continue the motion instead of replacing it
+     6    accumulated angular velocity, i.e. the block's spin at collapse
+
+   The walk is the whole "accumulating lean": each step advances by the layer
+   pitch along the CURRENT joint direction, so a bend at joint 3 carries every
+   layer above it sideways as well as rotating them. Rotation and displacement
+   come out of one integration rather than being two separate fudge factors.
+
+   Allocation-free: writes into a Float32Array owned by the component. */
+const POSE = 7;
+
+function layoutTower(geom, chain, out) {
+  const { angles, rates, separations } = chain;
+  let x = geom.pivotX;
+  let y = geom.baseY + chain.drop;
+  let om = 0;
+  let vx = 0;
+  let vy = 0;
+  let th = 0;
+
+  for (let i = 0; i < angles.length; i++) {
+    th += angles[i];
+    om += rates[i];
+    const c = Math.cos(th);
+    const s = Math.sin(th);
+    // The joint rides open under stress, so the block sits a hair higher and
+    // the seam below it shows.
+    const gap = separations[i];
+    const half = geom.blockH * 0.5 + gap;
+    const rise = geom.pitchY + gap;
+
+    const o = i * POSE;
+    out[o] = x + s * half;
+    out[o + 1] = y - c * half;
+    out[o + 2] = c;
+    out[o + 3] = s;
+    // v = v_joint + omega x r, with r = (s*half, -c*half).
+    out[o + 4] = vx + om * c * half;
+    out[o + 5] = vy + om * s * half;
+    out[o + 6] = om;
+
+    vx += om * c * rise;
+    vy += om * s * rise;
+    x += s * rise;
+    y -= c * rise;
+  }
+}
+
+/** World-space centre of one block, for particle and float-text anchors. */
+function blockCenter(pose, geom, layer, slot) {
+  const o = layer * POSE;
+  const dx = (slot - 1) * geom.pitchX;
+  return { x: pose[o] + dx * pose[o + 2], y: pose[o + 1] + dx * pose[o + 3] };
 }
 
 /* ─── Backdrop ───────────────────────────────────────────────
@@ -295,18 +350,19 @@ function makeBlockSprite({ block, w, h, dpr, endGrain }) {
 }
 
 /* ─── Draw helpers ───────────────────────────────────────── */
-function drawPlinth(ctx, cfg, geom, shear, shadows) {
+function drawPlinth(ctx, cfg, geom, leanPx, shadows) {
   const lay = cfg.layout;
   const w = geom.towerW + lay.plinthOverhangPx * 2;
   const x = geom.pivotX - w / 2;
   const y = geom.baseY;
 
-  // Contact shadow, offset by the lean so the tower keeps its footing.
+  // Contact shadow, dragged a fraction of the way the top has travelled so the
+  // tower keeps its footing while its mass moves off centre.
   ctx.save();
   ctx.globalAlpha = 0.45;
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
   ctx.beginPath();
-  ctx.ellipse(geom.pivotX + shear * geom.blockH * 1.4, y + 3, geom.towerW * 0.56, 7, 0, 0, Math.PI * 2);
+  ctx.ellipse(geom.pivotX + leanPx * 0.16, y + 3, geom.towerW * 0.56, 7, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -360,18 +416,18 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const endTimerRef = useRef(null);
-  const bannerTimerRef = useRef(null);
   const scoreElRef = useRef(null);
   const riskElRef = useRef(null);
   const stabElRef = useRef(null);
   const meterWrapRef = useRef(null);
   const meterFillRef = useRef(null);
   const needleRef = useRef(null);
+  const holdArcRef = useRef(null);
 
   const [timeLeft, setTimeLeft] = useState(cfg.sessionSeconds);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
-  const [banner, setBanner] = useState(null);
+  const [holding, setHolding] = useState(false);
   const [hint, setHint] = useState(true);
   const [over, setOver] = useState(false);
 
@@ -395,13 +451,13 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       state: 0,
       margin: 1,
       off: 0,
-      visualTheta: 0,
       stability: 1,
       stabSum: 0,
       stabTime: 0,
       holdT: -1,
       dustClock: 0,
       beatClock: 0,
+      creakClock: 0,
       shownScore: -1,
       shownRisks: -1,
       shownStab: -1,
@@ -420,6 +476,8 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       geom: null,
       backdrop: null,
       lean: null,
+      chain: null,
+      pose: null,
       effects: null,
       audio: null,
       budget: null,
@@ -465,6 +523,8 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
     s.masks = new Uint8Array(cfg.tower.layers);
     s.probe = new Uint8Array(cfg.tower.layers);
     s.lean = createLeanSolver(cfg);
+    s.chain = createFlexChain(cfg);
+    s.pose = new Float32Array(cfg.tower.layers * POSE);
 
     /* --- canvas sizing --------------------------------------------------- */
     const fit = () => {
@@ -489,6 +549,9 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
         dpr: s.dpr,
         endGrain: layer % 2 === 1,
       })));
+      // A resize can land between two updates; the pose must never be stale
+      // geometry or the first tap after a URL-bar move would miss.
+      layoutTower(s.geom, s.chain, s.pose);
     };
     fit();
 
@@ -506,37 +569,38 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       return evaluateMasks(s.probe, cfg, theta);
     };
 
-    const showBanner = (label, tone, note) => {
-      setBanner({ id: s.time, label, tone, note });
-      clearTimeout(bannerTimerRef.current);
-      bannerTimerRef.current = setTimeout(() => setBanner(null), cfg.fx.bannerSeconds * 1000);
-    };
-
     /* --- collapse -------------------------------------------------------- */
-    // Every block still standing becomes a loose body. Its initial velocity is
-    // the one the shear was already giving it (rate x height), so the fall
-    // continues the motion the player was watching rather than replacing it.
+    // Not a canned animation: every standing block is handed the position,
+    // rotation, velocity and spin the joint chain was ALREADY giving it on the
+    // frame the tower let go. The upper blocks are travelling fastest and spin
+    // hardest because that is what the chain had them doing a frame earlier, so
+    // the fall reads as the same motion continuing rather than a cut to a
+    // different animation. `scatterSpeed` only adds the sideways scatter of
+    // blocks losing contact with each other.
     const collapse = () => {
       if (s.collapsed) return;
       s.collapsed = true;
       const geom = s.geom;
-      const shear = Math.tan(s.visualTheta);
-      const rate = s.lean.omega;
+      const pose = s.pose;
       const dir = Math.sign(s.lean.theta) || 1;
       for (let layer = 0; layer < s.tower.layers.length; layer++) {
+        const o = layer * POSE;
+        const cos = pose[o + 2];
+        const sin = pose[o + 3];
+        const om = pose[o + 6];
+        const rot = Math.atan2(sin, cos);
         for (let slot = 0; slot < 3; slot++) {
           const block = s.tower.layers[layer][slot];
           if (block.red && !(s.state & (1 << block.redIndex))) continue;
-          const p = blockCenter(geom, layer, slot, shear);
-          const h = geom.heightOf(layer);
+          const dx = (slot - 1) * geom.pitchX;
           s.bodies.push({
             sprite: s.sprites[layer][slot],
-            x: p.x,
-            y: p.y,
-            vx: rate * h + dir * cfg.collapse.scatterSpeed * (0.3 + Math.random() * 0.9),
-            vy: -Math.random() * 90,
-            rot: s.lean.theta * cfg.layout.blockTiltFrac,
-            vrot: (Math.random() * 2 - 1) * cfg.collapse.spinMax,
+            x: pose[o] + dx * cos,
+            y: pose[o + 1] + dx * sin,
+            vx: pose[o + 4] - om * dx * sin + dir * cfg.collapse.scatterSpeed * (0.3 + Math.random() * 0.9),
+            vy: pose[o + 5] + om * dx * cos - Math.random() * 90,
+            rot,
+            vrot: om + (Math.random() * 2 - 1) * cfg.collapse.spinMax,
             rest: 0,
           });
         }
@@ -556,6 +620,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       s.won = won;
       setOver(true);
       setHint(false);
+      setHolding(false);
       // Deliberately NOT loop.setPaused(true): a paused loop skips update(),
       // which would freeze the collapse mid-air for the whole end beat. The
       // session clock is already held by shouldTickClock().
@@ -571,11 +636,12 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
         time: secondsLeft,
       };
 
-      // The end beat is drawn in world space. On a topple the tower is already
-      // spread across the floor, so an un-clamped burst at the last block
-      // position can land off-canvas; pull it back to the nearest visible point.
-      const bx = clamp(s.geom.pivotX + Math.tan(s.visualTheta) * s.geom.blockH * 6, 40, s.W - 40);
-      const by = clamp(s.geom.baseY - s.geom.pitchY * 6, 60, s.H - 80);
+      // The end beat is drawn in world space, anchored on the pose so it lands
+      // wherever the tower actually is. On a topple that can be well off to one
+      // side, so clamp it back inside the frame.
+      const mid = (cfg.tower.layers - 2) * POSE;
+      const bx = clamp(s.pose[mid], 40, s.W - 40);
+      const by = clamp(s.pose[mid + 1], 60, s.H - 80);
 
       if (won) {
         audio.victory();
@@ -588,15 +654,12 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
           x: bx, y: by, count: cfg.fx.winParticles, color: COLORS.greenLt,
           speed: 220, spread: Math.PI * 2, size: 4, life: 1.2, gravity: 400, drag: 0.94,
         });
-        fx.floatText(bx, Math.max(30, by - 46), 'TOWER SECURED', COLORS.goldLt, 20);
-        showBanner('Tower secured', 'win', `${s.risks} risks cleared`);
+        fx.floatText(bx, Math.max(30, by - 46), '★', COLORS.goldLt, 34);
       } else {
         audio.failure();
         haptic('failure');
         fx.addShake(cfg.fx.damageShake);
-        fx.floatText(bx, Math.max(30, by - 40), reason === 'time' ? 'TIME UP' : 'TOPPLED', COLORS.danger, 19);
-        showBanner(reason === 'time' ? 'Out of time' : 'Tower toppled', 'lose',
-          reason === 'time' ? `${s.tower.reds.length - s.risks} risks left standing` : 'You pulled the wrong support');
+        fx.floatText(bx, Math.max(30, by - 40), '✕', COLORS.danger, 32);
       }
 
       endTimerRef.current = setTimeout(
@@ -617,10 +680,16 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       s.score += cfg.scoring.riskValue;
       s.grab = null;
 
-      s.lean.kick(pullImpulse({ dir, speed, offBefore: before.off, offAfter: after.off }, cfg));
+      // One impulse, two consumers: the integrator that decides whether the
+      // tower survives, and the joint chain that shows it happening. Plus a
+      // vertical thump, so the stack visibly settles onto the gap.
+      const impulse = pullImpulse({ dir, speed, offBefore: before.off, offAfter: after.off }, cfg);
+      s.lean.kick(impulse);
+      s.chain.kick(impulse);
+      s.chain.thump(cfg.chain.dropPx);
 
       const geom = s.geom;
-      const p = blockCenter(geom, block.layer, block.slot, Math.tan(s.visualTheta));
+      const p = blockCenter(s.pose, geom, block.layer, block.slot);
       s.flying.push({
         sprite: s.sprites[block.layer][block.slot],
         x: p.x + grab.dx * cfg.flick.dragRubber,
@@ -650,11 +719,13 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       // A foundation block does not come out — but tugging it still shakes the
       // tower, so "just try everything" is not a free strategy.
       const geom = s.geom;
-      const p = blockCenter(geom, grab.block.layer, grab.block.slot, Math.tan(s.visualTheta));
-      s.lean.kick((grab.dx >= 0 ? 1 : -1) * cfg.wobble.lockedKick);
+      const p = blockCenter(s.pose, geom, grab.block.layer, grab.block.slot);
+      const nudge = (grab.dx >= 0 ? 1 : -1) * cfg.wobble.lockedKick;
+      s.lean.kick(nudge);
+      s.chain.kick(nudge);
       audio.tick();
       haptic('light');
-      fx.floatText(p.x, p.y - geom.blockH * 0.9, 'KEEP THIS ONE', COLORS.brandBlueLt, 13);
+      fx.floatText(p.x, p.y - geom.blockH * 0.9, '✕', COLORS.brandBlueLt, 22);
       fx.burst({
         x: p.x, y: p.y, count: cfg.fx.lockedParticles, color: COLORS.brandBlueLt,
         speed: 120, spread: Math.PI * 2, size: 2.4, life: 0.4, gravity: 260, drag: 0.9,
@@ -663,23 +734,32 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
     };
 
     /* --- hit test -------------------------------------------------------- */
+    // Against the live pose, not the resting grid: a leaning tower's top block
+    // is nowhere near where its column started, and tapping the gap next to it
+    // would feel broken. Each layer's cos/sin rotate the touch point into that
+    // layer's own frame, where the three slots are back on a straight line.
     const pick = (px, py) => {
       const geom = s.geom;
-      const shear = Math.tan(s.visualTheta);
+      const pose = s.pose;
       const pad = cfg.layout.hitPadPx;
       const hx = geom.blockW / 2 + pad;
       const hy = geom.blockH / 2 + pad;
       let best = null;
       let bestD = Infinity;
       for (let layer = 0; layer < s.tower.layers.length; layer++) {
-        const cy = geom.centerYOf(layer);
-        if (Math.abs(py - cy) > hy) continue;
+        const o = layer * POSE;
+        const ux = px - pose[o];
+        const uy = py - pose[o + 1];
+        const cos = pose[o + 2];
+        const sin = pose[o + 3];
+        const ly = -ux * sin + uy * cos;
+        if (Math.abs(ly) > hy) continue;
+        const lx = ux * cos + uy * sin;
         for (let slot = 0; slot < 3; slot++) {
           const block = s.tower.layers[layer][slot];
           if (block.red && !(s.state & (1 << block.redIndex))) continue;
-          const cx = geom.pivotX + (slot - 1) * geom.pitchX + shear * geom.heightOf(layer);
-          const dx = (px - cx) / hx;
-          const dy = (py - cy) / hy;
+          const dx = (lx - (slot - 1) * geom.pitchX) / hx;
+          const dy = ly / hy;
           const d = dx * dx + dy * dy;
           if (d <= 1 && d < bestD) { bestD = d; best = block; }
         }
@@ -706,7 +786,7 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
         f.rot += f.vrot * dt;
       }
 
-      // Collapse bodies.
+      // Collapse bodies. The tower is gone, so the chain has nothing to pose.
       if (s.collapsed) {
         const floor = s.geom.baseY - 4;
         for (const b of s.bodies) {
@@ -728,48 +808,68 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
             }
           }
         }
-      }
-
-      if (s.ended) return;
-
-      /* -- statics + lean ------------------------------------------------- */
-      const ev = readStatics(s.lean.theta);
-      s.margin = ev.margin;
-      s.off = clamp(ev.off, -1.35, 1.35);
-      s.stability = clamp(ev.margin, 0, 1);
-      s.stabSum += s.stability * dt;
-      s.stabTime += dt;
-
-      // Ambient breathing sway, folded in once per tick so the renderer, the hit
-      // test and the pull feedback all agree on where a block actually is.
-      // Deliberately never fed back into the integrator: a shaky reading should
-      // look shaky without being able to accumulate into a topple by itself.
-      s.visualTheta = s.lean.theta
-        + Math.sin(s.time * Math.PI * 2 * cfg.wobble.idleHz) * cfg.wobble.idleSwayRad * (1 - s.stability);
-
-      if (s.lean.step(dt, ev.margin, ev.off)) {
-        s.visualTheta = s.lean.theta;
-        collapse();
-        endRun(false, 'topple');
         return;
       }
 
-      /* -- lean feedback: dust from the joints, heartbeat on the meter ----- */
-      const leaning = Math.abs(s.off) > cfg.fx.leanDustOffset;
-      if (leaning) {
+      /* -- statics + lean ------------------------------------------------- */
+      // Order matters: the statics decide the lean, the lean drives the chain,
+      // the chain writes the pose. Every consumer downstream — renderer, hit
+      // test, particles, collapse — reads that one pose.
+      let ev = null;
+      if (!s.ended) {
+        ev = readStatics(s.lean.theta);
+        s.margin = ev.margin;
+        s.off = clamp(ev.off, -1.35, 1.35);
+        s.stability = clamp(ev.margin, 0, 1);
+        s.stabSum += s.stability * dt;
+        s.stabTime += dt;
+
+        if (s.lean.step(dt, ev.margin, ev.off)) {
+          s.chain.step(dt, s.lean.theta, s.margin, s.time);
+          layoutTower(s.geom, s.chain, s.pose);
+          collapse();
+          endRun(false, 'topple');
+          return;
+        }
+      }
+
+      // Kept running through the end beat: a tower that just won should be seen
+      // to stop swaying, not freeze mid-wobble.
+      s.chain.step(dt, s.lean.theta, s.margin, s.time);
+      layoutTower(s.geom, s.chain, s.pose);
+      if (s.ended) return;
+
+      /* -- stress feedback: dust at the worst joint, creak, heartbeat ------ */
+      const stress = s.chain.stress;
+      if (stress > cfg.fx.leanDustStress) {
         s.dustClock += dt;
         if (s.dustClock >= cfg.fx.dustIntervalSeconds) {
           s.dustClock = 0;
-          const layer = Math.floor(Math.random() * cfg.tower.layers);
-          const p = blockCenter(s.geom, layer, 1, Math.tan(s.visualTheta));
+          // From the joint actually carrying the bend, so the dust points at
+          // the part of the tower that is about to give.
+          const o = s.chain.stressJoint * POSE;
           fx.burst({
-            x: p.x + (Math.random() * 2 - 1) * s.geom.towerW * 0.45,
-            y: p.y + s.geom.blockH * 0.5,
+            x: s.pose[o] + (Math.random() * 2 - 1) * s.geom.towerW * 0.45,
+            y: s.pose[o + 1] + s.geom.blockH * 0.5,
             count: cfg.fx.dustParticles, color: COLORS.dust,
             speed: 26, spread: 1.2, angle: Math.PI / 2,
             size: 1.9, life: 0.9, gravity: 150, drag: 0.94,
           });
         }
+      }
+
+      // Creak: the joints groaning as they ride open, distinct from the meter's
+      // heartbeat tick so "the tower is straining" and "the reading is low" are
+      // two different sounds.
+      if (stress > cfg.chain.creakStress) {
+        s.creakClock += dt;
+        if (s.creakClock >= cfg.chain.creakGapSeconds) {
+          s.creakClock = 0;
+          audio.hit();
+          haptic('light');
+        }
+      } else {
+        s.creakClock = cfg.chain.creakGapSeconds;
       }
 
       const stabPct = s.stability * 100;
@@ -789,9 +889,15 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       if (s.state === 0) {
         if (s.holdT < 0) {
           s.holdT = 0;
-          showBanner('Hold steady', 'hold', 'Let the tower settle');
+          setHolding(true);
         }
         s.holdT += dt;
+        // Wordless "wait": a ring closing over the hold, no copy to read while
+        // the thing you are watching is the tower.
+        if (holdArcRef.current) {
+          const t = clamp(s.holdT / cfg.win.holdSeconds, 0, 1);
+          holdArcRef.current.style.strokeDashoffset = `${HOLD_ARC * (1 - t)}`;
+        }
         if (s.holdT >= cfg.win.holdSeconds || (s.holdT > 0.8 && s.lean.isSettled(ev.off))) {
           endRun(true, 'clear');
         }
@@ -811,37 +917,39 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
 
       fx.beginCamera(ctx);
 
-      const theta = s.ended ? s.lean.theta : s.visualTheta;
-      const shear = Math.tan(theta);
-      const tilt = theta * cfg.layout.blockTiltFrac;
-
-      drawPlinth(ctx, cfg, geom, shear, s.shadows);
+      const pose = s.pose;
+      const top = (s.tower.layers.length - 1) * POSE;
+      drawPlinth(ctx, cfg, geom, pose[top] - geom.pivotX, s.shadows);
 
       if (!s.collapsed) {
         const grab = s.grab;
+        const bw = geom.blockW;
+        const bh = geom.blockH;
+        // One transform per LAYER, not per block: the three blocks in a layer
+        // share its frame, which is the whole point of posing the tower as a
+        // chain of joints. Also a third of the save/restore traffic the flat
+        // version paid.
         for (let layer = 0; layer < s.tower.layers.length; layer++) {
+          const o = layer * POSE;
+          ctx.save();
+          ctx.transform(pose[o + 2], pose[o + 3], -pose[o + 3], pose[o + 2], pose[o], pose[o + 1]);
           for (let slot = 0; slot < 3; slot++) {
             const block = s.tower.layers[layer][slot];
             if (block.red && !(s.state & (1 << block.redIndex))) continue;
             const sprite = s.sprites[layer][slot];
             const held = grab && grab.block === block;
-            const cx = geom.pivotX + (slot - 1) * geom.pitchX + shear * geom.heightOf(layer)
-              + (held ? grab.dx * cfg.flick.dragRubber : 0);
-            const cy = geom.centerYOf(layer);
+            const lx = (slot - 1) * geom.pitchX + (held ? grab.dx * cfg.flick.dragRubber : 0);
 
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(tilt);
             if (s.shadows && block.red) {
               ctx.shadowColor = held ? 'rgba(255,138,61,0.9)' : 'rgba(239,68,68,0.45)';
               ctx.shadowBlur = held ? 18 : 9;
             }
             ctx.drawImage(
               sprite.canvas,
-              -geom.blockW / 2 - sprite.pad,
-              -geom.blockH / 2 - sprite.pad,
-              geom.blockW + sprite.pad * 2,
-              geom.blockH + sprite.pad * 2,
+              lx - bw / 2 - sprite.pad,
+              -bh / 2 - sprite.pad,
+              bw + sprite.pad * 2,
+              bh + sprite.pad * 2,
             );
             ctx.shadowBlur = 0;
 
@@ -850,13 +958,17 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
               ctx.strokeStyle = held ? COLORS.orangeLt : `rgba(255,138,114,${pulse.toFixed(3)})`;
               ctx.lineWidth = held ? 2.4 : 1.4;
               ctx.beginPath();
-              ctx.roundRect(-geom.blockW / 2, -geom.blockH / 2, geom.blockW, geom.blockH,
-                Math.min(5, geom.blockH * 0.22));
+              ctx.roundRect(lx - bw / 2, -bh / 2, bw, bh, Math.min(5, bh * 0.22));
               ctx.stroke();
-              if (held) drawFlickHint(ctx, geom.blockW, geom.blockH, s.time);
+              if (held) {
+                ctx.save();
+                ctx.translate(lx, 0);
+                drawFlickHint(ctx, bw, bh, s.time);
+                ctx.restore();
+              }
             }
-            ctx.restore();
           }
+          ctx.restore();
         }
       } else {
         for (const b of s.bodies) {
@@ -977,11 +1089,9 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       onUp: () => {
         const grab = s.grab;
         if (!grab) return;
-        if (!grab.fired && grab.block.red && Math.abs(grab.dx) < cfg.flick.minPx) {
-          const geom = s.geom;
-          const p = blockCenter(geom, grab.block.layer, grab.block.slot, Math.tan(s.visualTheta));
-          fx.floatText(p.x, p.y - geom.blockH * 0.9, 'FLICK SIDEWAYS', COLORS.orangeLt, 13);
-        }
+        // A tap that never travelled: re-arm the wordless flick hint rather
+        // than printing an instruction on the canvas.
+        if (!grab.fired && grab.block.red && Math.abs(grab.dx) < cfg.flick.minPx) setHint(true);
         s.grab = null;
       },
     });
@@ -1010,7 +1120,6 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       ro?.disconnect();
       window.removeEventListener('orientationchange', fit);
       clearTimeout(endTimerRef.current);
-      clearTimeout(bannerTimerRef.current);
       fx.reset();
       audio.destroy();
       s.effects = null;
@@ -1033,81 +1142,87 @@ export default function SteadyTowerGame({ config, onWin, onLose }) {
       <div ref={wrapRef} style={styles.stage} className="st-stage">
         <canvas ref={canvasRef} style={styles.canvas} />
 
-        {/* HUD ------------------------------------------------------- */}
+        {/* HUD — icon + number, no word labels ----------------------- */}
         <div style={styles.hudTop}>
           <div style={styles.pill}>
-            <span style={styles.pillLabel}>Score</span>
+            <StackIcon size={17} />
             <span ref={scoreElRef} style={styles.pillValue}>0</span>
           </div>
-          <div style={{ ...styles.pill, alignItems: 'center', minWidth: 62 }}>
-            <span style={styles.pillLabel}>Risks</span>
+          <div style={styles.pill}>
+            <HazardIcon size={17} />
             <span ref={riskElRef} style={styles.pillValue}>0/{cfg.tower.redCount}</span>
           </div>
-          <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Time</span>
+          <div style={styles.pill}>
+            <ClockIcon size={17} />
             <span style={{
               ...styles.pillValue,
               color: lowTime ? COLORS.orangeLt : '#fff',
               animation: lowTime ? 'stPulse 0.9s ease-in-out infinite' : 'none',
             }}>
-              {timeLeft}s
+              {timeLeft}
             </span>
           </div>
         </div>
 
-        {/* Stability meter ------------------------------------------- */}
+        {/* Balance gauge — level glyph, bar, number ------------------- */}
         <div style={styles.meterWrap}>
           <div ref={meterWrapRef} style={styles.meter} className="st-meter">
-            <div style={styles.meterHead}>
-              <span style={styles.meterLabel}>Stability</span>
-              <span ref={stabElRef} style={styles.meterValue}>100%</span>
-            </div>
+            <LevelIcon size={17} />
             <div style={styles.meterTrack}>
               <div ref={meterFillRef} style={styles.meterFill} />
               <div style={styles.meterCenter} />
               <div ref={needleRef} style={styles.meterNeedle} />
             </div>
+            <span ref={stabElRef} style={styles.meterValue}>100%</span>
           </div>
         </div>
 
-        {/* Banner ---------------------------------------------------- */}
-        {banner && (
-          <div key={banner.id} style={styles.bannerWrap} className="st-banner">
-            <div style={{
-              ...styles.banner,
-              background: banner.tone === 'win'
-                ? 'linear-gradient(180deg, rgba(40,167,69,0.95), rgba(18,92,40,0.95))'
-                : banner.tone === 'hold'
-                  ? 'linear-gradient(180deg, rgba(242,101,34,0.95), rgba(150,55,14,0.95))'
-                  : 'linear-gradient(180deg, rgba(239,68,68,0.95), rgba(127,20,32,0.95))',
-            }}>
-              <span style={styles.bannerTitle}>{banner.label}</span>
-              <span style={styles.bannerNote}>{banner.note}</span>
-            </div>
+        {/* Win hold — a ring closing, no copy ------------------------- */}
+        {holding && !over && (
+          <div style={styles.holdWrap}>
+            <svg width="62" height="62" viewBox="0 0 62 62" aria-hidden="true">
+              <circle cx="31" cy="31" r={HOLD_R} fill="rgba(11,18,33,0.66)"
+                stroke="rgba(255,255,255,0.16)" strokeWidth="4" />
+              <circle
+                ref={holdArcRef} cx="31" cy="31" r={HOLD_R} fill="none"
+                stroke={COLORS.orangeLt} strokeWidth="4" strokeLinecap="round"
+                strokeDasharray={HOLD_ARC} strokeDashoffset={HOLD_ARC}
+                transform="rotate(-90 31 31)"
+              />
+            </svg>
+            <div style={styles.holdGlyph}><LevelIcon size={22} /></div>
           </div>
         )}
 
-        {/* First-run hint -------------------------------------------- */}
+        {/* First-run hint — a thumb flicking sideways, no words ------- */}
         {hint && !over && (
-          <div style={styles.hintWrap} className="st-hint">
-            <div style={styles.hint}>
-              <strong style={{ color: COLORS.dangerLt }}>Flick</strong> a red risk block sideways ·{' '}
-              <strong style={{ color: COLORS.greenLt }}>Wait</strong> for the tower to settle
-            </div>
+          <div style={styles.hintWrap}>
+            <svg width="92" height="46" viewBox="0 0 92 46" fill="none" aria-hidden="true">
+              <path className="st-hint-arrow" d="M40 15h34m-8-6 8 6-8 6" stroke={COLORS.orangeLt}
+                strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+              <g className="st-hint-fly">
+                <rect x="8" y="8" width="26" height="14" rx="3" fill={COLORS.danger}
+                  stroke={COLORS.dangerLt} strokeWidth="1.6" />
+              </g>
+              {/* Outer group carries the placement, inner one the animation —
+                  a CSS transform would otherwise replace the attribute. */}
+              <g transform="translate(10 22)">
+                <g className="st-hint-thumb">
+                  <path d="M2 16V7a3 3 0 0 1 6 0v3h4a3 3 0 0 1 3 3v4a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"
+                    fill="#fff" stroke="rgba(11,18,33,0.55)" strokeWidth="1.6" strokeLinejoin="round" />
+                </g>
+              </g>
+            </svg>
           </div>
         )}
 
         {/* Auto-pause veil ------------------------------------------- */}
         {paused && !over && (
           <div style={styles.pauseVeil}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
               <rect x="6" y="4" width="4" height="16" rx="1.5" />
               <rect x="14" y="4" width="4" height="16" rx="1.5" />
             </svg>
-            <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Paused</div>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
-              Your timer is safe. The tower will hold.
-            </div>
           </div>
         )}
 
@@ -1146,24 +1261,26 @@ const CSS = `
   38%      { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(239,68,68,0.14); }
   56%      { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,0); }
 }
-@keyframes stBanner {
-  0%   { opacity: 0; transform: translateY(16px) scale(0.86); }
-  18%  { opacity: 1; transform: translateY(0) scale(1.05); }
-  30%  { transform: translateY(0) scale(1); }
-  82%  { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-14px) scale(0.96); }
+@keyframes stFlickOut {
+  0%, 16%   { transform: translateX(0); opacity: 1; }
+  70%, 100% { transform: translateX(42px); opacity: 0; }
 }
-@keyframes stHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
+@keyframes stArrow { 0%,100% { opacity: 0.2; } 45% { opacity: 1; } }
 .st-stage { animation: stIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
-.st-banner { animation: stBanner 1.6s ease-out both; }
-.st-hint { animation: stHint 1.6s ease-in-out infinite; }
+.st-hint-fly   { animation: stFlickOut 2.1s cubic-bezier(0.22,1,0.36,1) infinite; }
+.st-hint-thumb { animation: stFlickOut 2.1s cubic-bezier(0.22,1,0.36,1) infinite; }
+.st-hint-arrow { animation: stArrow 2.1s ease-in-out infinite; }
 .st-meter.st-critical { animation: stHeartbeat 0.95s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .st-stage, .st-banner, .st-hint, .st-meter.st-critical {
+  .st-stage, .st-hint-thumb, .st-hint-arrow, .st-meter.st-critical {
     animation-duration: 1ms !important; animation-iteration-count: 1 !important;
   }
 }
 `;
+
+/* Win-hold ring geometry, shared by the SVG and the per-frame dash write. */
+const HOLD_R = 26;
+const HOLD_ARC = 2 * Math.PI * HOLD_R;
 
 const glass = {
   background: 'rgba(255,255,255,0.05)',
@@ -1209,29 +1326,23 @@ const styles = {
   pill: {
     ...glass,
     display: 'flex',
-    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 6,
     borderRadius: 12,
-    padding: '5px 11px',
-    minWidth: 68,
-  },
-  pillLabel: {
-    fontSize: 8,
-    fontWeight: 800,
-    letterSpacing: '0.16em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
+    padding: '6px 10px',
+    color: 'rgba(255,255,255,0.7)',
   },
   pillValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 900,
     color: '#fff',
-    lineHeight: 1.15,
+    lineHeight: 1.1,
     fontVariantNumeric: 'tabular-nums',
     display: 'inline-block',
   },
   meterWrap: {
     position: 'absolute',
-    top: 62,
+    top: 58,
     left: 10,
     right: 10,
     display: 'flex',
@@ -1241,32 +1352,26 @@ const styles = {
   },
   meter: {
     ...glass,
-    borderRadius: 12,
-    padding: '6px 12px 9px',
-    width: '100%',
-    maxWidth: 236,
-  },
-  meterHead: {
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 5,
-  },
-  meterLabel: {
-    fontSize: 8,
-    fontWeight: 900,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
+    alignItems: 'center',
+    gap: 9,
+    borderRadius: 12,
+    padding: '8px 12px',
+    width: '100%',
+    maxWidth: 240,
+    color: 'rgba(255,255,255,0.7)',
   },
   meterValue: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: 900,
     color: '#fff',
     fontVariantNumeric: 'tabular-nums',
+    minWidth: 34,
+    textAlign: 'right',
   },
   meterTrack: {
     position: 'relative',
+    flex: 1,
     height: 8,
     borderRadius: 4,
     background: 'rgba(255,255,255,0.12)',
@@ -1304,9 +1409,9 @@ const styles = {
     boxShadow: '0 0 8px rgba(255,138,61,0.85)',
     transition: 'left 90ms linear',
   },
-  bannerWrap: {
+  holdWrap: {
     position: 'absolute',
-    top: '34%',
+    top: '36%',
     left: 0,
     right: 0,
     display: 'flex',
@@ -1314,45 +1419,33 @@ const styles = {
     pointerEvents: 'none',
     zIndex: 6,
   },
-  banner: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 2,
-    padding: '11px 24px',
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.28)',
-    boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
-  },
-  bannerTitle: { fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' },
-  bannerNote: { fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.85)' },
-  hintWrap: {
+  holdGlyph: {
     position: 'absolute',
-    bottom: 66,
-    left: 12,
-    right: 12,
+    inset: 0,
     display: 'flex',
+    alignItems: 'center',
     justifyContent: 'center',
+    color: COLORS.orangeLt,
+  },
+  hintWrap: {
+    ...glass,
+    position: 'absolute',
+    bottom: 60,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    borderRadius: 999,
+    padding: '6px 14px',
+    display: 'flex',
+    alignItems: 'center',
     pointerEvents: 'none',
     zIndex: 5,
-  },
-  hint: {
-    ...glass,
-    borderRadius: 999,
-    padding: '9px 16px',
-    fontSize: 11.5,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.92)',
-    textAlign: 'center',
   },
   pauseVeil: {
     position: 'absolute',
     inset: 0,
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     background: 'rgba(11,18,33,0.84)',
     backdropFilter: 'blur(8px)',
     WebkitBackdropFilter: 'blur(8px)',

@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { GAME_CONFIG, RESULT_TARGET_SCORE, VEHICLE_TYPES } from './data.js';
+import { GAME_CONFIG, RESULT_TARGET_SCORE } from './data.js';
 
 const GAME_TITLE = 'Safe Crossing';
 
@@ -120,9 +120,14 @@ const SCREEN_CSS = `
 @keyframes scHeroAcross { 0% { transform: translateX(-58px); } 46% { transform: translateX(0px); } 100% { transform: translateX(62px); } }
 @keyframes scHeroBrake { 0%,36% { opacity: 0.25; } 40%,62% { opacity: 1; } 66%,100% { opacity: 0.25; } }
 @keyframes scHeroSpark { 0%,50% { opacity: 0; transform: scale(0.4); } 58% { opacity: 1; transform: scale(1); } 88%,100% { opacity: 0; transform: scale(1.6); } }
-@keyframes scBeatTap { 0%,30% { transform: scale(1); opacity: 0.35; } 40% { transform: scale(0.8); opacity: 1; } 60%,100% { transform: scale(1.35); opacity: 0; } }
-@keyframes scBeatHold { 0%,35% { transform: translateX(-14px); } 55%,100% { transform: translateX(-4px); } }
-@keyframes scBeatTruck { 0% { transform: translateX(-24px); } 100% { transform: translateX(28px); } }
+/* How-to-play loop (4.4 s). The car is held on the stop line from 26% to 68%,
+   which is exactly the window the risk truck occupies the box (36%-64%). */
+@keyframes scTutCar    { 0% { transform: translateX(-95px); } 26%,68% { transform: translateX(-33px); } 100% { transform: translateX(95px); } }
+@keyframes scTutTruck  { 0% { transform: translateX(-130px); } 100% { transform: translateX(130px); } }
+@keyframes scTutBrake  { 0%,20% { opacity: 0.25; } 26%,68% { opacity: 1; } 74%,100% { opacity: 0.25; } }
+@keyframes scTutRipple { 0%,17% { opacity: 0; transform: scale(0.45); } 23% { opacity: 1; transform: scale(0.7); } 42%,100% { opacity: 0; transform: scale(1.5); } }
+@keyframes scTutHand   { 0% { opacity: 0; transform: translate(26px,42px); } 12% { opacity: 1; transform: translate(11px,19px); } 22% { opacity: 1; transform: translate(0,0) ; } 30% { opacity: 1; transform: translate(3px,7px); } 46%,100% { opacity: 0; transform: translate(24px,38px); } }
+@keyframes scTutSafe   { 0%,74% { opacity: 0; transform: scale(0.5); } 82% { opacity: 1; transform: scale(1); } 94%,100% { opacity: 0; transform: scale(1.25); } }
 .sc-title { animation: scTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .sc-float { animation: scFloat 4s ease-in-out infinite; }
 .sc-glow  { animation: scGlow 2.2s ease-in-out infinite; }
@@ -131,12 +136,16 @@ const SCREEN_CSS = `
 .sc-hero-across { animation: scHeroAcross 3.4s linear infinite; }
 .sc-hero-brake  { animation: scHeroBrake 3.4s ease-in-out infinite; }
 .sc-hero-spark  { animation: scHeroSpark 3.4s ease-out infinite; }
-.sc-tap   { animation: scBeatTap 2.2s ease-out infinite; }
-.sc-hold  { animation: scBeatHold 2.2s cubic-bezier(0.3,0,0.2,1) infinite; }
-.sc-truck { animation: scBeatTruck 2.2s linear infinite; }
+.sc-tut-car    { animation: scTutCar 4.4s cubic-bezier(0.4,0,0.5,1) infinite; }
+.sc-tut-truck  { animation: scTutTruck 4.4s linear infinite; }
+.sc-tut-brake  { animation: scTutBrake 4.4s ease-in-out infinite; }
+.sc-tut-ripple { animation: scTutRipple 4.4s ease-out infinite; }
+.sc-tut-hand   { animation: scTutHand 4.4s cubic-bezier(0.3,0,0.3,1) infinite; }
+.sc-tut-safe   { animation: scTutSafe 4.4s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .sc-title, .sc-float, .sc-glow, .sc-chip, .sc-hero-down, .sc-hero-across,
-  .sc-hero-brake, .sc-hero-spark, .sc-tap, .sc-hold, .sc-truck { animation: none !important; }
+  .sc-hero-brake, .sc-hero-spark, .sc-tut-car, .sc-tut-truck, .sc-tut-brake,
+  .sc-tut-ripple, .sc-tut-hand, .sc-tut-safe { animation: none !important; }
 }
 `;
 
@@ -348,37 +357,109 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
+/** A pointing hand whose fingertip sits on the local origin. */
+function TapHand({ scale = 1 }) {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
-    </div>
+    <g transform={`scale(${scale}) translate(-7.8,-1.4)`} fill="rgba(11,18,33,0.55)"
+      stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 10.5V3.2a1.8 1.8 0 0 1 3.6 0v7.3" />
+      <path d="M9.6 8.6a1.7 1.7 0 0 1 3.4 0v2" />
+      <path d="M13 9.6a1.7 1.7 0 0 1 3.4 0v1.6" />
+      <path d="M16.4 11.2a1.6 1.6 0 0 1 3.2 0v4.2a6.4 6.4 0 0 1-6.4 6.4h-2.4a6.4 6.4 0 0 1-6.4-6.4v-2.6a1.7 1.7 0 0 1 3.4 0" />
+    </g>
   );
 }
 
-/** A miniature junction for the tutorial diagrams. */
-function BeatRoads() {
+/**
+ * The whole game in one 4.4 s loop, drawn with the canvas's own junction and
+ * vehicle shapes: a finger taps the blue family car, its brake lights come on
+ * and it waits on the stop line; the orange risk truck ignores everything and
+ * barrels straight through the box; the car then releases and clears safely.
+ * Same transform discipline as HeroJunction — CSS only ever sets translateX on
+ * a <g> that carries no transform attribute of its own.
+ */
+function TutorJunction() {
+  const half = 18;             // half-width of a road
+  const cx = 100, cy = 75;     // centre of the junction box
+  const carLane = cx + 9;      // southbound keeps left of the centre line
+  const truckLane = cy + 9;    // eastbound keeps below the centre line
   return (
-    <g>
-      <rect x="0" y="22" width="74" height="18" fill="#232B3B" />
-      <rect x="28" y="0" width="18" height="62" fill="#232B3B" />
-      <rect x="28" y="22" width="18" height="18" fill="#2E3849" stroke="rgba(255,200,69,0.4)" strokeWidth="0.8" />
-    </g>
+    <svg width="100%" height="100%" viewBox="0 0 200 150" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <clipPath id="scTutClip"><rect x="2" y="2" width="196" height="146" rx="18" /></clipPath>
+      </defs>
+      <rect x="2" y="2" width="196" height="146" rx="18" fill="#070F1F" stroke="rgba(255,255,255,0.10)" strokeWidth="1.2" />
+      <g clipPath="url(#scTutClip)">
+        {/* City blocks */}
+        {[[6, 6], [6, 96], [136, 6], [136, 96]].map(([bx, by], i) => (
+          <rect key={i} x={bx} y={by} width="58" height="48" rx="7"
+            fill="#101C33" stroke="rgba(255,255,255,0.07)" strokeWidth="0.8" />
+        ))}
+        {/* Roads + yellow box */}
+        <rect x={cx - half} y="0" width={half * 2} height="150" fill="#232B3B" />
+        <rect x="0" y={cy - half} width="200" height={half * 2} fill="#232B3B" />
+        <rect x={cx - half} y={cy - half} width={half * 2} height={half * 2} fill="#2E3849"
+          stroke="rgba(255,200,69,0.40)" strokeWidth="1.2" />
+        <line x1={cx} y1="0" x2={cx} y2={cy - half} stroke="rgba(255,255,255,0.28)" strokeWidth="1.2" strokeDasharray="5 7" />
+        <line x1={cx} y1={cy + half} x2={cx} y2="150" stroke="rgba(255,255,255,0.28)" strokeWidth="1.2" strokeDasharray="5 7" />
+        <line x1="0" y1={cy} x2={cx - half} y2={cy} stroke="rgba(255,255,255,0.28)" strokeWidth="1.2" strokeDasharray="5 7" />
+        <line x1={cx + half} y1={cy} x2="200" y2={cy} stroke="rgba(255,255,255,0.28)" strokeWidth="1.2" strokeDasharray="5 7" />
+        {/* Stop line the car waits on */}
+        <line x1={cx + 1} y1={cy - half - 2} x2={cx + half - 1} y2={cy - half - 2}
+          stroke="rgba(255,255,255,0.45)" strokeWidth="2" />
+
+        {/* Orange risk truck — no brakes, straight through */}
+        <g transform={`translate(${cx}, ${truckLane})`}>
+          <g className="sc-tut-truck">
+            <MiniVehicle w={34} h={14} body="#F26522" bodyLt="#FFA96B" trim="#8C2E05" />
+          </g>
+        </g>
+
+        {/* Blue family car — held, then released */}
+        <g transform={`translate(${carLane}, ${cy}) rotate(90)`}>
+          <g className="sc-tut-car">
+            <MiniVehicle w={26} h={13} body="#1E6BE0" bodyLt="#7FB6FF" trim="#003DA6" brakeClass="sc-tut-brake" />
+          </g>
+        </g>
+
+        {/* Tap ripple on the car's stop position */}
+        <g transform={`translate(${carLane}, ${cy - half - 15})`}>
+          <circle className="sc-tut-ripple" cx="0" cy="0" r="13" fill="none" stroke="#fff" strokeWidth="2" />
+        </g>
+
+        {/* Finger doing the real input */}
+        <g transform={`translate(${carLane + 3}, ${cy - half - 12})`}>
+          <g className="sc-tut-hand"><TapHand scale={1.15} /></g>
+        </g>
+
+        {/* Safe-crossing tick once the car is clear */}
+        <g transform={`translate(${carLane + 30}, ${cy + 42})`}>
+          <g className="sc-tut-safe">
+            <circle cx="0" cy="0" r="11" fill="rgba(40,167,69,0.22)" stroke={GREEN_LT} strokeWidth="2" />
+            <path d="M-4.6 0.2 l3.2 3.2 l6 -6.6" fill="none" stroke={GREEN_LT} strokeWidth="2.4"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+/** Icon-led cue under the demo. Label must stay ≤ 4 words. */
+function Cue({ label, tint, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+      <div style={{
+        width: 46, height: 46, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+      }}>
+        {children}
+      </div>
+      <span style={{
+        fontSize: 9.5, fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase',
+        color: tint, lineHeight: 1.2, textAlign: 'center',
+      }}>{label}</span>
+    </div>
   );
 }
 
@@ -421,80 +502,32 @@ export function HowToPlayScreen({ onPlay }) {
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          You are the junction. Nothing waits unless you make it wait.
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Tap to hold" copy="A tap puts a vehicle on its brakes. Tap again and it goes.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatRoads />
-              <g transform="translate(37,44) rotate(-90)">
-                <g className="sc-hold">
-                  <MiniVehicle w={22} h={11} body="#1E6BE0" bodyLt="#7FB6FF" trim="#003DA6" brake />
-                </g>
-              </g>
-              <g transform="translate(37,48)">
-                <circle className="sc-tap" cx="0" cy="0" r="11" fill="none" stroke="#fff" strokeWidth="2" />
-              </g>
-            </svg>
-          </Beat>
-
-          <Beat n="2" title="Risk trucks never stop" copy="The orange truck ignores you. Time everyone else around it.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatRoads />
-              <g transform="translate(37,31)">
-                <g className="sc-truck">
-                  <MiniVehicle w={28} h={12} body="#F26522" bodyLt="#FFA96B" trim="#8C2E05" />
-                </g>
-              </g>
-              <path d="M37 8 v9 M37 20.5 h0.01" stroke={ORANGE_LT} strokeWidth="2.4" strokeLinecap="round" />
-            </svg>
-          </Beat>
-
-          <Beat n="3" title="One Claim Cushion" copy="The first collision is covered. The second closes the junction.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatRoads />
-              <g transform="translate(37,31)">
-                <path d="M0 -13 l10 3.6 l0 7.4 c0 6 -4 10.6 -10 13 c-6 -2.4 -10 -7 -10 -13 l0 -7.4 z"
-                  fill="rgba(30,107,224,0.35)" stroke={BLUE_LT} strokeWidth="1.6" />
-                <path d="M-4.4 0 l3 3 l5.6 -6" fill="none" stroke="#fff" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </g>
-            </svg>
-          </Beat>
+        <div style={{ width: '100%', height: 176, marginBottom: 16 }}>
+          <TutorJunction />
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          Get <strong style={{ color: GREEN_LT }}>{GAME_CONFIG.targetCrossed} vehicles</strong> through
-          within <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong>.
-          Each one is <strong style={{ color: '#fff' }}>{GAME_CONFIG.scoring.crossPoints}</strong>;
-          slipping past inside {GAME_CONFIG.scoring.nearMissGapPx}px without touching is{' '}
-          <strong style={{ color: GOLD }}>+{GAME_CONFIG.scoring.nearMissPoints} smart timing</strong>.
-          Hold a vehicle too long and the driver goes anyway.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {VEHICLE_TYPES.map((t, i) => (
-            <span
-              key={t.key}
-              className="sc-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: t.bodyLt,
-                background: t.brakeable ? 'rgba(255,255,255,0.06)' : 'rgba(242,101,34,0.18)',
-                border: `1px solid ${t.brakeable ? 'rgba(255,255,255,0.14)' : 'rgba(242,101,34,0.55)'}`,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {t.label}{t.brakeable ? '' : ' · no brakes'}
-            </span>
-          ))}
+        <div style={{ display: 'flex', justifyContent: 'space-around', gap: 6, marginBottom: 18 }}>
+          <Cue label="Tap to hold" tint="#fff">
+            <svg width="28" height="28" viewBox="0 0 28 28">
+              <circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.6" />
+              <g transform="translate(13,7)"><TapHand scale={0.72} /></g>
+            </svg>
+          </Cue>
+          <Cue label="Truck never stops" tint={ORANGE_LT}>
+            <svg width="30" height="28" viewBox="0 0 30 28">
+              <g transform="translate(15,14)">
+                <MiniVehicle w={22} h={10} body="#F26522" bodyLt="#FFA96B" trim="#8C2E05" />
+              </g>
+            </svg>
+          </Cue>
+          <Cue label="One crash spare" tint={BLUE_LT}>
+            <svg width="28" height="28" viewBox="-14 -14 28 28">
+              <path d="M0 -11 l8.4 3 l0 6.2 c0 5 -3.4 8.9 -8.4 10.9 c-5 -2 -8.4 -5.9 -8.4 -10.9 l0 -6.2 z"
+                fill="rgba(30,107,224,0.35)" stroke={BLUE_LT} strokeWidth="1.6" />
+              <path d="M-4.2 0.2 l3 3 l5.6 -6.2" fill="none" stroke="#fff" strokeWidth="2.1"
+                strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Cue>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

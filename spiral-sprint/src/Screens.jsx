@@ -110,23 +110,78 @@ const SCREEN_CSS = `
 }
 @keyframes ssHeroSpin { 0%,100% { transform: translateX(-7px); } 50% { transform: translateX(7px); } }
 @keyframes ssChip    { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
-@keyframes ssBeatDrag { 0%,10% { transform: translateX(-15px); } 55%,100% { transform: translateX(15px); } }
-@keyframes ssBeatFall { 0%,20% { transform: translateY(0); } 70%,100% { transform: translateY(26px); } }
-@keyframes ssBeatDodge { 0%,25% { transform: translateX(0); } 60%,100% { transform: translateX(-19px); } }
 @keyframes ssBeatWarn { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+/* How-to-play demo — one 5 s loop of the real mechanic. Three thumb strokes turn
+   the tower 120 degrees each (360 total, so the loop wraps invisibly), and the
+   ball's bounces are scripted against those angles rather than eyeballed:
+
+     4-30%   stroke 1: ring 1's gap (centred 210 deg) arrives at the front
+     30-42%  the ball drops through it onto ring 2
+     44-70%  stroke 2: ring 2's crash arc (centred 260 deg) crosses the front
+             between 48% and 61% — entirely inside the ball's 42-66% hop, which
+             is the real skill in this game: the hazard passes under a ball that
+             is in the air, and the ball comes down on blue
+     78-100% stroke 3 closes the turn                                          */
+@keyframes ssHtpSpin {
+  0%, 4%    { transform: rotate(0deg); }
+  30%, 44%  { transform: rotate(-120deg); }
+  70%, 78%  { transform: rotate(-240deg); }
+  100%      { transform: rotate(-360deg); }
+}
+@keyframes ssHtpFall {
+  0%   { transform: translateY(0); opacity: 0; }
+  3%   { transform: translateY(0); opacity: 1; }
+  10%  { transform: translateY(-14px); }
+  18%  { transform: translateY(0); }
+  24%  { transform: translateY(-14px); }
+  30%  { transform: translateY(0); }
+  42%  { transform: translateY(48px); }
+  52%  { transform: translateY(26px); }
+  66%  { transform: translateY(48px); }
+  74%  { transform: translateY(34px); }
+  82%  { transform: translateY(48px); }
+  88%  { transform: translateY(38px); }
+  94%  { transform: translateY(48px); opacity: 1; }
+  98%  { transform: translateY(48px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+@keyframes ssHtpDrag {
+  0%   { transform: translateX(-26px); opacity: 0; }
+  4%   { transform: translateX(-26px); opacity: 1; }
+  30%  { transform: translateX(26px);  opacity: 1; }
+  34%  { transform: translateX(26px);  opacity: 0; }
+  40%  { transform: translateX(-26px); opacity: 0; }
+  44%  { transform: translateX(-26px); opacity: 1; }
+  70%  { transform: translateX(26px);  opacity: 1; }
+  74%  { transform: translateX(26px);  opacity: 0; }
+  77%  { transform: translateX(-26px); opacity: 0; }
+  78%  { transform: translateX(-26px); opacity: 1; }
+  97%  { transform: translateX(24px);  opacity: 1; }
+  100% { transform: translateX(26px);  opacity: 0; }
+}
+/* fill-box + 50% 50% puts the spin on the ring's own centre. The default
+   (view-box) would resolve the origin against the SVG viewport instead, which
+   inside a translated, non-uniformly scaled group is nowhere near the ring.
+   Every animated element here is a bare <g> with NO transform attribute of its
+   own — a CSS transform replaces the attribute rather than composing with it,
+   so positioning lives on a static parent group. */
+.ss-htp-spin { animation: ssHtpSpin 5s linear infinite; transform-box: fill-box; transform-origin: 50% 50%; }
+.ss-htp-fall { animation: ssHtpFall 5s ease-in-out infinite; }
+.ss-htp-drag { animation: ssHtpDrag 5s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ss-htp-spin, .ss-htp-fall, .ss-htp-drag { animation: none !important; }
+}
 .ss-title { animation: ssTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .ss-float { animation: ssFloat 4s ease-in-out infinite; }
 .ss-glow  { animation: ssGlow 2.4s ease-in-out infinite; }
 .ss-chip  { animation: ssChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .ss-hero-drop { animation: ssHeroDrop 3.6s cubic-bezier(0.4,0,0.7,1) infinite; }
 .ss-hero-spin { animation: ssHeroSpin 5s ease-in-out infinite; }
-.ss-drag  { animation: ssBeatDrag 2.4s ease-in-out infinite; }
-.ss-fall  { animation: ssBeatFall 2.4s cubic-bezier(0.4,0,0.7,1) infinite; }
-.ss-dodge { animation: ssBeatDodge 2.4s cubic-bezier(0.22,1,0.36,1) infinite; }
 .ss-warn  { animation: ssBeatWarn 1.1s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .ss-title, .ss-float, .ss-glow, .ss-chip, .ss-hero-drop, .ss-hero-spin,
-  .ss-drag, .ss-fall, .ss-dodge, .ss-warn { animation: none !important; }
+  .ss-warn { animation: none !important; }
 }
 `;
 
@@ -341,53 +396,71 @@ export function HomeScreen({ onStart }) {
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
-/** One beat of the spin - drop - dodge loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
+/* ─── How to play ─────────────────────────────────────────
+   No instructions. One looping demo of the real mechanic at the real scale,
+   plus three icon labels. Everything the player needs to learn is on screen
+   happening to the game's own shapes: the thumb drags, the tower spins, the gap
+   arrives, the ball drops, a green crash arc swings in and the next drag steers
+   the ball clear of it. */
+
+const rad = (deg) => (deg * Math.PI) / 180;
+
+/**
+ * A demo ring. The wedges live inside a group that is translated to the ring
+ * centre and flattened with scale(1, 0.32); rotating THAT group is a true spin
+ * of the tilted disc, which is why the gap really does travel around the ring
+ * instead of sliding sideways. `transform-origin: 0 0` (set in SCREEN_CSS) puts
+ * the rotation on the ring's own centre.
+ */
+function DemoRing({ y, gap, crash, warn, dim = 1 }) {
+  const r = 54;
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: COLORS.orangeLt, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
+    <g opacity={dim}>
+      <ellipse cx="100" cy={y + 5} rx={r} ry={r * 0.32} fill={COLORS.safeFront} />
+      <g transform={`translate(100 ${y}) scale(1 0.32)`}>
+        <g className="ss-htp-spin">
+          <circle cx="0" cy="0" r={r} fill={COLORS.landTop} />
+          {crash && (
+            <>
+              <path d={wedgePath(0, 0, r, r, rad(crash[0]), rad(crash[1]))} fill={COLORS.crashTop} />
+              {warn && (
+                <path
+                  className="ss-warn"
+                  d={`M${r * Math.cos(rad(crash[0]))} ${r * Math.sin(rad(crash[0]))}`
+                    + ` A${r} ${r} 0 0 1 ${r * Math.cos(rad(crash[1]))} ${r * Math.sin(rad(crash[1]))}`}
+                  fill="none"
+                  stroke={COLORS.danger}
+                  strokeWidth="7"
+                />
+              )}
+            </>
+          )}
+          <path d={wedgePath(0, 0, r, r, rad(gap[0]), rad(gap[1]))} fill="#08182F" />
+        </g>
+      </g>
+      <ellipse cx="100" cy={y} rx={r * 0.28} ry={r * 0.32 * 0.28} fill={COLORS.coreTop} />
+    </g>
+  );
+}
+
+/** Icon-led label. Four words maximum, by rule. */
+function Cue({ tint, label, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      <div style={{
+        width: 38, height: 38, borderRadius: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(255,255,255,0.06)', border: `1px solid ${tint}55`, color: tint,
+      }}>
+        {children}
       </div>
+      <span style={{
+        fontSize: 9.5, fontWeight: 900, letterSpacing: '0.1em',
+        textTransform: 'uppercase', color: 'rgba(255,255,255,0.82)', textAlign: 'center',
+      }}>
+        {label}
+      </span>
     </div>
-  );
-}
-
-/** A tutorial ring: tilted band, core hub, optional gap and crash wedges. */
-function BeatRing({ y, gap, crash }) {
-  const rx = 29;
-  const ry = 9.5;
-  const cx = 37;
-  return (
-    <g>
-      <ellipse cx={cx} cy={y + 3.5} rx={rx} ry={ry} fill={COLORS.safeFront} />
-      <ellipse cx={cx} cy={y} rx={rx} ry={ry} fill={COLORS.landTop} />
-      {crash && <path d={wedgePath(cx, y, rx, ry, crash[0], crash[1])} fill={COLORS.crashTop} />}
-      {gap && <path d={wedgePath(cx, y, rx, ry, gap[0], gap[1])} fill="#0B1221" />}
-      <ellipse cx={cx} cy={y} rx={rx * 0.34} ry={ry * 0.34} fill={COLORS.coreTop} />
-    </g>
-  );
-}
-
-function BeatBall({ x, y, r = 6 }) {
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <circle cx="0" cy="0" r={r} fill="url(#ssBall2)" />
-      <circle cx={-r * 0.26} cy={-r * 0.3} r={r * 0.3} fill="rgba(255,255,255,0.75)" />
-    </g>
   );
 }
 
@@ -431,54 +504,92 @@ export function HowToPlayScreen({ onPlay }) {
           How to Play
         </h2>
 
-        <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <svg
+          viewBox="0 0 200 176"
+          style={{ width: '100%', maxWidth: 288, display: 'block', margin: '0 auto 14px' }}
+          aria-hidden="true"
+        >
           <defs>
             <radialGradient id="ssBall2" cx="35%" cy="32%" r="70%">
               <stop offset="0%" stopColor="#CFE4FF" />
               <stop offset="45%" stopColor="#4E96FF" />
               <stop offset="100%" stopColor="#003DA6" />
             </radialGradient>
+            <linearGradient id="ssDemoSky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#061634" />
+              <stop offset="100%" stopColor="#08182F" />
+            </linearGradient>
+            <clipPath id="ssDemoClip"><rect x="2" y="2" width="196" height="172" rx="20" /></clipPath>
           </defs>
+
+          <rect x="2" y="2" width="196" height="172" rx="20" fill="url(#ssDemoSky)"
+            stroke="rgba(255,255,255,0.12)" strokeWidth="1.2" />
+
+          <g clipPath="url(#ssDemoClip)">
+            <rect x="86" y="2" width="28" height="172" fill={COLORS.coreMid} />
+            <rect x="86" y="2" width="10" height="172" fill={COLORS.coreTop} opacity="0.5" />
+
+            {/* Far to near. Angles are the ones the keyframe comment solves for:
+                ring 1's gap fronts at 30% (the drop), ring 2's crash arc fronts
+                between 48% and 61% (inside the ball's hop) and its own gap never
+                fronts while the ball is resting on it. */}
+            <DemoRing y={52} gap={[165, 255]} crash={[10, 56]} />
+            <DemoRing y={100} gap={[75, 165]} crash={[230, 290]} warn />
+            <DemoRing y={146} gap={[-60, 20]} dim={0.55} />
+
+            <g transform="translate(100 58)">
+              <g className="ss-htp-fall">
+                <circle cx="0" cy="0" r="11" fill="url(#ssBall2)" />
+                <path
+                  d="M0 -6.8 L5.1 -3.3 L5.1 1.5 Q4.2 6.6 0 7.5 Q-4.2 6.6 -5.1 1.5 L-5.1 -3.3 Z"
+                  fill="rgba(255,255,255,0.92)"
+                />
+              </g>
+            </g>
+
+            {/* Depth fog over the bottom ring — also the backdrop the thumb
+                needs to stay legible. */}
+            <rect x="2" y="126" width="196" height="48" fill="rgba(4,10,22,0.74)" />
+
+            {/* Thumb track and the thumb itself. */}
+            <path d="M64 158 H136" stroke="rgba(255,255,255,0.16)" strokeWidth="2"
+              strokeLinecap="round" strokeDasharray="3 5" />
+            <g transform="translate(100 158)">
+              <g className="ss-htp-drag">
+                <circle cx="0" cy="0" r="10" fill="rgba(242,101,34,0.26)"
+                  stroke={COLORS.orangeLt} strokeWidth="2" />
+                <circle cx="0" cy="0" r="3.4" fill={COLORS.orangeLt} />
+                <path d="M4.5 6.5 L11 15 L2.5 12.5 Z" fill={COLORS.orangeLt} opacity="0.9" />
+              </g>
+            </g>
+          </g>
         </svg>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-          <Beat n="1" title="Drag to spin" copy="Swipe left or right to turn the tower under the ball.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatRing y={32} gap={[0.5, 1.6]} />
-              <BeatBall x={37} y={20} />
-              <g className="ss-drag">
-                <path d="M22 52h30" stroke={COLORS.orangeLt} strokeWidth="2.2" strokeLinecap="round" />
-                <circle cx="37" cy="52" r="4.5" fill={COLORS.orangeLt} />
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+          <Cue tint={COLORS.orangeLt} label="Drag">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12h16" />
+              <path d="M7 9l-3 3 3 3M17 9l3 3-3 3" />
+            </svg>
+          </Cue>
+          <Cue tint={COLORS.danger} label={`Max ${GAME_CONFIG.fall.maxRings} drops`}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 4l6 6 6-6M6 12l6 6 6-6" />
+            </svg>
+          </Cue>
+          <Cue tint={COLORS.virus} label="Avoid green">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="5.2" fill="currentColor" />
+              <circle cx="12" cy="12" r="2.2" fill="rgba(11,18,33,0.65)" />
+              <g stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M12 2.6v2.6M12 18.8v2.6M2.6 12h2.6M18.8 12h2.6" />
+                <path d="M5.4 5.4l1.9 1.9M16.7 16.7l1.9 1.9M18.6 5.4l-1.9 1.9M7.3 16.7l-1.9 1.9" />
               </g>
             </svg>
-          </Beat>
-
-          <Beat n="2" title="Drop through the gaps" copy="Three rings in one fall lights the fever flame.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatRing y={22} gap={[0.42, 1.7]} />
-              <BeatRing y={48} gap={[0.42, 1.7]} />
-              <g className="ss-fall"><BeatBall x={37} y={14} /></g>
-            </svg>
-          </Beat>
-
-          <Beat n="3" title="Dodge the crash zones" copy="Touch a green crash arc and the run ends.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatRing y={38} gap={[3.6, 4.5]} crash={[0.35, 1.75]} />
-              <g className="ss-dodge"><BeatBall x={50} y={26} /></g>
-              <g className="ss-warn">
-                <path d="M10 12h54" stroke={COLORS.danger} strokeWidth="2" strokeLinecap="round" strokeDasharray="4 4" />
-              </g>
-            </svg>
-          </Beat>
+          </Cue>
         </div>
-
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Every ring you clear is a year closer to the vault. Reach all{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.tower.rings} rings</strong> within{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong> &mdash; and smash a
-          crash arc while the fever burns for{' '}
-          <strong style={{ color: COLORS.goldLt }}>+{GAME_CONFIG.scoring.smash}</strong>.
-        </p>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button

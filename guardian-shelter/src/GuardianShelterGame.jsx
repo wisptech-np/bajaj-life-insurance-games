@@ -15,6 +15,111 @@ import grandpaImg from './family_grandpa.png';
 // playfield — a measurable cost on mid-range Android.
 const RENDER_DPR = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2);
 
+// Placement drop animation: fall to the predicted rest spot, then squash-settle.
+const DROP_FALL = 0.22;      // seconds, ease-out travel from release point
+const DROP_SETTLE = 0.16;    // seconds, squash/rebound after contact
+const PRE_STORM_SECONDS = 1.2; // "storm incoming" beat once the last shield lands
+
+// Sprite draw box, in units of the member hit radius. The baked rim-light pads
+// the cached canvas by RIM_PAD_RATIO on every side, so the box is larger than
+// the visible character by exactly that padding.
+const RIM_PAD_RATIO = 0.09;
+const SPRITE_BOX_R = 6.2;
+
+// A platform's support surface is the top edge of the rectangle that actually
+// gets drawn (roundRect is centred on p.y), so family members and shields both
+// stand on the same line.
+const platformTop = (p) => p.y - p.h / 2;
+
+// The family art ships as JPEG (no alpha), so the backdrop has to be keyed out
+// at load time. Flood filling in from the frame border — rather than deleting
+// every pixel that merely resembles the backdrop colour — keeps dark hair,
+// pupils and navy clothing intact instead of punching holes through them, which
+// matters a lot once a rim light is traced around the silhouette.
+// Returns the bounding box of what survived, so the sprite can be anchored by
+// its feet rather than by a guess.
+function keyOutBackground(canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const bgR = d[0];
+  const bgG = d[1];
+  const bgB = d[2];
+  const tolSq = 52 * 52;
+
+  const seen = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  let sp = 0;
+
+  const push = (i) => {
+    if (seen[i]) return;
+    const o = i * 4;
+    const dr = d[o] - bgR;
+    const dg = d[o + 1] - bgG;
+    const db = d[o + 2] - bgB;
+    if (dr * dr + dg * dg + db * db >= tolSq) return;
+    seen[i] = 1;
+    stack[sp++] = i;
+  };
+
+  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+
+  while (sp > 0) {
+    const i = stack[--sp];
+    d[i * 4 + 3] = 0;
+    const x = i % w;
+    if (x > 0) push(i - 1);
+    if (x < w - 1) push(i + 1);
+    if (i >= w) push(i - w);
+    if (i < w * (h - 1)) push(i + w);
+  }
+  ctx.putImageData(img, 0, 0);
+
+  let minX = w;
+  let maxX = -1;
+  let minY = h;
+  let maxY = -1;
+  for (let i = 0, n = w * h; i < n; i++) {
+    if (d[i * 4 + 3] === 0) continue;
+    const x = i % w;
+    const y = (i / w) | 0;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  return maxY < 0 ? null : { minX, maxX, minY, maxY };
+}
+
+// Bakes a gold rim-light plus a dark contact halo around the cut-out sprite ONCE
+// at load time. Doing this per-frame with ctx.filter costs several ms on
+// mid-range Android; the sprites never change, so it belongs in the cache.
+// The returned canvas carries where the character's feet and centre line sit
+// inside it, as fractions, for anchoring at draw time.
+function addRimLight(src, bbox) {
+  const pad = Math.round(Math.max(src.width, src.height) * RIM_PAD_RATIO);
+  const out = document.createElement('canvas');
+  out.width = src.width + pad * 2;
+  out.height = src.height + pad * 2;
+  const octx = out.getContext('2d');
+  if (typeof octx.filter === 'string') {
+    // Dark halo first (widest) so the gold rim reads on light backgrounds too.
+    octx.filter = `drop-shadow(0 0 ${pad}px rgba(2,10,26,0.95))`;
+    octx.drawImage(src, pad, pad);
+    octx.filter = `drop-shadow(0 0 ${pad * 0.38}px #FFC845) drop-shadow(0 0 ${pad * 0.38}px #FFC845)`;
+    octx.drawImage(src, pad, pad);
+    octx.filter = 'none';
+  }
+  octx.drawImage(src, pad, pad);
+
+  out.contentBottom = bbox ? (bbox.maxY + 1 + pad) / out.height : 0.9;
+  out.contentCenterX = bbox ? ((bbox.minX + bbox.maxX) / 2 + pad) / out.width : 0.5;
+  return out;
+}
+
 /* ─── Web Audio API Sound Synthesizer ───────────────── */
 let audioCtx = null;
 function getAudioContext() {
@@ -145,29 +250,10 @@ export default function GuardianShelterGame({ onWin, onLose }) {
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+        canvas.getContext('2d').drawImage(img, 0, 0);
 
         try {
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imgData.data;
-
-          const rBg = data[0];
-          const gBg = data[1];
-          const bBg = data[2];
-          const tolerance = 45;
-
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const dist = Math.sqrt((r - rBg) ** 2 + (g - gBg) ** 2 + (b - bBg) ** 2);
-            if (dist < tolerance || (r > 240 && g > 240 && b > 240) || (r < 15 && g < 15 && b < 15)) {
-              data[i + 3] = 0;
-            }
-          }
-          ctx.putImageData(imgData, 0, 0);
-          refObj.current = canvas;
+          refObj.current = addRimLight(canvas, keyOutBackground(canvas));
         } catch (e) {
           console.error("Failed to clean character image background", e);
           refObj.current = img;
@@ -185,9 +271,8 @@ export default function GuardianShelterGame({ onWin, onLose }) {
   const [levelIdx, setLevelIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_CONFIG.sessionSeconds);
-  const [gameState, setGameState] = useState('placement'); // placement | storm | failed | cleared | gameover
-  const [trayShields, setTrayShields] = useState([]);
-  const [placedCount, setPlacedCount] = useState(0);
+  // placement | incoming | storm | failed | cleared | gameover
+  const [gameState, setGameState] = useState('placement');
   // Auto-pause when the tab/app loses focus, so the session clock cannot drain
   // while the player is away.
   const [paused, setPaused] = useState(false);
@@ -199,22 +284,18 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     currentLevelIdx: 0,
     score: 0,
     timeLeft: GAME_CONFIG.sessionSeconds,
-    shields: [],       // placed shields { x, y, vx, vy, w, h, type, settled }
+    shields: [],       // placed shields { x, y, w, h, type, settled, drop }
     viruses: [],       // active viruses { x, y, vx, vy, bounces, life }
     particles: [],     // cosmetic particles { x, y, vx, vy, color, size, life, maxLife }
     family: [],        // family members { type, x, y, r, status }
     emitter: { x: -20, y: GAME_CONFIG.emitterY, vx: 0, active: false, timer: 0, passes: 1 },
-    dragState: null,   // { type, x, y, index } (index is tray index)
+    dragState: null,   // { type, x, y, restY, index } (index is tray index)
+    incomingT: 0,      // pre-storm countdown, ticked by the loop so it pauses too
     lastTime: 0,
     roundWon: false,
     soundMuted: false,
-    trayShields: [],   // Added to prevent closure issues in game loop
+    trayShields: [],   // remaining shield types; ref-only, read by the draw loop
   });
-
-  const updateTrayShields = (newShields) => {
-    setTrayShields(newShields);
-    stateRef.current.trayShields = newShields;
-  };
 
   const level = LEVELS[levelIdx];
 
@@ -285,12 +366,14 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       passes: lvl.storm.passes
     };
     
+    ref.incomingT = 0;
+
     // Set up family members
     ref.family = lvl.members.map((m) => {
       const typeInfo = MEMBER_TYPES[m.type];
       let y = GAME_CONFIG.groundY - typeInfo.r;
       if (m.on !== 'ground' && lvl.platforms[m.on]) {
-        y = lvl.platforms[m.on].y - typeInfo.r;
+        y = platformTop(lvl.platforms[m.on]) - typeInfo.r;
       }
       return {
         type: m.type,
@@ -301,25 +384,34 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       };
     });
 
-    updateTrayShields([...lvl.shields]);
-    setPlacedCount(0);
+    // Tray lives only on the ref: the canvas redraws it every frame, so it never
+    // needs to force a React render.
+    ref.trayShields = [...lvl.shields];
     setGameState('placement');
     ref.gameState = 'placement';
   };
 
-  // Stacking AABB Helper
-  const AABBIntersect = (boxA, boxB) => {
-    const leftA = boxA.x - boxA.w/2;
-    const rightA = boxA.x + boxA.w/2;
-    const topA = boxA.y - boxA.h/2;
-    const bottomA = boxA.y + boxA.h/2;
+  // Keep a shield's footprint inside the playfield so the ghost preview can
+  // never show a position the shield is not allowed to occupy.
+  const clampX = (x, w) => Math.max(w / 2, Math.min(GAME_CONFIG.fieldWidth - w / 2, x));
 
-    const leftB = boxB.x - boxB.w/2;
-    const rightB = boxB.x + boxB.w/2;
-    const topB = boxB.y - boxB.h/2;
-    const bottomB = boxB.y + boxB.h/2;
+  // Where a shield of this footprint comes to rest if released at x: the ground,
+  // a platform top, or the top of an already-placed shield — whichever is
+  // highest. Both the drag ghost and the placed shield are positioned from this
+  // one function, so the preview and the final position cannot disagree.
+  const restYFor = (x, w, h) => {
+    const ref = stateRef.current;
+    const lvl = LEVELS[ref.currentLevelIdx];
+    const overlaps = (ox, ow) => Math.abs(x - ox) < (w + ow) / 2;
 
-    return !(rightA <= leftB || leftA >= rightB || bottomA <= topB || topA >= bottomB);
+    let surface = GAME_CONFIG.groundY;
+    lvl.platforms.forEach((p) => {
+      if (overlaps(p.x, p.w)) surface = Math.min(surface, platformTop(p));
+    });
+    ref.shields.forEach((s) => {
+      if (overlaps(s.x, s.w)) surface = Math.min(surface, s.y - s.h / 2);
+    });
+    return surface - h / 2;
   };
 
   const spawnParticles = (x, y, color, count, speedScale = 1) => {
@@ -364,45 +456,26 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     const lvl = LEVELS[ref.currentLevelIdx];
     if (ref.gameState === 'gameover') return;
 
-    // 1. Update falling shields
+    // 1. Advance the placement drop animation. Shields are placed directly at the
+    //    resting spot the ghost previewed (restYFor), so this is purely cosmetic —
+    //    collision geometry is already correct on the frame of release.
     ref.shields.forEach((s) => {
-      if (!s.settled) {
-        s.vy += GAME_CONFIG.gravity * dt;
-        s.y += s.vy * dt;
-
-        // Ground check
-        if (s.y + s.h/2 >= GAME_CONFIG.groundY) {
-          s.y = GAME_CONFIG.groundY - s.h/2;
-          s.vy = 0;
-          s.settled = true;
-          if (!ref.soundMuted) playSound('shield_drop');
-          spawnDust(s.x, GAME_CONFIG.groundY, s.w);
-        }
-
-        // Platform checks
-        lvl.platforms.forEach((p) => {
-          if (!s.settled && AABBIntersect(s, p)) {
-            // Settle on top
-            s.y = p.y - s.h/2;
-            s.vy = 0;
-            s.settled = true;
-            if (!ref.soundMuted) playSound('shield_drop');
-            spawnDust(s.x, p.y, s.w);
-          }
-        });
-
-        // Other settled shields check
-        ref.shields.forEach((other) => {
-          if (other !== s && other.settled && !s.settled && AABBIntersect(s, other)) {
-            s.y = other.y - other.h/2 - s.h/2;
-            s.vy = 0;
-            s.settled = true;
-            if (!ref.soundMuted) playSound('shield_drop');
-            spawnDust(s.x, other.y - other.h/2, s.w);
-          }
-        });
+      if (!s.drop) return;
+      s.drop.t += dt;
+      if (!s.drop.landed && s.drop.t >= DROP_FALL) {
+        s.drop.landed = true;
+        if (!ref.soundMuted) playSound('shield_drop');
+        spawnDust(s.x, s.y + s.h / 2, s.w);
       }
+      if (s.drop.t >= DROP_FALL + DROP_SETTLE) s.drop = null;
     });
+
+    // 1b. Pre-storm beat. Ticked here rather than on a timer so it pauses with
+    //     the rest of the game when the tab loses focus.
+    if (ref.gameState === 'incoming') {
+      ref.incomingT -= dt;
+      if (ref.incomingT <= 0) beginStorm();
+    }
 
     // 2. Storm sweep & Spawning
     if (ref.emitter.active) {
@@ -575,11 +648,10 @@ export default function GuardianShelterGame({ onWin, onLose }) {
         setGameState('cleared');
         if (!ref.soundMuted) playSound('win');
 
-        // Calculate score
+        // Calculate score. The storm only starts once the tray is empty, so
+        // every shield is always spent — members saved is the whole round score.
         const savedCount = ref.family.filter(m => m.status === 'safe').length;
-        const unusedCount = ref.trayShields.length;
-        const added = (savedCount * GAME_CONFIG.scorePerMemberSaved) + (unusedCount * GAME_CONFIG.scorePerUnusedShield);
-        ref.score += added;
+        ref.score += savedCount * GAME_CONFIG.scorePerMemberSaved;
         setScore(ref.score);
       }
     }
@@ -649,6 +721,10 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     ctx.clearRect(0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
     if (bgImageRef.current) {
       ctx.drawImage(bgImageRef.current, 0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
+      // Scrim. The source art is bright enough that the family sprites used to
+      // disappear into it; knocking the backdrop down is what makes them pop.
+      ctx.fillStyle = 'rgba(3, 12, 32, 0.5)';
+      ctx.fillRect(0, 0, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight);
     } else {
       const bgGrad = ctx.createLinearGradient(0, 0, 0, GAME_CONFIG.fieldHeight);
       bgGrad.addColorStop(0, COLORS.bgTop);
@@ -691,43 +767,66 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ctx.shadowBlur = 0; // reset
     });
 
-    // Draw Placed Shields
+    // Draw Placed Shields (with their drop-in animation, if still running)
     ref.shields.forEach((s) => {
-      drawShield(ctx, s);
+      const d = s.drop;
+      if (!d) {
+        drawShield(ctx, s);
+        return;
+      }
+      ctx.save();
+      if (d.t < DROP_FALL) {
+        // Ease-out travel from the exact point the finger let go.
+        const k = d.t / DROP_FALL;
+        const e = 1 - Math.pow(1 - k, 3);
+        ctx.translate(0, (d.fromY - s.y) * (1 - e));
+        drawShield(ctx, s);
+      } else {
+        // Squash on contact, springing back to true. Anchored at the base so the
+        // footprint never leaves the resting spot.
+        const k = Math.min(1, (d.t - DROP_FALL) / DROP_SETTLE);
+        const q = (1 - k) * (1 - k);
+        const baseY = s.y + s.h / 2;
+        ctx.translate(s.x, baseY);
+        ctx.scale(1 + 0.18 * q, 1 - 0.18 * q);
+        ctx.translate(-s.x, -baseY);
+        drawShield(ctx, s);
+      }
+      ctx.restore();
     });
 
-    // Draw Ghost Preview + Alignment Line when dragging
+    // Ghost preview while dragging. The dashed footprint sits at the position
+    // restYFor() will actually place the shield, so what you see is where it lands.
     if (ref.dragState) {
-      const typeInfo = SHIELD_TYPES[ref.dragState.type];
-      
-      // Dashed vertical plumb line
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      const drag = ref.dragState;
+      const typeInfo = SHIELD_TYPES[drag.type];
+
+      // Dashed plumb line from the carried piece down to the landing footprint
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.moveTo(ref.dragState.x, ref.dragState.y);
-      ctx.lineTo(ref.dragState.x, GAME_CONFIG.groundY);
+      ctx.moveTo(drag.x, drag.y);
+      ctx.lineTo(drag.x, drag.restY);
       ctx.stroke();
+
+      // Landing footprint — exactly w x h at the resting centre
+      ctx.strokeStyle = 'rgba(255, 200, 69, 0.85)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(drag.x - typeInfo.w / 2, drag.restY - typeInfo.h / 2, typeInfo.w, typeInfo.h);
       ctx.setLineDash([]); // reset
 
-      // Translucent Preview Shape
       ctx.save();
-      ctx.globalAlpha = 0.55;
-      drawShield(ctx, {
-        x: ref.dragState.x,
-        y: ref.dragState.y,
-        w: typeInfo.w,
-        h: typeInfo.h,
-        type: ref.dragState.type,
-        settled: false
-      });
+      ctx.globalAlpha = 0.3;
+      drawShield(ctx, { x: drag.x, y: drag.restY, w: typeInfo.w, h: typeInfo.h, type: drag.type });
+      ctx.restore();
+
+      // The piece the finger is actually carrying
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      drawShield(ctx, { x: drag.x, y: drag.y, w: typeInfo.w, h: typeInfo.h, type: drag.type });
       ctx.restore();
     }
-
-    // Draw Family Members
-    ref.family.forEach((m) => {
-      drawFamilyMember(ctx, m);
-    });
 
     // Draw Ground
     const groundGrad = ctx.createLinearGradient(0, GAME_CONFIG.groundY, 0, GAME_CONFIG.fieldHeight);
@@ -740,6 +839,13 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     ctx.rect(0, GAME_CONFIG.groundY, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight - GAME_CONFIG.groundY);
     ctx.fill();
     ctx.stroke();
+
+    // Draw Family Members. After the ground so their contact shadow and floor
+    // ring land on top of it rather than being sliced in half by it.
+    const nowSec = performance.now() / 1000;
+    ref.family.forEach((m) => {
+      drawFamilyMember(ctx, m, nowSec);
+    });
 
     // Draw Viruses
     ref.viruses.forEach((v) => {
@@ -1005,20 +1111,30 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     ctx.restore();
   };
 
-  const drawFamilyMember = (ctx, m) => {
+  const drawFamilyMember = (ctx, m, tSec = 0) => {
     ctx.save();
     const typeInfo = MEMBER_TYPES[m.type];
+    const safe = m.status === 'safe';
+    const stormOn = stateRef.current.emitter.active;
 
-    // Nervous animation offset when storm is active
-    let shakeX = 0;
-    let shakeY = 0;
-    if (stateRef.current.emitter.active && m.status === 'safe') {
-      shakeX = (Math.random() - 0.5) * 1.2;
-      shakeY = (Math.random() - 0.5) * 0.5;
+    // Idle breathing bob draws the eye to the people you are protecting; it
+    // switches to a nervous shake once the storm is actually running.
+    let offX = 0;
+    let offY = 0;
+    let breathe = 1;
+    if (safe) {
+      if (stormOn) {
+        offX = (Math.random() - 0.5) * 1.4;
+        offY = (Math.random() - 0.5) * 0.6;
+      } else {
+        const phase = m.x * 0.05;
+        offY = Math.sin(tSec * 1.9 + phase) * 2.2;
+        breathe = 1 + Math.sin(tSec * 2.3 + phase) * 0.035;
+      }
     }
 
-    const cx = m.x + shakeX;
-    const cy = m.y + shakeY;
+    const cx = m.x + offX;
+    const cy = m.y + offY;
 
     // Retrieve image ref
     let imgRef = null;
@@ -1028,42 +1144,64 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     else if (m.type === 'grandpa') imgRef = grandpaImageRef.current;
 
     if (imgRef) {
-      // 1. Draw a premium semi-transparent glowing backplate circle so they stand out
-      ctx.save();
-      // Glow
-      ctx.shadowColor = m.status === 'infected' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(59, 130, 246, 0.8)';
-      ctx.shadowBlur = 14;
-      
-      // Outer ring
-      ctx.strokeStyle = m.status === 'infected' ? '#EF4444' : '#3B82F6';
-      ctx.lineWidth = 2.5;
-      
-      // Semi-transparent dark blue/slate backing fill
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-      
+      const box = m.r * SPRITE_BOX_R;
+      const feetY = m.y + m.r;      // the surface they stand on
+      const torsoY = feetY - box * 0.42;
+
+      // 1. Darken the playfield directly behind the character so the sprite has
+      //    something to read against no matter what the background art does.
+      const poolR = box * 0.62;
+      const pool = ctx.createRadialGradient(m.x, torsoY, poolR * 0.15, m.x, torsoY, poolR);
+      pool.addColorStop(0, 'rgba(2, 10, 26, 0.8)');
+      pool.addColorStop(0.55, 'rgba(2, 10, 26, 0.48)');
+      pool.addColorStop(1, 'rgba(2, 10, 26, 0)');
+      ctx.fillStyle = pool;
       ctx.beginPath();
-      ctx.arc(cx, cy, m.r * 1.35, 0, Math.PI * 2);
+      ctx.arc(m.x, torsoY, poolR, 0, Math.PI * 2);
       ctx.fill();
+
+      // 2. Contact shadow so they sit on the ground instead of floating.
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.beginPath();
+      ctx.ellipse(m.x, feetY, box * 0.24, box * 0.06, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 3. Pulsing floor ring — the "cover these" cue, kept at their feet so it
+      //    frames the character instead of cutting across it.
+      const pulse = safe ? 1 + Math.sin(tSec * 2.6 + m.x * 0.05) * 0.07 : 1;
+      ctx.strokeStyle = safe ? 'rgba(255, 200, 69, 0.7)' : 'rgba(239, 68, 68, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(m.x, feetY, box * 0.3 * pulse, box * 0.085 * pulse, 0, 0, Math.PI * 2);
       ctx.stroke();
+
+      // 4. Character sprite, anchored by the feet (see keyOutBackground for how
+      //    contentBottom/contentCenterX are measured) so the legs are never
+      //    buried in the ground. The cached canvas already carries the baked
+      //    rim light, so there is no per-frame filter cost.
+      ctx.save();
+      ctx.translate(cx, feetY);
+      ctx.scale(1, breathe);
+      ctx.translate(-cx, -feetY);
+      ctx.globalAlpha = safe ? 1 : 0.5;
+      ctx.drawImage(
+        imgRef,
+        cx - box * (imgRef.contentCenterX ?? 0.5),
+        cy + m.r - box * (imgRef.contentBottom ?? 0.9),
+        box,
+        box
+      );
       ctx.restore();
 
-      // 2. Draw character image scaled larger (W: 3.4 * m.r)
-      const sizeW = m.r * 3.4;
-      const sizeH = m.r * 3.4;
-      ctx.drawImage(imgRef, cx - sizeW/2, cy - sizeH/2, sizeW, sizeH);
-
-      // If infected, draw overlay + X eyes
-      if (m.status === 'infected') {
-        ctx.fillStyle = 'rgba(100, 116, 139, 0.7)';
+      // If infected, mark them clearly
+      if (!safe) {
+        ctx.strokeStyle = '#EF4444';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        const k = box * 0.16;
         ctx.beginPath();
-        ctx.arc(cx, cy, m.r * 1.35, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(cx - 7, cy - 7); ctx.lineTo(cx + 7, cy + 7);
-        ctx.moveTo(cx + 7, cy - 7); ctx.lineTo(cx - 7, cy + 7);
+        ctx.moveTo(cx - k, torsoY - k); ctx.lineTo(cx + k, torsoY + k);
+        ctx.moveTo(cx + k, torsoY - k); ctx.lineTo(cx - k, torsoY + k);
         ctx.stroke();
       }
     } else {
@@ -1222,7 +1360,9 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       
       const dx = coords.x - btnX;
       const dy = coords.y - btnY;
-      if (dx*dx + dy*dy < 24*24) {
+      // Hit radius is larger than the drawn 24px slot so the touch target clears
+      // 44 css px even on a 360-wide screen.
+      if (dx*dx + dy*dy < 28*28) {
         clickedIdx = idx;
         break;
       }
@@ -1231,80 +1371,77 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     if (clickedIdx !== -1) {
       // Start Dragging
       const type = ref.trayShields[clickedIdx];
-      ref.dragState = {
-        type,
-        x: coords.x,
-        y: coords.y - 40, // Offset to prevent finger covering it
-        index: clickedIdx
-      };
+      ref.dragState = { type, x: 0, y: 0, restY: 0, index: clickedIdx };
+      updateDrag(coords);
       if (!ref.soundMuted) playSound('click');
     }
+  };
+
+  // Single source of truth for the carried position and the landing spot, so
+  // pointerdown and pointermove can never place the ghost differently.
+  const updateDrag = (coords) => {
+    const drag = stateRef.current.dragState;
+    const typeInfo = SHIELD_TYPES[drag.type];
+    drag.x = clampX(coords.x, typeInfo.w);
+    drag.restY = restYFor(drag.x, typeInfo.w, typeInfo.h);
+    // Piece floats above the finger so it is not hidden by the hand, and never
+    // below its own landing spot (so the plumb line always points down).
+    drag.y = Math.min(drag.restY, Math.max(80, coords.y - 34));
   };
 
   const handlePointerMove = (e) => {
     const ref = stateRef.current;
     if (gameState !== 'placement' || !ref.dragState) return;
-    const coords = getLogicalCoords(e);
-
-    // Keep dragging coordinates (with offset so piece floats above finger)
-    ref.dragState.x = coords.x;
-    ref.dragState.y = Math.max(90, Math.min(coords.y - 30, GAME_CONFIG.groundY - 30));
+    updateDrag(getLogicalCoords(e));
   };
 
-  const handlePointerUp = (e) => {
+  const handlePointerUp = () => {
     const ref = stateRef.current;
     if (gameState !== 'placement' || !ref.dragState) return;
 
     const drag = ref.dragState;
     const typeInfo = SHIELD_TYPES[drag.type];
 
-    // Place the shield!
-    const newShield = {
+    // Placed straight onto the previewed resting spot; drop.fromY replays the
+    // travel from the release point purely as animation.
+    ref.shields.push({
       x: drag.x,
-      y: drag.y,
-      vx: 0,
-      vy: 0,
+      y: drag.restY,
       w: typeInfo.w,
       h: typeInfo.h,
       type: drag.type,
-      settled: false
-    };
+      settled: true,
+      drop: { fromY: drag.y, t: 0, landed: false },
+    });
 
-    ref.shields.push(newShield);
-    
     // Remove from tray list
-    const updatedTray = [...ref.trayShields];
-    updatedTray.splice(drag.index, 1);
-    updateTrayShields(updatedTray);
-    setPlacedCount(prev => prev + 1);
-
+    ref.trayShields = ref.trayShields.filter((_, i) => i !== drag.index);
     ref.dragState = null;
+
+    // Last shield placed -> short "storm incoming" beat, then the storm runs
+    // itself. There is no manual start.
+    if (ref.trayShields.length === 0) {
+      ref.incomingT = PRE_STORM_SECONDS;
+      ref.gameState = 'incoming';
+      setGameState('incoming');
+      haptic('light');
+    }
   };
 
-  // Start Storm Emitter Sweep
-  const triggerStorm = () => {
+  // Start Storm Emitter Sweep. Ref-only (no props/state closure) because it is
+  // called from the game loop, whose callbacks are captured on first render.
+  const beginStorm = () => {
     const ref = stateRef.current;
-    if (gameState !== 'placement') return;
-    if (ref.shields.length === 0) return; // Must place at least one shield
+    const lvl = LEVELS[ref.currentLevelIdx];
 
+    ref.incomingT = 0;
     ref.gameState = 'storm';
     setGameState('storm');
     ref.emitter.active = true;
     ref.emitter.x = -30;
-    ref.emitter.vx = level.storm.speed;
-    ref.emitter.passes = level.storm.passes;
+    ref.emitter.vx = lvl.storm.speed;
+    ref.emitter.passes = lvl.storm.passes;
     ref.emitter.timer = 0;
-    if (!ref.soundMuted) playSound('click');
-  };
-
-  // Undo Last Placed Shield
-  const handleUndo = () => {
-    const ref = stateRef.current;
-    if (gameState !== 'placement' || ref.shields.length === 0) return;
-
-    const last = ref.shields.pop();
-    updateTrayShields([...ref.trayShields, last.type]);
-    setPlacedCount(prev => Math.max(0, prev - 1));
     if (!ref.soundMuted) playSound('click');
   };
 
@@ -1366,13 +1503,12 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '10px 14px',
+      padding: '10px 0',
       boxSizing: 'border-box'
     }}>
       {/* HUD Header */}
       <div style={{
-        width: '100%',
-        maxWidth: 400,
+        width: 'calc(100% - 20px)',
         height: 64,
         display: 'flex',
         justifyContent: 'space-between',
@@ -1428,23 +1564,16 @@ export default function GuardianShelterGame({ onWin, onLose }) {
         </div>
       </div>
 
-      {/* Canvas Wrap */}
-      <div 
-        ref={canvasRef => {
-          if (canvasRef) {
-            // Adjust bounds to preserve ratio
-          }
-        }}
+      {/* Canvas Wrap — edge to edge. Width is only pulled in when the viewport
+          is too short to fit the 400x580 field below the HUD, so the playfield
+          uses the whole screen width on every normal phone. */}
+      <div
         style={{
           position: 'relative',
-          width: '100%',
-          maxWidth: 400,
+          width: 'min(100%, calc((100vh - 120px) * 400 / 580))',
           aspectRatio: '400/580',
-          borderRadius: 20,
           overflow: 'hidden',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
           background: '#051a3a',
-          border: '1.5px solid rgba(255, 255, 255, 0.1)',
           touchAction: 'none' // Prevent pull-to-refresh
         }}
       >
@@ -1494,10 +1623,10 @@ export default function GuardianShelterGame({ onWin, onLose }) {
           onClick={toggleSound}
           style={{
             position: 'absolute',
-            top: 12,
-            right: 12,
-            width: 32,
-            height: 32,
+            top: 10,
+            right: 10,
+            width: 44,
+            height: 44,
             borderRadius: '50%',
             background: 'rgba(15,23,42,0.6)',
             border: '1px solid rgba(255,255,255,0.15)',
@@ -1511,17 +1640,41 @@ export default function GuardianShelterGame({ onWin, onLose }) {
           aria-label="Toggle Sound"
         >
           {stateRef.current.soundMuted ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="1" y1="1" x2="23" y2="23"></line>
               <path d="M9 9v6a3 3 0 0 0 3 3h1.586l4.707 4.707A1 1 0 0 0 20 22V4a1 1 0 0 0-1.707-.707L13.586 8H12a3 3 0 0 0-3 3z"></path>
             </svg>
           ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
               <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
             </svg>
           )}
         </button>
+
+        {/* Pre-storm beat. The storm starts itself once the last shield lands,
+            so this ~1.2s sweep is the warning the player gets. */}
+        {gameState === 'incoming' && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 12,
+            overflow: 'hidden',
+          }}>
+            <div className="gs-storm-sweep" />
+            <div className="gs-storm-alert">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+              <span>STORM INCOMING</span>
+              <div className="gs-storm-fuse" />
+            </div>
+          </div>
+        )}
 
         {/* Storm Banner Warning overlay */}
         {gameState === 'storm' && (
@@ -1595,10 +1748,6 @@ export default function GuardianShelterGame({ onWin, onLose }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#CBD5E1' }}>
                   <span>Saved Members:</span>
                   <span style={{ fontWeight: 800, color: '#fff' }}>{level.members.length} x 100</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#CBD5E1' }}>
-                  <span>Unused Shields:</span>
-                  <span style={{ fontWeight: 800, color: '#fff' }}>{trayShields.length} x 50</span>
                 </div>
               </div>
 
@@ -1676,84 +1825,6 @@ export default function GuardianShelterGame({ onWin, onLose }) {
         )}
       </div>
 
-      {/* Control Buttons (Below Canvas) */}
-      <div style={{
-        width: '100%',
-        maxWidth: 400,
-        display: 'flex',
-        gap: 12,
-        marginTop: 14,
-        boxSizing: 'border-box'
-      }}>
-        {/* Undo Button */}
-        <button
-          onClick={handleUndo}
-          disabled={gameState !== 'placement' || placedCount === 0}
-          style={{
-            flex: 1,
-            height: 52,
-            borderRadius: 14,
-            background: placedCount === 0 || gameState !== 'placement' 
-              ? 'rgba(15, 23, 42, 0.3)' 
-              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-            border: placedCount === 0 || gameState !== 'placement'
-              ? '1.5px solid rgba(255, 255, 255, 0.05)'
-              : '1.5px solid rgba(255, 255, 255, 0.18)',
-            color: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.22)' : '#fff',
-            fontSize: 14,
-            fontWeight: 800,
-            letterSpacing: '0.05em',
-            textTransform: 'uppercase',
-            cursor: placedCount === 0 || gameState !== 'placement' ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          }}
-          className="undo-btn"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 7v6h6" />
-            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
-          </svg>
-          Undo
-        </button>
-
-        {/* Start Storm Button */}
-        <button
-          onClick={triggerStorm}
-          disabled={gameState !== 'placement' || placedCount === 0}
-          style={{
-            flex: 2,
-            height: 52,
-            border: 'none',
-            borderRadius: 14,
-            background: placedCount === 0 || gameState !== 'placement'
-              ? 'rgba(239, 68, 68, 0.15)' 
-              : 'linear-gradient(135deg, #EF4444 0%, #D97706 100%)',
-            boxShadow: placedCount === 0 || gameState !== 'placement'
-              ? 'none' 
-              : '0 6px 20px rgba(239, 68, 68, 0.35)',
-            color: placedCount === 0 || gameState !== 'placement' ? 'rgba(255,255,255,0.3)' : '#fff',
-            fontSize: 14,
-            fontWeight: 900,
-            letterSpacing: '0.07em',
-            textTransform: 'uppercase',
-            cursor: placedCount === 0 || gameState !== 'placement' ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-          }}
-          className="storm-btn"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-          </svg>
-          Start Storm
-        </button>
-      </div>
     </div>
   );
 }

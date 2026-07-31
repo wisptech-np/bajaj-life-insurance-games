@@ -106,3 +106,60 @@ timestamp: 2026-07-09T00:00:00+05:30
   130.72 kB). No compile breaks encountered; no source edits beyond the four attribution
   comment strings above.
 - **Scope**: only `portfolio-fit/` and `okf-brain/portfolio-fit/` touched.
+
+## [2026-07-31] Revamp — block redesign, new icon set, animation-only how-to-play
+- **Blocks are now one object, not stuck-together cells** (`PortfolioFitGame.jsx`). Added
+  `outlineOf()` — traces a polyomino's directed boundary edges into closed loops (multi-loop,
+  so a component with a hole punched by a line clear still renders correctly), and
+  `piecePath()` — rectilinear uniform inset (vertex moves along the sum of its two edge
+  normals) plus per-corner radius clamping, producing one continuous rounded silhouette.
+  `drawBlock` (per-cell) was deleted and replaced by `drawPiece` (per-piece): single
+  top-to-bottom gradient over the whole bbox, top face light, bottom depth shade, inner rim
+  light drawn as a thick stroke clipped to the silhouette so the bevel follows every convex
+  and concave corner, and a dark outer definition line. No internal seams anywhere.
+- **Board pieces merge**: `rebuildComponents()` flood-fills orthogonally-connected same-asset
+  cells into components (cached, invalidated by a `compsDirty` flag) so a holding on the board
+  reads as one solid slab. Per-cell placement pop was replaced by a silhouette-traced
+  placement flash (`S.pop`), and the ghost preview is now one dashed outline, not N dashed cells.
+- **New icon set** — `src/icons.jsx` (new file): one language, 24×24 box, 2 px stroke, round
+  caps/joins, legible at 20 px. Asset faces (equity trend line, debt coupon note, gold bullion
+  stack, insurance shield+tick), HUD (coin stack, clock, flame), results (rebalance cycle,
+  diversify disc), how-to-play (finger, grid line), chrome (play, calendar, share, phone,
+  rotate, shield). The canvas glyph drawers in `PortfolioFitGame.jsx` repeat the same geometry
+  so a block face and its legend icon are the same drawing. No emoji (G4).
+- **UI alignment** (`index.css` `pf-` section fully rewritten): one spacing scale
+  `--pf-1…--pf-6` + `--pf-edge` + `--pf-tap` + `--pf-col`. HUD is a 3-column grid of 52 px
+  chips with icon and value on a shared baseline; legend is a 4-column grid of icon chips;
+  results buttons are all 52 px with one border radius; `.pf-results` uses a single gap
+  rhythm instead of per-element `marginBottom`. Canvas `layout()` now derives board and tray
+  from the same `PAD`/`FRAME` constants — equal left/right margins, tray wells aligned to the
+  board frame, generous full-third touch targets for slot pickup.
+- **G2 — how-to-play is animation-only**: deleted all four numbered instruction paragraphs.
+  `HowToPlayScreen` now shows a 4 s looping CSS demo (finger glyph drags a 2-cell insurance
+  slab from the tray into the last gap of row 3, the row flashes, a sweep fires, the line
+  clears, loop) plus exactly three icon-led labels — "Drag", "Fill a line", "Mix for ×2" —
+  and the Play button. Fits 360×640 without scrolling.
+- **G1 — email removed** from `src/LeadCaptureModal.jsx`: `EMAIL_RE`, the `email` state, the
+  field block, the validation branch, the `lastSubmittedEmail` session read/write and `email`
+  from both the `submitToLMS` call and the `onSubmitted` payload. `api.js` untouched
+  (`email_id: email || ''` already tolerates the missing key). Grep for `email` in `src/`
+  outside `kit/` now hits only `api.js`.
+- **G3 — asset sheet**: `portfolio-fit/asset-from-here.md`, 13 prompts covering background,
+  pegboard, four asset slabs, tray dock, HUD icon set, legend chips, line-clear FX, win art,
+  lose art and home hero. Motif unique to this game: chamfered extruded slab tiles with
+  engraved line-icon faces on a frosted dark-glass pegboard.
+- **Bugs found and fixed while building**: (1) the boundary walk's loop bound was
+  `guard <= remaining + 2` while `remaining` was decremented inside the loop, truncating any
+  outline with more than ~6 edges — hoisted to a fixed `cap`; (2) `drawGlyph` issues
+  `beginPath`, which destroyed the current path before the outer definition stroke — the
+  silhouette is now rebuilt before that stroke.
+- **Verification**: outline tracing checked with a shoelace-area harness over all 19 shipped
+  `SHAPES` plus single/bar/L/square/ring-with-hole/S-shape/offset cases — 28/28 pass, holes
+  yield 2 loops with correct net area. `drawPiece` smoke-tested against a stub 2D context
+  across 304 shape × asset × cell-size variants plus a holed component and bad input — no
+  throws. `pnpm install` then `pnpm build` (`vite build --mode uat`) exit 0, 518 modules,
+  `dist/index.html` 0.88 kB, css 24.69 kB (gzip 5.42 kB), js 392.22 kB (gzip 132.15 kB).
+- **Scope**: only `portfolio-fit/src/{PortfolioFitGame,Screens,LeadCaptureModal,icons}.jsx`,
+  `portfolio-fit/src/index.css`, `portfolio-fit/asset-from-here.md` and this log. `src/kit/`,
+  `src/api.js`, `src/services/`, `src/utils/`, `src/data.js` and every other game folder
+  untouched.

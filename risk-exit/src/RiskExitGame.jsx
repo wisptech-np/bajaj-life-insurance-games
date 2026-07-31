@@ -1,1155 +1,835 @@
-// RiskExitGame.jsx — Unblock-style puzzle for Risk Exit.
-// 6x6 grid of arrow blocks pointing up/down/left/right.
-// Red risk blocks lock neighbors and must be cleared last to teach order-of-decisions.
-// Complete with screen shake, particle bursts, squash/stretch recoil, and Web Audio synths.
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// RiskExitGame.jsx — Risk Exit: a sliding-block escape puzzle (Rush Hour).
+//
+// A 6x6 board packed with 2- and 3-cell risk blocks (debt, illness, market
+// shock, job loss). Every block is locked to one axis: horizontal blocks slide
+// left/right, vertical blocks slide up/down. Drag them out of the way to clear
+// a lane for the gold FAMILY COVER block and slide it out through the exit
+// gate on the right wall.
+//
+// All legality lives in ./rules.js — the same module gate.mjs uses to prove
+// every shipped level is solvable, so what the solver allows is exactly what
+// the finger can do here.
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BRAND, DIR_COLORS, RISK_COLORS, GAME_CONFIG } from './data.js';
+import { BRAND, HERO_SKIN, RISK_SKINS, LEVELS, GAME_CONFIG } from './data.js';
+import { GRID, HERO_ROW, blocksHeroRow, isSolved, slideRange } from './rules.js';
 import {
-  unlockAudio,
-  sfxTap,
-  sfxSlide,
-  sfxExit,
-  sfxBump,
-  sfxRiskBreach,
-  sfxRiskSafe,
-  sfxLocked,
-  sfxLevelUp,
-  sfxWin,
-  sfxLose,
+  unlockAudio, sfxTap, sfxSlide, sfxExit, sfxBump,
+  sfxRiskSafe, sfxLocked, sfxLevelUp, sfxWin, sfxLose,
 } from './audio.js';
 
-// Pre-defined solvable levels that fit the blocks and risks count configuration
-const LEVELS = [
-  // Level 1: 8 blocks, 0 risks
-  [
-    { id: 1, r: 0, c: 0, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 2, r: 2, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 3, r: 1, c: 2, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 4, r: 0, c: 4, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 5, r: 3, c: 3, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 6, r: 3, c: 1, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 7, r: 4, c: 1, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 8, r: 5, c: 4, w: 2, h: 1, dir: 'right', isRisk: false },
-  ],
-  // Level 2: 11 blocks, 1 risk
-  [
-    { id: 1, r: 0, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 2, r: 1, c: 0, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 3, r: 3, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 4, r: 0, c: 2, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 5, r: 2, c: 2, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 6, r: 1, c: 4, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 7, r: 4, c: 2, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 8, r: 4, c: 3, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 9, r: 5, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 10, r: 5, c: 4, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 11, r: 3, c: 3, w: 2, h: 1, dir: 'right', isRisk: true },
-  ],
-  // Level 3: 14 blocks, 1 risk
-  [
-    { id: 1, r: 0, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 2, r: 0, c: 2, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 3, r: 0, c: 3, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 4, r: 1, c: 0, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 5, r: 1, c: 4, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 6, r: 2, c: 1, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 7, r: 2, c: 3, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 8, r: 3, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 9, r: 3, c: 4, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 10, r: 4, c: 0, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 11, r: 4, c: 1, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 12, r: 4, c: 4, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 13, r: 5, c: 2, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 14, r: 3, c: 2, w: 1, h: 1, dir: 'up', isRisk: true },
-  ],
-  // Level 4: 17 blocks, 2 risks
-  [
-    { id: 1, r: 0, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 2, r: 0, c: 2, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 3, r: 0, c: 3, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 4, r: 0, c: 5, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 5, r: 1, c: 0, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 6, r: 1, c: 3, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 7, r: 2, c: 1, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 8, r: 2, c: 4, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 9, r: 2, c: 5, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 10, r: 3, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 11, r: 3, c: 2, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 12, r: 4, c: 0, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 13, r: 4, c: 1, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 14, r: 4, c: 3, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 15, r: 4, c: 4, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 16, r: 5, c: 1, w: 2, h: 1, dir: 'left', isRisk: true },
-    { id: 17, r: 5, c: 5, w: 1, h: 1, dir: 'down', isRisk: true },
-  ],
-  // Level 5: 20 blocks, 2 risks
-  [
-    { id: 1, r: 0, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 2, r: 0, c: 2, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 3, r: 0, c: 3, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 4, r: 0, c: 5, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 5, r: 1, c: 0, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 6, r: 1, c: 1, w: 1, h: 1, dir: 'up', isRisk: true },
-    { id: 7, r: 1, c: 3, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 8, r: 2, c: 1, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 9, r: 2, c: 3, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 10, r: 2, c: 4, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 11, r: 2, c: 5, w: 1, h: 1, dir: 'down', isRisk: false },
-    { id: 12, r: 3, c: 0, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 13, r: 3, c: 2, w: 1, h: 2, dir: 'up', isRisk: false },
-    { id: 14, r: 3, c: 5, w: 1, h: 1, dir: 'right', isRisk: true },
-    { id: 15, r: 4, c: 0, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 16, r: 4, c: 1, w: 1, h: 1, dir: 'left', isRisk: false },
-    { id: 17, r: 4, c: 3, w: 2, h: 1, dir: 'right', isRisk: false },
-    { id: 18, r: 4, c: 5, w: 1, h: 2, dir: 'down', isRisk: false },
-    { id: 19, r: 5, c: 1, w: 2, h: 1, dir: 'left', isRisk: false },
-    { id: 20, r: 5, c: 3, w: 2, h: 1, dir: 'right', isRisk: false },
-  ],
-];
+// Cells of open runway drawn to the right of the board — the gate mouth the
+// hero block slides out through.
+const RUNWAY = 0.7;
 
-/* ─── Draw helpers ─────────────────────────────────────── */
-function drawRoundRect(ctx, x, y, w, h, r) {
-  if (r > w / 2) r = w / 2;
-  if (r > h / 2) r = h / 2;
+/* ─── Canvas primitives ────────────────────────────────── */
+
+function roundRect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
 }
 
-function drawChevrons(ctx, cx, cy, dir, color = '#ffffff') {
+/**
+ * One solid physical block: cast shadow, vertical body gradient, top gloss,
+ * bottom inner shade and a rim light that runs bright along the top-left edge
+ * and dark along the bottom-right, so the slab reads as extruded plastic and
+ * not a flat rectangle.
+ */
+function drawBlock(ctx, x, y, w, h, skin, lift) {
+  const r = Math.min(w, h) * 0.22;
+
   ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 3.5;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+  ctx.shadowBlur = 12 + lift * 12;
+  ctx.shadowOffsetY = 4 + lift * 6;
+  const body = ctx.createLinearGradient(x, y, x + w * 0.35, y + h);
+  body.addColorStop(0, skin.top);
+  body.addColorStop(0.52, skin.mid);
+  body.addColorStop(1, skin.bottom);
+  ctx.fillStyle = body;
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.clip();
+
+  // Top gloss.
+  const gloss = ctx.createLinearGradient(0, y, 0, y + h * 0.5);
+  gloss.addColorStop(0, 'rgba(255, 255, 255, 0.30)');
+  gloss.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = gloss;
+  ctx.fillRect(x, y, w, h * 0.5);
+
+  // Bottom inner shade — the block sits in its own shadow.
+  const shade = ctx.createLinearGradient(0, y + h * 0.55, 0, y + h);
+  shade.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  shade.addColorStop(1, 'rgba(0, 0, 0, 0.38)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(x, y + h * 0.55, w, h * 0.45);
+  ctx.restore();
+
+  // Rim light: bright top-left, dark bottom-right.
+  const rim = ctx.createLinearGradient(x, y, x + w, y + h);
+  rim.addColorStop(0, skin.rim);
+  rim.addColorStop(0.45, 'rgba(255, 255, 255, 0.14)');
+  rim.addColorStop(1, 'rgba(0, 0, 0, 0.42)');
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = 1.6;
+  roundRect(ctx, x + 0.8, y + 0.8, w - 1.6, h - 1.6, r - 0.8);
+  ctx.stroke();
+}
+
+/** Recessed icon plate in the middle of a block. */
+function drawPlate(ctx, cx, cy, size) {
+  ctx.save();
+  const r = size * 0.3;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.20)';
+  roundRect(ctx, cx - size / 2, cy - size / 2, size, size, r);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** The little end-caps that say "this block travels along this axis". */
+function drawAxisCaps(ctx, x, y, w, h, dir) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
+  ctx.lineWidth = 2;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-
-  const drawOne = (dx, dy) => {
+  const s = Math.min(w, h) * 0.13;
+  const chev = (cx, cy, sx, sy) => {
     ctx.beginPath();
-    if (dir === 'right') {
-      ctx.moveTo(cx + dx - 5, cy + dy - 9);
-      ctx.lineTo(cx + dx + 4, cy + dy);
-      ctx.lineTo(cx + dx - 5, cy + dy + 9);
-    } else if (dir === 'left') {
-      ctx.moveTo(cx + dx + 5, cy + dy - 9);
-      ctx.lineTo(cx + dx - 4, cy + dy);
-      ctx.lineTo(cx + dx + 5, cy + dy + 9);
-    } else if (dir === 'up') {
-      ctx.moveTo(cx + dx - 9, cy + dy + 5);
-      ctx.lineTo(cx + dx, cy + dy - 4);
-      ctx.lineTo(cx + dx + 9, cy + dy + 5);
-    } else if (dir === 'down') {
-      ctx.moveTo(cx + dx - 9, cy + dy - 5);
-      ctx.lineTo(cx + dx, cy + dy + 4);
-      ctx.lineTo(cx + dx + 9, cy + dy - 5);
+    if (sx) {
+      ctx.moveTo(cx - s * sx, cy - s);
+      ctx.lineTo(cx + s * sx, cy);
+      ctx.lineTo(cx - s * sx, cy + s);
+    } else {
+      ctx.moveTo(cx - s, cy - s * sy);
+      ctx.lineTo(cx, cy + s * sy);
+      ctx.lineTo(cx + s, cy - s * sy);
     }
     ctx.stroke();
   };
-
-  if (dir === 'right' || dir === 'left') {
-    drawOne(-7, 0);
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-    drawOne(5, 0);
+  if (dir === 'h') {
+    chev(x + w * 0.09, y + h / 2, -1, 0);
+    chev(x + w * 0.91, y + h / 2, 1, 0);
   } else {
-    drawOne(0, -7);
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-    drawOne(0, 5);
+    chev(x + w / 2, y + h * 0.09, 0, -1);
+    chev(x + w / 2, y + h * 0.91, 0, 1);
   }
   ctx.restore();
 }
 
-function drawVirusSymbol(ctx, cx, cy) {
+/* ─── Block face glyphs — drawn, never emoji ───────────── */
+
+function glyphCover(ctx, cx, cy, s) {
+  // Umbrella canopy sheltering two figures = family cover.
   ctx.save();
   ctx.strokeStyle = '#ffffff';
   ctx.fillStyle = '#ffffff';
-  ctx.lineWidth = 2.5;
-  ctx.shadowBlur = 0;
-
-  // Center circle
+  ctx.lineWidth = Math.max(1.8, s * 0.16);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+  ctx.arc(cx, cy - s * 0.05, s * 0.92, Math.PI, 0);
+  ctx.closePath();
   ctx.fill();
-
-  // Spokes
-  const numSpokes = 8;
-  const innerR = 7;
-  const outerR = 13;
-  for (let i = 0; i < numSpokes; i++) {
-    const angle = (i * Math.PI * 2) / numSpokes;
-    const x1 = cx + Math.cos(angle) * innerR;
-    const y1 = cy + Math.sin(angle) * innerR;
-    const x2 = cx + Math.cos(angle) * outerR;
-    const y2 = cy + Math.sin(angle) * outerR;
-
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-
-    // Spoke tip
-    ctx.beginPath();
-    ctx.arc(x2, y2, 2.2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawPadlock(ctx, cx, cy) {
-  ctx.save();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.beginPath();
-  ctx.arc(cx, cy, 18, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = '#ef4444';
-  ctx.fillStyle = '#ef4444';
-  ctx.lineWidth = 2;
-
-  // Shackle
-  ctx.beginPath();
-  ctx.arc(cx, cy - 4, 6, Math.PI, 0);
+  ctx.moveTo(cx, cy - s * 0.05);
+  ctx.lineTo(cx, cy + s * 0.6);
   ctx.stroke();
-
-  // Body
-  drawRoundRect(ctx, cx - 8, cy - 3, 16, 12, 2);
-  ctx.fill();
-
-  // Keyhole
-  ctx.fillStyle = '#000000';
   ctx.beginPath();
-  ctx.arc(cx, cy + 2, 2, 0, Math.PI * 2);
+  ctx.arc(cx - s * 0.42, cy + s * 0.62, s * 0.24, 0, Math.PI * 2);
+  ctx.arc(cx + s * 0.42, cy + s * 0.62, s * 0.24, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
+
+function glyphDebt(ctx, cx, cy, s) {
+  // Stacked coins with a downward drain arrow — money leaving.
+  ctx.save();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(1.6, s * 0.15);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.ellipse(cx - s * 0.25, cy - s * 0.55 + i * s * 0.5, s * 0.55, s * 0.2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(cx + s * 0.72, cy - s * 0.6);
+  ctx.lineTo(cx + s * 0.72, cy + s * 0.6);
+  ctx.moveTo(cx + s * 0.42, cy + s * 0.25);
+  ctx.lineTo(cx + s * 0.72, cy + s * 0.65);
+  ctx.lineTo(cx + s * 1.02, cy + s * 0.25);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function glyphIllness(ctx, cx, cy, s) {
+  // Medical cross with an ECG trace across it.
+  ctx.save();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  const a = s * 0.32;
+  const b = s * 0.92;
+  roundRect(ctx, cx - a, cy - b, a * 2, b * 2, a * 0.5);
+  ctx.fill();
+  roundRect(ctx, cx - b, cy - a, b * 2, a * 2, a * 0.5);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.lineWidth = Math.max(1.6, s * 0.16);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - b, cy);
+  ctx.lineTo(cx - s * 0.34, cy);
+  ctx.lineTo(cx - s * 0.14, cy - s * 0.5);
+  ctx.lineTo(cx + s * 0.12, cy + s * 0.44);
+  ctx.lineTo(cx + s * 0.32, cy);
+  ctx.lineTo(cx + b, cy);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function glyphMarket(ctx, cx, cy, s) {
+  // Candlesticks under a crashing trend line.
+  ctx.save();
+  ctx.strokeStyle = '#ffffff';
+  ctx.fillStyle = '#ffffff';
+  ctx.lineWidth = Math.max(1.5, s * 0.13);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const bars = [0.45, 0.75, 0.35];
+  bars.forEach((hh, i) => {
+    const bx = cx - s * 0.72 + i * s * 0.72;
+    ctx.globalAlpha = 0.55;
+    ctx.fillRect(bx - s * 0.16, cy + s * 0.85 - s * hh, s * 0.32, s * hh);
+    ctx.globalAlpha = 1;
+  });
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.9, cy - s * 0.75);
+  ctx.lineTo(cx - s * 0.2, cy - s * 0.1);
+  ctx.lineTo(cx + s * 0.2, cy - s * 0.45);
+  ctx.lineTo(cx + s * 0.88, cy + s * 0.42);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx + s * 0.9, cy - s * 0.06);
+  ctx.lineTo(cx + s * 0.92, cy + s * 0.5);
+  ctx.lineTo(cx + s * 0.34, cy + s * 0.46);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function glyphJob(ctx, cx, cy, s) {
+  // Briefcase split by a break line — income interrupted.
+  ctx.save();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(1.6, s * 0.15);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  roundRect(ctx, cx - s * 0.92, cy - s * 0.35, s * 1.84, s * 1.15, s * 0.24);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.4, cy - s * 0.35);
+  ctx.lineTo(cx - s * 0.4, cy - s * 0.72);
+  ctx.lineTo(cx + s * 0.4, cy - s * 0.72);
+  ctx.lineTo(cx + s * 0.4, cy - s * 0.35);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.12, cy - s * 0.2);
+  ctx.lineTo(cx + s * 0.16, cy + s * 0.2);
+  ctx.lineTo(cx - s * 0.16, cy + s * 0.34);
+  ctx.lineTo(cx + s * 0.1, cy + s * 0.7);
+  ctx.stroke();
+  ctx.restore();
+}
+
+const GLYPHS = {
+  hero: glyphCover,
+  debt: glyphDebt,
+  illness: glyphIllness,
+  market: glyphMarket,
+  job: glyphJob,
+};
 
 function RotateIcon({ size = 18 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block' }}>
       <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
     </svg>
   );
 }
 
-/* ─── Grid collision solver ────────────────────────────── */
-function isCellOccupied(r, c, blocks) {
-  for (const b of blocks) {
-    if (r >= b.r && r < b.r + b.h && c >= b.c && c < b.c + b.w) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function getSlideTarget(block, allBlocks) {
-  const otherBlocks = allBlocks.filter(b => b.id !== block.id && b.status !== 'exited');
-  let currentR = block.r;
-  let currentC = block.c;
-  const dir = block.dir;
-  const w = block.w;
-  const h = block.h;
-
-  if (dir === 'up') {
-    while (true) {
-      const nextR = currentR - 1;
-      if (nextR < 0) {
-        return { targetR: -h, targetC: currentC, exited: true };
-      }
-      let blocked = false;
-      for (let col = currentC; col < currentC + w; col++) {
-        if (isCellOccupied(nextR, col, otherBlocks)) {
-          blocked = true;
-          break;
-        }
-      }
-      if (blocked) {
-        return { targetR: currentR, targetC: currentC, exited: false };
-      }
-      currentR = nextR;
-    }
-  } else if (dir === 'down') {
-    while (true) {
-      const nextR = currentR + 1;
-      if (nextR + h - 1 >= 6) {
-        return { targetR: 6, targetC: currentC, exited: true };
-      }
-      let blocked = false;
-      for (let col = currentC; col < currentC + w; col++) {
-        if (isCellOccupied(nextR + h - 1, col, otherBlocks)) {
-          blocked = true;
-          break;
-        }
-      }
-      if (blocked) {
-        return { targetR: currentR, targetC: currentC, exited: false };
-      }
-      currentR = nextR;
-    }
-  } else if (dir === 'left') {
-    while (true) {
-      const nextC = currentC - 1;
-      if (nextC < 0) {
-        return { targetR: currentR, targetC: -w, exited: true };
-      }
-      let blocked = false;
-      for (let row = currentR; row < currentR + h; row++) {
-        if (isCellOccupied(row, nextC, otherBlocks)) {
-          blocked = true;
-          break;
-        }
-      }
-      if (blocked) {
-        return { targetR: currentR, targetC: currentC, exited: false };
-      }
-      currentC = nextC;
-    }
-  } else if (dir === 'right') {
-    while (true) {
-      const nextC = currentC + 1;
-      if (nextC + w - 1 >= 6) {
-        return { targetR: currentR, targetC: 6, exited: true };
-      }
-      let blocked = false;
-      for (let row = currentR; row < currentR + h; row++) {
-        if (isCellOccupied(row, nextC + w - 1, otherBlocks)) {
-          blocked = true;
-          break;
-        }
-      }
-      if (blocked) {
-        return { targetR: currentR, targetC: currentC, exited: false };
-      }
-      currentC = nextC;
-    }
-  }
-  return { targetR: currentR, targetC: currentC, exited: false };
-}
-
-function areNeighbors(b1, b2) {
-  for (let r1 = b1.r; r1 < b1.r + b1.h; r1++) {
-    for (let c1 = b1.c; c1 < b1.c + b1.w; c1++) {
-      for (let r2 = b2.r; r2 < b2.r + b2.h; r2++) {
-        for (let c2 = b2.c; c2 < b2.c + b2.w; c2++) {
-          const dist = Math.abs(r1 - r2) + Math.abs(c1 - c2);
-          if (dist === 1) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
-}
+/* ─── Component ────────────────────────────────────────── */
 
 export default function RiskExitGame({ onWin, onLose }) {
-  const [score, setScore] = useState(0);
-  const [combo, setCombo] = useState(0);
   const [levelIdx, setLevelIdx] = useState(0);
-  const [timer, setTimer] = useState(GAME_CONFIG.sessionSeconds);
   const [moves, setMoves] = useState(0);
-  const [bumps, setBumps] = useState(0);
-  const [levelBanner, setLevelBanner] = useState(null);
+  const [score, setScore] = useState(0);
+  const [timer, setTimer] = useState(GAME_CONFIG.sessionSeconds);
+  const [banner, setBanner] = useState(null);
+  const [canvasW, setCanvasW] = useState(320);
 
   const canvasRef = useRef(null);
-  const containerRef = useRef(null);
-  const requestRef = useRef(null);
+  const wrapRef = useRef(null);
+  const rafRef = useRef(0);
 
-  const [boardSize, setBoardSize] = useState(360);
-
-  // Synchronized state refs for 60fps loop
-  const blocksRef = useRef([]);
+  // Live world — never re-rendered per frame.
+  const piecesRef = useRef([]);
   const particlesRef = useRef([]);
-  const floatTextsRef = useRef([]);
-  const scoreRef = useRef(0);
-  const comboRef = useRef(0);
-  const levelIdxRef = useRef(0);
-  const timerRef = useRef(GAME_CONFIG.sessionSeconds);
-  const movesRef = useRef(0);
-  const bumpsRef = useRef(0);
-  const exitsRef = useRef(0);
+  const textsRef = useRef([]);
+  const dragRef = useRef(null);
+  const cellRef = useRef(50);
   const shakeRef = useRef(0);
-  const isCompleteRef = useRef(false);
-  const isTransitioningRef = useRef(false);
-  const nextLevelTimeoutRef = useRef(null);
+  const exitRef = useRef(null);
+  const levelRef = useRef(0);
+  const movesRef = useRef(0);
+  const totalMovesRef = useRef(0);
+  const scoreRef = useRef(0);
+  const risksRef = useRef(0);
+  const timeRef = useRef(GAME_CONFIG.sessionSeconds);
+  // Wall-clock deadline, not an accumulated dt: hiding the tab stops rAF, and a
+  // dt-summed clock would hand the player free thinking time for doing it.
+  const deadlineRef = useRef(0);
+  const doneRef = useRef(false);
+  const lockRef = useRef(false);
+  const bannerTimeoutRef = useRef(null);
 
-  // Sync helpers
-  const updateScoreState = (newScore) => {
-    scoreRef.current = newScore;
-    setScore(newScore);
-  };
-  const updateComboState = (newCombo) => {
-    comboRef.current = newCombo;
-    setCombo(newCombo);
-  };
-  const updateMovesState = (newMoves) => {
-    movesRef.current = newMoves;
-    setMoves(newMoves);
-  };
-  const updateBumpsState = (newBumps) => {
-    bumpsRef.current = newBumps;
-    setBumps(newBumps);
-  };
-  const updateExitsState = (newExits) => {
-    exitsRef.current = newExits;
-  };
-
-  // Resize listener
+  /* ── Sizing ── */
   useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        const w = containerRef.current.getBoundingClientRect().width;
-        setBoardSize(Math.min(w, 360));
-      }
+    const measure = () => {
+      const w = wrapRef.current?.getBoundingClientRect().width || 320;
+      setCanvasW(Math.max(240, Math.min(w, 360)));
     };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
   }, []);
 
-  // Float text
-  const spawnFloatText = (gridX, gridY, text, color) => {
-    const displaySize = boardSize - 20;
-    const cellSize = displaySize / GAME_CONFIG.gridSize;
-    const px = gridX * cellSize + cellSize / 2;
-    const py = gridY * cellSize + cellSize / 2;
-    floatTextsRef.current.push({
-      id: Math.random(),
-      x: px,
-      y: py,
-      text,
-      color,
-      life: 1.0,
-      maxLife: 1.0,
-    });
-  };
+  const cell = canvasW / (GRID + RUNWAY);
+  cellRef.current = cell;
+  const boardPx = cell * GRID;
 
-  // Particles
-  const spawnExitParticles = (gridX, gridY, w, h, dir) => {
-    const displaySize = boardSize - 20;
-    const cellSize = displaySize / GAME_CONFIG.gridSize;
-    const px = gridX * cellSize + (w * cellSize) / 2;
-    const py = gridY * cellSize + (h * cellSize) / 2;
-    const colors = DIR_COLORS[dir] || RISK_COLORS;
-
-    const count = 16;
+  /* ── FX spawners ── */
+  const burst = useCallback((px, py, colors, count, spread) => {
     for (let i = 0; i < count; i++) {
-      let angle = 0;
-      if (dir === 'up') angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
-      else if (dir === 'down') angle = Math.PI / 2 + (Math.random() - 0.5) * 0.8;
-      else if (dir === 'left') angle = Math.PI + (Math.random() - 0.5) * 0.8;
-      else if (dir === 'right') angle = (Math.random() - 0.5) * 0.8;
-
-      const speed = 120 + Math.random() * 150;
-      const life = 0.5 + Math.random() * 0.3;
-
+      const a = Math.random() * Math.PI * 2;
+      const sp = spread * (0.35 + Math.random() * 0.9);
+      const life = 0.45 + Math.random() * 0.45;
       particlesRef.current.push({
-        x: px,
-        y: py,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        color: Math.random() > 0.45 ? colors.top : colors.bottom,
-        size: 3 + Math.random() * 3,
-        life,
-        maxLife: life,
-      });
-    }
-  };
-
-  const spawnLevelCompleteParticles = () => {
-    const displaySize = boardSize - 20;
-    const cx = displaySize / 2;
-    const cy = displaySize / 2;
-    const colors = [BRAND.greenLight, BRAND.blueLight, BRAND.orangeBright, BRAND.green, BRAND.orange];
-    for (let i = 0; i < 40; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 120 + Math.random() * 180;
-      const life = 0.8 + Math.random() * 0.5;
-      particlesRef.current.push({
-        x: cx,
-        y: cy,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
+        x: px, y: py,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - sp * 0.25,
         color: colors[i % colors.length],
-        size: 4 + Math.random() * 4,
-        life,
-        maxLife: life,
+        size: 2.4 + Math.random() * 3.2,
+        life, maxLife: life,
       });
     }
-  };
+  }, []);
 
-  // Game over
-  const handleGameOver = useCallback((didWin) => {
-    if (isCompleteRef.current) return;
-    isCompleteRef.current = true;
+  const floatText = useCallback((px, py, text, color) => {
+    textsRef.current.push({ x: px, y: py, text, color, life: 1.05, maxLife: 1.05 });
+  }, []);
 
-    let finalScore = scoreRef.current;
-    if (didWin) {
+  /* ── End of session ── */
+  const finish = useCallback((won) => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    let final = scoreRef.current;
+    if (won) {
       sfxWin();
-      const timeBonus = Math.ceil(timerRef.current) * GAME_CONFIG.scoring.timeBonusPerSec;
-      finalScore += timeBonus;
+      final += Math.ceil(timeRef.current) * GAME_CONFIG.scoring.timeBonusPerSec;
     } else {
       sfxLose();
     }
-
     const stats = {
-      score: finalScore,
-      levelsCleared: levelIdxRef.current + (didWin ? 1 : 0),
-      exits: exitsRef.current,
-      bumps: bumpsRef.current,
+      score: final,
+      levelsCleared: levelRef.current + (won ? 1 : 0),
+      moves: totalMovesRef.current,
+      risksCleared: risksRef.current,
     };
-
-    if (didWin) onWin(stats);
-    else onLose(stats);
+    (won ? onWin : onLose)(stats);
   }, [onWin, onLose]);
 
-  // Level Init
-  const initLevel = useCallback((levelIndex) => {
-    if (levelIndex >= LEVELS.length) {
-      handleGameOver(true);
+  /* ── Level load ── */
+  const loadLevel = useCallback((idx, isRestart) => {
+    if (idx >= LEVELS.length) {
+      finish(true);
       return;
     }
-    isTransitioningRef.current = false;
-    setLevelBanner(`BOARD ${levelIndex + 1}`);
-    if (nextLevelTimeoutRef.current) clearTimeout(nextLevelTimeoutRef.current);
-    nextLevelTimeoutRef.current = setTimeout(() => setLevelBanner(null), GAME_CONFIG.levelBannerMs);
-
-    levelIdxRef.current = levelIndex;
-    setLevelIdx(levelIndex);
-
-    const levelBlocks = JSON.parse(JSON.stringify(LEVELS[levelIndex]));
-    blocksRef.current = levelBlocks.map(b => ({
-      ...b,
-      currentX: b.c,
-      currentY: b.r,
-      targetX: b.c,
-      targetY: b.r,
-      vx: 0,
-      vy: 0,
-      status: 'idle',
-      lockTimer: 0,
-      shakeTime: 0,
-      bumpProgress: 0,
-      bumpDir: { x: 0, y: 0 },
+    levelRef.current = idx;
+    setLevelIdx(idx);
+    const level = LEVELS[idx];
+    piecesRef.current = level.pieces.map((p) => ({
+      ...p,
+      off: 0,       // live drag/settle offset in cells, along the piece axis
+      hit: 0,       // squash-and-stretch amount after a collision
+      fade: 1,
+      lane: blocksHeroRow(p),  // did it start in the exit lane?
+      cleared: false,
     }));
-
     particlesRef.current = [];
-    floatTextsRef.current = [];
-    comboRef.current = 0;
-    setCombo(0);
-  }, [handleGameOver]);
+    textsRef.current = [];
+    dragRef.current = null;
+    exitRef.current = null;
+    lockRef.current = false;
+    movesRef.current = 0;
+    setMoves(0);
+    setBanner(isRestart ? 'BOARD RESET' : `${level.name.toUpperCase()} · PAR ${level.par}`);
+    clearTimeout(bannerTimeoutRef.current);
+    bannerTimeoutRef.current = setTimeout(() => setBanner(null), GAME_CONFIG.levelBannerMs);
+  }, [finish]);
 
-  // Handle Click / Pointer down
-  const handleCanvasPointer = (e) => {
-    if (isTransitioningRef.current || isCompleteRef.current) return;
+  /* ── Pixel helpers ── */
+  const pieceRect = useCallback((p) => {
+    const c = cellRef.current;
+    const ox = p.dir === 'h' ? p.off : 0;
+    const oy = p.dir === 'v' ? p.off : 0;
+    const w = (p.dir === 'h' ? p.len : 1) * c;
+    const h = (p.dir === 'v' ? p.len : 1) * c;
+    return { x: (p.c + ox) * c, y: (p.r + oy) * c, w, h };
+  }, []);
+
+  /* ── Award anything freed out of the exit lane ── */
+  const settleAfterMove = useCallback(() => {
+    for (const p of piecesRef.current) {
+      if (p.cleared || !p.lane || blocksHeroRow(p)) continue;
+      p.cleared = true;
+      risksRef.current += 1;
+      const rect = pieceRect(p);
+      const skin = RISK_SKINS[p.kind] || RISK_SKINS.debt;
+      burst(rect.x + rect.w / 2, rect.y + rect.h / 2, [skin.top, skin.rim, BRAND.greenLight], 18, 190);
+      floatText(rect.x + rect.w / 2, rect.y + rect.h / 2, `RISK CLEARED +${GAME_CONFIG.scoring.riskCleared}`, BRAND.greenLight);
+      scoreRef.current += GAME_CONFIG.scoring.riskCleared;
+      setScore(scoreRef.current);
+      sfxRiskSafe();
+    }
+    if (isSolved(piecesRef.current) && !exitRef.current) {
+      lockRef.current = true;
+      exitRef.current = { t: 0 };
+      sfxExit(2);
+      const hero = piecesRef.current.find((p) => p.kind === 'hero');
+      const rect = pieceRect(hero);
+      burst(boardPx, rect.y + rect.h / 2, [HERO_SKIN.top, BRAND.gold, BRAND.greenLight, '#fff'], 30, 260);
+    }
+  }, [burst, floatText, pieceRect, boardPx]);
+
+  /* ── Level cleared → score it and move on ── */
+  const clearLevel = useCallback(() => {
+    const level = LEVELS[levelRef.current];
+    const used = Math.max(movesRef.current, 1);
+    const parBonus = Math.round(GAME_CONFIG.scoring.parBonus * Math.min(1, level.par / used));
+    scoreRef.current += GAME_CONFIG.scoring.levelClear + parBonus;
+    setScore(scoreRef.current);
+    floatText(boardPx * 0.5, boardPx * 0.42,
+      `+${GAME_CONFIG.scoring.levelClear + parBonus}`, BRAND.greenLight);
+    burst(boardPx * 0.5, boardPx * 0.5,
+      [BRAND.greenLight, BRAND.orangeBright, HERO_SKIN.top, BRAND.blueLight], 40, 300);
+    sfxLevelUp();
+    const next = levelRef.current + 1;
+    setTimeout(() => {
+      if (doneRef.current) return;
+      if (next >= LEVELS.length) finish(true);
+      else loadLevel(next, false);
+    }, 900);
+  }, [burst, floatText, finish, loadLevel, boardPx]);
+
+  /* ── Drag input ── */
+  const localPoint = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const onPointerDown = (e) => {
     unlockAudio();
+    if (doneRef.current || lockRef.current) return;
+    const c = cellRef.current;
+    const { x, y } = localPoint(e);
+    if (x < 0 || x >= c * GRID || y < 0 || y >= c * GRID) return;
+    const col = Math.floor(x / c);
+    const row = Math.floor(y / c);
+    const idx = piecesRef.current.findIndex((p) => {
+      const r0 = p.r;
+      const c0 = p.c;
+      const r1 = p.dir === 'v' ? p.r + p.len - 1 : p.r;
+      const c1 = p.dir === 'h' ? p.c + p.len - 1 : p.c;
+      return row >= r0 && row <= r1 && col >= c0 && col <= c1;
+    });
+    if (idx < 0) { sfxTap(); return; }
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
-    const displaySize = boardSize - 20;
-    const cellSize = displaySize / GAME_CONFIG.gridSize;
-    const col = Math.floor(clickX / cellSize);
-    const row = Math.floor(clickY / cellSize);
-
-    const isAnySliding = blocksRef.current.some(b => b.status === 'sliding' || b.status === 'exiting');
-    if (isAnySliding) return;
-
-    const clickedBlock = blocksRef.current.find(b =>
-      b.status !== 'exited' &&
-      row >= b.r && row < b.r + b.h &&
-      col >= b.c && col < b.c + b.w
-    );
-
-    if (!clickedBlock) return;
-
-    if (clickedBlock.lockTimer > 0) {
+    const p = piecesRef.current[idx];
+    const { back, fwd } = slideRange(piecesRef.current, idx);
+    if (back === 0 && fwd === 0) {
+      // Wedged solid — say so instead of silently swallowing the drag.
       sfxLocked();
-      spawnFloatText(clickedBlock.c, clickedBlock.r, 'LOCKED!', '#EF4444');
-      clickedBlock.shakeTime = 0.3;
+      p.hit = 1;
+      shakeRef.current = Math.max(shakeRef.current, 5);
+      const rect = pieceRect(p);
+      floatText(rect.x + rect.w / 2, rect.y, 'BOXED IN', BRAND.orangeBright);
       return;
     }
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    dragRef.current = {
+      idx, back, fwd, pointerId: e.pointerId,
+      origin: p.dir === 'h' ? x : y,
+      bumped: false,
+    };
+    sfxTap();
+  };
 
-    const normalBlocksCount = blocksRef.current.filter(b => b.status !== 'exited' && !b.isRisk).length;
-
-    // Check if risk block tapped early:
-    if (clickedBlock.isRisk && normalBlocksCount > 0) {
-      sfxRiskBreach();
-      updateScoreState(Math.max(0, scoreRef.current + GAME_CONFIG.scoring.riskBreach));
-      spawnFloatText(clickedBlock.c, clickedBlock.r, 'RISK BREACH -25', '#EF4444');
-      shakeRef.current = 10;
-
-      // Lock neighbors:
-      blocksRef.current.forEach(b => {
-        if (b.status !== 'exited' && b.id !== clickedBlock.id && areNeighbors(clickedBlock, b)) {
-          b.lockTimer = GAME_CONFIG.lockSeconds;
-        }
-      });
-
-      updateComboState(0);
-    }
-
-    const { targetR, targetC, exited } = getSlideTarget(clickedBlock, blocksRef.current);
-    updateMovesState(movesRef.current + 1);
-
-    if (targetR === clickedBlock.r && targetC === clickedBlock.c) {
+  const onPointerMove = (e) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const c = cellRef.current;
+    const p = piecesRef.current[d.idx];
+    const { x, y } = localPoint(e);
+    const raw = ((p.dir === 'h' ? x : y) - d.origin) / c;
+    const clamped = Math.max(-d.back, Math.min(d.fwd, raw));
+    p.off = clamped;
+    // Shoving hard past a neighbour is an illegal move: shake, squash, bump.
+    if (!d.bumped && (raw > d.fwd + 0.34 || raw < -d.back - 0.34)) {
+      d.bumped = true;
+      p.hit = 1;
+      shakeRef.current = Math.max(shakeRef.current, 6);
       sfxBump();
-      updateComboState(0);
-      updateBumpsState(bumpsRef.current + 1);
-      updateScoreState(Math.max(0, scoreRef.current + GAME_CONFIG.scoring.bump));
-      spawnFloatText(clickedBlock.c, clickedBlock.r, 'BLOCKED -10', BRAND.orangeBright);
-      
-      clickedBlock.status = 'bumping';
-      clickedBlock.bumpProgress = 0;
-      clickedBlock.bumpDir = clickedBlock.dir === 'up' ? { x: 0, y: -1 } :
-                            clickedBlock.dir === 'down' ? { x: 0, y: 1 } :
-                            clickedBlock.dir === 'left' ? { x: -1, y: 0 } : { x: 1, y: 0 };
-      shakeRef.current = 5;
-    } else {
-      sfxSlide();
-      clickedBlock.targetX = targetC;
-      clickedBlock.targetY = targetR;
-      clickedBlock.vx = clickedBlock.dir === 'left' ? -GAME_CONFIG.slideCellsPerSec :
-                        clickedBlock.dir === 'right' ? GAME_CONFIG.slideCellsPerSec : 0;
-      clickedBlock.vy = clickedBlock.dir === 'up' ? -GAME_CONFIG.slideCellsPerSec :
-                        clickedBlock.dir === 'down' ? GAME_CONFIG.slideCellsPerSec : 0;
-      clickedBlock.status = exited ? 'exiting' : 'sliding';
-
-      // Safe risk exit bonus
-      if (clickedBlock.isRisk && normalBlocksCount === 0 && exited) {
-        sfxRiskSafe();
-        updateScoreState(scoreRef.current + GAME_CONFIG.scoring.riskSafeBonus);
-        spawnFloatText(clickedBlock.c, clickedBlock.r, 'SAFE EXIT +100', BRAND.greenLight);
-      }
+      scoreRef.current = Math.max(0, scoreRef.current + GAME_CONFIG.scoring.blocked);
+      setScore(scoreRef.current);
     }
   };
 
-  // Game Loop Tick
+  const endDrag = (e) => {
+    const d = dragRef.current;
+    if (!d || (e && d.pointerId !== e.pointerId)) return;
+    dragRef.current = null;
+    const p = piecesRef.current[d.idx];
+    const snap = Math.round(p.off);
+    if (snap !== 0) {
+      if (p.dir === 'h') p.c += snap;
+      else p.r += snap;
+      p.off -= snap;             // residual — the render loop eases it to zero
+      movesRef.current += 1;
+      totalMovesRef.current += 1;
+      setMoves(movesRef.current);
+      sfxSlide();
+      settleAfterMove();
+    } else {
+      p.off = 0;
+    }
+  };
+
+  /* ── Frame loop ── */
   useEffect(() => {
-    let active = true;
-    let lastTime = performance.now();
+    let alive = true;
+    let last = performance.now();
 
-    const tick = (now) => {
-      if (!active) return;
-      const dt = Math.min((now - lastTime) / 1000, 0.1);
-      lastTime = now;
-
+    const frame = (now) => {
+      if (!alive) return;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
       const canvas = canvasRef.current;
-      if (canvas) {
-        const displaySize = boardSize - 20;
-        const dpr = window.devicePixelRatio || 1;
+      const c = cellRef.current;
+      const board = c * GRID;
+      const W = c * (GRID + RUNWAY);
+      const H = board;
 
-        if (canvas.width !== displaySize * dpr || canvas.height !== displaySize * dpr) {
-          canvas.width = displaySize * dpr;
-          canvas.height = displaySize * dpr;
+      if (canvas) {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+        if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+          canvas.width = Math.round(W * dpr);
+          canvas.height = Math.round(H * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, W, H);
+
+        /* clock */
+        if (!doneRef.current) {
+          timeRef.current = Math.max(0, (deadlineRef.current - now) / 1000);
+          setTimer(Math.ceil(timeRef.current));
+          if (timeRef.current <= 0) finish(false);
         }
 
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.resetTransform();
-          ctx.scale(dpr, dpr);
+        /* screen shake */
+        ctx.save();
+        if (shakeRef.current > 0.05) {
+          ctx.translate((Math.random() - 0.5) * shakeRef.current, (Math.random() - 0.5) * shakeRef.current);
+          shakeRef.current = Math.max(0, shakeRef.current - dt * 26);
+        }
 
-          ctx.clearRect(0, 0, displaySize, displaySize);
+        /* board well */
+        const well = ctx.createLinearGradient(0, 0, board * 0.6, board);
+        well.addColorStop(0, '#0d1728');
+        well.addColorStop(1, '#060c17');
+        ctx.fillStyle = well;
+        roundRect(ctx, 0, 0, board, board, c * 0.22);
+        ctx.fill();
 
-          // Update Session Timer
-          if (!isCompleteRef.current && !isTransitioningRef.current) {
-            timerRef.current = Math.max(0, timerRef.current - dt);
-            setTimer(Math.ceil(timerRef.current));
-            if (timerRef.current <= 0) {
-              handleGameOver(false);
-            }
+        /* cell sockets */
+        ctx.save();
+        roundRect(ctx, 0, 0, board, board, c * 0.22);
+        ctx.clip();
+        for (let r = 0; r < GRID; r++) {
+          for (let k = 0; k < GRID; k++) {
+            ctx.fillStyle = (r + k) % 2 ? 'rgba(255,255,255,0.020)' : 'rgba(255,255,255,0.038)';
+            roundRect(ctx, k * c + c * 0.09, r * c + c * 0.09, c * 0.82, c * 0.82, c * 0.16);
+            ctx.fill();
           }
+        }
+        ctx.restore();
 
-          // Screen Shake
-          ctx.save();
-          if (shakeRef.current > 0) {
-            const sx = (Math.random() - 0.5) * shakeRef.current;
-            const sy = (Math.random() - 0.5) * shakeRef.current;
-            ctx.translate(sx, sy);
-            shakeRef.current = Math.max(0, shakeRef.current - dt * 25);
-          }
+        /* exit gate — glowing mouth on the right wall of the hero row */
+        const gy = HERO_ROW * c;
+        const pulse = 0.55 + 0.45 * Math.sin(now / 320);
+        const beam = ctx.createLinearGradient(board - c * 0.4, 0, W, 0);
+        beam.addColorStop(0, `rgba(74, 222, 128, ${0.05 + 0.09 * pulse})`);
+        beam.addColorStop(0.45, `rgba(74, 222, 128, ${0.24 + 0.2 * pulse})`);
+        beam.addColorStop(1, 'rgba(74, 222, 128, 0)');
+        ctx.fillStyle = beam;
+        ctx.fillRect(board - c * 0.4, gy + c * 0.08, W - board + c * 0.4, c * 0.84);
 
-          // Board Background
-          ctx.fillStyle = '#0a101d';
+        ctx.save();
+        ctx.strokeStyle = `rgba(74, 222, 128, ${0.5 + 0.4 * pulse})`;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(board - c * 0.22, gy + c * 0.06);
+        ctx.lineTo(board + c * 0.1, gy + c * 0.06);
+        ctx.moveTo(board - c * 0.22, gy + c * 0.94);
+        ctx.lineTo(board + c * 0.1, gy + c * 0.94);
+        ctx.stroke();
+        // Chevrons drifting out through the gate.
+        ctx.lineWidth = 2.4;
+        for (let i = 0; i < 3; i++) {
+          const t = ((now / 620) + i / 3) % 1;
+          const cx = board - c * 0.18 + t * c * 0.78;
+          ctx.globalAlpha = Math.sin(t * Math.PI) * 0.85;
+          ctx.strokeStyle = '#4ADE80';
           ctx.beginPath();
-          drawRoundRect(ctx, 0, 0, displaySize, displaySize, 16);
-          ctx.fill();
+          ctx.moveTo(cx - c * 0.09, gy + c * 0.32);
+          ctx.lineTo(cx + c * 0.07, gy + c * 0.5);
+          ctx.lineTo(cx - c * 0.09, gy + c * 0.68);
+          ctx.stroke();
+        }
+        ctx.restore();
 
-          // Grid Lines
-          const cellSize = displaySize / GAME_CONFIG.gridSize;
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-          ctx.lineWidth = 1;
-          for (let i = 1; i < GAME_CONFIG.gridSize; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * cellSize, 0);
-            ctx.lineTo(i * cellSize, displaySize);
-            ctx.stroke();
+        /* frame walls — solid everywhere except the gate */
+        ctx.save();
+        ctx.strokeStyle = 'rgba(120, 165, 235, 0.22)';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(board - 1.2, gy + c * 0.02);
+        ctx.lineTo(board - 1.2, 1.2);
+        ctx.lineTo(1.2, 1.2);
+        ctx.lineTo(1.2, board - 1.2);
+        ctx.lineTo(board - 1.2, board - 1.2);
+        ctx.lineTo(board - 1.2, gy + c * 0.98);
+        ctx.stroke();
+        ctx.restore();
 
-            ctx.beginPath();
-            ctx.moveTo(0, i * cellSize);
-            ctx.lineTo(displaySize, i * cellSize);
-            ctx.stroke();
+        /* exit animation */
+        const hero = piecesRef.current.find((p) => p.kind === 'hero');
+        if (exitRef.current && hero) {
+          exitRef.current.t += dt;
+          hero.off += dt * 3.2;
+          hero.fade = Math.max(0, 1 - Math.max(0, hero.off - 0.25) * 1.5);
+          if (!exitRef.current.scored && exitRef.current.t > 0.42) {
+            exitRef.current.scored = true;
+            clearLevel();
+          }
+        }
+
+        /* pieces */
+        for (const p of piecesRef.current) {
+          if (p.hit > 0) p.hit = Math.max(0, p.hit - dt * 3.6);
+          if (!dragRef.current && !exitRef.current && Math.abs(p.off) > 0.0005) {
+            p.off *= Math.exp(-dt * 20);
+            if (Math.abs(p.off) < 0.0015) p.off = 0;
+          }
+          if (p.fade <= 0.01) continue;
+
+          const rect = pieceRect(p);
+          const pad = c * 0.075;
+          let x = rect.x + pad;
+          let y = rect.y + pad;
+          let w = rect.w - pad * 2;
+          let h = rect.h - pad * 2;
+
+          // Squash along the travel axis, stretch across it.
+          if (p.hit > 0) {
+            const k = Math.sin(p.hit * Math.PI) * 0.13;
+            const cx = x + w / 2;
+            const cy = y + h / 2;
+            const sx = p.dir === 'h' ? 1 - k : 1 + k * 0.5;
+            const sy = p.dir === 'v' ? 1 - k : 1 + k * 0.5;
+            x = cx - (w * sx) / 2;
+            y = cy - (h * sy) / 2;
+            w *= sx;
+            h *= sy;
           }
 
-          // Update Blocks
-          blocksRef.current.forEach(b => {
-            if (b.lockTimer > 0) {
-              b.lockTimer = Math.max(0, b.lockTimer - dt);
-            }
-            if (b.shakeTime > 0) {
-              b.shakeTime = Math.max(0, b.shakeTime - dt);
-            }
+          const held = dragRef.current && piecesRef.current[dragRef.current.idx] === p;
+          const skin = p.kind === 'hero' ? HERO_SKIN : (RISK_SKINS[p.kind] || RISK_SKINS.debt);
 
-            if (b.status === 'sliding' || b.status === 'exiting') {
-              const dx = b.targetX - b.currentX;
-              const dy = b.targetY - b.currentY;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              const step = GAME_CONFIG.slideCellsPerSec * dt;
-
-              if (dist <= step) {
-                b.currentX = b.targetX;
-                b.currentY = b.targetY;
-
-                if (b.status === 'exiting') {
-                  b.status = 'exited';
-                  const nextExits = exitsRef.current + 1;
-                  updateExitsState(nextExits);
-
-                  const comboVal = comboRef.current + 1;
-                  updateComboState(comboVal);
-                  const bonus = Math.max(0, comboVal - 1) * GAME_CONFIG.scoring.comboStep;
-                  const scoreEarned = GAME_CONFIG.scoring.exit + bonus;
-                  updateScoreState(scoreRef.current + scoreEarned);
-
-                  sfxExit(comboVal);
-                  spawnExitParticles(b.currentX, b.currentY, b.w, b.h, b.dir);
-                  spawnFloatText(b.currentX, b.currentY, `+${scoreEarned}`, '#4ADE80');
-
-                  const remaining = blocksRef.current.filter(x => x.status !== 'exited');
-                  if (remaining.length === 0) {
-                    isTransitioningRef.current = true;
-                    sfxLevelUp();
-                    spawnLevelCompleteParticles();
-                    const nextLvl = levelIdxRef.current + 1;
-                    nextLevelTimeoutRef.current = setTimeout(() => {
-                      if (nextLvl >= LEVELS.length) {
-                        handleGameOver(true);
-                      } else {
-                        initLevel(nextLvl);
-                      }
-                    }, 1200);
-                  }
-                } else {
-                  b.status = 'bumping';
-                  b.bumpProgress = 0;
-                  b.bumpDir = b.dir === 'up' ? { x: 0, y: -1 } :
-                              b.dir === 'down' ? { x: 0, y: 1 } :
-                              b.dir === 'left' ? { x: -1, y: 0 } : { x: 1, y: 0 };
-                  b.r = b.targetY;
-                  b.c = b.targetX;
-
-                  sfxBump();
-                  updateComboState(0);
-                  updateBumpsState(bumpsRef.current + 1);
-                  updateScoreState(Math.max(0, scoreRef.current + GAME_CONFIG.scoring.bump));
-                  spawnFloatText(b.c, b.r, 'BLOCKED -10', BRAND.orangeBright);
-                  shakeRef.current = 4;
-                }
-              } else {
-                b.currentX += (dx / dist) * step;
-                b.currentY += (dy / dist) * step;
-              }
-            } else if (b.status === 'bumping') {
-              b.bumpProgress += dt * 6.5;
-              if (b.bumpProgress >= 1) {
-                b.status = 'idle';
-                b.bumpProgress = 0;
-              }
-            }
-          });
-
-          // Draw Blocks
-          blocksRef.current.forEach(b => {
-            if (b.status === 'exited') return;
-
+          ctx.save();
+          ctx.globalAlpha = p.fade;
+          if (p.kind === 'hero') {
             ctx.save();
-            const margin = 4.5;
-            const w_px = b.w * cellSize;
-            const h_px = b.h * cellSize;
-
-            let bx = b.currentX * cellSize;
-            let by = b.currentY * cellSize;
-
-            if (b.shakeTime > 0) {
-              bx += 3.5 * Math.sin(b.shakeTime * Math.PI * 18);
-            }
-
-            if (b.status === 'bumping') {
-              const recoil = Math.sin(b.bumpProgress * Math.PI) * 0.13;
-              bx += b.bumpDir.x * recoil * cellSize;
-              by += b.bumpDir.y * recoil * cellSize;
-
-              const cx = bx + w_px / 2;
-              const cy = by + h_px / 2;
-              ctx.translate(cx, cy);
-              let sx = 1;
-              let sy = 1;
-              if (b.bumpDir.x !== 0) {
-                sx = 1 - Math.sin(b.bumpProgress * Math.PI) * 0.12;
-                sy = 1 + Math.sin(b.bumpProgress * Math.PI) * 0.06;
-              } else {
-                sy = 1 - Math.sin(b.bumpProgress * Math.PI) * 0.12;
-                sx = 1 + Math.sin(b.bumpProgress * Math.PI) * 0.06;
-              }
-              ctx.scale(sx, sy);
-              ctx.translate(-cx, -cy);
-            }
-
-            const colors = b.isRisk ? RISK_COLORS : DIR_COLORS[b.dir];
-            const grad = ctx.createLinearGradient(bx + margin, by + margin, bx + margin, by + h_px - margin);
-            grad.addColorStop(0, colors.top);
-            grad.addColorStop(1, colors.bottom);
-            ctx.fillStyle = grad;
-
-            ctx.shadowColor = colors.glow;
-            ctx.shadowBlur = b.lockTimer > 0 ? 3 : 11;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 3.5;
-
-            if (b.lockTimer > 0) {
-              ctx.strokeStyle = '#ef4444';
-              ctx.lineWidth = 1.8;
-            } else {
-              ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-              ctx.lineWidth = 1;
-            }
-
-            drawRoundRect(ctx, bx + margin, by + margin, w_px - margin * 2, h_px - margin * 2, 11);
-            ctx.fill();
-            ctx.stroke();
-
-            // Inner gloss line
-            ctx.save();
-            ctx.shadowBlur = 0;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.lineWidth = 1;
-            drawRoundRect(ctx, bx + margin + 1, by + margin + 1, w_px - margin * 2 - 2, h_px - margin * 2 - 2, 10);
-            ctx.stroke();
-            ctx.restore();
-
-            const cx = bx + w_px / 2;
-            const cy = by + h_px / 2;
-            if (b.isRisk) {
-              drawVirusSymbol(ctx, cx, cy);
-            } else {
-              drawChevrons(ctx, cx, cy, b.dir);
-            }
-
-            if (b.lockTimer > 0) {
-              drawPadlock(ctx, cx, cy);
-            }
-
-            ctx.restore();
-          });
-
-          // Particles
-          particlesRef.current = particlesRef.current.filter(p => {
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
-            p.life -= dt;
-
-            ctx.save();
-            ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.shadowColor = skin.glow;
+            ctx.shadowBlur = 16 + 8 * pulse;
+            ctx.fillStyle = 'rgba(0,0,0,0.001)';
+            roundRect(ctx, x, y, w, h, Math.min(w, h) * 0.22);
             ctx.fill();
             ctx.restore();
-
-            return p.life > 0;
-          });
-
-          // Float Texts
-          floatTextsRef.current = floatTextsRef.current.filter(t => {
-            t.y -= dt * 40;
-            t.life -= dt;
-
-            ctx.save();
-            ctx.globalAlpha = Math.max(0, t.life / t.maxLife);
-            ctx.font = '900 13px Poppins, system-ui, sans-serif';
-            ctx.fillStyle = t.color;
-            ctx.textAlign = 'center';
-            ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 3;
-            ctx.fillText(t.text, t.x, t.y);
-            ctx.restore();
-
-            return t.life > 0;
-          });
-
+          }
+          drawBlock(ctx, x, y, w, h, skin, held ? 1 : 0);
+          drawAxisCaps(ctx, x, y, w, h, p.dir);
+          const gs = Math.min(w, h) * 0.5;
+          drawPlate(ctx, x + w / 2, y + h / 2, gs * 1.28);
+          (GLYPHS[p.kind] || glyphDebt)(ctx, x + w / 2, y + h / 2, gs * 0.42);
           ctx.restore();
         }
+
+        /* particles */
+        particlesRef.current = particlesRef.current.filter((pt) => {
+          pt.x += pt.vx * dt;
+          pt.y += pt.vy * dt;
+          pt.vy += 420 * dt;
+          pt.life -= dt;
+          if (pt.life <= 0) return false;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          return true;
+        });
+
+        /* floating text */
+        textsRef.current = textsRef.current.filter((t) => {
+          t.y -= dt * 42;
+          t.life -= dt;
+          if (t.life <= 0) return false;
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, t.life / t.maxLife * 1.6);
+          ctx.font = `900 ${Math.round(c * 0.25)}px Poppins, system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+          ctx.strokeText(t.text, t.x, t.y);
+          ctx.fillStyle = t.color;
+          ctx.fillText(t.text, t.x, t.y);
+          ctx.restore();
+          return true;
+        });
+
+        ctx.restore();
       }
-      requestRef.current = requestAnimationFrame(tick);
+      rafRef.current = requestAnimationFrame(frame);
     };
 
-    requestRef.current = requestAnimationFrame(tick);
+    rafRef.current = requestAnimationFrame(frame);
     return () => {
-      active = false;
-      cancelAnimationFrame(requestRef.current);
+      alive = false;
+      cancelAnimationFrame(rafRef.current);
     };
-  }, [boardSize, initLevel, handleGameOver]);
+  }, [clearLevel, finish, pieceRect]);
 
-  // Load level 1 on mount
+  /* ── Boot ── */
   useEffect(() => {
-    initLevel(0);
-    timerRef.current = GAME_CONFIG.sessionSeconds;
+    timeRef.current = GAME_CONFIG.sessionSeconds;
+    deadlineRef.current = performance.now() + GAME_CONFIG.sessionSeconds * 1000;
     scoreRef.current = 0;
-    movesRef.current = 0;
-    bumpsRef.current = 0;
-    exitsRef.current = 0;
-    isCompleteRef.current = false;
-  }, [initLevel]);
+    totalMovesRef.current = 0;
+    risksRef.current = 0;
+    doneRef.current = false;
+    loadLevel(0, false);
+    return () => clearTimeout(bannerTimeoutRef.current);
+  }, [loadLevel]);
+
+  const level = LEVELS[levelIdx] || LEVELS[0];
+  const mm = Math.floor(timer / 60);
+  const ss = String(timer % 60).padStart(2, '0');
+  const low = timer <= 20;
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      width: '100%',
-      height: '100%',
-      padding: '16px 20px',
-      boxSizing: 'border-box',
-      fontFamily: "'Poppins', system-ui, sans-serif",
-      color: '#fff',
-    }}>
-      {/* Header */}
-      <div style={{
-        width: '100%',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}>
-            Board
-          </span>
-          <span style={{ fontSize: 18, fontWeight: 900 }}>
-            {levelIdx + 1}/5
-          </span>
+    <div className="rx-game">
+      <div className="rx-hud">
+        <div className="rx-hud-cell">
+          <span className="rx-hud-label">Board</span>
+          <span className="rx-hud-value">{levelIdx + 1}<i>/{LEVELS.length}</i></span>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}>
-            Time Left
-          </span>
-          <span style={{
-            fontSize: 20,
-            fontWeight: 900,
-            color: timer < 20 ? '#EF4444' : '#fff',
-            transition: 'color 0.3s',
-          }}>
-            {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}
-          </span>
+        <div className="rx-hud-cell rx-hud-mid">
+          <span className="rx-hud-label">Time</span>
+          <span className="rx-hud-value" style={{ color: low ? '#EF4444' : '#fff' }}>{mm}:{ss}</span>
         </div>
-
         <button
-          onClick={() => {
-            sfxTap();
-            initLevel(levelIdxRef.current);
-          }}
-          style={{
-            background: 'rgba(255, 255, 255, 0.07)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: '12px',
-            width: 40,
-            height: 40,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: '#fff',
-            transition: 'transform 0.1s',
-          }}
-          title="Restart board"
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          type="button"
+          className="rx-reset"
+          aria-label="Reset this board"
+          onClick={() => { sfxTap(); loadLevel(levelRef.current, true); }}
         >
-          <RotateIcon size={18} />
+          <RotateIcon size={17} />
         </button>
       </div>
 
-      {/* Timer Line */}
-      <div style={{
-        width: '100%',
-        height: 6,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: 3,
-        overflow: 'hidden',
-        marginBottom: 14,
-      }}>
-        <div style={{
-          width: `${(timer / GAME_CONFIG.sessionSeconds) * 100}%`,
-          height: '100%',
-          backgroundColor: timer < 20 ? '#EF4444' : BRAND.orange,
-          borderRadius: 3,
-          transition: 'width 0.1s linear, background-color 0.3s',
-        }} />
-      </div>
-
-      {/* Score and stats */}
-      <div style={{
-        width: '100%',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        gap: 10,
-        marginBottom: 14,
-      }}>
-        <div style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '14px',
-          padding: '8px 10px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}>
-          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', letterSpacing: '0.05em' }}>Score</span>
-          <span style={{ fontSize: 16, fontWeight: 900 }}>{score}</span>
-        </div>
-
-        <div style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '14px',
-          padding: '8px 10px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}>
-          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', letterSpacing: '0.05em' }}>Moves</span>
-          <span style={{ fontSize: 16, fontWeight: 900 }}>{moves}</span>
-        </div>
-
-        <div style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '14px',
-          padding: '8px 10px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          {combo > 1 && (
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'radial-gradient(circle, rgba(242,101,34,0.14) 0%, transparent 80%)',
-            }} />
-          )}
-          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', letterSpacing: '0.05em' }}>Combo</span>
-          <span style={{
-            fontSize: 16,
-            fontWeight: 900,
-            color: combo > 1 ? BRAND.orangeBright : '#fff',
-            textShadow: combo > 1 ? `0 0 8px ${BRAND.orange}` : 'none',
-          }}>
-            {combo > 1 ? `x${combo}` : '-'}
-          </span>
-        </div>
-      </div>
-
-      {/* Board Canvas Wrapper */}
-      <div
-        ref={containerRef}
-        style={{
-          width: '100%',
-          maxWidth: 360,
-          aspectRatio: '1/1',
-          background: 'rgba(15, 23, 42, 0.4)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '24px',
-          padding: 10,
-          boxSizing: 'border-box',
-          backdropFilter: 'blur(12px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
-          position: 'relative',
-          marginBottom: 16,
-        }}
-      >
-        <canvas
-          ref={canvasRef}
-          onPointerDown={handleCanvasPointer}
+      <div className="rx-timebar">
+        <div
+          className="rx-timebar-fill"
           style={{
-            width: boardSize - 20,
-            height: boardSize - 20,
-            borderRadius: '16px',
-            cursor: 'pointer',
-            touchAction: 'none',
+            width: `${(timer / GAME_CONFIG.sessionSeconds) * 100}%`,
+            background: low ? '#EF4444' : BRAND.orange,
           }}
         />
+      </div>
 
-        {levelBanner && (
+      <div className="rx-stats">
+        <div className="rx-stat"><span>Score</span><b>{score}</b></div>
+        <div className="rx-stat"><span>Moves</span><b>{moves}</b></div>
+        <div className="rx-stat"><span>Par</span><b style={{ color: moves > level.par ? BRAND.orangeBright : BRAND.greenLight }}>{level.par}</b></div>
+      </div>
+
+      <div className="rx-board-wrap" ref={wrapRef}>
+        <canvas
+          ref={canvasRef}
+          className="rx-canvas"
+          style={{ width: canvasW, height: boardPx }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onLostPointerCapture={endDrag}
+        />
+        {banner && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.2 }}
-            style={{
-              position: 'absolute',
-              background: 'rgba(11, 18, 33, 0.9)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: '16px',
-              padding: '14px 32px',
-              fontSize: 22,
-              fontWeight: 900,
-              color: '#fff',
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-              backdropFilter: 'blur(8px)',
-              pointerEvents: 'none',
-              zIndex: 10,
-            }}
+            key={banner}
+            className="rx-banner"
+            initial={{ opacity: 0, scale: 0.86, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 18, stiffness: 260 }}
           >
-            {levelBanner}
+            {banner}
           </motion.div>
         )}
       </div>
 
-      {/* Helper Footer */}
-      <div style={{
-        width: '100%',
-        maxWidth: 360,
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.07)',
-        borderRadius: '16px',
-        padding: '12px 14px',
-        boxSizing: 'border-box',
-        textAlign: 'center',
-      }}>
-        <p style={{
-          margin: 0,
-          fontSize: 11,
-          lineHeight: 1.45,
-          color: 'rgba(255,255,255,0.7)',
-          fontWeight: 600,
-        }}>
-          💡 <span style={{ color: BRAND.orangeBright, fontWeight: 700 }}>Decision Rule:</span> Tap blocks to escape. Clear all red Risk Blocks <span style={{ color: '#ef4444', fontWeight: 800 }}>LAST</span> or they lock neighbors!
-        </p>
+      <div className="rx-legend">
+        <span className="rx-legend-chip"><i className="rx-swatch rx-swatch-hero" />Family Cover</span>
+        <span className="rx-legend-arrow">&rarr;</span>
+        <span className="rx-legend-chip"><i className="rx-swatch rx-swatch-gate" />Exit</span>
       </div>
     </div>
   );

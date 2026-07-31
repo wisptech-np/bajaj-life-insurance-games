@@ -133,6 +133,25 @@ function ArtDefs({ idPrefix }) {
   );
 }
 
+/** Icon-led cue chip used by the how-to-play screen. */
+function CueChip({ children, label, tint }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+      <div style={{
+        width: 44, height: 44, borderRadius: 14,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)',
+      }}>
+        {children}
+      </div>
+      <span style={{
+        fontSize: 10, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase',
+        color: tint, textAlign: 'center', lineHeight: 1.2,
+      }}>{label}</span>
+    </div>
+  );
+}
+
 /* ─── Confetti (lightweight) ─────────────────────────── */
 function Confetti() {
   const colors = ['#FFC845', '#FFE38A', '#FF8533', '#3B8DD4', '#005BAC', '#10B981', '#EC4899'];
@@ -433,33 +452,30 @@ export function HowToPlayScreen({ onPlay }) {
           </div>
         </div>
 
-        {/* Instructions */}
-        <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 14,
-          lineHeight: 1.45,
-          marginBottom: 20,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: COLORS.orangeBright, fontWeight: 900 }}>1.</span>
-            <span><strong>Swipe fast</strong> to slash the green risk orbs — Scam Calls, Hidden Fees, Debt Traps and more. Slow drags cut nothing.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: COLORS.orangeBright, fontWeight: 900 }}>2.</span>
-            <span>Slice <strong>3+ risks in one swipe</strong> for combo bonuses. 5+ in one swipe triggers slow-mo. Fill the streak for a FRENZY.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: COLORS.blueLt, fontWeight: 900 }}>3.</span>
-            <span><strong>Never cut the blue Family Shields.</strong> Each one sliced costs {Math.abs(GAME_CONFIG.scoring.shieldPenalty)} points and stuns your blade — three ends the run.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: COLORS.greenLt, fontWeight: 900 }}>4.</span>
-            <span>Reach <strong>{GAME_CONFIG.targetScore} points in {GAME_CONFIG.sessionSeconds}s</strong> to win. One finger only — the blade is a single pointer.</span>
-          </div>
+        {/* Icon labels — no prose */}
+        <div style={{ display: 'flex', justifyContent: 'space-around', gap: 6, marginBottom: 20 }}>
+          <CueChip tint="#FACC15" label="Swipe">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+              <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+              <path d="M10 10.5V3a2 2 0 0 0-4 0v11" />
+              <path d="M6 14v-2.5a2 2 0 0 0-4 0V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
+            </svg>
+          </CueChip>
+          <CueChip tint={COLORS.greenLt} label="Slash risk">
+            <svg width="26" height="26" viewBox="-16 -16 32 32">
+              <ArtDefs idPrefix="cue" />
+              <RiskOrbArt cx={0} cy={0} r={10} idPrefix="cue" />
+            </svg>
+          </CueChip>
+          <CueChip tint={COLORS.blueLt} label="Spare shields">
+            <svg width="26" height="26" viewBox="-16 -16 32 32">
+              <ShieldOrbArt cx={0} cy={0} r={10} idPrefix="cue" />
+              <g stroke="#EF4444" strokeWidth="2.6" strokeLinecap="round">
+                <line x1="-11" y1="-11" x2="11" y2="11" />
+              </g>
+            </svg>
+          </CueChip>
         </div>
 
         {/* Play Button */}

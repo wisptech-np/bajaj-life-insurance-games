@@ -123,9 +123,41 @@ const SCREEN_CSS = `
 }
 @keyframes cdHeroBat  { 0%,58% { transform: rotate(-52deg); } 72% { transform: rotate(10deg); } 100% { transform: rotate(46deg); } }
 @keyframes cdHeroMark { 0%,40% { opacity: 0.35; } 52% { opacity: 1; } 100% { opacity: 0.35; } }
-@keyframes cdBeatSweep { 0%,10% { transform: translateX(-26px); } 62%,100% { transform: translateX(20px); } }
-@keyframes cdBeatBall  { 0%,20% { transform: translate(0,0); opacity: 0.2; } 40% { opacity: 1; } 72%,100% { transform: translate(4px, 30px); opacity: 1; } }
-@keyframes cdBeatShield { 0%,40% { opacity: 0.35; transform: scale(0.86); } 62%,100% { opacity: 1; transform: scale(1); } }
+/* How-to-play demo — one 3.4s loop, every track keyed to the same clock.
+   8% release · 30% pitches on the marker · 52% tap + contact · 78% over the rope. */
+@keyframes cdDMark   { 0% { opacity: 0.3; } 26% { opacity: 1; } 46%,100% { opacity: 0.28; } }
+@keyframes cdDBall {
+  0%,7%   { transform: translate(150px, 56px) scale(0.45); opacity: 0; }
+  10%     { transform: translate(150px, 66px) scale(0.55); opacity: 1; }
+  30%     { transform: translate(149px, 100px) scale(0.8); opacity: 1; }
+  52%     { transform: translate(166px, 138px) scale(1); opacity: 1; }
+  62%     { transform: translate(200px, 110px) scale(1); opacity: 1; }
+  78%     { transform: translate(244px, 70px) scale(0.9); opacity: 1; }
+  92%     { transform: translate(292px, 30px) scale(0.6); opacity: 0; }
+  100%    { transform: translate(292px, 30px) scale(0.6); opacity: 0; }
+}
+@keyframes cdDNeedle {
+  0%,7%  { transform: translate(-92px, 16px); opacity: 0; }
+  8%     { transform: translate(-92px, 16px); opacity: 1; }
+  19%    { transform: translate(-85px, 9.9px); }
+  30%    { transform: translate(-65px, 4.7px); }
+  41%    { transform: translate(-35.2px, 1.2px); }
+  52%    { transform: translate(0px, 0px); }
+  56%    { transform: translate(35.2px, 1.2px); }
+  60%    { transform: translate(65px, 4.7px); }
+  64%    { transform: translate(85px, 9.9px); }
+  68%    { transform: translate(92px, 16px); opacity: 1; }
+  70%,100% { transform: translate(92px, 16px); opacity: 0; }
+}
+@keyframes cdDFinger {
+  0%,40%   { transform: translateY(12px); opacity: 0.75; }
+  50%,58%  { transform: translateY(0px); opacity: 1; }
+  72%,100% { transform: translateY(12px); opacity: 0.75; }
+}
+@keyframes cdDRipple { 0%,50% { r: 3; opacity: 0.95; } 64%,100% { r: 18; opacity: 0; } }
+@keyframes cdDCore   { 0%,50% { opacity: 0.7; } 54% { opacity: 1; } 66%,100% { opacity: 0.7; } }
+@keyframes cdDBat    { 0%,46% { transform: rotate(-56deg); } 58% { transform: rotate(14deg); } 70% { transform: rotate(48deg); } 92%,100% { transform: rotate(-56deg); } }
+@keyframes cdDBurst  { 0%,74% { transform: scale(0.2); opacity: 0; } 82% { transform: scale(1); opacity: 1; } 94%,100% { transform: scale(1.5); opacity: 0; } }
 .cd-title { animation: cdTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .cd-float { animation: cdFloat 4s ease-in-out infinite; }
 .cd-glow  { animation: cdGlow 2.2s ease-in-out infinite; }
@@ -133,12 +165,18 @@ const SCREEN_CSS = `
 .cd-hero-ball { animation: cdHeroBall 3.2s cubic-bezier(0.5,0,0.6,1) infinite; }
 .cd-hero-bat  { animation: cdHeroBat 3.2s cubic-bezier(0.6,0,0.3,1) infinite; transform-origin: 0 0; }
 .cd-hero-mark { animation: cdHeroMark 3.2s ease-in-out infinite; }
-.cd-sweep  { animation: cdBeatSweep 2.4s cubic-bezier(0.5,0,0.5,1) infinite; }
-.cd-fall   { animation: cdBeatBall 2.4s cubic-bezier(0.5,0,0.7,1) infinite; }
-.cd-shieldb { animation: cdBeatShield 2.4s ease-in-out infinite; }
+.cd-d-mark   { animation: cdDMark 3.4s ease-in-out infinite; }
+.cd-d-ball   { animation: cdDBall 3.4s linear infinite; }
+.cd-d-needle { animation: cdDNeedle 3.4s linear infinite; }
+.cd-d-finger { animation: cdDFinger 3.4s cubic-bezier(0.4,0,0.2,1) infinite; }
+.cd-d-ripple { animation: cdDRipple 3.4s ease-out infinite; }
+.cd-d-core   { animation: cdDCore 3.4s ease-in-out infinite; }
+.cd-d-bat    { animation: cdDBat 3.4s cubic-bezier(0.5,0,0.3,1) infinite; transform-origin: 0 0; }
+.cd-d-burst  { animation: cdDBurst 3.4s ease-out infinite; transform-origin: 244px 70px; }
 @media (prefers-reduced-motion: reduce) {
   .cd-title, .cd-float, .cd-glow, .cd-chip, .cd-hero-ball, .cd-hero-bat, .cd-hero-mark,
-  .cd-sweep, .cd-fall, .cd-shieldb { animation: none !important; }
+  .cd-d-mark, .cd-d-ball, .cd-d-needle, .cd-d-finger, .cd-d-ripple, .cd-d-core,
+  .cd-d-bat, .cd-d-burst { animation: none !important; }
 }
 `;
 
@@ -358,38 +396,128 @@ export function HomeScreen({ onStart }) {
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
+/* ─── How to play ─────────────────────────────────────────
+   No instructions: one looping 3.4s demo of the real ball — the marker lights
+   up, the ball pitches on it, the gauge needle sweeps to the green core, a
+   finger taps there, the bat comes through and the ball clears the rope. */
+function DemoBall() {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+    <svg width="100%" viewBox="0 0 300 200" style={{ display: 'block' }} aria-hidden="true">
+      <defs>
+        <linearGradient id="cdhSky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#081026" />
+          <stop offset="100%" stopColor="#0A1E42" />
+        </linearGradient>
+        <linearGradient id="cdhTurf" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0A3320" />
+          <stop offset="100%" stopColor="#1B7040" />
+        </linearGradient>
+        <linearGradient id="cdhPitch" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#8B7748" />
+          <stop offset="100%" stopColor="#E0CDA0" />
+        </linearGradient>
+        <radialGradient id="cdhBall" cx="0.36" cy="0.32" r="0.75">
+          <stop offset="0%" stopColor="#FF6E63" />
+          <stop offset="60%" stopColor="#D8302A" />
+          <stop offset="100%" stopColor="#7C1410" />
+        </radialGradient>
+        <clipPath id="cdhClip"><rect x="0" y="0" width="300" height="200" rx="18" /></clipPath>
+      </defs>
+
+      <g clipPath="url(#cdhClip)">
+        <rect x="0" y="0" width="300" height="200" fill="url(#cdhSky)" />
+        <rect x="0" y="52" width="300" height="148" fill="url(#cdhTurf)" />
+        <ellipse cx="150" cy="46" rx="130" ry="24" fill="rgba(206,228,255,0.16)" />
+
+        {/* Boundary rope */}
+        <path d="M-6 72 Q150 44 306 72" fill="none" stroke={'#EAF1FA'} strokeWidth="2.4" strokeLinecap="round" />
+
+        {/* Pitch in perspective */}
+        <path d="M136 54 L164 54 L196 150 L104 150 Z" fill="url(#cdhPitch)" />
+        <line x1="112" y1="142" x2="188" y2="142" stroke="rgba(255,255,255,0.75)" strokeWidth="1.6" />
+
+        {/* Length marker — the telegraph */}
+        <ellipse className="cd-d-mark" cx="149" cy="100" rx="16" ry="5.5"
+          fill="rgba(242,101,34,0.3)" stroke={ORANGE_LT} strokeWidth="1.8" />
+
+        {/* Stumps */}
+        <g>
+          <rect x="144" y="126" width="2.6" height="20" rx="1.3" fill="#EFE0BC" />
+          <rect x="149.2" y="126" width="2.6" height="20" rx="1.3" fill="#EFE0BC" />
+          <rect x="154.4" y="126" width="2.6" height="20" rx="1.3" fill="#EFE0BC" />
+        </g>
+
+        {/* Batter — same rounded-rect rig the canvas draws */}
+        <g>
+          <ellipse cx="180" cy="150" rx="13" ry="3.6" fill="rgba(0,0,0,0.3)" />
+          <rect x="173" y="122" width="8" height="28" rx="3.4" fill="#F0EBDA" stroke="#C6BC9C" strokeWidth="0.8" />
+          <rect x="181" y="122" width="8" height="28" rx="3.4" fill="#F0EBDA" stroke="#C6BC9C" strokeWidth="0.8" />
+          <rect x="172" y="100" width="17" height="24" rx="5" fill="#F3F7FF" />
+          <rect x="172" y="100" width="17" height="4.5" rx="2" fill={BLUE} />
+          <circle cx="180.5" cy="93" r="7" fill={BLUE_LT} />
+          <circle cx="180.5" cy="95" r="5" fill="#D9A277" />
+          <g transform="translate(174,112)">
+            <g className="cd-d-bat">
+              <rect x="-2" y="-1" width="4" height="15" rx="2" fill="#12284A" />
+              <rect x="-4" y="13" width="8" height="24" rx="2.4" fill="#DDBB80" stroke="#A67E45" strokeWidth="0.8" />
+            </g>
+          </g>
+          <circle cx="174" cy="112" r="3.6" fill="#F0EBDA" />
+        </g>
+
+        {/* Boundary spark — the outcome */}
+        <g className="cd-d-burst">
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+            <rect key={a} x="242.6" y="59" width="2.8" height="10" rx="1.4" fill={GOLD}
+              transform={`rotate(${a} 244 70)`} />
+          ))}
+          <circle cx="244" cy="70" r="5" fill={GOLD_LT} />
+        </g>
+
+        {/* The ball */}
+        <g className="cd-d-ball">
+          <circle cx="0" cy="0" r="6.5" fill="url(#cdhBall)" />
+          <ellipse cx="0" cy="0" rx="5.4" ry="1.8" fill="none" stroke="#F4E3C8" strokeWidth="1.2" transform="rotate(28)" />
+        </g>
+
+        {/* Timing gauge: track, GOOD band, PERFECT core, sweeping needle */}
+        <path d="M58 168 A 92 16 0 0 1 242 168" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="7" strokeLinecap="round" />
+        <path d="M114.8 153.2 A 92 16 0 0 1 185.2 153.2" fill="none" stroke="rgba(40,167,69,0.6)" strokeWidth="8" strokeLinecap="round" />
+        <path className="cd-d-core" d="M132 152.3 A 92 16 0 0 1 168 152.3" fill="none" stroke={GREEN_LT} strokeWidth="9.5" strokeLinecap="round"
+          style={{ filter: 'drop-shadow(0 0 5px rgba(74,222,128,0.85))' }} />
+        <g transform="translate(150,152)">
+          <circle className="cd-d-ripple" cx="0" cy="0" r="3" fill="none" stroke="#fff" strokeWidth="2" />
+          <g className="cd-d-needle"><circle cx="0" cy="0" r="5" fill={ORANGE_LT} stroke="#fff" strokeWidth="1.4" /></g>
+        </g>
+
+        {/* Finger doing the real input, tip landing on the green core */}
+        <g transform="translate(150,170)">
+          <g className="cd-d-finger">
+            <rect x="-4.5" y="-18" width="9" height="21" rx="4.5" fill="#F3F7FF" />
+            <rect x="-9" y="-5" width="19" height="16" rx="7" fill="#D7E3F5" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+/** Icon + ≤4 words. The only prose allowed on this screen. */
+function Cue({ tint, label, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">{children}</svg>
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: tint,
+        textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.15,
+      }}>
+        {label}
+      </span>
     </div>
   );
 }
 
 export function HowToPlayScreen({ onPlay }) {
-  const outcomes = [
-    { label: 'Perfect', value: '4 then 6', color: GOLD_LT, bg: 'rgba(255,200,69,0.16)', border: 'rgba(255,200,69,0.5)' },
-    { label: 'Good', value: '1 or 2', color: GREEN_LT, bg: 'rgba(40,167,69,0.16)', border: 'rgba(40,167,69,0.5)' },
-    { label: 'Edge', value: 'no run, risky', color: ORANGE_LT, bg: 'rgba(242,101,34,0.16)', border: 'rgba(242,101,34,0.5)' },
-    { label: 'Miss', value: 'bowled if straight', color: '#FF8B8B', bg: 'rgba(239,68,68,0.16)', border: 'rgba(239,68,68,0.5)' },
-  ];
-
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -403,9 +531,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -414,95 +542,41 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '20px 16px 18px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 14px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Read the marker &middot; Tap to swing &middot; Middle the Cover ball for a shield
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Read the ball" copy="A coloured marker shows the pace and where it lands. Red rails mean it is on your stumps.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <path d="M28 6 L46 6 L58 56 L16 56 Z" fill="#C2A971" opacity="0.85" />
-              <ellipse className="cd-hero-mark" cx="36" cy="30" rx="11" ry="4"
-                fill="rgba(242,101,34,0.3)" stroke="#FF8A3D" strokeWidth="1.5" />
-              <g>
-                <rect x="32" y="40" width="2" height="12" rx="1" fill="#EFE0BC" />
-                <rect x="36" y="40" width="2" height="12" rx="1" fill="#EFE0BC" />
-                <rect x="40" y="40" width="2" height="12" rx="1" fill="#EFE0BC" />
-              </g>
-              <line x1="26" y1="31" x2="31" y2="41" stroke="rgba(239,68,68,0.7)" strokeWidth="1.2" strokeDasharray="3 3" />
-              <line x1="46" y1="31" x2="42" y2="41" stroke="rgba(239,68,68,0.7)" strokeWidth="1.2" strokeDasharray="3 3" />
-            </svg>
-          </Beat>
-
-          <Beat n="2" title="Tap on the green" copy="A gauge sweeps as the ball arrives. Green is runs; the bright core is a boundary.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <path d="M8 30 A 29 16 0 0 0 66 30" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="4" strokeLinecap="round" />
-              <path d="M27 44.6 A 29 16 0 0 0 47 44.6" fill="none" stroke="rgba(40,167,69,0.6)" strokeWidth="5" strokeLinecap="round" />
-              <path d="M34 46 A 29 16 0 0 0 40 46" fill="none" stroke="#4ADE80" strokeWidth="6" strokeLinecap="round" />
-              <g className="cd-sweep"><circle cx="37" cy="46" r="4" fill="#FF8A3D" /></g>
-              <g className="cd-fall"><circle cx="37" cy="10" r="4.4" fill="#D8302A" /></g>
-            </svg>
-          </Beat>
-
-          <Beat n="3" title="Bank your cover" copy="Every 6th ball is a Cover ball. Time it perfectly and a shield absorbs one wicket.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <g className="cd-shieldb" style={{ transformOrigin: '37px 28px' }}>
-                <path d="M37 10 l11 4 l0 9 c0 7 -4.6 12.4 -11 15.2 c-6.4 -2.8 -11 -8.2 -11 -15.2 l0 -9 z"
-                  fill="#1E6BE0" stroke="#A6D0FF" strokeWidth="1.4" />
-                <path d="M32 24 l3.4 3.4 l6.2 -6.8" fill="none" stroke="#fff" strokeWidth="2.4"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </g>
-              <g opacity="0.85">
-                <rect x="31" y="44" width="2.2" height="14" rx="1.1" fill="#EFE0BC" />
-                <rect x="35.9" y="44" width="2.2" height="14" rx="1.1" fill="#EFE0BC" />
-                <rect x="40.8" y="44" width="2.2" height="14" rx="1.1" fill="#EFE0BC" />
-              </g>
-            </svg>
-          </Beat>
+        <div style={{ borderRadius: 18, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)' }}>
+          <DemoBall />
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-          Chase <strong style={{ color: GREEN_LT }}>{GAME_CONFIG.chase.target} runs</strong> off{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.chase.balls} balls</strong> with{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.chase.wickets} wickets</strong> in hand.
-          The bowler gets <strong style={{ color: '#fff' }}>8% quicker</strong> every over.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {outcomes.map((o, i) => (
-            <span
-              key={o.label}
-              className="cd-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: o.color,
-                background: o.bg,
-                border: `1px solid ${o.border}`,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {o.label} · {o.value}
-            </span>
-          ))}
+        <div style={{ display: 'flex', gap: 6, margin: '14px 0 16px' }}>
+          <Cue tint={ORANGE_LT} label="Read the length">
+            <ellipse cx="13" cy="15" rx="10" ry="4.5" fill="rgba(242,101,34,0.3)" stroke={ORANGE_LT} strokeWidth="2" />
+            <path d="M13 3v6" stroke={ORANGE_LT} strokeWidth="2.2" strokeLinecap="round" />
+          </Cue>
+          <Cue tint={GREEN_LT} label="Tap on green">
+            <path d="M3 15 A 12 7 0 0 1 23 15" fill="none" stroke={GREEN_LT} strokeWidth="3" strokeLinecap="round" />
+            <rect x="10.5" y="14" width="5" height="10" rx="2.5" fill="#F3F7FF" />
+            <rect x="8" y="19" width="10" height="6" rx="3" fill="#D7E3F5" />
+          </Cue>
+          <Cue tint={BLUE_LT} label="Bank cover">
+            <path d="M13 3 l8 3 l0 7 c0 5.4 -3.4 9.4 -8 11.4 c-4.6 -2 -8 -6 -8 -11.4 l0 -7 z"
+              fill={BLUE_LT} stroke="#A6D0FF" strokeWidth="1.4" />
+            <path d="M9.4 12.6 l2.6 2.6 l4.8 -5.4" fill="none" stroke="#fff" strokeWidth="2.2"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </Cue>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

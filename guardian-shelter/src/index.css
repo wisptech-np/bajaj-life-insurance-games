@@ -2010,28 +2010,77 @@ body,
   }
 }
 
-/* Guardian Shelter premium button interactions */
-.undo-btn {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-.undo-btn:not(:disabled):hover {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25) !important;
-}
-.undo-btn:not(:disabled):active {
-  transform: translateY(0);
+/* Guardian Shelter — pre-storm beat. Shown for ~1.2s after the last shield is
+   placed, so the auto-starting storm never surprises the player. */
+.gs-storm-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(73, 226, 75, 0) 0%,
+    rgba(73, 226, 75, 0) 38%,
+    rgba(73, 226, 75, 0.38) 50%,
+    rgba(73, 226, 75, 0) 62%,
+    rgba(73, 226, 75, 0) 100%
+  );
+  background-size: 260% 100%;
+  animation: gsStormSweep 1.2s ease-in-out 1 forwards;
 }
 
-.storm-btn {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+@keyframes gsStormSweep {
+  from { background-position: 130% 0; opacity: 1; }
+  to   { background-position: -130% 0; opacity: 0.15; }
 }
-.storm-btn:not(:disabled):hover {
-  background: linear-gradient(135deg, #FF5555 0%, #EA880A 100%) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.55) !important;
+
+.gs-storm-alert {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px 14px;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1.5px solid rgba(239, 68, 68, 0.75);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  animation: gsStormAlert 1.2s ease-out 1 forwards;
 }
-.storm-btn:not(:disabled):active {
-  transform: translateY(0);
+
+@keyframes gsStormAlert {
+  0%   { transform: scale(0.82); opacity: 0; }
+  18%  { transform: scale(1.04); opacity: 1; }
+  30%  { transform: scale(1);    opacity: 1; }
+  84%  { transform: scale(1);    opacity: 1; }
+  100% { transform: scale(1.14); opacity: 0; }
+}
+
+/* Fuse bar draining to zero — the countdown, without a number to read. */
+.gs-storm-fuse {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, #F26522, #EF4444);
+  transform-origin: left center;
+  animation: gsStormFuse 1.2s linear 1 forwards;
+}
+
+@keyframes gsStormFuse {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gs-storm-sweep,
+  .gs-storm-alert,
+  .gs-storm-fuse {
+    animation-duration: 1.2s;
+    animation-timing-function: linear;
+  }
+  .gs-storm-alert { transform: none; }
 }

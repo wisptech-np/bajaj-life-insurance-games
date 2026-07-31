@@ -1,4 +1,11 @@
 // Screens.jsx — Home, How to Play, and Results screens for Risk Strike.
+//
+// Identity: IMPACT. Ignition orange (#FF6A1A) over near-black, and one shape
+// language everywhere — concentric rings. Timing rings around the ball, shock
+// rings at the point of contact, the score ring on Results, the ring glyph in
+// the HUD. Nothing else in the catalog is built on that, which is what stops
+// this screen set reading like its neighbours.
+//
 // All art is inline SVG or CSS: no image files, no emoji.
 import React from 'react';
 import { motion } from 'framer-motion';
@@ -8,17 +15,31 @@ import { GAME_CONFIG, RESULT_TARGET_SCORE, RISK_LABELS } from './data.js';
 
 const GAME_TITLE = 'Risk Strike';
 
-/* Brand palette, inlined so the screens never depend on the canvas palette. */
+/* Palette, inlined so the screens never depend on the canvas palette. */
 const BLUE = '#003DA6';
-const BLUE_LT = '#1E6BE0';
+const BLUE_LT = '#2E7BF0';
 const ORANGE = '#F26522';
 const ORANGE_LT = '#FF8A3D';
 const GREEN = '#28A745';
 const GOLD = '#FFC845';
 const GOLD_LT = '#FFE38A';
-const VIRUS = '#49E24B';
-const VIRUS_CORE = '#0E5C1D';
-const DANGER = '#EF4444';
+const VIRUS = '#3FD34A';
+const VIRUS_RIM = '#C6FFB4';
+const DANGER = '#FF5A5A';
+
+/* The signature accent. */
+const IMPACT = '#FF6A1A';
+const IMPACT_HOT = '#FFE0B8';
+
+/* Ground: near-black, so the gameplay objects are the only bright things. */
+const INK = '#050912';
+const PAGE_BG = `radial-gradient(ellipse at 50% 30%, rgba(255,106,26,0.16), rgba(5,9,18,0) 58%),
+                 radial-gradient(ellipse at 50% 74%, rgba(0,61,166,0.34), rgba(5,9,18,0) 66%), ${INK}`;
+
+/* One spacing scale on every screen: 6 / 12 / 18 / 26.
+   Two button heights: 56 primary, 48 secondary. */
+const H_PRIMARY = 56;
+const H_SECONDARY = 48;
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function PlayIcon({ size = 18 }) {
@@ -46,7 +67,7 @@ function RiskIcon({ size = 20 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
       <circle cx="16" cy="16" r="8" fill="#fff" />
-      <circle cx="16" cy="16" r="3.6" fill="rgba(11,18,33,0.6)" />
+      <circle cx="16" cy="16" r="3.6" fill="rgba(5,9,18,0.62)" />
       <g stroke="#fff" strokeWidth="2.4" strokeLinecap="round">
         <path d="M16 5v3.5M16 23.5V27M5 16h3.5M23.5 16H27" />
         <path d="M8.2 8.2l2.5 2.5M21.3 21.3l2.5 2.5M23.8 8.2l-2.5 2.5M10.7 21.3l-2.5 2.5" />
@@ -107,60 +128,119 @@ function HomeIcon({ size = 18 }) {
   );
 }
 
-/* ─── Shared keyframes ───────────────────────────────────── */
+/* ─── Label glyphs for How to Play ───────────────────────
+   Each of the three allowed labels is led by a glyph, and the glyph carries the
+   meaning; the words are there only to name it. */
+function FlickGlyph({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 20.5V6" stroke={IMPACT} strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M7.4 10.6 12 5.6l4.6 5" stroke={IMPACT} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="20.6" r="2.6" fill="#fff" />
+    </svg>
+  );
+}
+
+function CurlGlyph({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 21.4C4.8 15.6 9 8 17 5.2" stroke={BLUE_LT} strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M12.6 5.4 17.6 4.8l-1.3 4.8" stroke={BLUE_LT} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ClearGlyph({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9.2" stroke={GOLD} strokeWidth="2.2" />
+      <path d="M8.2 8.2l7.6 7.6M15.8 8.2l-7.6 7.6" stroke={GOLD_LT} strokeWidth="2.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* ─── Shared keyframes ─────────────────────────────────────
+   The demo loop and the home hero run on one 3.2 s clock so the beats line up:
+   flick, travel, contact, shockwave, topple, mark. */
 const SCREEN_CSS = `
-@keyframes rsTitleIn { from { opacity: 0; letter-spacing: 0.24em; transform: translateY(10px); } to { opacity: 1; letter-spacing: -0.02em; transform: none; } }
+@keyframes rsTitleIn { from { opacity: 0; letter-spacing: 0.26em; transform: translateY(10px); } to { opacity: 1; letter-spacing: -0.03em; transform: none; } }
 @keyframes rsFloat   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-@keyframes rsGlow    { 0%,100% { opacity: 0.35; } 50% { opacity: 0.9; } }
-@keyframes rsRoll {
-  0%      { transform: translate(0, 0) scale(1); opacity: 0; }
-  12%     { opacity: 1; }
-  62%     { transform: translate(4px, -74px) scale(0.42); opacity: 1; }
-  70%,100%{ transform: translate(4px, -74px) scale(0.42); opacity: 0; }
-}
-@keyframes rsPinFall {
-  0%,60%  { transform: rotate(0deg); opacity: 1; }
-  74%     { transform: rotate(38deg); opacity: 1; }
-  88%,100%{ transform: rotate(74deg); opacity: 0.15; }
-}
 @keyframes rsChip    { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
-@keyframes rsBeatFlick {
-  0%,10%  { transform: translate(0, 14px); opacity: 0; }
-  22%     { transform: translate(0, 14px); opacity: 1; }
-  46%     { transform: translate(2px, -14px); opacity: 1; }
-  56%,100%{ transform: translate(2px, -20px); opacity: 0; }
+@keyframes rsCtaPulse {
+  0%,100% { box-shadow: 0 6px 22px rgba(242,101,34,0.42), 0 0 0 0 rgba(255,106,26,0.34); }
+  50%     { box-shadow: 0 6px 22px rgba(242,101,34,0.42), 0 0 0 9px rgba(255,106,26,0); }
 }
-@keyframes rsBeatBall {
-  0%,44%  { transform: translate(0,0) scale(1); opacity: 1; }
-  86%     { transform: translate(2px,-30px) scale(0.5); opacity: 1; }
-  92%,100%{ transform: translate(2px,-30px) scale(0.5); opacity: 0; }
+@keyframes rsTitleRing {
+  0%       { transform: scale(0.55); opacity: 0; }
+  22%      { opacity: 0.5; }
+  100%     { transform: scale(1.7); opacity: 0; }
 }
-@keyframes rsBeatHook {
-  0%,40%  { transform: translate(0,0) scale(1); opacity: 1; }
-  60%     { transform: translate(-13px,-14px) scale(0.72); }
-  86%     { transform: translate(6px,-30px) scale(0.5); opacity: 1; }
-  92%,100%{ transform: translate(6px,-30px) scale(0.5); opacity: 0; }
+
+/* --- the one demo loop, used by How to Play and the Home hero --- */
+@keyframes rsDemoFinger {
+  0%,4%    { transform: translate(0,0); opacity: 0; }
+  9%       { transform: translate(0,0); opacity: 1; }
+  26%      { transform: translate(-9px,-26px); opacity: 1; }
+  40%      { transform: translate(3px,-48px); opacity: 0.85; }
+  47%,100% { transform: translate(3px,-48px); opacity: 0; }
 }
-@keyframes rsBeatMark { 0%,66% { opacity: 0; transform: scale(0.6); } 80%,100% { opacity: 1; transform: scale(1); } }
-.rs-title { animation: rsTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
-.rs-float { animation: rsFloat 4s ease-in-out infinite; }
-.rs-glow  { animation: rsGlow 2.4s ease-in-out infinite; }
-.rs-roll  { animation: rsRoll 3.4s cubic-bezier(0.4,0,0.7,1) infinite; }
-.rs-fall  { animation: rsPinFall 3.4s ease-in-out infinite; }
-.rs-chip  { animation: rsChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
-.rs-flick { animation: rsBeatFlick 2.6s ease-in-out infinite; }
-.rs-bball { animation: rsBeatBall 2.6s cubic-bezier(0.4,0,0.7,1) infinite; }
-.rs-hook  { animation: rsBeatHook 2.6s cubic-bezier(0.4,0,0.7,1) infinite; }
-.rs-mark  { animation: rsBeatMark 2.6s cubic-bezier(0.22,1,0.36,1) infinite; transform-origin: 37px 14px; }
+@keyframes rsDemoTrack {
+  0%,10%   { opacity: 0; stroke-dashoffset: 70; }
+  20%      { opacity: 0.9; }
+  44%      { opacity: 0.9; stroke-dashoffset: 0; }
+  60%,100% { opacity: 0; stroke-dashoffset: 0; }
+}
+@keyframes rsDemoBall {
+  0%,12%   { transform: translate(0,0) scale(1); opacity: 1; }
+  30%      { transform: translate(-12px,-30px) scale(0.74); opacity: 1; }
+  50%      { transform: translate(1px,-64px) scale(0.4); opacity: 1; }
+  55%,100% { transform: translate(1px,-64px) scale(0.36); opacity: 0; }
+}
+@keyframes rsDemoShock {
+  0%,50%   { transform: scale(0.18); opacity: 0; }
+  55%      { transform: scale(0.5); opacity: 1; }
+  76%,100% { transform: scale(2.5); opacity: 0; }
+}
+@keyframes rsDemoFlash {
+  0%,50%   { opacity: 0; }
+  55%      { opacity: 0.9; }
+  68%,100% { opacity: 0; }
+}
+@keyframes rsDemoPin {
+  0%,52%   { transform: rotate(0deg); opacity: 1; }
+  68%      { transform: rotate(48deg); opacity: 1; }
+  84%,100% { transform: rotate(80deg); opacity: 0.1; }
+}
+@keyframes rsDemoMark {
+  0%,64%   { opacity: 0; transform: scale(0.4); }
+  72%      { opacity: 1; transform: scale(1.2); }
+  79%      { transform: scale(1); }
+  93%      { opacity: 1; }
+  100%     { opacity: 0; transform: scale(1); }
+}
+
+.rs-title  { animation: rsTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
+.rs-float  { animation: rsFloat 4s ease-in-out infinite; }
+.rs-chip   { animation: rsChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
+.rs-cta    { animation: rsCtaPulse 2.4s ease-in-out infinite; }
+.rs-tring  { animation: rsTitleRing 3.2s ease-out infinite; }
+.rs-finger { animation: rsDemoFinger 3.2s cubic-bezier(0.4,0,0.6,1) infinite; }
+.rs-track  { animation: rsDemoTrack 3.2s cubic-bezier(0.4,0,0.6,1) infinite; }
+.rs-dball  { animation: rsDemoBall 3.2s cubic-bezier(0.35,0,0.7,1) infinite; }
+.rs-shock  { animation: rsDemoShock 3.2s cubic-bezier(0.2,0.7,0.3,1) infinite; }
+.rs-flash  { animation: rsDemoFlash 3.2s ease-out infinite; }
+.rs-dpin   { animation: rsDemoPin 3.2s cubic-bezier(0.3,0.1,0.4,1) infinite; }
+.rs-dmark  { animation: rsDemoMark 3.2s cubic-bezier(0.22,1,0.36,1) infinite; }
+
 @media (prefers-reduced-motion: reduce) {
-  .rs-title, .rs-float, .rs-glow, .rs-roll, .rs-fall, .rs-chip,
-  .rs-flick, .rs-bball, .rs-hook, .rs-mark { animation: none !important; }
+  .rs-title, .rs-float, .rs-chip, .rs-cta, .rs-tring, .rs-finger, .rs-track,
+  .rs-dball, .rs-shock, .rs-flash, .rs-dpin, .rs-dmark { animation: none !important; }
 }
 `;
 
 /* ─── Confetti (lightweight) ─────────────────────────── */
 function Confetti() {
-  const colors = [GOLD, GOLD_LT, ORANGE_LT, BLUE_LT, BLUE, GREEN, '#EC4899'];
+  const colors = [GOLD, GOLD_LT, IMPACT, ORANGE_LT, BLUE_LT, GREEN, '#EC4899'];
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 1 }}>
       {Array.from({ length: 26 }).map((_, i) => {
@@ -187,39 +267,60 @@ function Confetti() {
   );
 }
 
-/* ─── Shared vector parts ────────────────────────────────── */
-/** A virus bottle pin — the same silhouette the canvas rasterises. */
+/* ─── Shared vector parts ──────────────────────────────────
+   The same three objects the canvas draws, at screen scale: bottle, ball,
+   shockwave. Layered fills, rim light on both sides, contact shadow. */
+
+/** A virus bottle pin. */
 function VirusPin({ x, y, s = 1 }) {
   return (
     <g transform={`translate(${x},${y}) scale(${s})`}>
-      <g fill={VIRUS_CORE}>
-        <path d="M-5 -10 l-4 -3 l4 -2 z" />
-        <path d="M5 -10 l4 -3 l-4 -2 z" />
-        <path d="M0 -23 l0 -4 l3 3 z" />
+      <ellipse cx="0" cy="0.6" rx="5.4" ry="1.5" fill="rgba(0,0,0,0.45)" />
+      <g fill="#0E6420">
+        <path d="M-5 -10 l-4.4 -3 l4.4 -2 z" />
+        <path d="M5 -10 l4.4 -3 l-4.4 -2 z" />
+        <path d="M0 -23.4 l0 -4.2 l3.2 3.2 z" />
       </g>
       <path
         d="M-5 0 L-5 -8 Q-5 -13 -2 -15 L-2 -20 Q-2 -23 0 -23 Q2 -23 2 -20 L2 -15 Q5 -13 5 -8 L5 0 Z"
         fill="url(#rsPinFill)"
-        stroke="rgba(6,44,20,0.6)"
+        stroke="rgba(2,18,8,0.8)"
         strokeWidth="0.7"
       />
-      <rect x="-4.4" y="-16" width="8.8" height="2.2" fill="rgba(255,255,255,0.85)" />
-      <circle cx="0" cy="-8" r="2.4" fill={VIRUS_CORE} />
+      <path
+        d="M-5 0 L-5 -8 Q-5 -13 -2 -15 L-2 -20 Q-2 -23 0 -23"
+        fill="none" stroke={VIRUS_RIM} strokeWidth="0.8" opacity="0.6"
+      />
+      <path
+        d="M5 0 L5 -8 Q5 -13 2 -15 L2 -20 Q2 -23 0 -23"
+        fill="none" stroke={IMPACT} strokeWidth="0.7" opacity="0.5"
+      />
+      <rect x="-4.4" y="-16" width="8.8" height="2.2" fill="rgba(255,255,255,0.88)" />
+      <circle cx="0" cy="-8" r="2.4" fill="#06380F" />
     </g>
   );
 }
 
-/** The shield ball. */
+/** The shield ball: gradient body, two rim lights, shield emblem. */
 function ShieldBall({ x, y, r = 9 }) {
   return (
     <g transform={`translate(${x},${y})`}>
-      <circle cx="0" cy="0" r={r} fill="url(#rsBall)" stroke="rgba(190,222,255,0.8)" strokeWidth="1" />
+      <ellipse cx="0" cy={r * 0.72} rx={r * 0.86} ry={r * 0.3} fill="rgba(0,0,0,0.4)" />
+      <circle cx="0" cy="0" r={r} fill="url(#rsBall)" />
+      <path
+        d={`M ${-r * 0.93} 0 A ${r * 0.93} ${r * 0.93} 0 0 1 0 ${-r * 0.93}`}
+        fill="none" stroke="rgba(214,232,255,0.9)" strokeWidth={Math.max(0.8, r * 0.11)} strokeLinecap="round"
+      />
+      <path
+        d={`M ${r * 0.9} ${r * 0.24} A ${r * 0.93} ${r * 0.93} 0 0 1 ${r * 0.28} ${r * 0.89}`}
+        fill="none" stroke="rgba(255,138,61,0.9)" strokeWidth={Math.max(0.8, r * 0.11)} strokeLinecap="round"
+      />
       <path
         d={`M0 ${-r * 0.55} L${r * 0.44} ${-r * 0.25} L${r * 0.44} ${r * 0.12}`
           + ` Q${r * 0.34} ${r * 0.5} 0 ${r * 0.58}`
           + ` Q${-r * 0.34} ${r * 0.5} ${-r * 0.44} ${r * 0.12}`
           + ` L${-r * 0.44} ${-r * 0.25} Z`}
-        fill="rgba(255,255,255,0.92)"
+        fill="rgba(255,255,255,0.94)"
       />
     </g>
   );
@@ -230,24 +331,144 @@ function VectorDefs() {
   return (
     <defs>
       <linearGradient id="rsHall" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#061634" />
-        <stop offset="100%" stopColor="#0A2444" />
+        <stop offset="0%" stopColor="#04070F" />
+        <stop offset="100%" stopColor="#0A1428" />
       </linearGradient>
       <linearGradient id="rsLane" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#0F2B52" />
-        <stop offset="100%" stopColor="#2B5FA6" />
+        <stop offset="0%" stopColor="#070D1B" />
+        <stop offset="55%" stopColor="#12203C" />
+        <stop offset="100%" stopColor="#1B2C4E" />
       </linearGradient>
-      <radialGradient id="rsBall" cx="0.35" cy="0.32" r="0.75">
-        <stop offset="0%" stopColor="#BBD9FF" />
-        <stop offset="45%" stopColor={BLUE_LT} />
-        <stop offset="100%" stopColor="#00205C" />
+      <radialGradient id="rsBall" cx="0.34" cy="0.3" r="0.78">
+        <stop offset="0%" stopColor="#D6E8FF" />
+        <stop offset="40%" stopColor={BLUE_LT} />
+        <stop offset="100%" stopColor="#001A4A" />
       </radialGradient>
       <linearGradient id="rsPinFill" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0%" stopColor="#127A28" />
+        <stop offset="0%" stopColor="#0E6420" />
         <stop offset="50%" stopColor={VIRUS} />
-        <stop offset="100%" stopColor="#B6FBAE" />
+        <stop offset="100%" stopColor="#9CF08F" />
       </linearGradient>
+      <radialGradient id="rsBloom" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0%" stopColor="rgba(46,123,240,0.42)" />
+        <stop offset="100%" stopColor="rgba(46,123,240,0)" />
+      </radialGradient>
+      <radialGradient id="rsHit" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0%" stopColor={IMPACT_HOT} />
+        <stop offset="45%" stopColor="rgba(255,106,26,0.65)" />
+        <stop offset="100%" stopColor="rgba(255,106,26,0)" />
+      </radialGradient>
     </defs>
+  );
+}
+
+/**
+ * The one animated demo, shared by Home and How to Play.
+ *
+ * It is the whole game in 3.2 seconds and no words: a thumb flicks up the lane
+ * with a curl, the ball follows that exact curl, contact throws a shockwave and
+ * a flash, the rack goes down, and the strike mark lands. `withFinger` is the
+ * only difference between the two screens — Home shows the outcome, How to Play
+ * shows the input that causes it.
+ */
+function StrikeDemo({ width, height, withFinger }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 200 168" aria-hidden="true" style={{ overflow: 'visible' }}>
+      <VectorDefs />
+      <clipPath id={withFinger ? 'rsClipDemo' : 'rsClipHero'}>
+        <rect x="4" y="4" width="192" height="160" rx="24" />
+      </clipPath>
+
+      <rect x="4" y="4" width="192" height="160" rx="24" fill="url(#rsHall)"
+        stroke="rgba(255,255,255,0.1)" strokeWidth="1.2" />
+
+      <g clipPath={`url(#${withFinger ? 'rsClipDemo' : 'rsClipHero'})`}>
+        {/* Arena: bloom, then the target rings that give the game its motif. */}
+        <rect x="-40" y="-40" width="280" height="150" fill="url(#rsBloom)" />
+        <g fill="none" stroke={IMPACT} opacity="0.16">
+          <ellipse cx="100" cy="44" rx="24" ry="16" strokeWidth="1.4" />
+          <ellipse cx="100" cy="44" rx="40" ry="26" strokeWidth="1.1" />
+          <ellipse cx="100" cy="44" rx="58" ry="37" strokeWidth="0.9" />
+        </g>
+        <rect x="54" y="10" width="92" height="26" rx="8" fill="rgba(3,6,14,0.9)" />
+        <rect x="54" y="34" width="92" height="1.6" fill={IMPACT} opacity="0.65" />
+
+        {/* Gutters, lane, board seams, gloss */}
+        <polygon points="52,52 148,52 180,160 20,160" fill="#080E1C" />
+        <polygon points="60,52 140,52 166,160 34,160" fill="url(#rsLane)" />
+        <g stroke="rgba(255,255,255,0.05)" strokeWidth="1">
+          <line x1="80" y1="52" x2="67" y2="160" />
+          <line x1="100" y1="52" x2="100" y2="160" />
+          <line x1="120" y1="52" x2="133" y2="160" />
+        </g>
+        <polygon points="60,52 140,52 166,160 34,160" fill="rgba(190,220,255,0.07)" />
+
+        {/* Aiming chevrons */}
+        <g stroke={ORANGE_LT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.5">
+          <path d="M94 112 L100 105 L106 112" />
+          <path d="M80 120 L86 113 L92 120" opacity="0.65" />
+          <path d="M108 120 L114 113 L120 120" opacity="0.65" />
+        </g>
+
+        {/* Impact flash + shockwave rings, centred on the deck */}
+        <circle className="rs-flash" cx="100" cy="62" r="34" fill="url(#rsHit)" />
+        <g style={{ transformOrigin: '100px 62px' }}>
+          <ellipse className="rs-shock" cx="100" cy="62" rx="16" ry="6"
+            fill="none" stroke={IMPACT_HOT} strokeWidth="2.4" style={{ transformOrigin: '100px 62px' }} />
+          <ellipse className="rs-shock" cx="100" cy="62" rx="10" ry="4"
+            fill="none" stroke={GOLD} strokeWidth="1.8"
+            style={{ transformOrigin: '100px 62px', animationDelay: '0.09s' }} />
+        </g>
+
+        {/* The rack: back row stands, front three go down on contact */}
+        <VirusPin x={86} y={58} s={0.46} />
+        <VirusPin x={114} y={58} s={0.46} />
+        <g className="rs-dpin" style={{ transformOrigin: '100px 58px' }}>
+          <VirusPin x={100} y={58} s={0.46} />
+        </g>
+        <g className="rs-dpin" style={{ transformOrigin: '92px 68px', animationDelay: '0.05s' }}>
+          <VirusPin x={92} y={68} s={0.54} />
+        </g>
+        <g className="rs-dpin" style={{ transformOrigin: '108px 68px', animationDelay: '0.09s' }}>
+          <VirusPin x={108} y={68} s={0.54} />
+        </g>
+        <g className="rs-dpin" style={{ transformOrigin: '100px 80px', animationDelay: '0.02s' }}>
+          <VirusPin x={100} y={80} s={0.62} />
+        </g>
+
+        {/* The curl the ball actually takes, drawn as it is drawn in game */}
+        <path
+          className="rs-track"
+          d="M100 140 Q86 112 101 76"
+          fill="none" stroke="#CFE4FF" strokeWidth="2" strokeLinecap="round"
+          strokeDasharray="4 6" style={{ strokeDashoffset: 70 }}
+        />
+
+        {/* Ball, following that curl */}
+        <g className="rs-dball" style={{ transformOrigin: '100px 140px' }}>
+          <ShieldBall x={100} y={140} r={13} />
+        </g>
+
+        {/* Foul line */}
+        <line x1="34" y1="160" x2="166" y2="160" stroke={IMPACT} strokeWidth="2.4" opacity="0.85" />
+
+        {/* Thumb doing the flick — only on How to Play */}
+        {withFinger && (
+          <g className="rs-finger" style={{ transformOrigin: '100px 140px' }}>
+            <circle cx="100" cy="141" r="11" fill="rgba(255,255,255,0.16)" />
+            <circle cx="100" cy="141" r="7" fill="#fff" />
+            <path d="M100 152 L100 163" stroke="#fff" strokeWidth="3" strokeLinecap="round" opacity="0.55" />
+          </g>
+        )}
+
+        {/* The outcome mark */}
+        <g className="rs-dmark" style={{ transformOrigin: '100px 26px' }}>
+          <rect x="82" y="14" width="36" height="24" rx="12" fill={GOLD} />
+          <text x="100" y="31" fill="#2A1500" fontSize="16" fontWeight="900" textAnchor="middle"
+            fontFamily="'Plus Jakarta Sans', 'Poppins', sans-serif">X</text>
+        </g>
+      </g>
+    </svg>
   );
 }
 
@@ -266,91 +487,59 @@ export function HomeScreen({ onStart }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '50px 24px 56px',
-        background: 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221',
+        padding: '44px 26px 40px',
+        background: PAGE_BG,
         overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
 
-      <div style={{ textAlign: 'center', zIndex: 2 }}>
+      <div style={{ textAlign: 'center', zIndex: 2, position: 'relative' }}>
+        {/* Shockwave behind the wordmark: the motif, stated first. */}
+        <div style={{
+          position: 'absolute', left: '50%', top: 18, width: 150, height: 150,
+          marginLeft: -75, marginTop: -75, pointerEvents: 'none',
+        }}>
+          {[0, 1].map((i) => (
+            <span
+              key={i}
+              className="rs-tring"
+              style={{
+                position: 'absolute', inset: 0, borderRadius: '50%',
+                border: `1.5px solid ${i === 0 ? IMPACT : BLUE_LT}`,
+                animationDelay: `${i * 1.1}s`,
+              }}
+            />
+          ))}
+        </div>
+
         <h1 className="rs-title" style={{
-          fontSize: 34,
+          position: 'relative',
+          fontSize: 38,
           fontWeight: 900,
           color: '#fff',
           textTransform: 'uppercase',
-          lineHeight: 1,
-          margin: '0 0 8px 0',
-          textShadow: '0 2px 10px rgba(0,0,0,0.55)',
+          lineHeight: 0.94,
+          margin: '0 0 12px 0',
+          textShadow: '0 2px 14px rgba(0,0,0,0.6)',
         }}>
-          {GAME_TITLE}
+          Risk<br />Strike
         </h1>
         <p style={{
-          fontSize: 12.5,
-          fontWeight: 800,
+          position: 'relative',
+          fontSize: 12,
+          fontWeight: 900,
           color: ORANGE_LT,
           textTransform: 'uppercase',
-          letterSpacing: '0.1em',
+          letterSpacing: '0.14em',
           margin: 0,
-          maxWidth: 300,
         }}>
-          One decisive shot. Knock out every risk.
+          One shot. Ten risks.
         </p>
       </div>
 
-      {/* Hero: the lane itself, in the same perspective the canvas draws. */}
-      <div className="rs-float" style={{ position: 'relative', width: 262, height: 236, zIndex: 1 }}>
-        <svg width="262" height="236" viewBox="0 0 200 180" style={{ overflow: 'visible' }} aria-hidden="true">
-          <VectorDefs />
-          <clipPath id="rsClipHome"><rect x="4" y="4" width="192" height="172" rx="26" /></clipPath>
-
-          <rect x="4" y="4" width="192" height="172" rx="26" fill="url(#rsHall)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.4" />
-
-          <g clipPath="url(#rsClipHome)">
-            {/* Back wall + masking unit */}
-            <rect x="4" y="4" width="192" height="58" fill="#0B2C58" opacity="0.75" />
-            <rect x="52" y="14" width="96" height="40" rx="7" fill="rgba(4,14,32,0.9)" stroke="rgba(126,184,255,0.25)" />
-            <rect className="rs-glow" x="56" y="26" width="88" height="3" fill={BLUE_LT} />
-            <rect className="rs-glow" x="62" y="38" width="76" height="2.5" fill={ORANGE} />
-
-            {/* Gutters + lane */}
-            <polygon points="52,58 148,58 178,168 22,168" fill="#0A1730" />
-            <polygon points="60,58 140,58 164,168 36,168" fill="url(#rsLane)" />
-            <g stroke="rgba(255,255,255,0.07)" strokeWidth="1">
-              <line x1="80" y1="58" x2="68" y2="168" />
-              <line x1="100" y1="58" x2="100" y2="168" />
-              <line x1="120" y1="58" x2="132" y2="168" />
-            </g>
-            <polygon points="60,58 140,58 164,168 36,168" fill="rgba(214,236,255,0.09)" />
-
-            {/* Arrows */}
-            <g fill="rgba(255,200,69,0.45)">
-              <polygon points="100,112 104,120 96,120" />
-              <polygon points="86,118 90,126 82,126" />
-              <polygon points="114,118 118,126 110,126" />
-            </g>
-
-            {/* The rack, back row first */}
-            <VirusPin x={86} y={70} s={0.5} />
-            <VirusPin x={100} y={70} s={0.5} />
-            <VirusPin x={114} y={70} s={0.5} />
-            <VirusPin x={93} y={79} s={0.56} />
-            <g className="rs-fall" style={{ transformOrigin: '107px 79px' }}>
-              <VirusPin x={107} y={79} s={0.56} />
-            </g>
-            <g className="rs-fall" style={{ transformOrigin: '100px 90px', animationDelay: '0.06s' }}>
-              <VirusPin x={100} y={90} s={0.64} />
-            </g>
-
-            {/* Ball rolling up the lane */}
-            <g className="rs-roll">
-              <ShieldBall x={98} y={152} r={13} />
-            </g>
-
-            {/* Foul line */}
-            <line x1="36" y1="168" x2="164" y2="168" stroke={ORANGE_LT} strokeWidth="2" opacity="0.8" />
-          </g>
-        </svg>
+      <div className="rs-float" style={{ position: 'relative', width: 268, height: 226, zIndex: 1 }}>
+        <StrikeDemo width={268} height={226} withFinger={false} />
       </div>
 
       <motion.div
@@ -364,19 +553,19 @@ export function HomeScreen({ onStart }) {
         <button
           type="button"
           onClick={onStart}
+          className="rs-cta"
           style={{
             width: '100%',
             maxWidth: 320,
-            height: 60,
+            height: H_PRIMARY,
             border: 'none',
-            borderRadius: 14,
-            fontSize: 20,
+            borderRadius: 16,
+            fontSize: 19,
             fontWeight: 900,
             color: '#fff',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: '0.06em',
             background: `linear-gradient(180deg, ${ORANGE_LT} 0%, ${ORANGE} 100%)`,
-            boxShadow: '0 6px 22px rgba(242,101,34,0.45)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -392,39 +581,38 @@ export function HomeScreen({ onStart }) {
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
-/** One beat of the flick - hook - strike loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
+/* ─── How to play ─────────────────────────────────────────
+   Animation only. One looping demo of the real input and the real outcome,
+   three glyph-led labels of three words or fewer, and the Play button. There
+   are no instruction sentences on this screen by design: the loop shows the
+   thumb flicking with a curl and the rack going down, which is the entire
+   mechanic. */
+function Label({ glyph, text }) {
   return (
     <div style={{
+      flex: 1,
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
+      gap: 6,
+      padding: '10px 4px',
+      borderRadius: 14,
       background: 'rgba(255,255,255,0.05)',
       border: '1px solid rgba(255,255,255,0.12)',
     }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+      {glyph}
+      <span style={{
+        fontSize: 9.5,
+        fontWeight: 900,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.92)',
+        textAlign: 'center',
+        lineHeight: 1.25,
+      }}>
+        {text}
+      </span>
     </div>
-  );
-}
-
-/** A miniature lane for the tutorial diagrams. */
-function BeatLane() {
-  return (
-    <g>
-      <polygon points="26,8 48,8 66,58 8,58" fill="#0A1730" />
-      <polygon points="29,8 45,8 60,58 14,58" fill="url(#rsLane)" />
-      <polygon points="29,8 45,8 60,58 14,58" fill="rgba(214,236,255,0.08)" />
-    </g>
   );
 }
 
@@ -442,107 +630,57 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
-        background: 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221',
-        overflowY: 'auto',
+        padding: 18,
+        background: PAGE_BG,
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
 
       <div style={{
-        background: 'rgba(11,18,33,0.72)',
+        background: 'rgba(5,9,18,0.74)',
         border: '1px solid rgba(255,255,255,0.14)',
-        borderRadius: 24,
-        padding: '26px 20px 22px',
+        borderRadius: 26,
+        padding: '18px 18px 18px',
         width: '100%',
-        maxWidth: 360,
-        boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
+        maxWidth: 348,
+        boxShadow: '0 16px 44px rgba(0,0,0,0.55)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 22, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 12px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{
-          fontSize: 10.5, fontWeight: 900, letterSpacing: '0.06em',
-          textTransform: 'uppercase', color: ORANGE_LT, margin: '0 0 16px 0',
-        }}>
-          Flick to bowl &middot; Curl your swipe for spin &middot; Strike out the risks
-        </p>
 
-        <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-          <VectorDefs />
-        </svg>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Flick to bowl" copy="A faster flick is a heavier ball. The dotted line shows your line to the arrows.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatLane />
-              <g stroke="#BBD9FF" strokeWidth="1.6" strokeDasharray="2 4" opacity="0.8">
-                <line x1="37" y1="46" x2="38" y2="26" />
-              </g>
-              <g className="rs-bball"><ShieldBall x={37} y={48} r={7} /></g>
-              <g className="rs-flick" stroke={ORANGE_LT} strokeWidth="2.4" strokeLinecap="round" fill="none">
-                <path d="M37 54 L37 40" />
-                <path d="M33 44 L37 39 L41 44" />
-              </g>
-            </svg>
-          </Beat>
-
-          <Beat n="2" title="Curl for the hook" copy="Curve your swipe and the ball bends late — the way to reach a corner pin.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatLane />
-              <path d="M37 50 Q24 36 42 22" stroke={ORANGE_LT} strokeWidth="1.6" strokeDasharray="2 4" fill="none" opacity="0.85" />
-              <g className="rs-hook"><ShieldBall x={37} y={50} r={7} /></g>
-              <VirusPin x={45} y={24} s={0.42} />
-            </svg>
-          </Beat>
-
-          <Beat n="3" title="Clear the rack" copy="Ten risks, five frames, two balls each. Strikes and spares carry bonuses.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatLane />
-              <g className="rs-fall" style={{ transformOrigin: '30px 34px' }}>
-                <VirusPin x={30} y={34} s={0.44} />
-              </g>
-              <g className="rs-fall" style={{ transformOrigin: '44px 34px', animationDelay: '0.08s' }}>
-                <VirusPin x={44} y={34} s={0.44} />
-              </g>
-              <g className="rs-fall" style={{ transformOrigin: '37px 44px', animationDelay: '0.04s' }}>
-                <VirusPin x={37} y={44} s={0.5} />
-              </g>
-              <g className="rs-mark">
-                <rect x="24" y="4" width="26" height="18" rx="9" fill={GOLD} />
-                <text x="37" y="17" fill="#3B2500" fontSize="12" fontWeight="900" textAnchor="middle"
-                  fontFamily="'Plus Jakarta Sans', 'Poppins', sans-serif">X</text>
-              </g>
-            </svg>
-          </Beat>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+          <StrikeDemo width={244} height={205} withFinger />
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Knock down{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.winPins} risks</strong> across{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.frames} frames</strong> in{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong> to win.
-        </p>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+          <Label glyph={<FlickGlyph />} text="Flick up" />
+          <Label glyph={<CurlGlyph />} text="Curl to hook" />
+          <Label glyph={<ClearGlyph />} text="Clear all ten" />
+        </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button
             onClick={onPlay}
+            className="rs-cta"
             style={{
-              width: '100%', height: 52, border: 'none', borderRadius: 12,
-              fontSize: 18, fontWeight: 900, color: '#fff',
-              textTransform: 'uppercase', letterSpacing: '0.05em',
-              background: `linear-gradient(180deg, ${BLUE_LT} 0%, ${BLUE} 100%)`,
-              boxShadow: '0 4px 16px rgba(0,61,166,0.45)',
+              width: '100%', height: H_PRIMARY, border: 'none', borderRadius: 16,
+              fontSize: 19, fontWeight: 900, color: '#fff',
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              background: `linear-gradient(180deg, ${ORANGE_LT} 0%, ${ORANGE} 100%)`,
               cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            Play Game
+            <PlayIcon size={20} />
+            <span>Play Game</span>
           </button>
         </motion.div>
       </div>
@@ -564,7 +702,7 @@ function StatTile({ label, value, accent }) {
       <div style={{ fontSize: 19, fontWeight: 900, color: accent, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
         {value}
       </div>
-      <div style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>
+      <div style={{ fontSize: 8.5, fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.74)', marginTop: 3 }}>
         {label}
       </div>
     </div>
@@ -623,7 +761,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   const circumference = 2 * Math.PI * radius;
   const progress = (Math.min(score, RESULT_TARGET_SCORE) / RESULT_TARGET_SCORE) * circumference;
   const strokeColor = won ? GREEN : score < 250 ? DANGER : GOLD;
-  const glowColor = won ? 'rgba(40,167,69,0.45)' : score < 250 ? 'rgba(239,68,68,0.4)' : 'rgba(255,200,69,0.4)';
+  const glowColor = won ? 'rgba(40,167,69,0.45)' : score < 250 ? 'rgba(255,90,90,0.4)' : 'rgba(255,200,69,0.4)';
 
   return (
     <motion.div
@@ -637,22 +775,22 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '34px 20px 24px',
+        padding: '32px 18px 24px',
         overflowY: 'auto',
-        background: 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221',
+        background: PAGE_BG,
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
       {won && <Confetti />}
 
       {/* Outcome header */}
-      <div style={{ textAlign: 'center', marginBottom: 14, width: '100%', maxWidth: 360, zIndex: 2 }}>
+      <div style={{ textAlign: 'center', marginBottom: 18, width: '100%', maxWidth: 348, zIndex: 2 }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 9,
           padding: '7px 16px', borderRadius: 999,
-          background: won ? 'rgba(40,167,69,0.22)' : 'rgba(239,68,68,0.18)',
-          border: `1px solid ${won ? 'rgba(40,167,69,0.5)' : 'rgba(239,68,68,0.45)'}`,
-          marginBottom: 10,
+          background: won ? 'rgba(40,167,69,0.24)' : 'rgba(255,90,90,0.2)',
+          border: `1px solid ${won ? 'rgba(40,167,69,0.55)' : 'rgba(255,90,90,0.5)'}`,
+          marginBottom: 12,
         }}>
           {won ? <TrophyIcon size={20} /> : <RiskIcon size={20} />}
           <span style={{ fontSize: 13, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -660,13 +798,13 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
           </span>
         </div>
         <p style={{ color: '#fff', fontSize: 21, fontWeight: 900, lineHeight: 1.25, margin: 0 }}>
-          Hi <span style={{ color: BLUE_LT }}>{leadName || 'Friend'}!</span>{' '}
-          <span style={{ color: 'rgba(255,255,255,0.85)' }}>Here&rsquo;s your game.</span>
+          Hi <span style={{ color: ORANGE_LT }}>{leadName || 'Friend'}!</span>{' '}
+          <span style={{ color: 'rgba(255,255,255,0.88)' }}>Here&rsquo;s your game.</span>
         </p>
       </div>
 
       {/* Score ring */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, zIndex: 2 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18, zIndex: 2 }}>
         <div style={{ width: 162, height: 162, position: 'relative' }}>
           <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 200 200">
             <circle cx="100" cy="100" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
@@ -685,7 +823,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             <span style={{ fontSize: 30, fontWeight: 900, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
               {animatedScore.toLocaleString()}
             </span>
-            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.55)', marginTop: 5, letterSpacing: '0.16em' }}>
+            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.76)', marginTop: 5, letterSpacing: '0.16em' }}>
               POINTS
             </span>
           </div>
@@ -693,16 +831,16 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
       </div>
 
       {/* Run stats */}
-      <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 12, zIndex: 2 }}>
+      <div style={{ display: 'flex', gap: 6, width: '100%', maxWidth: 348, marginBottom: 12, zIndex: 2 }}>
         <StatTile label="Pins" value={`${pins}/${GAME_CONFIG.winPins}`} accent={GOLD} />
-        <StatTile label="Strikes" value={strikes} accent={GREEN} />
+        <StatTile label="Strikes" value={strikes} accent={ORANGE_LT} />
         <StatTile label="Spares" value={spares} accent={BLUE_LT} />
       </div>
 
       {/* The four named risks */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6,
-        width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2,
+        width: '100%', maxWidth: 348, marginBottom: 18, zIndex: 2,
       }}>
         {RISK_LABELS.map((label, i) => (
           <span
@@ -714,9 +852,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
               fontWeight: 800,
               padding: '5px 11px',
               borderRadius: 999,
-              color: won ? '#fff' : 'rgba(255,255,255,0.72)',
-              background: won ? 'rgba(40,167,69,0.85)' : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${won ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)'}`,
+              color: won ? '#fff' : 'rgba(255,255,255,0.82)',
+              background: won ? 'rgba(40,167,69,0.85)' : 'rgba(255,255,255,0.06)',
+              border: `1px solid ${won ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.14)'}`,
             }}
           >
             {label}
@@ -729,9 +867,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           background: BLUE_LT, color: '#fff', fontWeight: 900,
-          height: 50, borderRadius: 12, border: 'none', cursor: 'pointer',
-          fontSize: 17, textTransform: 'uppercase', letterSpacing: '0.05em',
-          boxShadow: '0 4px 18px rgba(30,107,224,0.4)',
+          height: H_SECONDARY, borderRadius: 14, border: 'none', cursor: 'pointer',
+          fontSize: 16, textTransform: 'uppercase', letterSpacing: '0.05em',
+          boxShadow: '0 4px 18px rgba(46,123,240,0.4)',
           width: '100%', maxWidth: 300, marginBottom: 18, zIndex: 2,
         }}
       >
@@ -741,13 +879,13 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
 
       {/* Lead / booking card */}
       <div style={{
-        width: '100%', maxWidth: 360,
+        width: '100%', maxWidth: 348,
         background: 'rgba(255,255,255,0.05)',
         WebkitBackdropFilter: 'blur(12px)',
         backdropFilter: 'blur(12px)',
         borderRadius: 22, padding: '18px 16px',
         border: '1px solid rgba(255,255,255,0.12)',
-        textAlign: 'center', marginBottom: 16, zIndex: 2,
+        textAlign: 'center', marginBottom: 18, zIndex: 2,
       }}>
         <p style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.35, margin: '0 0 16px 0' }}>
           One shot cleared the pins. One policy can cover the risks behind them.
@@ -758,9 +896,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             <button
               onClick={onBookSlot}
               style={{
-                width: '100%',
+                width: '100%', height: H_PRIMARY,
                 background: `linear-gradient(180deg, ${ORANGE_LT} 0%, ${ORANGE} 100%)`,
-                color: '#fff', fontWeight: 900, padding: '15px 20px', borderRadius: 12,
+                color: '#fff', fontWeight: 900, borderRadius: 14,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 fontSize: 17, border: 'none', cursor: 'pointer', textTransform: 'uppercase',
                 boxShadow: '0 4px 16px rgba(242,101,34,0.35)',
@@ -775,8 +913,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             <a
               href={`tel:${empPhone}`}
               style={{
-                background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: 900,
-                padding: '14px 20px', borderRadius: 12,
+                background: 'rgba(255,255,255,0.06)', color: '#fff', fontWeight: 900,
+                height: H_SECONDARY, borderRadius: 14,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 fontSize: 16, textDecoration: 'none', textTransform: 'uppercase',
                 border: '1px solid rgba(255,255,255,0.18)',
@@ -790,11 +928,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
       </div>
 
       {/* Retry / Home */}
-      <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 360, marginBottom: 16, zIndex: 2 }}>
+      <div style={{ display: 'flex', gap: 6, width: '100%', maxWidth: 348, marginBottom: 18, zIndex: 2 }}>
         <button
           onClick={onRetry}
           style={{
-            flex: 2, height: 48, borderRadius: 12, cursor: 'pointer',
+            flex: 2, height: H_SECONDARY, borderRadius: 14, cursor: 'pointer',
             background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
             color: '#fff', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -806,9 +944,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         <button
           onClick={onHome}
           style={{
-            flex: 1, height: 48, borderRadius: 12, cursor: 'pointer',
+            flex: 1, height: H_SECONDARY, borderRadius: 14, cursor: 'pointer',
             background: 'transparent', border: '1px solid rgba(255,255,255,0.18)',
-            color: 'rgba(255,255,255,0.72)', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.82)', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
         >
@@ -817,9 +955,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         </button>
       </div>
 
-      <div style={{ width: '100%', maxWidth: 360, opacity: 0.4, padding: '0 12px 20px', zIndex: 2 }}>
+      <div style={{ width: '100%', maxWidth: 348, opacity: 0.62, padding: '0 12px 20px', zIndex: 2 }}>
         <p style={{ fontSize: 8, textAlign: 'center', color: '#fff', lineHeight: 1.4, fontWeight: 'bold', margin: 0 }}>
-          <span style={{ opacity: 0.7, marginRight: 4 }}>Disclaimer:</span>
+          <span style={{ opacity: 0.8, marginRight: 4 }}>Disclaimer:</span>
           The results shown in this game are indicative and based solely on the information provided by the participant. They are intended for engagement and awareness purposes only and do not constitute financial advice or a recommendation to purchase any life insurance product. Participants should seek independent professional advice before making any financial or insurance decisions. While due care has been taken in designing the game, Bajaj Life Insurance Ltd. assumes no liability for its outcomes.
         </p>
       </div>

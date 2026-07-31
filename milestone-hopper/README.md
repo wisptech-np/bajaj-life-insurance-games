@@ -2,20 +2,20 @@
 
 A one-thumb lane hopper. You are a guardian crossing a 48-row course of life
 stages: **tap** to hop forward one row, **swipe** to steer. Reach the Retirement
-row before the 120-second session ends — and before the risk tide behind you does.
+row before the 120-second session ends — and before the arrears tide behind you does.
 
 ## The financial hook
 
 The course is a working life laid out one row at a time. Pavement rows are the
-stretches where nothing is coming at you; roads are the years where risk streams
+stretches where nothing is coming at you; expense lanes are the years where debt streams
 across your path; and past Marriage the ground opens into uncertainty rivers you
 can only cross by standing on coverage — the glowing platforms drifting through
 the fog. Six milestone rows mark the run: Graduation (8), First Job (16),
 Marriage (24), Home (32), Child (40), Retirement (48).
 
-The risk tide climbing the course from behind is the reason standing still is not
-a strategy. Cover tokens are cover in the literal sense: with one active, a virus
-costs you the token instead of the run.
+The arrears tide climbing the course from behind is the reason standing still is not
+a strategy. Cover tokens are cover in the literal sense: with one active, a debt
+weight costs you the token instead of the run.
 
 ## Controls
 
@@ -36,8 +36,9 @@ Hopping into a planter or off the grid is rejected with a bump and a tick.
 ## Lane types
 
 - **Pavement** — safe. 0-2 planters block cells. Coins and cover tokens live here.
-- **Road** — green virus blobs stream across at a lane-specific speed and
-  direction. Contact ends the run unless you are carrying cover.
+- **Expense lane** — ember **debt weights** — squat cast-iron ingots on a drag
+  chain — slide across at a lane-specific speed and direction. Contact ends the
+  run unless you are carrying cover.
 - **Uncertainty river** (after row 24) — crossable only by landing on a drifting
   coverage platform, which then carries you sideways. Missing the platform, or
   riding one off the edge of the grid, ends the run.
@@ -57,8 +58,8 @@ The results screen reports `{ score, rows, coins, milestones }`.
 ## Win / lose
 
 - **Win** — land on the Retirement row (row 48).
-- **Lose** — a virus while uncovered, falling into a risk river, being caught by
-  the tide, or the 120-second session expiring.
+- **Lose** — a debt weight while uncovered, falling into an uncertainty river,
+  being caught by the arrears tide, or the 120-second session expiring.
 
 ## Running it
 
@@ -85,18 +86,18 @@ hop tween, platform carry, collision, tide — driven by scripted players across
 1. **Lane spacing is authored in seconds, not cells** (`roads.gapSeconds`,
    `[1.8, 1.2]` across segments 0-5). `roads.minGapCells: 2.2` on its own does
    not describe a difficulty: at 220 px/s a 2.2-cell gap is a **0.28 s** standing
-   window, which is not a crossing, it is a coin flip. Virus count per lane is
+   window, which is not a crossing, it is a coin flip. Weight count per lane is
    derived from whichever floor binds — the authored cell minimum or the speed's
    own requirement — so the widest part of every gap is worth the same amount of
    *time* whatever the lane is doing. Measured at 0.7 s of standing room the
    simulated casual player still won 13% of runs and died a median of 17 rows in;
    at 1.8 s down to 1.2 s the same player wins 33% and reaches a median of 33.
 
-2. **The virus wrap cycle is decoupled from the screen.** Wrapping viruses at the
-   screen edge forces `gap = screenWidth / count`, which ties how sparse a lane
-   can be to how many blobs are in it. They now wrap around a cycle sized from
-   the spacing (up to ~24 cells), so a fast lane can be genuinely sparse without
-   ever showing two copies of the same blob.
+2. **The weight wrap cycle is decoupled from the screen.** Wrapping weights at
+   the screen edge forces `gap = screenWidth / count`, which ties how sparse a
+   lane can be to how many of them are in it. They now wrap around a cycle sized
+   from the spacing (up to ~24 cells), so a fast lane can be genuinely sparse
+   without ever showing two copies of the same weight.
 
 3. **`rows.maxRoadRun: 3`.** At the authored safe-row share, runs of five or more
    consecutive roads occur often enough to dominate the death rate: with no bank
@@ -106,7 +107,7 @@ hop tween, platform carry, collision, tide — driven by scripted players across
    because unlike a road a river cannot be waited out in place.
 
 4. **`pickups.shieldInvulnSeconds: 1.0`.** A cover token that only absorbs the
-   hit leaves the guardian standing on the virus that just spent it, so the next
+   hit leaves the guardian standing on the weight that just spent it, so the next
    frame kills them anyway. The invulnerability window is what makes the token a
    save rather than a stay of execution.
 

@@ -1,5 +1,8 @@
 // Screens.jsx — Home, How to Play, and Results screens for Swing to Secure.
-// All art is inline SVG or CSS: no image files, no emoji.
+//
+// All art is inline SVG or CSS: no image files, no emoji. The screens share the
+// game's identity — a dusk skyline, a hexagon-and-chevron shape language, and a
+// sunset-amber accent inside the Bajaj brand blue/orange/green.
 import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
@@ -7,6 +10,9 @@ import { shortenUrl } from './utils/shortener';
 import { COLORS, GAME_CONFIG, RESULT_TARGET_SCORE } from './data.js';
 
 const GAME_TITLE = 'Swing to Secure';
+
+/** Flat-top hex path in a 0 0 24 24 box — the repeated motif across all screens. */
+const HEX24 = 'M12 1.6 21 6.8v10.4L12 22.4 3 17.2V6.8z';
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function PlayIcon({ size = 18 }) {
@@ -17,25 +23,25 @@ function PlayIcon({ size = 18 }) {
   );
 }
 
-function TrophyIcon({ size = 34 }) {
+/** Vault gate: the win mark. A hex with a locked chevron core. */
+function VaultIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M9 5h14v5a7 7 0 0 1-14 0V5z" fill="#fff" />
-      <path d="M5 7h4v3a3 3 0 0 1-3-3z" fill="#fff" opacity="0.85" />
-      <path d="M27 7h-4v3a3 3 0 0 0 3-3z" fill="#fff" opacity="0.85" />
-      <rect x="13" y="16" width="6" height="6" fill="#fff" opacity="0.92" />
-      <rect x="9" y="22" width="14" height="4" rx="1.5" fill="#fff" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d={HEX24} fill="#fff" opacity="0.95" />
+      <path d="M8.4 13.6 12 9.4l3.6 4.2" stroke={COLORS.green} strokeWidth="2.2"
+        strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-function RopeCutIcon({ size = 32 }) {
+/** Snapped tether: the lose mark. */
+function TetherSnapIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" stroke="#fff"
-      strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-      <path d="M8 3c0 5 4 6 4 10" />
-      <path d="M20 29c0-5 4-6 4-10" opacity="0.7" />
-      <path d="M10 15l6 4M22 15l-6 4" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fff"
+      strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2v6" />
+      <path d="M12 16v6" opacity="0.65" />
+      <path d="m8.5 9.5 3.5 2.5-3.5 2.5M15.5 9.5 12 12l3.5 2.5" />
     </svg>
   );
 }
@@ -92,32 +98,109 @@ function HomeIcon({ size = 18 }) {
   );
 }
 
-/* ─── Shared keyframes ───────────────────────────────────── */
+/* ─── Shared look ────────────────────────────────────────── */
+/** Dusk field: night at the top, sunset burn at the bottom. Used by all three. */
+const DUSK_BG = `
+  radial-gradient(120% 62% at 72% 96%, rgba(242,101,34,0.5) 0%, rgba(242,101,34,0) 62%),
+  radial-gradient(90% 46% at 50% 8%, rgba(44,123,239,0.28) 0%, rgba(4,9,28,0) 70%),
+  linear-gradient(180deg, #04091C 0%, #0C2352 46%, #2E3E7C 74%, #7E3413 100%)
+`;
+
 const SCREEN_CSS = `
-@keyframes stsSwing   { 0%,100% { transform: rotate(-38deg); } 50% { transform: rotate(30deg); } }
 @keyframes stsFloat   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-@keyframes stsGlow    { 0%,100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 0.85; transform: scale(1.08); } }
+@keyframes stsGlow    { 0%,100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.1); } }
 @keyframes stsTitleIn { from { opacity: 0; letter-spacing: 0.24em; transform: translateY(10px); } to { opacity: 1; letter-spacing: -0.03em; transform: none; } }
-@keyframes stsSheen   { 0% { background-position: -180% 0; } 60%,100% { background-position: 180% 0; } }
-@keyframes stsBeat1   { 0%,12% { transform: scale(1); opacity: 1; } 20%,100% { transform: scale(0.8); opacity: 0.55; } }
-@keyframes stsRope    { 0%,10% { stroke-dashoffset: 96; } 24%,100% { stroke-dashoffset: 0; } }
-@keyframes stsArc     { 0%,22% { transform: rotate(-40deg); } 60% { transform: rotate(34deg); } 74%,100% { transform: rotate(34deg); opacity: 0; } }
-@keyframes stsFly     { 0%,72% { transform: translate(0,0); opacity: 0; } 74% { opacity: 1; } 100% { transform: translate(52px,-14px); opacity: 0; } }
 @keyframes stsChip    { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
+@keyframes stsHomeSwing { 0%,100% { transform: rotate(-36deg); } 50% { transform: rotate(28deg); } }
 .sts-title { animation: stsTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
-.sts-swing { animation: stsSwing 3.2s ease-in-out infinite; transform-origin: 100px 44px; }
 .sts-float { animation: stsFloat 4s ease-in-out infinite; }
-.sts-glow  { animation: stsGlow 2.4s ease-in-out infinite; }
+.sts-glow  { animation: stsGlow 2.6s ease-in-out infinite; }
 .sts-chip  { animation: stsChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
+.sts-home-swing { animation: stsHomeSwing 3.6s ease-in-out infinite; transform-origin: 100px 44px; }
 @media (prefers-reduced-motion: reduce) {
-  .sts-title, .sts-swing, .sts-float, .sts-glow, .sts-chip,
-  .sts-beat, .sts-rope, .sts-arc, .sts-flyaway { animation: none !important; }
+  .sts-title, .sts-float, .sts-glow, .sts-chip, .sts-home-swing,
+  .sts-d-swingA, .sts-d-swingB, .sts-d-fly, .sts-d-finger,
+  .sts-d-press, .sts-d-tetherA, .sts-d-tetherB, .sts-d-spark { animation: none !important; }
 }
 `;
 
+/** Gradient/def block shared by the Home and How-to-Play art. */
+function ArtDefs({ id }) {
+  return (
+    <defs>
+      <linearGradient id={`${id}Body`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#5FA0FF" />
+        <stop offset="100%" stopColor="#00246A" />
+      </linearGradient>
+      <linearGradient id={`${id}Gold`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={COLORS.goldLt} />
+        <stop offset="100%" stopColor={COLORS.goldDeep} />
+      </linearGradient>
+      <linearGradient id={`${id}Beacon`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#9CC6FF" />
+        <stop offset="100%" stopColor="#02163B" />
+      </linearGradient>
+      <radialGradient id={`${id}Sun`}>
+        <stop offset="0%" stopColor="#FFECBE" stopOpacity="0.95" />
+        <stop offset="40%" stopColor={COLORS.gold} stopOpacity="0.45" />
+        <stop offset="100%" stopColor={COLORS.orange} stopOpacity="0" />
+      </radialGradient>
+      <linearGradient id={`${id}Sky`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#04091C" />
+        <stop offset="42%" stopColor="#0C2352" />
+        <stop offset="72%" stopColor="#2E3E7C" />
+        <stop offset="100%" stopColor="#B24C1B" />
+      </linearGradient>
+    </defs>
+  );
+}
+
+/** Hex points helper — keeps every hex in the SVG art on the same geometry. */
+function hexPoints(cx, cy, r) {
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 6 + (i / 6) * Math.PI * 2;
+    pts.push(`${(cx + Math.cos(a) * r).toFixed(2)},${(cy + Math.sin(a) * r).toFixed(2)}`);
+  }
+  return pts.join(' ');
+}
+
+/** The guardian, drawn once and reused across every screen. */
+function Guardian({ x, y, s = 1, idPrefix }) {
+  return (
+    <g transform={`translate(${x},${y}) scale(${s})`}>
+      <path d="M-2 -8 -19 -2 -11 2 -18 11 -2 8Z" fill={COLORS.orange} />
+      <polygon points={hexPoints(0, 3, 8)} fill={`url(#${idPrefix}Body)`} />
+      <path d="M-3.5 6 0 1.5 3.5 6" stroke={COLORS.goldLt} strokeWidth="1.8"
+        strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <polygon points={hexPoints(0, -8, 6)} fill={COLORS.brandBlue} stroke="rgba(255,255,255,0.55)" strokeWidth="1" />
+      <rect x="-3.8" y="-9.4" width="7.6" height="2.6" rx="1.3" fill={COLORS.goldLt} />
+    </g>
+  );
+}
+
+/** One hex beacon on its mast, with chevron catch-wings. */
+function Beacon({ x, y, r = 12, lit, idPrefix }) {
+  return (
+    <g>
+      <line x1={x} y1="0" x2={x} y2={y - r * 0.6} stroke="rgba(156,198,255,0.3)" strokeWidth="1.4" />
+      <polygon points={hexPoints(x, y, r)} fill={`url(#${idPrefix}Beacon)`} stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" />
+      {[-1, 1].map((d) => (
+        <path
+          key={d}
+          d={`M${x + d * (r + 2)} ${y - r * 0.42} L${x + d * (r + 8)} ${y} L${x + d * (r + 2)} ${y + r * 0.42}`}
+          stroke={lit ? COLORS.gold : 'rgba(156,198,255,0.7)'} strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round" fill="none"
+        />
+      ))}
+      <polygon points={hexPoints(x, y, 3.6)} fill={lit ? COLORS.goldLt : COLORS.orangeLt} />
+    </g>
+  );
+}
+
 /* ─── Confetti (lightweight) ─────────────────────────── */
 function Confetti() {
-  const colors = [COLORS.gold, COLORS.goldLt, COLORS.orangeLt, COLORS.brandBlueLt, COLORS.brandBlue, COLORS.green, '#EC4899'];
+  const colors = [COLORS.gold, COLORS.goldLt, COLORS.orangeLt, COLORS.brandBlueLt, COLORS.brandBlue, COLORS.green, COLORS.orange];
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 1 }}>
       {Array.from({ length: 26 }).map((_, i) => {
@@ -159,98 +242,96 @@ export function HomeScreen({ onStart }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '50px 24px 56px',
-        background: 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221',
+        padding: '48px 22px 52px',
+        background: DUSK_BG,
         overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
 
       <div style={{ textAlign: 'center', zIndex: 2 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10,
+          padding: '5px 12px', borderRadius: 999,
+          background: 'rgba(242,101,34,0.16)', border: '1px solid rgba(242,101,34,0.5)',
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+            <path d={HEX24} fill={COLORS.gold} />
+          </svg>
+          <span style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.18em', color: COLORS.goldLt }}>
+            MOMENTUM RUN
+          </span>
+        </div>
         <h1 className="sts-title" style={{
-          fontSize: 34,
+          fontSize: 36,
           fontWeight: 900,
           color: '#fff',
           textTransform: 'uppercase',
-          lineHeight: 1,
+          lineHeight: 0.95,
           margin: '0 0 8px 0',
-          textShadow: '0 2px 10px rgba(0,0,0,0.55)',
+          textShadow: '0 2px 14px rgba(0,0,0,0.6)',
         }}>
           {GAME_TITLE}
         </h1>
         <p style={{
-          fontSize: 12.5,
+          fontSize: 12,
           fontWeight: 800,
-          color: COLORS.orangeLt,
+          color: 'rgba(255,255,255,0.72)',
           textTransform: 'uppercase',
           letterSpacing: '0.1em',
           margin: 0,
-          maxWidth: 300,
+          maxWidth: 290,
         }}>
-          Bridge life&rsquo;s gaps — keep your protection momentum
+          Beacon to beacon, all the way to the vault
         </p>
       </div>
 
-      {/* Rope-swing motif: pylons, a swinging guardian, the vault ahead. */}
-      <div className="sts-float" style={{ position: 'relative', width: 260, height: 232, zIndex: 1 }}>
-        <svg width="260" height="232" viewBox="0 0 200 180" style={{ overflow: 'visible' }} aria-hidden="true">
-          <defs>
-            <linearGradient id="stsSky" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0A2E62" />
-              <stop offset="100%" stopColor="#061634" />
-            </linearGradient>
-            <linearGradient id="stsRock" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22456F" />
-              <stop offset="100%" stopColor="#0A1428" />
-            </linearGradient>
-            <linearGradient id="stsBody" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#4E96FF" />
-              <stop offset="100%" stopColor="#003DA6" />
-            </linearGradient>
-            <linearGradient id="stsGold" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FFE38A" />
-              <stop offset="100%" stopColor="#B07B12" />
-            </linearGradient>
-          </defs>
+      {/* Skyline motif: beacons above, towers below, the vault on the horizon. */}
+      <div className="sts-float" style={{ position: 'relative', width: 272, height: 236, zIndex: 1 }}>
+        <svg width="272" height="236" viewBox="0 0 200 174" style={{ overflow: 'visible' }} aria-hidden="true">
+          <ArtDefs id="h" />
+          <clipPath id="hClip"><polygon points="4,26 26,4 174,4 196,26 196,148 174,170 26,170 4,148" /></clipPath>
 
-          <rect x="4" y="4" width="192" height="172" rx="26" fill="url(#stsSky)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.4" />
-          <clipPath id="stsClip"><rect x="4" y="4" width="192" height="172" rx="26" /></clipPath>
+          <polygon points="4,26 26,4 174,4 196,26 196,148 174,170 26,170 4,148"
+            fill="#061029" stroke="rgba(255,255,255,0.14)" strokeWidth="1.4" />
 
-          <g clipPath="url(#stsClip)">
-            {/* Canyon walls */}
-            <path d="M4 132 Q34 108 60 126 Q88 146 118 118 Q150 90 196 118 L196 176 L4 176 Z" fill="url(#stsRock)" opacity="0.85" />
-            <path d="M4 156 Q40 138 78 154 Q120 172 196 148 L196 176 L4 176 Z" fill="#050C1A" />
+          <g clipPath="url(#hClip)">
+            <rect x="0" y="0" width="200" height="174" fill="url(#hSky)" />
 
-            {/* Pylons */}
-            {[{ x: 44, y: 44 }, { x: 100, y: 44 }, { x: 156, y: 52 }].map((a) => (
-              <g key={a.x}>
-                <line x1={a.x} y1="4" x2={a.x} y2={a.y} stroke="rgba(143,185,245,0.4)" strokeWidth="1.4" />
-                <rect x={a.x - 15} y={a.y - 9} width="30" height="18" rx="6" fill="#1E6BE0" stroke="rgba(255,255,255,0.45)" strokeWidth="1.2" />
-                <path d={`M${a.x - 6} ${a.y + 9} h12 v5 q-6 7 -12 0 z`} fill="#fff" opacity="0.9" />
-              </g>
+            {/* Low sun */}
+            <circle className="sts-glow" cx="150" cy="126" r="52" fill="url(#hSun)" />
+            <polygon points={hexPoints(150, 126, 9)} fill="rgba(255,240,205,0.9)" />
+
+            {/* Far towers */}
+            {[[10, 96, 16], [30, 84, 13], [46, 104, 18], [68, 90, 14], [110, 100, 15], [130, 88, 12], [170, 94, 17]].map(([tx, ty, tw]) => (
+              <path key={tx} d={`M${tx} 174 L${tx} ${ty + 7} L${tx + 7} ${ty} L${tx + tw - 7} ${ty} L${tx + tw} ${ty + 7} L${tx + tw} 174 Z`}
+                fill="#12305C" opacity="0.75" stroke="rgba(255,176,32,0.28)" strokeWidth="0.9" />
+            ))}
+            {/* Near towers */}
+            {[[0, 132, 26], [34, 122, 22], [76, 138, 30], [124, 126, 24], [162, 140, 34]].map(([tx, ty, tw]) => (
+              <path key={`n${tx}`} d={`M${tx} 174 L${tx} ${ty + 8} L${tx + 8} ${ty} L${tx + tw - 8} ${ty} L${tx + tw} ${ty + 8} L${tx + tw} 174 Z`}
+                fill="#050D22" stroke="rgba(242,101,34,0.4)" strokeWidth="1" />
             ))}
 
-            {/* Swinging guardian on the middle pylon */}
-            <g className="sts-swing">
-              <line x1="100" y1="44" x2="100" y2="112" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
-              <path d="M100 112 q-14 6 -10 20 q7 -8 12 -6 z" fill="#F26522" />
-              <rect x="93" y="106" width="14" height="18" rx="6" fill="url(#stsBody)" />
-              <circle cx="100" cy="102" r="6.5" fill="#F2C29B" />
-              <path d="M93.5 100 a6.5 6.5 0 0 1 13 0 z" fill="#003DA6" />
-              <path d="M100 112 l4 2 q0 6 -4 8 q-4 -2 -4 -8 z" fill="#FFE38A" />
+            <Beacon x={44} y={44} lit={false} idPrefix="h" />
+            <Beacon x={100} y={44} lit idPrefix="h" />
+            <Beacon x={158} y={52} lit={false} idPrefix="h" />
+
+            {/* Guardian mid-swing on the lit beacon */}
+            <g className="sts-home-swing">
+              <line x1="100" y1="44" x2="100" y2="104" stroke={COLORS.gold} strokeWidth="5" strokeLinecap="round" opacity="0.35" />
+              <line x1="100" y1="44" x2="100" y2="104" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+              <Guardian x={100} y={112} s={1} idPrefix="h" />
             </g>
 
-            {/* Vault on the far ledge */}
-            <g transform="translate(178,120)">
-              <circle className="sts-glow" cx="0" cy="-10" r="26" fill="rgba(255,200,69,0.3)" />
-              <path d="M-18 22 v-20 q0-22 18-22 q18 0 18 22 v20 z" fill="url(#stsGold)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.4" />
-              <circle cx="0" cy="0" r="8" fill="none" stroke="#0B1221" strokeWidth="2.6" />
-              <path d="M0 -12 v5 M0 12 v-5 M-12 0 h5 M12 0 h-5" stroke="#0B1221" strokeWidth="2.2" strokeLinecap="round" />
-            </g>
+            {/* Premium chip on the ideal arc */}
+            <polygon points={hexPoints(130, 84, 6)} fill="url(#hGold)" />
+            <path d="M127 86l3-4 3 4" stroke={COLORS.goldDeep} strokeWidth="1.4"
+              strokeLinecap="round" strokeLinejoin="round" fill="none" />
 
-            {/* A coin on the ideal arc */}
-            <circle cx="128" cy="88" r="5.5" fill="url(#stsGold)" />
-            <circle cx="128" cy="88" r="2.6" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.2" />
+            {/* Risk mine */}
+            <polygon points={hexPoints(72, 96, 6)} fill={COLORS.virus} />
+            <polygon points={hexPoints(72, 96, 10)} fill="none" stroke={COLORS.virus} strokeWidth="1.4" opacity="0.6" />
           </g>
         </svg>
       </div>
@@ -271,14 +352,14 @@ export function HomeScreen({ onStart }) {
             maxWidth: 320,
             height: 60,
             border: 'none',
-            borderRadius: 14,
+            borderRadius: '18px 8px 18px 8px',
             fontSize: 20,
             fontWeight: 900,
             color: '#fff',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
-            background: `linear-gradient(180deg, ${COLORS.orangeLt} 0%, ${COLORS.orange} 100%)`,
-            boxShadow: '0 6px 22px rgba(242,101,34,0.45)',
+            background: `linear-gradient(135deg, ${COLORS.gold} 0%, ${COLORS.orange} 55%, ${COLORS.orangeDeep} 100%)`,
+            boxShadow: '0 8px 26px rgba(242,101,34,0.5)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -295,45 +376,111 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-/** One beat of the hold → swing → release loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
+/**
+ * Animation only (spec G2). A 4.2 s loop shows the real input — a finger that
+ * presses to grab, holds through the swing, and lifts at the top of the forward
+ * arc — driving the real outcome, in the game's own sprites and colours. The
+ * only text on the screen is the heading, three one-word labels, and the button.
+ */
+const DEMO_CSS = `
+@keyframes stsDFinger {
+  0%,42%    { transform: translate(78px,130px) scale(1); }
+  47%       { transform: translate(96px,116px) scale(0.92); }
+  70%       { transform: translate(198px,116px) scale(0.92); }
+  75%,100%  { transform: translate(216px,130px) scale(1); }
+}
+@keyframes stsDPress {
+  0%        { opacity: 0; transform: scale(0.3); }
+  6%        { opacity: 0.95; transform: scale(1); }
+  26%,72%   { opacity: 0; transform: scale(1.7); }
+  76%       { opacity: 0.95; transform: scale(1); }
+  96%,100%  { opacity: 0; transform: scale(1.7); }
+}
+@keyframes stsDSwingA {
+  0%,7%     { transform: rotate(-44deg); opacity: 1; }
+  22%       { transform: rotate(-22deg); }
+  32%       { transform: rotate(6deg); }
+  43%       { transform: rotate(34deg); opacity: 1; }
+  44%,100%  { transform: rotate(34deg); opacity: 0; }
+}
+@keyframes stsDFly {
+  0%,43%    { opacity: 0; transform: translate(0,0); }
+  45%       { opacity: 1; transform: translate(2px,-3px); }
+  58%       { opacity: 1; transform: translate(34px,-17px); }
+  72%       { opacity: 1; transform: translate(68px,4px); }
+  74%,100%  { opacity: 0; transform: translate(68px,4px); }
+}
+@keyframes stsDSwingB {
+  0%,73%    { opacity: 0; transform: rotate(-42deg); }
+  76%       { opacity: 1; transform: rotate(-42deg); }
+  92%       { opacity: 1; transform: rotate(-6deg); }
+  100%      { opacity: 1; transform: rotate(10deg); }
+}
+@keyframes stsDTetherA {
+  0%,4%     { stroke-dashoffset: 62; opacity: 0.4; }
+  9%,43%    { stroke-dashoffset: 0; opacity: 1; }
+  44%,100%  { stroke-dashoffset: 62; opacity: 0; }
+}
+@keyframes stsDTetherB {
+  0%,73%    { stroke-dashoffset: 62; opacity: 0; }
+  78%,100%  { stroke-dashoffset: 0; opacity: 1; }
+}
+@keyframes stsDSpark {
+  0%,43%    { opacity: 0; transform: translate(0,0) scale(0.6); }
+  48%       { opacity: 1; transform: translate(6px,-10px) scale(1); }
+  62%,100%  { opacity: 0; transform: translate(14px,-24px) scale(1); }
+}
+.sts-d-finger  { animation: stsDFinger 4.2s linear infinite; }
+.sts-d-press   { animation: stsDPress 4.2s linear infinite; transform-origin: 0 0; }
+.sts-d-swingA  { animation: stsDSwingA 4.2s linear infinite; transform-origin: 78px 44px; }
+.sts-d-swingB  { animation: stsDSwingB 4.2s linear infinite; transform-origin: 216px 52px; }
+.sts-d-fly     { animation: stsDFly 4.2s linear infinite; }
+.sts-d-tetherA { stroke-dasharray: 62; animation: stsDTetherA 4.2s linear infinite; }
+.sts-d-tetherB { stroke-dasharray: 62; animation: stsDTetherB 4.2s linear infinite; }
+.sts-d-spark   { animation: stsDSpark 4.2s linear infinite; }
+`;
+
+/** Finger glyph — the real input, not a description of it. */
+function FingerGlyph() {
+  return (
+    <g className="sts-d-finger">
+      <g className="sts-d-press">
+        <circle cx="0" cy="-16" r="13" fill="none" stroke={COLORS.orangeLt} strokeWidth="2.4" />
+      </g>
+      <path
+        d="M0 -16 V-2 M0 -2 c-7 0-11 4-11 10 v8 h22 v-9 c0-5-4-9-11-9z"
+        fill="rgba(4,9,28,0.85)" stroke={COLORS.goldLt} strokeWidth="2.6"
+        strokeLinecap="round" strokeLinejoin="round"
+      />
+    </g>
+  );
+}
+
+function DemoLabel({ children, icon }) {
   return (
     <div style={{
+      flex: 1,
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
+      gap: 5,
+      padding: '9px 4px',
+      borderRadius: '14px 5px 14px 5px',
       background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
+      border: '1px solid rgba(255,255,255,0.13)',
     }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: COLORS.orangeLt, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+      {icon}
+      <span style={{
+        fontSize: 9.5, fontWeight: 900, letterSpacing: '0.14em',
+        color: 'rgba(255,255,255,0.85)',
+      }}>
+        {children}
+      </span>
     </div>
   );
 }
 
 export function HowToPlayScreen({ onPlay }) {
-  const pylon = (
-    <>
-      <line x1="37" y1="0" x2="37" y2="14" stroke="rgba(143,185,245,0.5)" strokeWidth="1.4" />
-      <rect x="25" y="8" width="24" height="13" rx="5" fill="#1E6BE0" stroke="rgba(255,255,255,0.45)" strokeWidth="1.1" />
-    </>
-  );
-  const hero = (cx, cy) => (
-    <g transform={`translate(${cx},${cy})`}>
-      <rect x="-5" y="-5" width="10" height="13" rx="4" fill="#1E6BE0" />
-      <circle cx="0" cy="-9" r="5" fill="#F2C29B" />
-      <path d="M-5 -10 a5 5 0 0 1 10 0 z" fill="#003DA6" />
-    </g>
-  );
-
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -347,91 +494,129 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
-        background: 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221',
-        overflowY: 'auto',
+        padding: 18,
+        background: DUSK_BG,
+        overflow: 'hidden',
       }}
     >
-      <style dangerouslySetInnerHTML={{
-        __html: `${SCREEN_CSS}
-        .sts-beat    { animation: stsBeat1 3.6s ease-in-out infinite; transform-origin: 37px 46px; }
-        .sts-rope    { stroke-dasharray: 96; animation: stsRope 3.6s ease-in-out infinite; }
-        .sts-arc     { animation: stsArc 3.6s ease-in-out infinite; transform-origin: 37px 14px; }
-        .sts-flyaway { animation: stsFly 3.6s ease-in-out infinite; }`,
-      }} />
+      <style dangerouslySetInnerHTML={{ __html: `${SCREEN_CSS}${DEMO_CSS}` }} />
 
       <div style={{
-        background: 'rgba(11,18,33,0.72)',
-        border: '1px solid rgba(255,255,255,0.14)',
-        borderRadius: 24,
-        padding: '26px 20px 22px',
+        background: 'rgba(4,9,28,0.7)',
+        border: '1px solid rgba(255,255,255,0.15)',
+        borderRadius: '28px 10px 28px 10px',
+        padding: '22px 16px 18px',
         width: '100%',
         maxWidth: 360,
-        boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
+        boxShadow: '0 14px 44px rgba(0,0,0,0.5)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 16px 0', color: '#fff',
+          fontSize: 22, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.01em', margin: '0 0 12px 0', color: '#fff',
         }}>
           How to Play
         </h2>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-          <Beat n="1" title="Hold to grab" copy="Your rope snaps to the nearest protection pylon.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              {pylon}
-              <line className="sts-rope" x1="37" y1="14" x2="37" y2="46" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
-              {hero(37, 50)}
-              <circle className="sts-beat" cx="37" cy="46" r="13" fill="none" stroke={COLORS.orangeLt} strokeWidth="2.4" />
-            </svg>
-          </Beat>
+        {/* The demo. Everything the player needs to learn happens in here. */}
+        <div style={{
+          borderRadius: '20px 8px 20px 8px',
+          overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,0.1)',
+          background: 'linear-gradient(180deg,#04091C 0%,#0C2352 52%,#8C3B14 100%)',
+          marginBottom: 12,
+        }}>
+          <svg viewBox="0 0 300 176" width="100%" style={{ display: 'block' }} aria-hidden="true">
+            <ArtDefs id="d" />
 
-          <Beat n="2" title="Swing for speed" copy="Gravity builds momentum through the low point of the arc.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              {pylon}
-              <path d="M13 40 A26 26 0 0 0 61 40" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="1.6" strokeDasharray="3 4" />
-              <g className="sts-arc">
-                <line x1="37" y1="14" x2="37" y2="44" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
-                {hero(37, 48)}
-              </g>
-            </svg>
-          </Beat>
+            {/* Skyline floor so the demo shares the game's world. */}
+            {[[6, 138, 30], [50, 128, 26], [96, 146, 34], [150, 134, 28], [200, 148, 38], [252, 132, 30]].map(([tx, ty, tw]) => (
+              <path key={tx} d={`M${tx} 176 L${tx} ${ty + 8} L${tx + 8} ${ty} L${tx + tw - 8} ${ty} L${tx + tw} ${ty + 8} L${tx + tw} 176 Z`}
+                fill="#050D22" stroke="rgba(242,101,34,0.38)" strokeWidth="1" />
+            ))}
 
-          <Beat n="3" title="Release to fly" copy="Let go on the forward swing. Time it right for PERFECT +50.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              {pylon}
-              <g className="sts-arc">
-                <line x1="37" y1="14" x2="37" y2="44" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
-              </g>
-              <g className="sts-flyaway">
-                {hero(30, 40)}
-                <text x="42" y="26" fill={COLORS.gold} fontSize="9" fontWeight="800" fontFamily="'Plus Jakarta Sans', sans-serif">+50</text>
-              </g>
-            </svg>
-          </Beat>
+            {/* Beacons */}
+            <Beacon x={78} y={44} lit idPrefix="d" />
+            <Beacon x={216} y={52} lit idPrefix="d" />
+
+            {/* Beat 1+2 — grab and swing on the first beacon */}
+            <g className="sts-d-swingA">
+              <line className="sts-d-tetherA" x1="78" y1="44" x2="78" y2="102"
+                stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+              <Guardian x={78} y={110} idPrefix="d" />
+            </g>
+
+            {/* Beat 3 — release and fly */}
+            <g className="sts-d-fly">
+              <Guardian x={110} y={92} idPrefix="d" />
+            </g>
+            <g className="sts-d-spark" transform="translate(112,80)">
+              <polygon points={hexPoints(0, 0, 7)} fill="url(#dGold)" />
+              <path d="M-3 2 0-2.4 3 2" stroke={COLORS.goldDeep} strokeWidth="1.5"
+                strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </g>
+
+            {/* Loop close — grab the next beacon */}
+            <g className="sts-d-swingB">
+              <line className="sts-d-tetherB" x1="216" y1="52" x2="216" y2="110"
+                stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+              <Guardian x={216} y={118} idPrefix="d" />
+            </g>
+
+            <FingerGlyph />
+          </svg>
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Collect coins, dodge the green risk orbs, and reach the vault at{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.goalMeters.toLocaleString()} m</strong> before the clock runs out.
-        </p>
+        {/* Max three icon-led labels, one word each. */}
+        <div style={{ display: 'flex', gap: 7, marginBottom: 14 }}>
+          <DemoLabel icon={(
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLORS.goldLt}
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3v9M12 12c-4 0-6 2-6 5v3h12v-4c0-2.5-2-4-6-4z" />
+            </svg>
+          )}>
+            HOLD
+          </DemoLabel>
+          <DemoLabel icon={(
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLORS.brandBlueLt}
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 6a11 11 0 0 0 16 0" />
+              <path d="M12 3v3" />
+              <circle cx="12" cy="17" r="2.6" fill={COLORS.brandBlueLt} stroke="none" />
+            </svg>
+          )}>
+            SWING
+          </DemoLabel>
+          <DemoLabel icon={(
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLORS.orangeLt}
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 19 19 5" />
+              <path d="M13 5h6v6" />
+              <path d="M4 12 7 9" opacity="0.6" />
+            </svg>
+          )}>
+            RELEASE
+          </DemoLabel>
+        </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button
             onClick={onPlay}
             style={{
-              width: '100%', height: 52, border: 'none', borderRadius: 12,
+              width: '100%', height: 52, border: 'none',
+              borderRadius: '16px 7px 16px 7px',
               fontSize: 18, fontWeight: 900, color: '#fff',
-              textTransform: 'uppercase', letterSpacing: '0.05em',
-              background: `linear-gradient(180deg, ${COLORS.brandBlueLt} 0%, ${COLORS.brandBlue} 100%)`,
-              boxShadow: '0 4px 16px rgba(0,61,166,0.45)',
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              background: `linear-gradient(135deg, ${COLORS.gold} 0%, ${COLORS.orange} 60%, ${COLORS.orangeDeep} 100%)`,
+              boxShadow: '0 6px 22px rgba(242,101,34,0.45)',
               cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            Play Game
+            <PlayIcon size={18} />
+            <span>Play</span>
           </button>
         </motion.div>
       </div>
@@ -445,9 +630,9 @@ function StatTile({ label, value, accent }) {
     <div style={{
       flex: 1,
       padding: '10px 6px',
-      borderRadius: 14,
+      borderRadius: '14px 5px 14px 5px',
       background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
+      border: '1px solid rgba(255,255,255,0.13)',
       textAlign: 'center',
     }}>
       <div style={{ fontSize: 19, fontWeight: 900, color: accent, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
@@ -511,8 +696,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   const radius = 75;
   const circumference = 2 * Math.PI * radius;
   const progress = (Math.min(score, RESULT_TARGET_SCORE) / RESULT_TARGET_SCORE) * circumference;
-  const strokeColor = won ? COLORS.green : score < 500 ? COLORS.danger : COLORS.gold;
-  const glowColor = won ? 'rgba(40,167,69,0.45)' : score < 500 ? 'rgba(239,68,68,0.4)' : 'rgba(255,200,69,0.4)';
+  const strokeColor = won ? COLORS.green : score < 500 ? COLORS.virus : COLORS.gold;
+  const glowColor = won ? 'rgba(40,167,69,0.45)' : score < 500 ? 'rgba(255,59,78,0.4)' : 'rgba(255,176,32,0.45)';
 
   return (
     <motion.div
@@ -528,7 +713,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         alignItems: 'center',
         padding: '34px 20px 24px',
         overflowY: 'auto',
-        background: 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221',
+        background: DUSK_BG,
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -539,17 +724,17 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 9,
           padding: '7px 16px', borderRadius: 999,
-          background: won ? 'rgba(40,167,69,0.22)' : 'rgba(239,68,68,0.18)',
-          border: `1px solid ${won ? 'rgba(40,167,69,0.5)' : 'rgba(239,68,68,0.45)'}`,
+          background: won ? 'rgba(40,167,69,0.22)' : 'rgba(255,59,78,0.18)',
+          border: `1px solid ${won ? 'rgba(40,167,69,0.5)' : 'rgba(255,59,78,0.45)'}`,
           marginBottom: 10,
         }}>
-          {won ? <TrophyIcon size={20} /> : <RopeCutIcon size={20} />}
+          {won ? <VaultIcon size={20} /> : <TetherSnapIcon size={20} />}
           <span style={{ fontSize: 13, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {won ? 'Vault secured' : 'Run ended'}
           </span>
         </div>
         <p style={{ color: '#fff', fontSize: 21, fontWeight: 900, lineHeight: 1.25, margin: 0 }}>
-          Hi <span style={{ color: COLORS.brandBlueLt }}>{leadName || 'Friend'}!</span>{' '}
+          Hi <span style={{ color: COLORS.gold }}>{leadName || 'Friend'}!</span>{' '}
           <span style={{ color: 'rgba(255,255,255,0.85)' }}>Here&rsquo;s your run.</span>
         </p>
       </div>
@@ -566,6 +751,10 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
               strokeDashoffset={circumference - progress}
               style={{ filter: `drop-shadow(0 0 8px ${glowColor})`, transition: 'stroke-dashoffset 1.2s ease-out' }}
             />
+          </svg>
+          {/* Hex inlay behind the number keeps the ring on-motif. */}
+          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox="0 0 200 200" aria-hidden="true">
+            <polygon points={hexPoints(100, 100, 56)} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
           </svg>
           <div style={{
             position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
@@ -584,7 +773,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
       {/* Run stats */}
       <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 12, zIndex: 2 }}>
         <StatTile label="Distance" value={`${distance.toLocaleString()}m`} accent={COLORS.brandBlueLt} />
-        <StatTile label="Coins" value={coins} accent={COLORS.gold} />
+        <StatTile label="Chips" value={coins} accent={COLORS.gold} />
         <StatTile label="Milestones" value={`${milestonesHit}/${GAME_CONFIG.milestones.length}`} accent={COLORS.green} />
       </div>
 
@@ -601,15 +790,22 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
               className="sts-chip"
               style={{
                 animationDelay: `${180 + i * 90}ms`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
                 fontSize: 10.5,
                 fontWeight: 800,
                 padding: '5px 11px',
-                borderRadius: 999,
+                borderRadius: '10px 4px 10px 4px',
                 color: hit ? '#fff' : 'rgba(255,255,255,0.4)',
                 background: hit ? 'rgba(40,167,69,0.85)' : 'rgba(255,255,255,0.05)',
                 border: `1px solid ${hit ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)'}`,
               }}
             >
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M7 4l8 8-8 8" />
+              </svg>
               {ms.label}
             </span>
           );
@@ -620,10 +816,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         onClick={handleShare}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          background: COLORS.brandBlueLt, color: '#fff', fontWeight: 900,
-          height: 50, borderRadius: 12, border: 'none', cursor: 'pointer',
+          background: `linear-gradient(135deg, ${COLORS.brandBlueLt}, ${COLORS.brandBlue})`,
+          color: '#fff', fontWeight: 900,
+          height: 50, borderRadius: '16px 7px 16px 7px', border: 'none', cursor: 'pointer',
           fontSize: 17, textTransform: 'uppercase', letterSpacing: '0.05em',
-          boxShadow: '0 4px 18px rgba(30,107,224,0.4)',
+          boxShadow: '0 6px 20px rgba(44,123,239,0.4)',
           width: '100%', maxWidth: 300, marginBottom: 18, zIndex: 2,
         }}
       >
@@ -637,8 +834,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         background: 'rgba(255,255,255,0.05)',
         WebkitBackdropFilter: 'blur(12px)',
         backdropFilter: 'blur(12px)',
-        borderRadius: 22, padding: '18px 16px',
-        border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: '24px 10px 24px 10px', padding: '18px 16px',
+        border: '1px solid rgba(255,255,255,0.13)',
         textAlign: 'center', marginBottom: 16, zIndex: 2,
       }}>
         <p style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.35, margin: '0 0 16px 0' }}>
@@ -651,11 +848,12 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
               onClick={onBookSlot}
               style={{
                 width: '100%',
-                background: `linear-gradient(180deg, ${COLORS.orangeLt} 0%, ${COLORS.orange} 100%)`,
-                color: '#fff', fontWeight: 900, padding: '15px 20px', borderRadius: 12,
+                background: `linear-gradient(135deg, ${COLORS.gold} 0%, ${COLORS.orange} 60%, ${COLORS.orangeDeep} 100%)`,
+                color: '#fff', fontWeight: 900, padding: '15px 20px',
+                borderRadius: '16px 7px 16px 7px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 fontSize: 17, border: 'none', cursor: 'pointer', textTransform: 'uppercase',
-                boxShadow: '0 4px 16px rgba(242,101,34,0.35)',
+                boxShadow: '0 6px 20px rgba(242,101,34,0.38)',
               }}
             >
               <CalendarIcon size={18} />
@@ -668,7 +866,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
               href={`tel:${empPhone}`}
               style={{
                 background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: 900,
-                padding: '14px 20px', borderRadius: 12,
+                padding: '14px 20px', borderRadius: '16px 7px 16px 7px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 fontSize: 16, textDecoration: 'none', textTransform: 'uppercase',
                 border: '1px solid rgba(255,255,255,0.18)',
@@ -686,7 +884,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         <button
           onClick={onRetry}
           style={{
-            flex: 2, height: 48, borderRadius: 12, cursor: 'pointer',
+            flex: 2, height: 48, borderRadius: '14px 6px 14px 6px', cursor: 'pointer',
             background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
             color: '#fff', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -698,7 +896,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         <button
           onClick={onHome}
           style={{
-            flex: 1, height: 48, borderRadius: 12, cursor: 'pointer',
+            flex: 1, height: 48, borderRadius: '14px 6px 14px 6px', cursor: 'pointer',
             background: 'transparent', border: '1px solid rgba(255,255,255,0.18)',
             color: 'rgba(255,255,255,0.72)', fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,

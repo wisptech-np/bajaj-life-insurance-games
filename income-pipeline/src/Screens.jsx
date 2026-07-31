@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { GAME_CONFIG, RESULT_TARGET_SCORE, TOTAL_TANKS } from './data.js';
+import { RESULT_TARGET_SCORE, TOTAL_TANKS } from './data.js';
 
 const GAME_TITLE = 'Income Pipeline';
 
@@ -351,29 +351,79 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-/** One beat of the turn - route - seal loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
+/**
+ * Animation-first tutorial. One looping SVG demo of the real loop: a wrongly
+ * turned elbow leaks the salary away, a finger taps it, the tile spins a
+ * quarter turn clockwise, the route closes and the money runs into the tank.
+ * Same tile/casing/flow drawing language the canvas uses.
+ */
+const IP_TUT_CSS = `
+@keyframes ipTutRot {
+  0%, 22% { transform: rotate(0deg); }
+  34%, 94% { transform: rotate(90deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes ipTutFinger {
+  0%   { opacity: 0; transform: translate(0px, 16px); }
+  8%   { opacity: 1; transform: translate(0px, 9px); }
+  18%  { opacity: 1; transform: translate(0px, 0px); }
+  27%  { opacity: 1; transform: translate(0px, 7px); }
+  38%  { opacity: 0; transform: translate(0px, 12px); }
+  100% { opacity: 0; transform: translate(0px, 12px); }
+}
+@keyframes ipTutRipple {
+  0%, 17% { opacity: 0; transform: scale(0.25); }
+  23% { opacity: 0.95; transform: scale(1); }
+  34%, 100% { opacity: 0; transform: scale(1.6); }
+}
+@keyframes ipTutLeak {
+  0%, 24% { opacity: 1; }
+  30%, 95% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes ipTutFlow {
+  0%, 36% { stroke-dashoffset: 250; opacity: 1; }
+  72%, 92% { stroke-dashoffset: 0; opacity: 1; }
+  97%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+@keyframes ipTutTank {
+  0%, 62% { transform: scaleY(0); }
+  82%, 93% { transform: scaleY(1); }
+  98%, 100% { transform: scaleY(0); }
+}
+.ip-tut-rot    { transform-origin: 0 0; animation: ipTutRot 4.6s cubic-bezier(0.34,1.56,0.64,1) infinite; }
+.ip-tut-finger { transform-box: fill-box; animation: ipTutFinger 4.6s ease-in-out infinite; }
+.ip-tut-ripple { transform-origin: 0 0; animation: ipTutRipple 4.6s ease-out infinite; }
+.ip-tut-leak   { animation: ipTutLeak 4.6s steps(1,end) infinite; }
+.ip-tut-flow   { stroke-dasharray: 250; animation: ipTutFlow 4.6s linear infinite; }
+.ip-tut-tank   { transform-box: fill-box; transform-origin: bottom; animation: ipTutTank 4.6s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ip-tut-rot, .ip-tut-finger, .ip-tut-ripple, .ip-tut-leak, .ip-tut-flow, .ip-tut-tank { animation: none !important; }
+}
+`;
+
+/** Icon-led label under the demo. Max three, max four words each. */
+function TutLabel({ icon, children }) {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      {icon}
+      <span style={{
+        fontSize: 9.5,
+        fontWeight: 900,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.82)',
+        lineHeight: 1.15,
+        textAlign: 'center',
+      }}>
+        {children}
+      </span>
     </div>
   );
 }
+
+/** The finished salary → tank route, used for the casing, the pipe and the money. */
+const TUT_ROUTE = 'M40 122 H126 V62 H214';
 
 export function HowToPlayScreen({ onPlay }) {
   return (
@@ -389,18 +439,18 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
-      <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: IP_TUT_CSS }} />
 
       <div style={{
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '22px 18px 20px',
         width: '100%',
         maxWidth: 360,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
@@ -409,88 +459,106 @@ export function HowToPlayScreen({ onPlay }) {
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 14px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Tap a pipe to turn it &middot; Link Salary to every tank &middot; Close the open ends first
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Tap to turn" copy="Each tap rotates one pipe tile a quarter turn clockwise. Cross junctions are fixed.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <rect x="18" y="10" width="38" height="38" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.16)" strokeWidth="0.8" />
-              <g className="ip-spin">
-                <path d="M37 29 V11 M37 29 H55" stroke={CASING} strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                <path d="M37 29 V11 M37 29 H55" stroke={PIPE} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              </g>
-              <path d="M22 54a8 8 0 1 0 0-11" stroke={ORANGE_LT} strokeWidth="2.2" fill="none" strokeLinecap="round" />
-              <path d="M22 38v6h6" stroke={ORANGE_LT} strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Beat>
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          borderRadius: 16,
+          background: 'linear-gradient(180deg, #0A1E42 0%, #061229 100%)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          overflow: 'hidden',
+          marginBottom: 16,
+        }}>
+          <svg width="100%" viewBox="0 0 300 186" aria-hidden="true" style={{ display: 'block' }}>
+            {/* Tile wells — the same rounded cells the board draws. */}
+            {[0, 1, 2, 3].map((c) => (
+              <React.Fragment key={c}>
+                <rect x={44 + c * 56} y={38} width={48} height={48} rx="10"
+                  fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.9" />
+                <rect x={44 + c * 56} y={98} width={48} height={48} rx="10"
+                  fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.9" />
+              </React.Fragment>
+            ))}
 
-          <Beat n="2" title="Reach every tank" copy="Money flows the instant the last tank connects, and banks the seconds you saved.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <rect x="2" y="21" width="9" height="16" rx="3" fill={ORANGE} />
-              <path d="M40 29 H55" stroke={CASING} strokeWidth="11" strokeLinecap="round" fill="none" />
-              <path d="M40 29 H55" stroke={PIPE} strokeWidth="6" strokeLinecap="round" fill="none" />
-              <path d="M11 29 H40 V13 H55" stroke={CASING} strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M11 29 H40 V13 H55" stroke={PIPE} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path className="ip-fill" d="M11 29 H40 V13 H55" stroke={GOLD} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <rect x="55" y="4" width="15" height="19" rx="3.5" fill="rgba(255,255,255,0.07)" stroke="#3B8DD4" strokeWidth="1.2" />
-              <rect x="57" y="13" width="11" height="8" rx="1.6" fill="#9FD0FF" />
-              <rect x="55" y="21" width="15" height="19" rx="3.5" fill="rgba(255,255,255,0.07)" stroke="#1E6BE0" strokeWidth="1.2" />
-            </svg>
-          </Beat>
+            {/* Salary tap on the left edge. */}
+            <rect x="14" y="106" width="22" height="32" rx="6" fill={ORANGE} stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" />
+            <circle cx="25" cy="99" r="6" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.2" />
 
-          <Beat n="3" title="Seal the leaks" copy="Every open pipe end on the live route sprays income away at -25 each.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <path d="M6 31 H44" stroke={CASING} strokeWidth="11" strokeLinecap="round" fill="none" />
-              <path d="M6 31 H44" stroke={GOLD} strokeWidth="6" strokeLinecap="round" fill="none" />
-              <g className="ip-spray" stroke={DANGER} strokeWidth="2.4" strokeLinecap="round" fill="none">
-                <path d="M48 30 L60 21" />
-                <path d="M48 33 L63 33" />
-                <path d="M48 36 L60 45" />
+            {/* Goal tank on the right edge. */}
+            <rect x="214" y="40" width="34" height="44" rx="7" fill="rgba(255,255,255,0.06)" stroke={BLUE_LT} strokeWidth="1.6" />
+            <rect className="ip-tut-tank" x="218" y="48" width="26" height="32" rx="4" fill="#7FB6FF" />
+
+            {/* Casing + pipe for the two tiles that are already correct. */}
+            <g stroke={CASING} strokeWidth="15" strokeLinecap="round" strokeLinejoin="round" fill="none">
+              <path d="M40 122 H126 V70" />
+              <path d="M126 62 H214" />
+            </g>
+            <g stroke={PIPE} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none">
+              <path d="M40 122 H126 V70" />
+              <path d="M126 62 H214" />
+            </g>
+
+            {/* The wrong tile: an elbow pointing north + east, so the route dies. */}
+            <g transform="translate(126 62)">
+              <g className="ip-tut-rot">
+                <path d="M0 0 V-26 M0 0 H26" stroke={CASING} strokeWidth="15" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <path d="M0 0 V-26 M0 0 H26" stroke={PIPE} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               </g>
-              <g className="ip-seal">
-                <path d="M40 31 H58 V15" stroke={CASING} strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                <path d="M40 31 H58 V15" stroke={GREEN_LT} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <circle className="ip-tut-ripple" r="26" fill="none" stroke={ORANGE_LT} strokeWidth="2.6" />
+            </g>
+
+            {/* Leak: the live route ends in mid-air and sprays income away. */}
+            <g className="ip-tut-leak" stroke={DANGER} strokeWidth="3" strokeLinecap="round" fill="none">
+              <path d="M118 78 L102 66" />
+              <path d="M126 76 L126 58" />
+              <path d="M134 78 L150 66" />
+            </g>
+
+            {/* Money running the finished route. */}
+            <path className="ip-tut-flow" d={TUT_ROUTE} stroke={GOLD} strokeWidth="5.5"
+              strokeLinecap="round" strokeLinejoin="round" fill="none" />
+
+            {/* The real input: a finger tapping that tile. */}
+            <g transform="translate(126 62)">
+              <g className="ip-tut-finger">
+                <g transform="translate(-4 6) scale(1.55)">
+                  <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+                  <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+                  <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+                  <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+                </g>
               </g>
-            </svg>
-          </Beat>
+            </g>
+          </svg>
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 14px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.levels.length} boards</strong>, one payday clock each.
-          Tank filled <strong style={{ color: GREEN_LT }}>+{GAME_CONFIG.scoring.tankFilled}</strong> &middot;
-          leak <strong style={{ color: DANGER }}>&minus;{GAME_CONFIG.scoring.leakPenalty}</strong> &middot;
-          early finish <strong style={{ color: ORANGE_LT }}>+{GAME_CONFIG.scoring.earlyBonusPerSecond}</strong> a second.
-          Fill all <strong style={{ color: '#fff' }}>{TOTAL_TANKS}</strong> tanks to win.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {GAME_CONFIG.levels.map((l, i) => (
-            <span
-              key={l.id}
-              className="ip-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: GOLD_LT,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {l.cols}&times;{l.rows} &middot; {l.tanks} tank{l.tanks > 1 ? 's' : ''} &middot; {l.timerSeconds}s
-            </span>
-          ))}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <path d="M13 13 V4 M13 13 H22" stroke={PIPE} strokeWidth="4.4" strokeLinecap="round" />
+              <path d="M5 21a6 6 0 1 0 0-8.5" stroke={ORANGE_LT} strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M5 11v4h4" stroke={ORANGE_LT} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          }>Tap to turn</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <path d="M2 13 H14" stroke={GOLD} strokeWidth="4" strokeLinecap="round" />
+              <rect x="15" y="5" width="9" height="16" rx="2.5" fill="rgba(255,255,255,0.1)" stroke={BLUE_LT} strokeWidth="1.6" />
+              <rect x="17" y="11" width="5" height="8" rx="1.2" fill="#7FB6FF" />
+            </svg>
+          }>Fill every tank</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <path d="M2 11 H15 V21" stroke={CASING} strokeWidth="7.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 11 H15 V21" stroke={GREEN_LT} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M19 6 L24 11 M24 6 L19 11" stroke={DANGER} strokeWidth="2.4" strokeLinecap="round" />
+            </svg>
+          }>Seal the leaks</TutLabel>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
@@ -505,7 +573,7 @@ export function HowToPlayScreen({ onPlay }) {
               cursor: 'pointer',
             }}
           >
-            Play Game
+            Play
           </button>
         </motion.div>
       </div>

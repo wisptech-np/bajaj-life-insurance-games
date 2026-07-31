@@ -1190,7 +1190,7 @@ body,
   width: 100%;
   max-width: 340px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  border: 5px solid #31CDEC;
+  border: 5px solid #1E6BE0;
   position: relative;
   text-align: center;
   box-sizing: border-box;
@@ -1216,7 +1216,7 @@ body,
   font-family: var(--ls-font);
   font-size: 14px;
   font-weight: 700;
-  color: #9CA3AF;
+  color: #5B6472;
   margin: 0;
 }
 
@@ -1259,11 +1259,12 @@ body,
 }
 
 .sl-lead-input::placeholder {
-  color: #CBD5E1;
+  /* #CBD5E1 measured 1.42:1 on the #F9FAFB field — invisible in daylight. */
+  color: #6B7280;
 }
 
 .sl-lead-input:focus {
-  border-color: #31CDEC;
+  border-color: #1E6BE0;
 }
 
 .sl-lead-input.has-error {
@@ -1272,7 +1273,8 @@ body,
 
 .sl-error-text {
   font-family: var(--ls-font);
-  color: #EF4444;
+  /* #EF4444 on white is 3.76:1 — under AA for 10px text. */
+  color: #C22B2B;
   font-size: 10px;
   font-weight: 900;
   margin-left: 4px;
@@ -1304,8 +1306,8 @@ body,
 }
 
 .sl-lead-checkbox.checked {
-  background-color: #31CDEC;
-  border-color: #31CDEC;
+  background-color: #1E6BE0;
+  border-color: #1E6BE0;
 }
 
 .sl-lead-checkbox.has-error {
@@ -1329,7 +1331,7 @@ body,
 }
 
 .sl-lead-consent-link {
-  color: #31CDEC;
+  color: #1E6BE0;
   text-decoration: underline;
   font-weight: 900;
   cursor: pointer;
@@ -1337,12 +1339,12 @@ body,
 }
 
 .sl-lead-consent-link:hover {
-  color: #00B4D8;
+  color: #002E7D;
 }
 
 .sl-lead-submit {
   width: 100%;
-  background: linear-gradient(135deg, #31CDEC 0%, #0096C7 100%);
+  background: linear-gradient(135deg, #1E6BE0 0%, #003DA6 100%);
   color: #ffffff;
   font-family: var(--ls-font);
   font-weight: 900;
@@ -1350,7 +1352,7 @@ body,
   padding: 16px;
   border-radius: 16px;
   border: none;
-  box-shadow: 0 8px 16px rgba(49, 205, 236, 0.3);
+  box-shadow: 0 8px 16px rgba(30, 107, 224, 0.32);
   cursor: pointer;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -1394,7 +1396,7 @@ body,
   width: 100%;
   max-width: 340px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  border: 5px solid #31CDEC;
+  border: 5px solid #1E6BE0;
   position: relative;
   z-index: 201;
   text-align: center;
@@ -1465,8 +1467,8 @@ body,
   border: none;
   cursor: pointer;
   margin-top: 32px;
-  box-shadow: 0 8px 16px rgba(49, 205, 236, 0.3);
-  background: linear-gradient(135deg, #31CDEC 0%, #0096C7 100%);
+  box-shadow: 0 8px 16px rgba(30, 107, 224, 0.32);
+  background: linear-gradient(135deg, #1E6BE0 0%, #003DA6 100%);
   transition: all 0.2s ease;
 }
 

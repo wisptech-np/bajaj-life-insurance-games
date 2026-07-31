@@ -3,6 +3,7 @@
 // Pure canvas rendering (no emoji sprites) · rAF + delta time · DPR-aware · touch-first.
 import React, { useEffect, useRef, useState } from 'react';
 import { ASSETS, ASSET_KEYS, SHAPES, GAME_CONFIG } from './data.js';
+import { ASSET_ICONS, CoinsIcon, ClockIcon, FlameIcon } from './icons.jsx';
 
 /* ─────────────────────────────────────────────────────────────
    Web Audio synth SFX (no audio files). Lazy AudioContext.
@@ -66,135 +67,307 @@ function rr(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-/* Per-asset vector glyphs drawn inside blocks (colorblind-friendly, no emoji). */
-function drawGlyph(ctx, asset, x, y, s) {
-  if (s < 16) return;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-  ctx.fillStyle = 'rgba(255,255,255,0.42)';
-  ctx.lineWidth = Math.max(1.4, s * 0.07);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+/* ─────────────────────────────────────────────────────────────
+   ONE PIECE = ONE SILHOUETTE
+   A polyomino is traced into closed boundary loops (cell units), so a piece
+   is drawn as a single continuous rounded shape with a single gradient — no
+   internal seams between its own cells. Loops are cached per cell-set.
+   ───────────────────────────────────────────────────────────── */
+const OUTLINE_CACHE = new Map();
+
+function outlineOf(cells) {
+  let key = '';
+  for (let i = 0; i < cells.length; i++) key += cells[i][0] + ':' + cells[i][1] + '|';
+  const hit = OUTLINE_CACHE.get(key);
+  if (hit) return hit;
+
+  const has = new Set();
+  for (let i = 0; i < cells.length; i++) has.add(cells[i][0] + ':' + cells[i][1]);
+
+  // Directed boundary edges, clockwise in screen space (x = col, y = row).
+  // Vertices can carry more than one outgoing edge on a diagonal pinch, so
+  // store a list and consume it during the walk.
+  const out = new Map();
+  const push = (x1, y1, x2, y2) => {
+    const k = x1 + ',' + y1;
+    const list = out.get(k);
+    if (list) list.push(x2, y2);
+    else out.set(k, [x2, y2]);
+  };
+  for (let i = 0; i < cells.length; i++) {
+    const r = cells[i][0];
+    const c = cells[i][1];
+    if (!has.has(r - 1 + ':' + c)) push(c, r, c + 1, r);
+    if (!has.has(r + ':' + (c + 1))) push(c + 1, r, c + 1, r + 1);
+    if (!has.has(r + 1 + ':' + c)) push(c + 1, r + 1, c, r + 1);
+    if (!has.has(r + ':' + (c - 1))) push(c, r + 1, c, r);
+  }
+
+  let remaining = 0;
+  out.forEach((l) => { remaining += l.length / 2; });
+
+  const loops = [];
+  while (remaining > 0) {
+    // Find any vertex that still has an unconsumed outgoing edge.
+    let startKey = null;
+    for (const [k, l] of out) { if (l.length) { startKey = k; break; } }
+    if (!startKey) break;
+
+    const raw = [];
+    let cur = startKey;
+    const cap = remaining + 2; // fixed bound: `remaining` shrinks inside the walk
+    for (let guard = 0; guard <= cap; guard++) {
+      const list = out.get(cur);
+      if (!list || !list.length) break;
+      const ny = list.pop();
+      const nx = list.pop();
+      remaining -= 1;
+      const p = cur.split(',');
+      raw.push([+p[0], +p[1]]);
+      const nk = nx + ',' + ny;
+      if (nk === startKey) break;
+      cur = nk;
+    }
+
+    // Drop collinear vertices so the corner rounding only fires at real corners.
+    const pts = [];
+    const n = raw.length;
+    for (let i = 0; i < n; i++) {
+      const a = raw[(i - 1 + n) % n];
+      const b = raw[i];
+      const d = raw[(i + 1) % n];
+      if ((b[0] - a[0]) * (d[1] - b[1]) - (b[1] - a[1]) * (d[0] - b[0]) !== 0) pts.push(b);
+    }
+    if (pts.length >= 4) loops.push(pts);
+  }
+
+  if (OUTLINE_CACHE.size > 400) OUTLINE_CACHE.clear();
+  OUTLINE_CACHE.set(key, loops);
+  return loops;
+}
+
+// Scratch buffers — keep the hot draw loop allocation-free.
+const _vx = new Float64Array(512);
+const _drawOpts = { alpha: 1, glow: 0, sheen: -1 };
+const ONE_CELL = [[0, 0]];
+
+/* Builds the rounded, inset silhouette path for a set of boundary loops.
+   `inset` shrinks the shape uniformly (rectilinear inset: a vertex moves along
+   the sum of its two edge normals), which is what puts an even gutter between
+   neighbouring pieces without breaking grid alignment. */
+function piecePath(ctx, loops, ox, oy, cell, inset, radius) {
+  ctx.beginPath();
+  for (let li = 0; li < loops.length; li++) {
+    const pts = loops[li];
+    const n = pts.length;
+    if (n < 4 || n * 2 > _vx.length) continue;
+
+    for (let i = 0; i < n; i++) {
+      const p = pts[(i - 1 + n) % n];
+      const q = pts[i];
+      const s = pts[(i + 1) % n];
+      const e1x = Math.sign(q[0] - p[0]);
+      const e1y = Math.sign(q[1] - p[1]);
+      const e2x = Math.sign(s[0] - q[0]);
+      const e2y = Math.sign(s[1] - q[1]);
+      _vx[i * 2] = ox + q[0] * cell + (-e1y - e2y) * inset;
+      _vx[i * 2 + 1] = oy + q[1] * cell + (e1x + e2x) * inset;
+    }
+
+    const X = (i) => _vx[(((i % n) + n) % n) * 2];
+    const Y = (i) => _vx[(((i % n) + n) % n) * 2 + 1];
+
+    ctx.moveTo((X(0) + X(1)) / 2, (Y(0) + Y(1)) / 2);
+    for (let i = 1; i <= n; i++) {
+      const cx = X(i);
+      const cy = Y(i);
+      const d1 = Math.hypot(cx - X(i - 1), cy - Y(i - 1));
+      const d2 = Math.hypot(X(i + 1) - cx, Y(i + 1) - cy);
+      ctx.arcTo(cx, cy, (cx + X(i + 1)) / 2, (cy + Y(i + 1)) / 2, Math.min(radius, d1 / 2, d2 / 2));
+    }
+    ctx.closePath();
+  }
+}
+
+/* Per-asset face glyph — same geometry as the SVG set in icons.jsx, mapped
+   into a unit box then scaled to the cell. Stroke only, so it stays legible
+   when the cell shrinks. */
+function gM(ctx, s, x, y) { ctx.moveTo(x * s, y * s); }
+function gL(ctx, s, x, y) { ctx.lineTo(x * s, y * s); }
+
+function glyphPath(ctx, asset, s) {
   if (asset === 'equity') {
-    // Rising market arrow
     ctx.beginPath();
-    ctx.moveTo(s * 0.24, s * 0.68);
-    ctx.lineTo(s * 0.44, s * 0.5);
-    ctx.lineTo(s * 0.55, s * 0.58);
-    ctx.lineTo(s * 0.75, s * 0.36);
+    gM(ctx, s, 0.20, 0.68); gL(ctx, s, 0.41, 0.47); gL(ctx, s, 0.53, 0.59); gL(ctx, s, 0.81, 0.30);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(s * 0.62, s * 0.34);
-    ctx.lineTo(s * 0.77, s * 0.34);
-    ctx.lineTo(s * 0.77, s * 0.49);
+    gM(ctx, s, 0.59, 0.30); gL(ctx, s, 0.81, 0.30); gL(ctx, s, 0.81, 0.52);
     ctx.stroke();
   } else if (asset === 'debt') {
-    // Ledger bars
     ctx.beginPath();
-    ctx.moveTo(s * 0.28, s * 0.38); ctx.lineTo(s * 0.72, s * 0.38);
-    ctx.moveTo(s * 0.28, s * 0.52); ctx.lineTo(s * 0.64, s * 0.52);
-    ctx.moveTo(s * 0.28, s * 0.66); ctx.lineTo(s * 0.72, s * 0.66);
+    rrUnit(ctx, 0.16, 0.29, 0.68, 0.42, 0.11, s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0.5 * s, 0.5 * s, 0.115 * s, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    gM(ctx, s, 0.28, 0.41); gL(ctx, s, 0.28, 0.59);
+    gM(ctx, s, 0.72, 0.41); gL(ctx, s, 0.72, 0.59);
     ctx.stroke();
   } else if (asset === 'gold') {
-    // Ingot trapezoid
     ctx.beginPath();
-    ctx.moveTo(s * 0.32, s * 0.4);
-    ctx.lineTo(s * 0.68, s * 0.4);
-    ctx.lineTo(s * 0.78, s * 0.64);
-    ctx.lineTo(s * 0.22, s * 0.64);
+    gM(ctx, s, 0.38, 0.28); gL(ctx, s, 0.62, 0.28); gL(ctx, s, 0.69, 0.45); gL(ctx, s, 0.31, 0.45);
     ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(s * 0.36, s * 0.46); ctx.lineTo(s * 0.64, s * 0.46);
+    gM(ctx, s, 0.21, 0.55); gL(ctx, s, 0.45, 0.55); gL(ctx, s, 0.52, 0.72); gL(ctx, s, 0.14, 0.72);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    gM(ctx, s, 0.55, 0.55); gL(ctx, s, 0.79, 0.55); gL(ctx, s, 0.86, 0.72); gL(ctx, s, 0.48, 0.72);
+    ctx.closePath();
     ctx.stroke();
   } else if (asset === 'insurance') {
-    // Shield with check
     ctx.beginPath();
-    ctx.moveTo(s * 0.5, s * 0.24);
-    ctx.lineTo(s * 0.72, s * 0.34);
-    ctx.lineTo(s * 0.72, s * 0.5);
-    ctx.quadraticCurveTo(s * 0.72, s * 0.68, s * 0.5, s * 0.78);
-    ctx.quadraticCurveTo(s * 0.28, s * 0.68, s * 0.28, s * 0.5);
-    ctx.lineTo(s * 0.28, s * 0.34);
+    gM(ctx, s, 0.50, 0.18); gL(ctx, s, 0.79, 0.30); gL(ctx, s, 0.79, 0.52);
+    ctx.bezierCurveTo(0.79 * s, 0.68 * s, 0.66 * s, 0.78 * s, 0.50 * s, 0.84 * s);
+    ctx.bezierCurveTo(0.34 * s, 0.78 * s, 0.21 * s, 0.68 * s, 0.21 * s, 0.52 * s);
+    gL(ctx, s, 0.21, 0.30);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.fill();
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(s * 0.4, s * 0.5);
-    ctx.lineTo(s * 0.47, s * 0.58);
-    ctx.lineTo(s * 0.62, s * 0.4);
+    gM(ctx, s, 0.37, 0.50); gL(ctx, s, 0.47, 0.60); gL(ctx, s, 0.65, 0.40);
     ctx.stroke();
   }
+}
+
+function rrUnit(ctx, x, y, w, h, r, s) {
+  const rad = Math.min(r, w / 2, h / 2) * s;
+  const X = x * s;
+  const Y = y * s;
+  const W = w * s;
+  const H = h * s;
+  ctx.moveTo(X + rad, Y);
+  ctx.arcTo(X + W, Y, X + W, Y + H, rad);
+  ctx.arcTo(X + W, Y + H, X, Y + H, rad);
+  ctx.arcTo(X, Y + H, X, Y, rad);
+  ctx.arcTo(X, Y, X + W, Y, rad);
+  ctx.closePath();
+}
+
+function drawGlyph(ctx, asset, x, y, s) {
+  if (s < 15) return;
+  ctx.save();
+  ctx.lineWidth = Math.max(1.3, s * 0.082);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // engraved shadow
+  ctx.translate(x, y + Math.max(0.6, s * 0.028));
+  ctx.strokeStyle = 'rgba(0,0,0,0.26)';
+  glyphPath(ctx, asset, s);
+  // light face
+  ctx.translate(0, -Math.max(0.6, s * 0.028));
+  ctx.strokeStyle = 'rgba(255,255,255,0.62)';
+  glyphPath(ctx, asset, s);
   ctx.restore();
 }
 
-/* One asset block. `sheen` is a 0..1 phase used for the insurance shield sheen. */
-function drawBlock(ctx, asset, x, y, size, opts = {}) {
+/* Draws a whole piece (or a whole board component) as ONE solid object:
+   unified rounded silhouette · single top-to-bottom gradient · inner rim
+   light · bottom depth shade · engraved icon face per cell. */
+function drawPiece(ctx, asset, cells, ox, oy, cell, opts = {}) {
   const a = ASSETS[asset];
-  if (!a) return;
+  if (!a || !cells.length) return;
   const { alpha = 1, glow = 0, sheen = -1, glyph = true } = opts;
-  const gap = Math.max(1.5, size * 0.06);
-  const bx = x + gap / 2;
-  const by = y + gap / 2;
-  const bs = size - gap;
-  const rad = bs * 0.22;
+
+  const loops = outlineOf(cells);
+  if (!loops.length) return;
+
+  let minR = Infinity;
+  let maxR = -Infinity;
+  let minC = Infinity;
+  let maxC = -Infinity;
+  for (let i = 0; i < cells.length; i++) {
+    const r = cells[i][0];
+    const c = cells[i][1];
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+    if (c < minC) minC = c;
+    if (c > maxC) maxC = c;
+  }
+  const bx = ox + minC * cell;
+  const by = oy + minR * cell;
+  const bw = (maxC - minC + 1) * cell;
+  const bh = (maxR - minR + 1) * cell;
+
+  const inset = Math.max(1, cell * 0.055);
+  const radius = Math.max(3, cell * 0.27);
 
   ctx.save();
   ctx.globalAlpha = alpha;
+  piecePath(ctx, loops, ox, oy, cell, inset, radius);
 
   if (glow > 0) {
     ctx.shadowColor = a.glow;
     ctx.shadowBlur = glow;
   }
-
-  const g = ctx.createLinearGradient(bx, by, bx, by + bs);
+  const g = ctx.createLinearGradient(bx, by, bx, by + bh);
   g.addColorStop(0, a.light);
-  g.addColorStop(0.42, a.color);
+  g.addColorStop(0.45, a.color);
   g.addColorStop(1, a.deep);
   ctx.fillStyle = g;
-  rr(ctx, bx, by, bs, bs, rad);
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  // Top bevel highlight
-  const hg = ctx.createLinearGradient(bx, by, bx, by + bs * 0.5);
-  hg.addColorStop(0, 'rgba(255,255,255,0.42)');
+  ctx.save();
+  ctx.clip();
+
+  // top face light — one band across the whole piece, one direction
+  const lit = Math.min(bh, cell) * 0.95;
+  const hg = ctx.createLinearGradient(bx, by, bx, by + lit);
+  hg.addColorStop(0, 'rgba(255,255,255,0.38)');
   hg.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = hg;
-  rr(ctx, bx + bs * 0.08, by + bs * 0.05, bs * 0.84, bs * 0.4, rad * 0.7);
-  ctx.fill();
+  ctx.fillRect(bx, by, bw, bh);
 
-  // Bottom inner shade
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
-  rr(ctx, bx + bs * 0.08, by + bs * 0.68, bs * 0.84, bs * 0.24, rad * 0.6);
-  ctx.fill();
+  // bottom depth
+  const sg = ctx.createLinearGradient(bx, by + bh - lit, bx, by + bh);
+  sg.addColorStop(0, 'rgba(0,0,0,0)');
+  sg.addColorStop(1, 'rgba(0,0,0,0.32)');
+  ctx.fillStyle = sg;
+  ctx.fillRect(bx, by, bw, bh);
 
-  if (glyph) drawGlyph(ctx, asset, bx, by, bs);
-
-  // Animated sheen band (insurance shield sheen)
-  if (sheen >= 0 && a.shield) {
-    ctx.save();
-    rr(ctx, bx, by, bs, bs, rad);
-    ctx.clip();
-    const sx = bx - bs + sheen * bs * 3;
-    const sg = ctx.createLinearGradient(sx, by, sx + bs * 0.9, by + bs);
-    sg.addColorStop(0, 'rgba(255,255,255,0)');
-    sg.addColorStop(0.5, 'rgba(255,255,255,0.38)');
-    sg.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = sg;
-    ctx.fillRect(bx - bs, by - bs, bs * 3, bs * 3);
-    ctx.restore();
-  }
-
-  // Crisp outline
-  ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-  ctx.lineWidth = 1;
-  rr(ctx, bx, by, bs, bs, rad);
+  // inner rim light — thick stroke clipped to the silhouette leaves only the
+  // inside half, giving the whole outline a bevel that follows every corner.
+  ctx.lineWidth = Math.max(2, cell * 0.15);
+  ctx.strokeStyle = 'rgba(255,255,255,0.20)';
   ctx.stroke();
 
+  if (glyph) {
+    for (let i = 0; i < cells.length; i++) {
+      drawGlyph(ctx, asset, ox + cells[i][1] * cell, oy + cells[i][0] * cell, cell);
+    }
+  }
+
+  // protection sheen — insurance only
+  if (sheen >= 0 && a.shield) {
+    const sx = bx - bw + sheen * (bw + cell * 2) * 1.6;
+    const shg = ctx.createLinearGradient(sx, by, sx + cell * 0.9, by + bh);
+    shg.addColorStop(0, 'rgba(255,255,255,0)');
+    shg.addColorStop(0.5, 'rgba(255,255,255,0.30)');
+    shg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = shg;
+    ctx.fillRect(bx, by, bw, bh);
+  }
+
+  ctx.restore();
+
+  // outer definition line so neighbouring hues never bleed together.
+  // drawGlyph issues beginPath, so the silhouette has to be rebuilt here.
+  piecePath(ctx, loops, ox, oy, cell, inset, radius);
+  ctx.lineWidth = Math.max(1, cell * 0.05);
+  ctx.strokeStyle = 'rgba(3,10,26,0.42)';
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -240,7 +413,9 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
       cellsPlaced: 0,
       drag: null,               // { slot, px, py, valid, row, col }
       returning: null,          // snap-back anim { piece, slot, fx, fy, t }
-      pops: new Map(),          // key r*N+c -> t (placement pop)
+      comps: [],                // merged board pieces: { asset, cells }
+      compsDirty: true,
+      pop: null,                // { asset, cells, t } placement flash
       clearAnims: [],           // { r, c, asset, delay, t }
       sweeps: [],               // { dir: 'r'|'c', idx, t }
       particles: [],
@@ -253,7 +428,12 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
     };
 
     /* ── layout ── */
-    const L = { w: 0, h: 0, cell: 0, boardX: 0, boardY: 0, boardW: 0, trayY: 0, trayH: 0, slotW: 0 };
+    const L = { w: 0, h: 0, cell: 0, boardX: 0, boardY: 0, boardW: 0, trayY: 0, trayH: 0, slotW: 0, frame: 10 };
+
+    // One spacing scale for the canvas half of the UI, so the board frame,
+    // the tray and the screen edge all sit on the same rhythm.
+    const PAD = 14;
+    const FRAME = 10;
 
     function layout() {
       const rect = wrap.getBoundingClientRect();
@@ -264,16 +444,25 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
       canvas.height = Math.round(rect.height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      L.trayH = Math.max(92, Math.min(L.h * 0.21, 132));
-      const pad = 12;
-      const availW = L.w - pad * 2;
-      const availH = L.h - L.trayH - pad * 2 - 6;
-      L.cell = Math.floor(Math.min(availW, availH) / N);
+      L.frame = FRAME;
+      L.trayH = Math.max(94, Math.min(Math.round(L.h * 0.2), 126));
+      const availW = L.w - (PAD + FRAME) * 2;
+      const availH = L.h - L.trayH - (PAD + FRAME) * 2;
+      L.cell = Math.max(12, Math.floor(Math.min(availW, availH) / N));
       L.boardW = L.cell * N;
-      L.boardX = (L.w - L.boardW) / 2;
-      L.boardY = pad + Math.max(0, (availH - L.boardW) / 2);
+      // equal margins left/right, and equal air above the board and above the tray
+      L.boardX = Math.round((L.w - L.boardW) / 2);
+      L.boardY = Math.round((L.h - L.trayH - L.boardW) / 2);
       L.trayY = L.h - L.trayH;
-      L.slotW = L.w / 3;
+
+      // tray shares the board's left/right margin; 3 equal wells, 8px gutters
+      L.trayX = L.boardX - FRAME;
+      L.trayW = L.boardW + FRAME * 2;
+      L.trayTop = L.trayY + 2;
+      L.trayBottom = L.h - PAD;
+      L.slotW = (L.trayW - 32) / 3;
+      L.slotX0 = L.trayX + 8;
+      L.hitW = L.w / 3;
     }
 
     /* ── banner helper ── */
@@ -347,6 +536,37 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
       }
     }
 
+    /* ── board pieces: merge orthogonally-connected same-asset cells so a
+       holding on the board reads as one solid object, never a grid of tiles ── */
+    const seenBuf = new Uint8Array(N * N);
+    const stack = [];
+    function rebuildComponents() {
+      S.comps.length = 0;
+      seenBuf.fill(0);
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          const asset = S.grid[r][c];
+          if (!asset || seenBuf[r * N + c]) continue;
+          const cells = [];
+          stack.length = 0;
+          stack.push(r, c);
+          seenBuf[r * N + c] = 1;
+          while (stack.length) {
+            const cc = stack.pop();
+            const cr = stack.pop();
+            cells.push([cr, cc]);
+            if (cr > 0 && !seenBuf[(cr - 1) * N + cc] && S.grid[cr - 1][cc] === asset) { seenBuf[(cr - 1) * N + cc] = 1; stack.push(cr - 1, cc); }
+            if (cr < N - 1 && !seenBuf[(cr + 1) * N + cc] && S.grid[cr + 1][cc] === asset) { seenBuf[(cr + 1) * N + cc] = 1; stack.push(cr + 1, cc); }
+            if (cc > 0 && !seenBuf[cr * N + cc - 1] && S.grid[cr][cc - 1] === asset) { seenBuf[cr * N + cc - 1] = 1; stack.push(cr, cc - 1); }
+            if (cc < N - 1 && !seenBuf[cr * N + cc + 1] && S.grid[cr][cc + 1] === asset) { seenBuf[cr * N + cc + 1] = 1; stack.push(cr, cc + 1); }
+          }
+          cells.sort((p, q) => (p[0] - q[0]) || (p[1] - q[1]));
+          S.comps.push({ asset, cells });
+        }
+      }
+      S.compsDirty = false;
+    }
+
     /* ── juice ── */
     function shake(mag) {
       S.shakeT = 0.3;
@@ -410,12 +630,15 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
       if (!piece || piece.used) return;
 
       const n = piece.shape.cells.length;
+      const placed = [];
       piece.shape.cells.forEach(([dr, dc]) => {
         const r = r0 + dr;
         const c = c0 + dc;
         S.grid[r][c] = piece.asset;
-        S.pops.set(r * N + c, 0.0001);
+        placed.push([r, c]);
       });
+      S.pop = { asset: piece.asset, cells: placed, t: 0 };
+      S.compsDirty = true;
       piece.used = true;
       S.cellsPlaced += n;
       S.score += n;
@@ -508,8 +731,9 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
             );
           }
           S.grid[r][c] = null;
-          S.pops.delete(key);
         });
+        S.pop = null;
+        S.compsDirty = true;
 
         const midY = L.boardY + L.boardW * 0.42;
         addFloat(L.boardX + L.boardW / 2, midY, `+${gained}`, '#FFC845', 24);
@@ -561,7 +785,7 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
       if (S.phase !== 'play' || S.drag || S.ended) return;
       const p = ptr(e);
       if (p.y < L.trayY - 14) return;
-      const slot = Math.max(0, Math.min(2, Math.floor(p.x / L.slotW)));
+      const slot = Math.max(0, Math.min(2, Math.floor(p.x / L.hitW)));
       const piece = S.tray[slot];
       if (!piece || piece.used) return;
       if (S.returning && S.returning.slot === slot) S.returning = null;
@@ -622,12 +846,11 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
 
       if (S.shakeT > 0) S.shakeT = Math.max(0, S.shakeT - dt);
 
-      // pops
-      S.pops.forEach((t, key) => {
-        const nt = t + dt;
-        if (nt >= 0.22) S.pops.delete(key);
-        else S.pops.set(key, nt);
-      });
+      // placement flash
+      if (S.pop) {
+        S.pop.t += dt;
+        if (S.pop.t >= 0.3) S.pop = null;
+      }
 
       // clear anims
       for (let i = S.clearAnims.length - 1; i >= 0; i--) {
@@ -667,26 +890,23 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
 
     /* ── draw ── */
     function trayMetrics(piece, slotIdx) {
+      const wellH = L.trayBottom - L.trayTop - 16;
       const pc = Math.min(
-        (L.slotW - 26) / Math.max(piece.cols, 1),
-        (L.trayH - 34) / Math.max(piece.rows, 1),
-        L.cell * 0.66
+        (L.slotW - 20) / Math.max(piece.cols, 1),
+        (wellH - 20) / Math.max(piece.rows, 1),
+        L.cell * 0.68
       );
       const w = piece.cols * pc;
       const h = piece.rows * pc;
-      const x = slotIdx * L.slotW + (L.slotW - w) / 2;
-      const y = L.trayY + (L.trayH - h) / 2 + Math.sin(S.now * 2 + slotIdx * 1.7) * 2;
+      const wellX = L.slotX0 + slotIdx * (L.slotW + 8);
+      const x = wellX + (L.slotW - w) / 2;
+      const y = L.trayTop + 8 + (wellH - h) / 2 + Math.sin(S.now * 2 + slotIdx * 1.7) * 2;
       return { pc, x, y, w, h };
     }
 
     function drawPieceAt(piece, x, y, cellSize, opts = {}) {
-      const sheenPhase = ((S.now * 0.45) % 1.6) - 0.3;
-      piece.shape.cells.forEach(([dr, dc]) => {
-        drawBlock(ctx, piece.asset, x + dc * cellSize, y + dr * cellSize, cellSize, {
-          ...opts,
-          sheen: sheenPhase,
-        });
-      });
+      opts.sheen = ((S.now * 0.45) % 1.6) - 0.3;
+      drawPiece(ctx, piece.asset, piece.shape.cells, x, y, cellSize, opts);
     }
 
     function draw() {
@@ -706,13 +926,14 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
       const by = L.boardY;
       const bw = L.boardW;
 
-      /* board panel */
+      /* board frame */
+      const f = L.frame;
       ctx.fillStyle = 'rgba(255,255,255,0.05)';
-      rr(ctx, bx - 9, by - 9, bw + 18, bw + 18, 20);
+      rr(ctx, bx - f, by - f, bw + f * 2, bw + f * 2, f + 10);
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 1;
-      rr(ctx, bx - 9, by - 9, bw + 18, bw + 18, 20);
+      rr(ctx, bx - f, by - f, bw + f * 2, bw + f * 2, f + 10);
       ctx.stroke();
 
       /* ghost preview (drawn under the blocks) */
@@ -724,16 +945,26 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
         }
       }
 
-      // would-clear line highlight
+      /* empty wells */
+      ctx.fillStyle = 'rgba(255,255,255,0.045)';
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          if (S.grid[r][c] !== null) continue;
+          rr(ctx, bx + c * cell + 2, by + r * cell + 2, cell - 4, cell - 4, cell * 0.24);
+          ctx.fill();
+        }
+      }
+
+      // would-clear line highlight — over the wells so it actually reads
       if (ghost && ghost.valid) {
         const sim = S.grid.map((row) => row.slice());
         ghost.piece.shape.cells.forEach(([dr, dc]) => {
           sim[ghost.r0 + dr][ghost.c0 + dc] = ghost.piece.asset;
         });
-        ctx.fillStyle = 'rgba(255,255,255,0.10)';
+        ctx.fillStyle = 'rgba(255,255,255,0.13)';
         for (let r = 0; r < N; r++) {
           if (sim[r].every((v) => v !== null)) {
-            rr(ctx, bx, by + r * cell + 1, bw, cell - 2, 6);
+            rr(ctx, bx, by + r * cell + 1, bw, cell - 2, 8);
             ctx.fill();
           }
         }
@@ -741,80 +972,81 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
           let full = true;
           for (let r = 0; r < N; r++) if (sim[r][c] === null) { full = false; break; }
           if (full) {
-            rr(ctx, bx + c * cell + 1, by, cell - 2, bw, 6);
+            rr(ctx, bx + c * cell + 1, by, cell - 2, bw, 8);
             ctx.fill();
           }
         }
       }
 
-      /* cells */
+      /* placed holdings — every connected run of one asset is ONE object */
+      if (S.compsDirty) rebuildComponents();
       const sheenPhase = ((S.now * 0.45) % 1.6) - 0.3;
-      for (let r = 0; r < N; r++) {
-        for (let c = 0; c < N; c++) {
-          const x = bx + c * cell;
-          const y = by + r * cell;
-          const asset = S.grid[r][c];
-          if (asset === null) {
-            ctx.fillStyle = 'rgba(255,255,255,0.045)';
-            rr(ctx, x + 1.5, y + 1.5, cell - 3, cell - 3, cell * 0.16);
-            ctx.fill();
-          } else {
-            const popT = S.pops.get(r * N + c);
-            if (popT !== undefined) {
-              const k = Math.min(popT / 0.2, 1);
-              const s = 0.62 + 0.48 * k - 0.1 * Math.sin(k * Math.PI); // overshoot pop
-              ctx.save();
-              ctx.translate(x + cell / 2, y + cell / 2);
-              ctx.scale(s, s);
-              drawBlock(ctx, asset, -cell / 2, -cell / 2, cell, { sheen: sheenPhase, glow: 10 * (1 - k) });
-              ctx.restore();
-            } else {
-              drawBlock(ctx, asset, x, y, cell, { sheen: sheenPhase });
-            }
-          }
-        }
+      _drawOpts.sheen = sheenPhase;
+      _drawOpts.alpha = 1;
+      _drawOpts.glow = 0;
+      for (let i = 0; i < S.comps.length; i++) {
+        drawPiece(ctx, S.comps[i].asset, S.comps[i].cells, bx, by, cell, _drawOpts);
       }
 
-      /* ghost piece cells */
-      if (ghost) {
-        if (ghost.valid) {
-          const a = ASSETS[ghost.piece.asset];
-          ghost.piece.shape.cells.forEach(([dr, dc]) => {
-            const x = bx + (ghost.c0 + dc) * cell;
-            const y = by + (ghost.r0 + dr) * cell;
-            ctx.fillStyle = a.glow.replace('0.65', '0.28');
-            rr(ctx, x + 2, y + 2, cell - 4, cell - 4, cell * 0.18);
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([5, 4]);
-            rr(ctx, x + 2, y + 2, cell - 4, cell - 4, cell * 0.18);
-            ctx.stroke();
-            ctx.setLineDash([]);
-          });
-        }
+      /* placement flash traced along the silhouette of the piece just dropped */
+      if (S.pop) {
+        const k = Math.min(S.pop.t / 0.3, 1);
+        ctx.save();
+        piecePath(ctx, outlineOf(S.pop.cells), bx, by, cell, Math.max(1, cell * 0.055), Math.max(3, cell * 0.27));
+        ctx.globalAlpha = (1 - k) * 0.45;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.globalAlpha = 1 - k;
+        ctx.lineWidth = Math.max(1.5, cell * 0.09);
+        ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      /* ghost silhouette under the dragged piece */
+      if (ghost && ghost.valid) {
+        ctx.save();
+        piecePath(
+          ctx, outlineOf(ghost.piece.shape.cells),
+          bx + ghost.c0 * cell, by + ghost.r0 * cell,
+          cell, Math.max(1, cell * 0.055), Math.max(3, cell * 0.27)
+        );
+        ctx.fillStyle = ASSETS[ghost.piece.asset].glow.replace('0.65', '0.26');
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.72)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([6, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
       }
 
       /* clear animations: blocks flashing out */
       for (let i = 0; i < S.clearAnims.length; i++) {
         const a = S.clearAnims[i];
+        if (!a.asset) continue;
         const lt = a.t - a.delay;
-        if (lt <= 0 && a.asset) {
-          // still waiting for the sweep: draw block as-is
-          drawBlock(ctx, a.asset, bx + a.c * cell, by + a.r * cell, cell, { sheen: -1 });
+        if (lt <= 0) {
+          // still waiting for the sweep: hold the block
+          _drawOpts.sheen = -1;
+          _drawOpts.alpha = 1;
+          _drawOpts.glow = 0;
+          drawPiece(ctx, a.asset, ONE_CELL, bx + a.c * cell, by + a.r * cell, cell, _drawOpts);
           continue;
         }
-        if (!a.asset) continue;
         const k = Math.min(lt / 0.24, 1);
         const s = 1 + 0.35 * k;
         ctx.save();
         ctx.translate(bx + (a.c + 0.5) * cell, by + (a.r + 0.5) * cell);
         ctx.scale(s, s);
-        drawBlock(ctx, a.asset, -cell / 2, -cell / 2, cell, { alpha: 1 - k, glow: 16 * (1 - k) });
+        _drawOpts.sheen = -1;
+        _drawOpts.alpha = 1 - k;
+        _drawOpts.glow = 16 * (1 - k);
+        drawPiece(ctx, a.asset, ONE_CELL, -cell / 2, -cell / 2, cell, _drawOpts);
         // white flash core
-        ctx.globalAlpha = (1 - k) * 0.65;
+        ctx.globalAlpha = (1 - k) * 0.6;
         ctx.fillStyle = '#FFFFFF';
-        rr(ctx, -cell * 0.38, -cell * 0.38, cell * 0.76, cell * 0.76, cell * 0.2);
+        rr(ctx, -cell * 0.34, -cell * 0.34, cell * 0.68, cell * 0.68, cell * 0.24);
         ctx.fill();
         ctx.restore();
       }
@@ -850,13 +1082,21 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
         ctx.restore();
       }
 
-      /* tray */
+      /* tray — same margin as the board frame, three equal slot wells */
+      const trayInner = L.trayBottom - L.trayTop;
       ctx.fillStyle = 'rgba(255,255,255,0.055)';
-      rr(ctx, 10, L.trayY + 4, L.w - 20, L.trayH - 10, 18);
+      rr(ctx, L.trayX, L.trayTop, L.trayW, trayInner, 20);
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-      rr(ctx, 10, L.trayY + 4, L.w - 20, L.trayH - 10, 18);
+      ctx.lineWidth = 1;
+      rr(ctx, L.trayX, L.trayTop, L.trayW, trayInner, 20);
       ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      for (let i = 0; i < 3; i++) {
+        rr(ctx, L.slotX0 + i * (L.slotW + 8), L.trayTop + 8, L.slotW, trayInner - 16, 14);
+        ctx.fill();
+      }
 
       for (let i = 0; i < 3; i++) {
         const piece = S.tray[i];
@@ -975,49 +1215,49 @@ export default function PortfolioFitGame({ config = GAME_CONFIG, onWin, onLose }
 
   return (
     <div className="pf-game-shell">
-      {/* HUD */}
+      {/* HUD — three equal chips, icons and values on one shared baseline */}
       <div className="pf-hud">
         <div className="ls-chip pf-hud-chip">
-          <span className="hud-label">Score</span>
-          <span className="pf-hud-value">{score.toLocaleString()}</span>
+          <CoinsIcon size={17} />
+          <span className="pf-hud-stack">
+            <span className="hud-label">Score</span>
+            <span className="pf-hud-value">{score.toLocaleString()}</span>
+          </span>
         </div>
         <div className="ls-chip pf-hud-chip">
-          <span className="hud-label">Time</span>
-          <span className={`pf-hud-value ${timeLeft <= 10 ? 'pf-danger' : ''}`}>
-            {mins}:{secs}
+          <ClockIcon size={17} />
+          <span className="pf-hud-stack">
+            <span className="hud-label">Time</span>
+            <span className={`pf-hud-value ${timeLeft <= 10 ? 'pf-danger' : ''}`}>
+              {mins}:{secs}
+            </span>
           </span>
         </div>
         <div className={`ls-chip pf-hud-chip ${streak >= 2 ? 'pf-streak-chip' : ''}`}>
-          <span className="hud-label">Streak</span>
-          <span className="pf-hud-value" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            {streak >= 2 && (
-              <svg width="14" height="16" viewBox="0 0 14 18" aria-hidden="true">
-                <path
-                  d="M7 0C7.5 3 10 4.5 11.5 7c1.6 2.7 1.7 6-0.4 8.3C9.5 17 8.3 18 7 18c-1.3 0-2.5-1-4.1-2.7C0.8 13 0.9 9.7 2.5 7 4 4.5 6.5 3 7 0z"
-                  fill="#FF8533"
-                />
-                <path
-                  d="M7 6c0.3 1.6 1.6 2.4 2.4 3.7 0.9 1.5 0.9 3.3-0.2 4.5C8.5 15 7.8 15.6 7 15.6c-0.8 0-1.5-0.5-2.2-1.4-1.1-1.2-1.1-3-0.2-4.5C5.4 8.4 6.7 7.6 7 6z"
-                  fill="#FFD37A"
-                />
-              </svg>
-            )}
-            ×{streak}
+          <FlameIcon size={17} style={{ color: streak >= 2 ? '#FFB067' : undefined }} />
+          <span className="pf-hud-stack">
+            <span className="hud-label">Streak</span>
+            <span className="pf-hud-value">&times;{streak}</span>
           </span>
         </div>
       </div>
 
-      {/* Asset legend */}
+      {/* Asset legend — icon + name, four equal columns */}
       <div className="pf-legend">
-        {Object.values(ASSETS).map((a) => (
-          <span key={a.id} className="pf-legend-item">
-            <span
-              className="pf-legend-dot"
-              style={{ background: `linear-gradient(180deg, ${a.light} -20%, ${a.color} 45%, ${a.deep} 130%)` }}
-            />
-            {a.name}
-          </span>
-        ))}
+        {Object.values(ASSETS).map((a) => {
+          const Glyph = ASSET_ICONS[a.id];
+          return (
+            <span key={a.id} className="pf-legend-item">
+              <span
+                className="pf-legend-chip"
+                style={{ background: `linear-gradient(180deg, ${a.light} -18%, ${a.color} 48%, ${a.deep} 132%)` }}
+              >
+                <Glyph size={11} />
+              </span>
+              <span className="pf-legend-name">{a.name}</span>
+            </span>
+          );
+        })}
       </div>
 
       {/* Canvas */}

@@ -396,20 +396,32 @@ function offscreen(w, h, dpr) {
   return { cv, c };
 }
 
+/**
+ * One peg. Structure tier: mid-value body, a small specular core and a dark
+ * contact rim. The rim is the point — a peg with no outline melted into the
+ * backdrop at the bottom of the field and, worse, its old #DCEBFF core was
+ * brighter than the coin, so the eye tracked the scenery instead of the money.
+ */
 function paintPeg(c, x, y, r, shadows) {
   if (shadows) {
     c.shadowColor = COLORS.pegGlow;
-    c.shadowBlur = r * 2.2;
+    c.shadowBlur = r * 1.1;
   }
-  const g = c.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.08, x, y, r);
+  const g = c.createRadialGradient(x - r * 0.34, y - r * 0.42, r * 0.08, x, y, r);
   g.addColorStop(0, COLORS.pegCore);
-  g.addColorStop(0.55, COLORS.peg);
+  g.addColorStop(0.5, COLORS.peg);
   g.addColorStop(1, COLORS.pegDeep);
   c.fillStyle = g;
   c.beginPath();
   c.arc(x, y, r, 0, Math.PI * 2);
   c.fill();
   c.shadowBlur = 0;
+
+  c.strokeStyle = COLORS.outline;
+  c.lineWidth = Math.max(0.9, r * 0.22);
+  c.beginPath();
+  c.arc(x, y, r + c.lineWidth * 0.4, 0, Math.PI * 2);
+  c.stroke();
 }
 
 /** Backdrop, rails, dividers and every peg, in one bitmap. */
@@ -424,14 +436,25 @@ function makeBoardBitmap(board, dpr, shadows) {
   c.fillStyle = sky;
   c.fillRect(0, 0, W, H);
 
-  // Soft well behind the peg field, so the pegs read as lit from within.
+  // Soft well behind the peg field. Kept deliberately faint (0.16 alpha of a
+  // desaturated slate, down from 0.26 of a saturated #2666C4): the backdrop's
+  // job is to stay out of the way, and the old well lifted the mid-field to
+  // L 0.038, close enough to the pegs and the coin to flatten both.
   const well = c.createRadialGradient(
     W / 2, board.pegTopY + (board.pegBottomY - board.pegTopY) * 0.55, board.pitch,
     W / 2, board.pegTopY + (board.pegBottomY - board.pegTopY) * 0.55, W * 0.92,
   );
-  well.addColorStop(0, 'rgba(38,102,196,0.26)');
-  well.addColorStop(1, 'rgba(38,102,196,0)');
+  well.addColorStop(0, COLORS.wellGlow);
+  well.addColorStop(1, 'rgba(40,72,110,0)');
   c.fillStyle = well;
+  c.fillRect(0, 0, W, H);
+
+  // Vignette: darkens the outer board so the centre column — where the coin
+  // spends its life — is the lightest part of the backdrop.
+  const vig = c.createRadialGradient(W / 2, H * 0.52, W * 0.28, W / 2, H * 0.52, W * 0.98);
+  vig.addColorStop(0, 'rgba(3,6,11,0)');
+  vig.addColorStop(1, 'rgba(3,6,11,0.72)');
+  c.fillStyle = vig;
   c.fillRect(0, 0, W, H);
 
   // Side rails.
@@ -454,9 +477,9 @@ function makeBoardBitmap(board, dpr, shadows) {
     const x = board.wallL + board.pitch * i;
     const top = board.bucketTopY - board.pitch * 0.3;
     const g = c.createLinearGradient(0, top, 0, board.bucketFloorY);
-    g.addColorStop(0, 'rgba(190,220,255,0.15)');
-    g.addColorStop(0.35, 'rgba(150,190,240,0.5)');
-    g.addColorStop(1, 'rgba(90,130,190,0.28)');
+    g.addColorStop(0, 'rgba(150,180,215,0.1)');
+    g.addColorStop(0.35, 'rgba(110,145,190,0.3)');
+    g.addColorStop(1, 'rgba(60,92,130,0.2)');
     c.fillStyle = g;
     c.beginPath();
     c.moveTo(x - postW * 0.35, top);
@@ -484,13 +507,17 @@ function makeBucketBitmap(bucket, board, dpr, shadows) {
 
   const risk = bucket.kind === 'risk';
 
+  // Well: near-black inside so the multiplier type and the coin both sit on the
+  // darkest surface on the board. A Risk pocket keeps a red wash, but a much
+  // deeper one — the old rgba(239,68,68,0.55) top stop lifted the face to a
+  // mid red that the #FF8B8B type could barely clear.
   const g = c.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, risk ? 'rgba(239,68,68,0.55)' : 'rgba(255,255,255,0.16)');
-  g.addColorStop(0.34, risk ? 'rgba(155,28,28,0.42)' : 'rgba(255,255,255,0.07)');
-  g.addColorStop(1, risk ? 'rgba(70,10,10,0.55)' : 'rgba(6,18,41,0.55)');
+  g.addColorStop(0, risk ? 'rgba(122,20,20,0.62)' : 'rgba(255,255,255,0.05)');
+  g.addColorStop(0.34, risk ? 'rgba(90,12,12,0.7)' : 'rgba(4,7,14,0.62)');
+  g.addColorStop(1, risk ? 'rgba(44,6,6,0.85)' : 'rgba(3,6,11,0.8)');
   if (shadows) {
-    c.shadowColor = risk ? 'rgba(239,68,68,0.55)' : `${bucket.color}55`;
-    c.shadowBlur = 12;
+    c.shadowColor = risk ? 'rgba(239,68,68,0.45)' : `${bucket.color}44`;
+    c.shadowBlur = 10;
   }
   c.fillStyle = g;
   c.beginPath();
@@ -498,19 +525,28 @@ function makeBucketBitmap(bucket, board, dpr, shadows) {
   c.fill();
   c.shadowBlur = 0;
 
-  c.strokeStyle = risk ? 'rgba(255,139,139,0.75)' : 'rgba(255,255,255,0.2)';
-  c.lineWidth = 1.2;
+  // Dark rim first, then the bright edge on top of it: a two-tone outline holds
+  // the pocket's silhouette whether it happens to sit over the lit centre of
+  // the board or the vignetted outer edge.
+  c.strokeStyle = COLORS.outline;
+  c.lineWidth = 2.4;
+  c.beginPath();
+  c.roundRect(1.5, 2, w - 3, h - 4, [3, 3, 9, 9]);
+  c.stroke();
+  c.strokeStyle = risk ? 'rgba(255,168,168,0.9)' : 'rgba(255,255,255,0.26)';
+  c.lineWidth = 1.1;
   c.beginPath();
   c.roundRect(1.5, 2, w - 3, h - 4, [3, 3, 9, 9]);
   c.stroke();
 
-  // Lip: the colour bar a coin crosses on the way in.
-  const lip = c.createLinearGradient(0, 0, 0, 5);
+  // Lip: the colour bar a coin crosses on the way in. This is the pocket's
+  // identity at a glance, so it is the one saturated band on the face.
+  const lip = c.createLinearGradient(0, 0, 0, 6);
   lip.addColorStop(0, bucket.colorLt);
   lip.addColorStop(1, bucket.color);
   c.fillStyle = lip;
   c.beginPath();
-  c.roundRect(1.5, 1, w - 3, 4.5, 2);
+  c.roundRect(1.5, 1, w - 3, 5.5, 2);
   c.fill();
 
   // Eleven pockets make each face narrow, so both type sizes are driven by the
@@ -520,14 +556,20 @@ function makeBucketBitmap(bucket, board, dpr, shadows) {
 
   c.textAlign = 'center';
   c.textBaseline = 'middle';
+  // Type is stroked in the outline ink before it is filled, so the numbers keep
+  // 4.5:1 even where a payout flash washes the face light for a beat.
   c.font = `900 ${multSize}px 'Poppins', 'Plus Jakarta Sans', system-ui, sans-serif`;
-  c.fillStyle = 'rgba(0,0,0,0.4)';
-  c.fillText(`x${bucket.mult}`, w / 2, h * 0.42 + 1.5);
+  c.lineJoin = 'round';
+  c.strokeStyle = COLORS.outline;
+  c.lineWidth = Math.max(2, multSize * 0.2);
+  c.strokeText(`x${bucket.mult}`, w / 2, h * 0.42);
   c.fillStyle = risk ? COLORS.dangerLt : bucket.colorLt;
   c.fillText(`x${bucket.mult}`, w / 2, h * 0.42);
 
   c.font = `900 ${labelSize}px 'Poppins', 'Plus Jakarta Sans', system-ui, sans-serif`;
-  c.fillStyle = risk ? 'rgba(255,214,214,0.95)' : 'rgba(255,255,255,0.72)';
+  c.lineWidth = Math.max(1.6, labelSize * 0.22);
+  c.strokeText(bucket.label.toUpperCase(), w / 2, h * 0.76);
+  c.fillStyle = risk ? '#FFD6D6' : '#D8E6F7';
   c.fillText(bucket.label.toUpperCase(), w / 2, h * 0.76);
 
   return { cv, w, h, pad };
@@ -541,18 +583,22 @@ function makeBucketBitmap(bucket, board, dpr, shadows) {
 function buildPaints(ctx, board) {
   const r = board.coinR;
   const coin = ctx.createRadialGradient(-r * 0.34, -r * 0.4, r * 0.1, 0, 0, r);
-  coin.addColorStop(0, '#FFF6D6');
+  coin.addColorStop(0, COLORS.goldCore);
   coin.addColorStop(0.42, COLORS.goldLt);
   coin.addColorStop(0.78, COLORS.gold);
   coin.addColorStop(1, COLORS.goldDeep);
 
   const marker = ctx.createLinearGradient(0, -12, 0, 12);
-  marker.addColorStop(0, COLORS.orangeLt);
+  marker.addColorStop(0, '#FFB07A');
   marker.addColorStop(1, COLORS.orange);
 
-  const topFade = ctx.createLinearGradient(0, 0, 0, 104);
-  topFade.addColorStop(0, 'rgba(6,16,34,0.78)');
-  topFade.addColorStop(1, 'rgba(6,16,34,0)');
+  // Scrim under the HUD. Darker and slightly taller than before so the payout
+  // and clock read against a stable value instead of whatever the board is
+  // doing behind them.
+  const topFade = ctx.createLinearGradient(0, 0, 0, 112);
+  topFade.addColorStop(0, 'rgba(4,7,13,0.9)');
+  topFade.addColorStop(0.62, 'rgba(4,7,13,0.55)');
+  topFade.addColorStop(1, 'rgba(4,7,13,0)');
 
   return { coin, marker, topFade };
 }
@@ -587,10 +633,20 @@ function drawCoverPeg(ctx, x, y, r, time, spent, shadows) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-  ctx.lineWidth = Math.max(1.4, R * 0.2);
-  ctx.lineCap = 'round';
+  // Dark rim, then a light one: the shield keeps its silhouette against the
+  // peg field (the old flat #1E6BE0 measured 1.76:1 against a peg and 2.4:1
+  // against the board — a reactable object that could not be seen).
+  ctx.strokeStyle = COLORS.outline;
+  ctx.lineWidth = Math.max(1.6, R * 0.2);
   ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.strokeStyle = COLORS.coverLt;
+  ctx.lineWidth = Math.max(1, R * 0.11);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = Math.max(1.6, R * 0.22);
+  ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(-R * 0.34, 0);
   ctx.lineTo(-R * 0.05, R * 0.3);
@@ -598,8 +654,8 @@ function drawCoverPeg(ctx, x, y, r, time, spent, shadows) {
   ctx.stroke();
 
   if (!spent) {
-    ctx.strokeStyle = `rgba(166,208,255,${0.16 + pulse * 0.3})`;
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = `rgba(205,228,255,${0.24 + pulse * 0.4})`;
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
     ctx.arc(0, 0, R * (1.5 + pulse * 0.4), 0, Math.PI * 2);
     ctx.stroke();
@@ -685,10 +741,27 @@ function drawCoin(ctx, paints, board, s, coin, time) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.72)';
+  // Dark contact rim. This is the single most important line in the file for
+  // readability: the coin is gold, and gold-on-gold measured 1.22:1 against the
+  // Retirement pocket lip and 1.28:1 against a peg core. A near-black ring puts
+  // a 9-12:1 boundary around the coin no matter what it is passing over.
+  ctx.strokeStyle = COLORS.outline;
+  ctx.lineWidth = Math.max(1.5, r * 0.22);
+  ctx.beginPath();
+  ctx.arc(0, 0, r + ctx.lineWidth * 0.3, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Rim light on the upper-left, inside the dark ring.
+  ctx.strokeStyle = COLORS.goldCore;
+  ctx.lineWidth = Math.max(1, r * 0.14);
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.86, Math.PI * 0.82, Math.PI * 1.62);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(43,27,0,0.55)';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.66, 0, Math.PI * 2);
+  ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
   ctx.stroke();
 
   // Rotating specular sweep — the read that the coin is spinning as it falls.
@@ -707,9 +780,15 @@ function drawAimRail(ctx, paints, board, s, time) {
   const hi = s.aimHi;
 
   ctx.save();
+  ctx.strokeStyle = 'rgba(3,6,11,0.8)';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(lo, y);
+  ctx.lineTo(hi, y);
+  ctx.stroke();
   ctx.strokeStyle = COLORS.railTrack;
   ctx.lineWidth = 3;
-  ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(lo, y);
   ctx.lineTo(hi, y);
@@ -748,11 +827,48 @@ function drawAimRail(ctx, paints, board, s, time) {
   ctx.closePath();
   ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.strokeStyle = COLORS.outline;
+  ctx.lineWidth = 1.8;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.fillStyle = '#FFFFFF';
   ctx.beginPath();
   ctx.arc(0, -3.6, 2.6, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+}
+
+/* ─── HUD glyphs ──────────────────────────────────────────
+   The HUD is icon + number: no word labels, no panels. Each glyph is a
+   meaningful icon under WCAG 1.4.11, so each is drawn at or above 3:1 against
+   the chip it sits on (gold 11.3:1, dim ink 10.1:1, orange 8.3:1). */
+function CoinGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" fill={COLORS.gold} stroke="rgba(3,6,11,0.9)" strokeWidth="2" />
+      <path d="M12 7v10M9.5 9.5h5M9.5 13h5" stroke="#3A2800" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
+function ClockGlyph({ tint }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tint}
+      strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5.5l3.5 2" />
+    </svg>
+  );
+}
+
+function TargetGlyph() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={COLORS.greenLt}
+      strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="2.6" fill={COLORS.greenLt} stroke="none" />
+    </svg>
+  );
 }
 
 /* ─── Component ──────────────────────────────────────────── */
@@ -1273,7 +1389,6 @@ export default function WealthDropGame({ config, onWin, onLose }) {
   }, []);
 
   const lowTime = timeLeft <= cfg.hud.lowTimeSeconds;
-  const coinsLeft = Math.max(0, cfg.coinsPerSession - coinsUsed);
 
   return (
     <div style={styles.root}>
@@ -1282,105 +1397,104 @@ export default function WealthDropGame({ config, onWin, onLose }) {
       <div ref={wrapRef} style={styles.stage} className="wd-stage">
         <canvas ref={canvasRef} style={styles.canvas} />
 
-        {/* HUD ------------------------------------------------------- */}
+        {/* HUD — icon + number only, one spacing scale.
+            Two groups, deliberately: the chips sit ABOVE the aim rail
+            (board.dropY = 7.5% of the stage, i.e. y≈47 on a 360x640) and
+            everything else sits in the clear band BELOW it and above the first
+            peg row (19% of the stage, y≈119). Nothing in the overlay may cover
+            the rail — it is the only thing the player drags. */}
         <div style={styles.hudTop}>
-          <div style={styles.pill}>
-            <span style={styles.pillLabel}>Payout</span>
-            <span ref={scoreElRef} style={styles.pillValue}>0</span>
+          <div style={styles.chip}>
+            <CoinGlyph />
+            <span ref={scoreElRef} style={styles.chipValue}>0</span>
           </div>
-          <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Time</span>
+          <div style={styles.chip}>
+            <ClockGlyph tint={lowTime ? COLORS.orangeLt : COLORS.inkDim} />
             <span style={{
-              ...styles.pillValue,
-              color: lowTime ? COLORS.orangeLt : '#fff',
+              ...styles.chipValue,
+              color: lowTime ? COLORS.orangeLt : COLORS.ink,
               animation: lowTime ? 'wdPulse 0.9s ease-in-out infinite' : 'none',
             }}>
-              {timeLeft}s
+              {timeLeft}
             </span>
           </div>
         </div>
 
-        <div style={styles.progressWrap}>
-          <div style={styles.progressPill}>
-            <span style={styles.progressText}>
-              <span style={{ opacity: 0.55 }}>Target </span>
-              {cfg.scoring.targetScore.toLocaleString()}
-            </span>
+        <div style={styles.hudMid}>
+          <div style={styles.trackRow}>
             <div style={styles.track}>
               <div ref={barElRef} style={styles.trackFill} />
             </div>
-            <div style={styles.dots}>
-              {Array.from({ length: cfg.coinsPerSession }).map((_, i) => (
-                <span
-                  key={i}
-                  style={{
-                    ...styles.dot,
-                    background: i < coinsUsed ? 'rgba(255,255,255,0.2)' : COLORS.gold,
-                    boxShadow: i < coinsUsed ? 'none' : `0 0 6px ${COLORS.gold}`,
-                  }}
-                />
-              ))}
-            </div>
+            <TargetGlyph />
+            <span style={styles.trackTarget}>{cfg.scoring.targetScore.toLocaleString()}</span>
           </div>
+
+          {/* Coins left, as pips rather than a sentence. */}
+          <div style={styles.dots}>
+            {Array.from({ length: cfg.coinsPerSession }).map((_, i) => (
+              <span
+                key={i}
+                style={{
+                  ...styles.dot,
+                  background: i < coinsUsed ? 'rgba(255,255,255,0.18)' : COLORS.gold,
+                  boxShadow: i < coinsUsed ? 'none' : `0 0 5px rgba(255,200,69,0.7)`,
+                }}
+              />
+            ))}
+          </div>
+
+          {(streak >= 2 || covered) && (
+            <div style={styles.statusRow}>
+              {streak >= 2 && (
+                <div className="wd-streak" style={{ ...styles.status, borderColor: 'rgba(92,230,143,0.6)' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill={COLORS.greenLt} aria-hidden="true">
+                    <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" />
+                  </svg>
+                  <span style={{ color: COLORS.greenLt }}>x{streak}</span>
+                </div>
+              )}
+              {covered && (
+                <div style={{ ...styles.status, borderColor: 'rgba(205,228,255,0.6)' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={COLORS.coverLt}
+                    strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
+                  </svg>
+                  <span style={{ color: COLORS.coverLt }}>ON</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Streak + cover indicators --------------------------------- */}
-        <div style={styles.statusWrap}>
-          {streak >= 2 && (
-            <div className="wd-streak" style={{ ...styles.status, borderColor: 'rgba(74,222,128,0.55)' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill={COLORS.greenLt} aria-hidden="true">
-                <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" />
-              </svg>
-              <span style={{ color: COLORS.greenLt }}>Streak x{streak}</span>
-            </div>
-          )}
-          {covered && (
-            <div style={{ ...styles.status, borderColor: 'rgba(166,208,255,0.55)' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={COLORS.coverLt}
-                strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
-              </svg>
-              <span style={{ color: COLORS.coverLt }}>Covered</span>
-            </div>
-          )}
-          {coinsLeft > 0 && !over && (
-            <div style={{ ...styles.status, borderColor: 'rgba(255,200,69,0.4)' }}>
-              <span style={{ color: COLORS.goldLt }}>{coinsLeft} coins left</span>
-            </div>
-          )}
-        </div>
-
-        {/* Outcome banner -------------------------------------------- */}
+        {/* Outcome banner — one compact line, not a panel -------------- */}
         {banner && (
           <div key={banner.id} style={styles.bannerWrap} className="wd-banner">
             <div style={{
               ...styles.banner,
               background: banner.kind === 'risk'
-                ? 'linear-gradient(180deg, rgba(239,68,68,0.95), rgba(120,18,18,0.95))'
+                ? 'linear-gradient(180deg, rgba(200,40,40,0.96), rgba(96,12,12,0.96))'
                 : banner.kind === 'cover'
-                  ? 'linear-gradient(180deg, rgba(30,107,224,0.95), rgba(0,45,120,0.95))'
-                  : 'linear-gradient(180deg, rgba(255,200,69,0.95), rgba(176,123,18,0.95))',
+                  ? 'linear-gradient(180deg, rgba(44,123,240,0.96), rgba(0,45,120,0.96))'
+                  : 'linear-gradient(180deg, rgba(224,162,28,0.96), rgba(94,64,6,0.96))',
             }}>
-              <span style={styles.bannerLabel}>
-                {banner.kind === 'risk' ? 'Volatility hit' : banner.kind === 'cover' ? 'Protection worked' : 'Goal funded'}
-              </span>
               <span style={styles.bannerTitle}>{banner.label}</span>
-              <span style={{
-                ...styles.bannerPoints,
-                color: banner.kind === 'risk' ? 'rgba(255,220,220,0.95)' : '#fff',
-              }}>
-                {banner.kind === 'risk' ? 'no payout' : `+${banner.points}`}
+              <span style={styles.bannerPoints}>
+                {banner.kind === 'risk' ? '+0' : `+${banner.points}`}
               </span>
             </div>
           </div>
         )}
 
-        {/* First-run hint -------------------------------------------- */}
+        {/* First-run hint — glyph led, three words --------------------- */}
         {hint && !over && (
           <div style={styles.hintWrap} className="wd-hint">
             <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>Drag</strong> along the top to aim ·{' '}
-              <strong style={{ color: COLORS.orangeLt }}>Release</strong> to drop
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={COLORS.orangeLt}
+                strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 12h14" />
+                <path d="M13 7l5 5-5 5" />
+              </svg>
+              <span>Drag &middot; Release</span>
             </div>
           </div>
         )}
@@ -1393,7 +1507,7 @@ export default function WealthDropGame({ config, onWin, onLose }) {
               <rect x="14" y="4" width="4" height="16" rx="1.5" />
             </svg>
             <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Paused</div>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
+            <div style={{ color: COLORS.inkDim, fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
               Your timer is safe. Come back and keep dropping.
             </div>
           </div>
@@ -1445,9 +1559,13 @@ const CSS = `
 }
 `;
 
+/* One spacing scale for the whole overlay: 4 / 8 / 12 / 16. Nothing in the HUD
+   uses a number that is not on it. */
+const SP = { xs: 4, sm: 8, md: 12, lg: 16 };
+
 const glass = {
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: 'rgba(255,255,255,0.06)',
+  border: `1px solid ${COLORS.glassLine}`,
   backdropFilter: 'blur(12px)',
   WebkitBackdropFilter: 'blur(12px)',
 };
@@ -1460,7 +1578,7 @@ const styles = {
     maxWidth: 430,
     margin: '0 auto',
     display: 'flex',
-    padding: 10,
+    padding: SP.sm,
     boxSizing: 'border-box',
   },
   stage: {
@@ -1470,68 +1588,61 @@ const styles = {
     borderRadius: 20,
     overflow: 'hidden',
     background: COLORS.bgDark,
-    border: '1.5px solid rgba(255,255,255,0.1)',
-    boxShadow: '0 20px 44px rgba(0,0,0,0.55)',
+    border: '1.5px solid rgba(255,255,255,0.08)',
+    boxShadow: '0 20px 44px rgba(0,0,0,0.6)',
     touchAction: 'none',
   },
   canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
+
   hudTop: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
+    top: SP.sm,
+    left: SP.sm,
+    right: SP.sm,
     display: 'flex',
     justifyContent: 'space-between',
-    gap: 10,
+    alignItems: 'center',
+    gap: SP.sm,
     pointerEvents: 'none',
     zIndex: 4,
   },
-  pill: {
-    ...glass,
+  // 11% of the stage: between board.dropYFrac (7.5%, the aim rail) and
+  // board.pegTopFrac (19%, the first peg row), so it lands in the clear band at
+  // every stage height instead of only at the one it was eyeballed on.
+  hudMid: {
+    position: 'absolute',
+    top: '11%',
+    left: SP.sm,
+    right: SP.sm,
     display: 'flex',
     flexDirection: 'column',
-    borderRadius: 12,
-    padding: '5px 12px',
-    minWidth: 78,
-  },
-  pillLabel: {
-    fontSize: 8,
-    fontWeight: 800,
-    letterSpacing: '0.16em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
-  },
-  pillValue: {
-    fontSize: 19,
-    fontWeight: 900,
-    color: '#fff',
-    lineHeight: 1.15,
-    fontVariantNumeric: 'tabular-nums',
-    display: 'inline-block',
-  },
-  progressWrap: {
-    position: 'absolute',
-    top: 62,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
+    gap: SP.sm,
     pointerEvents: 'none',
     zIndex: 4,
   },
-  progressPill: { ...glass, borderRadius: 12, padding: '6px 14px 7px', minWidth: 186, textAlign: 'center' },
-  progressText: {
-    fontSize: 12,
-    fontWeight: 800,
-    color: '#fff',
-    letterSpacing: '0.04em',
+  chip: {
+    ...glass,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SP.xs + 2,
+    height: 32,
+    borderRadius: 10,
+    padding: `0 ${SP.sm + 2}px`,
+  },
+  chipValue: {
+    fontSize: 20,
+    fontWeight: 900,
+    color: COLORS.ink,
+    lineHeight: 1,
     fontVariantNumeric: 'tabular-nums',
   },
+  trackRow: { display: 'flex', alignItems: 'center', gap: SP.xs + 2 },
   track: {
-    marginTop: 5,
-    height: 5,
+    flex: 1,
+    height: 6,
     borderRadius: 3,
-    background: 'rgba(255,255,255,0.14)',
+    background: 'rgba(3,6,11,0.75)',
+    border: '1px solid rgba(255,255,255,0.14)',
     overflow: 'hidden',
   },
   trackFill: {
@@ -1541,12 +1652,15 @@ const styles = {
     background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.greenLt})`,
     transition: 'width 180ms linear',
   },
-  dots: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: 5,
-    marginTop: 6,
+  trackTarget: {
+    fontSize: 11,
+    fontWeight: 900,
+    color: COLORS.inkDim,
+    letterSpacing: '0.02em',
+    fontVariantNumeric: 'tabular-nums',
+    textShadow: '0 1px 3px rgba(3,6,11,0.9)',
   },
+  dots: { display: 'flex', justifyContent: 'center', gap: SP.xs },
   dot: {
     width: 6,
     height: 6,
@@ -1554,33 +1668,22 @@ const styles = {
     display: 'inline-block',
     transition: 'background 240ms ease, box-shadow 240ms ease',
   },
-  statusWrap: {
-    position: 'absolute',
-    top: 140,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    pointerEvents: 'none',
-    zIndex: 4,
-  },
+  statusRow: { display: 'flex', justifyContent: 'center', gap: SP.xs + 2 },
   status: {
     ...glass,
     display: 'flex',
     alignItems: 'center',
-    gap: 5,
+    gap: SP.xs,
     borderRadius: 999,
-    padding: '4px 10px',
-    fontSize: 10,
+    padding: `${SP.xs}px ${SP.sm}px`,
+    fontSize: 11,
     fontWeight: 900,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
   },
+
   bannerWrap: {
     position: 'absolute',
-    top: '32%',
+    top: '34%',
     left: 0,
     right: 0,
     display: 'flex',
@@ -1590,28 +1693,26 @@ const styles = {
   },
   banner: {
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
-    gap: 2,
-    padding: '11px 24px',
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.28)',
-    boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
+    gap: SP.sm,
+    height: 38,
+    padding: `0 ${SP.lg}px`,
+    borderRadius: 999,
+    border: '1.5px solid rgba(3,6,11,0.7)',
+    boxShadow: '0 10px 28px rgba(0,0,0,0.55)',
   },
-  bannerLabel: {
-    fontSize: 8,
+  bannerTitle: { fontSize: 15, fontWeight: 900, color: '#fff', letterSpacing: '-0.01em' },
+  bannerPoints: {
+    fontSize: 15,
     fontWeight: 900,
-    letterSpacing: '0.2em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.85)',
+    color: '#fff',
+    fontVariantNumeric: 'tabular-nums',
   },
-  bannerTitle: { fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' },
-  bannerPoints: { fontSize: 13, fontWeight: 900 },
   hintWrap: {
     position: 'absolute',
-    bottom: 66,
-    left: 12,
-    right: 12,
+    bottom: 64,
+    left: SP.md,
+    right: SP.md,
     display: 'flex',
     justifyContent: 'center',
     pointerEvents: 'none',
@@ -1619,12 +1720,15 @@ const styles = {
   },
   hint: {
     ...glass,
+    display: 'flex',
+    alignItems: 'center',
+    gap: SP.sm,
+    height: 32,
     borderRadius: 999,
-    padding: '9px 16px',
+    padding: `0 ${SP.md}px`,
     fontSize: 12,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.92)',
-    textAlign: 'center',
+    fontWeight: 800,
+    color: COLORS.ink,
   },
   pauseVeil: {
     position: 'absolute',
@@ -1633,21 +1737,21 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    background: 'rgba(11,18,33,0.84)',
+    gap: SP.sm,
+    background: 'rgba(4,7,13,0.88)',
     backdropFilter: 'blur(8px)',
     WebkitBackdropFilter: 'blur(8px)',
     zIndex: 8,
   },
   muteBtn: {
     position: 'absolute',
-    right: 10,
-    bottom: 10,
+    right: SP.sm,
+    bottom: SP.sm,
     width: 44,
     height: 44,
     borderRadius: 14,
-    background: 'rgba(11,18,33,0.6)',
-    border: '1px solid rgba(255,255,255,0.16)',
+    background: 'rgba(4,7,13,0.72)',
+    border: `1px solid ${COLORS.glassLine}`,
     color: '#fff',
     display: 'flex',
     alignItems: 'center',

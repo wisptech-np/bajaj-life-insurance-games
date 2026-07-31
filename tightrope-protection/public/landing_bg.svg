@@ -1,110 +1,145 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" preserveAspectRatio="xMidYMid slice" width="1080" height="1920" role="img" aria-label="Dusk city skyline at twilight">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" preserveAspectRatio="xMidYMid slice" width="1080" height="1920" role="img" aria-label="Three taut cables strung between anchor pylons above a night skyline">
   <title>Tightrope Protection — intro backdrop</title>
-  <desc>Flat vector dusk cityscape. Three parallax skyline bands over a flat ground plane, Bajaj Life palette. No wire or rope: this game plays on flat ground.</desc>
+  <desc>Flat vector night cityscape at altitude. Two parallax skyline bands under a deep-blue sky, three taut steel cables strung between lattice anchor pylons, the middle cable lit in brand orange with a balance-pole walker on it. Bajaj Life palette.</desc>
 
   <defs>
-    <!-- Sky: deep navy overhead easing into brand blue, then a warm horizon. -->
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#070E1C"/>
-      <stop offset="0.34" stop-color="#0B1221"/>
-      <stop offset="0.68" stop-color="#0A2A66"/>
-      <stop offset="0.88" stop-color="#123C8F"/>
-      <stop offset="1"    stop-color="#1E56B4"/>
+    <linearGradient id="tpSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#030913"/>
+      <stop offset="0.32" stop-color="#04122B"/>
+      <stop offset="0.62" stop-color="#071B3E"/>
+      <stop offset="0.86" stop-color="#0A2450"/>
+      <stop offset="1" stop-color="#0B2E6B"/>
     </linearGradient>
 
-    <!-- Warm sunset bloom sitting on the horizon line. -->
-    <radialGradient id="glow" cx="0.5" cy="1" r="0.72">
-      <stop offset="0"   stop-color="#F26522" stop-opacity="0.85"/>
-      <stop offset="0.4" stop-color="#F2872B" stop-opacity="0.34"/>
-      <stop offset="1"   stop-color="#F26522" stop-opacity="0"/>
+    <radialGradient id="tpBloom" cx="0.62" cy="0.72" r="0.55">
+      <stop offset="0" stop-color="#F26522" stop-opacity="0.30"/>
+      <stop offset="0.55" stop-color="#F26522" stop-opacity="0.09"/>
+      <stop offset="1" stop-color="#F26522" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Parallax bands: flatter and hazier toward the back. -->
-    <linearGradient id="bandFar" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2A4E96"/>
-      <stop offset="1" stop-color="#1B3A72"/>
-    </linearGradient>
-    <linearGradient id="bandMid" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#14306B"/>
-      <stop offset="1" stop-color="#0D2049"/>
-    </linearGradient>
-    <linearGradient id="bandNear" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0A1733"/>
-      <stop offset="1" stop-color="#060D1E"/>
+    <linearGradient id="tpAbyss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#02060F" stop-opacity="0"/>
+      <stop offset="1" stop-color="#01040A" stop-opacity="0.96"/>
     </linearGradient>
 
-    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"   stop-color="#081128"/>
-      <stop offset="0.5" stop-color="#0B1221"/>
-      <stop offset="1"   stop-color="#05090F"/>
+    <linearGradient id="tpRope" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F26522" stop-opacity="0.35"/>
+      <stop offset="0.5" stop-color="#FF8A45"/>
+      <stop offset="1" stop-color="#F26522" stop-opacity="0.35"/>
     </linearGradient>
-
-    <!-- Keeps the centre calm so title and CTA stay legible. -->
-    <radialGradient id="vignette" cx="0.5" cy="0.46" r="0.78">
-      <stop offset="0"    stop-color="#000000" stop-opacity="0"/>
-      <stop offset="0.62" stop-color="#000000" stop-opacity="0"/>
-      <stop offset="1"    stop-color="#000000" stop-opacity="0.55"/>
-    </radialGradient>
   </defs>
 
   <!-- Sky -->
-  <rect width="1080" height="1920" fill="url(#sky)"/>
-  <ellipse cx="540" cy="1205" rx="820" ry="330" fill="url(#glow)"/>
+  <rect width="1080" height="1920" fill="url(#tpSky)"/>
+  <ellipse cx="670" cy="1290" rx="760" ry="420" fill="url(#tpBloom)"/>
 
-  <!-- Far skyline — low contrast, hazy, baseline y=1205 -->
-  <g fill="url(#bandFar)" opacity="0.55">
-    <rect x="-10"  y="1096" width="78"  height="112"/>
-    <rect x="74"   y="1042" width="52"  height="166"/>
-    <rect x="132"  y="1108" width="66"  height="100"/>
-    <rect x="204"  y="1004" width="46"  height="204"/>
-    <rect x="256"  y="1082" width="72"  height="126"/>
-    <rect x="334"  y="1054" width="54"  height="154"/>
-    <rect x="394"  y="1116" width="80"  height="92"/>
-    <rect x="480"  y="1020" width="50"  height="188"/>
-    <rect x="536"  y="1088" width="68"  height="120"/>
-    <rect x="610"  y="1048" width="58"  height="160"/>
-    <rect x="674"  y="1110" width="74"  height="98"/>
-    <rect x="754"  y="1030" width="48"  height="178"/>
-    <rect x="808"  y="1094" width="70"  height="114"/>
-    <rect x="884"  y="1060" width="56"  height="148"/>
-    <rect x="946"  y="1104" width="82"  height="104"/>
-    <rect x="1034" y="1072" width="56"  height="136"/>
+  <!-- Star field: sparse, cool, low contrast so the foreground stays dominant -->
+  <g fill="#A9C2E8" opacity="0.35">
+    <circle cx="118" cy="188" r="2.2"/><circle cx="322" cy="112" r="1.6"/>
+    <circle cx="510" cy="240" r="2.6"/><circle cx="742" cy="150" r="1.8"/>
+    <circle cx="906" cy="300" r="2.2"/><circle cx="212" cy="392" r="1.5"/>
+    <circle cx="640" cy="430" r="1.9"/><circle cx="978" cy="520" r="1.6"/>
+    <circle cx="404" cy="560" r="1.4"/><circle cx="836" cy="640" r="1.8"/>
   </g>
 
-  <!-- Mid skyline — baseline y=1330 -->
-  <g fill="url(#bandMid)" opacity="0.9">
-    <rect x="-16"  y="1178" width="104" height="154"/>
-    <rect x="94"   y="1112" width="70"  height="220"/>
-    <rect x="170"  y="1206" width="92"  height="126"/>
-    <rect x="268"  y="1142" width="64"  height="190"/>
-    <rect x="338"  y="1224" width="108" height="108"/>
-    <rect x="452"  y="1160" width="72"  height="172"/>
-    <rect x="530"  y="1096" width="58"  height="236"/>
-    <rect x="594"  y="1198" width="96"  height="134"/>
-    <rect x="696"  y="1150" width="68"  height="182"/>
-    <rect x="770"  y="1218" width="102" height="114"/>
-    <rect x="878"  y="1134" width="66"  height="198"/>
-    <rect x="950"  y="1212" width="88"  height="120"/>
-    <rect x="1044" y="1168" width="52"  height="164"/>
+  <!-- Far skyline band -->
+  <g fill="#081C40" opacity="0.8">
+    <rect x="-20" y="1128" width="118" height="220"/>
+    <rect x="112" y="1052" width="86" height="296"/>
+    <rect x="212" y="1170" width="132" height="178"/>
+    <rect x="358" y="1004" width="96" height="344"/>
+    <rect x="468" y="1146" width="112" height="202"/>
+    <rect x="594" y="1068" width="80" height="280"/>
+    <rect x="688" y="1188" width="140" height="160"/>
+    <rect x="842" y="1030" width="98" height="318"/>
+    <rect x="954" y="1150" width="146" height="198"/>
+  </g>
+  <g fill="#F26522" opacity="0.16">
+    <rect x="140" y="1110" width="10" height="8"/><rect x="164" y="1178" width="10" height="8"/>
+    <rect x="386" y="1064" width="10" height="8"/><rect x="418" y="1152" width="10" height="8"/>
+    <rect x="616" y="1128" width="10" height="8"/><rect x="870" y="1092" width="10" height="8"/>
+    <rect x="902" y="1188" width="10" height="8"/><rect x="500" y="1206" width="10" height="8"/>
   </g>
 
-  <!-- Near skyline — darkest, highest contrast, baseline y=1476 -->
-  <g fill="url(#bandNear)">
-    <rect x="-20"  y="1300" width="132" height="180"/>
-    <rect x="118"  y="1236" width="86"  height="244"/>
-    <rect x="210"  y="1328" width="118" height="152"/>
-    <rect x="334"  y="1268" width="78"  height="212"/>
-    <rect x="418"  y="1344" width="136" height="136"/>
-    <rect x="560"  y="1284" width="84"  height="196"/>
-    <rect x="650"  y="1216" width="70"  height="264"/>
-    <rect x="726"  y="1318" width="124" height="162"/>
-    <rect x="856"  y="1262" width="80"  height="218"/>
-    <rect x="942"  y="1336" width="158" height="144"/>
+  <!-- Near skyline band -->
+  <g fill="#040F26">
+    <rect x="-30" y="1272" width="164" height="380"/>
+    <rect x="150" y="1200" width="104" height="452"/>
+    <rect x="272" y="1330" width="188" height="322"/>
+    <rect x="478" y="1174" width="118" height="478"/>
+    <rect x="612" y="1298" width="152" height="354"/>
+    <rect x="780" y="1226" width="110" height="426"/>
+    <rect x="906" y="1320" width="200" height="332"/>
+  </g>
+  <g fill="#F26522" opacity="0.22">
+    <rect x="176" y="1246" width="12" height="9"/><rect x="212" y="1318" width="12" height="9"/>
+    <rect x="176" y="1390" width="12" height="9"/><rect x="504" y="1222" width="12" height="9"/>
+    <rect x="548" y="1300" width="12" height="9"/><rect x="504" y="1378" width="12" height="9"/>
+    <rect x="806" y="1272" width="12" height="9"/><rect x="846" y="1350" width="12" height="9"/>
+    <rect x="330" y="1392" width="12" height="9"/><rect x="660" y="1360" width="12" height="9"/>
   </g>
 
-  <!-- Flat ground plane. Deliberately empty — this game runs on flat ground. -->
-  <rect x="0" y="1470" width="1080" height="450" fill="url(#ground)"/>
-  <rect x="0" y="1470" width="1080" height="3" fill="#1E56B4" opacity="0.35"/>
+  <!-- Anchor pylons: lattice towers the cables terminate on -->
+  <g stroke="#123566" stroke-width="5" fill="none" opacity="0.95">
+    <path d="M96 1920 L140 1006 M228 1920 L184 1006"/>
+    <path d="M116 1820 L208 1820 M126 1700 L198 1700 M134 1580 L190 1580 M142 1460 L182 1460 M148 1340 L176 1340 M152 1220 L172 1220 M156 1110 L168 1110"/>
+    <path d="M900 1920 L940 1058 M1024 1920 L984 1058"/>
+    <path d="M918 1820 L1006 1820 M928 1700 L996 1700 M936 1580 L988 1580 M944 1460 L980 1460 M950 1340 L974 1340 M956 1224 L968 1224"/>
+  </g>
+  <g fill="#0D2A58">
+    <rect x="130" y="988" width="64" height="16"/>
+    <rect x="930" y="1040" width="64" height="16"/>
+  </g>
+  <g fill="#F26522">
+    <rect x="130" y="982" width="64" height="6"/>
+    <rect x="930" y="1034" width="64" height="6"/>
+  </g>
+  <g fill="#FFC845" opacity="0.2">
+    <circle cx="162" cy="964" r="22"/><circle cx="962" cy="1016" r="22"/>
+  </g>
+  <g fill="#FFC845">
+    <circle cx="162" cy="964" r="7"/><circle cx="962" cy="1016" r="7"/>
+  </g>
 
-  <rect width="1080" height="1920" fill="url(#vignette)"/>
+  <!-- Depth haze under the lowest cable -->
+  <rect x="0" y="1500" width="1080" height="420" fill="url(#tpAbyss)"/>
+
+  <!-- Three taut cables. Middle one is lit: that is the one you are on. -->
+  <g stroke-linecap="round">
+    <path d="M162 1236 L962 1288" stroke="#02060F" stroke-width="9" opacity="0.9"/>
+    <path d="M162 1232 L962 1284" stroke="#7E97BB" stroke-width="4" opacity="0.55"/>
+
+    <path d="M162 1400 L962 1452" stroke="#02060F" stroke-width="12" opacity="0.95"/>
+    <path d="M162 1394 L962 1446" stroke="url(#tpRope)" stroke-width="7"/>
+    <path d="M162 1388 L962 1440" stroke="#FFFFFF" stroke-width="2" opacity="0.6"/>
+
+    <path d="M162 1566 L962 1618" stroke="#02060F" stroke-width="12" opacity="0.95"/>
+    <path d="M162 1562 L962 1614" stroke="#7E97BB" stroke-width="5" opacity="0.7"/>
+  </g>
+
+  <!-- Cable eyelets -->
+  <g fill="#1E56B4">
+    <circle cx="162" cy="1234" r="9"/><circle cx="162" cy="1392" r="10"/><circle cx="162" cy="1564" r="10"/>
+    <circle cx="962" cy="1286" r="9"/><circle cx="962" cy="1444" r="10"/><circle cx="962" cy="1616" r="10"/>
+  </g>
+
+  <!-- Walker silhouette on the lit cable: light value against a dark ground -->
+  <g transform="translate(430 1408)">
+    <path d="M-92 -78 L92 -78" stroke="#F26522" stroke-width="12" stroke-linecap="round"/>
+    <g fill="#F26522">
+      <circle cx="-92" cy="-78" r="11"/><circle cx="92" cy="-78" r="11"/>
+    </g>
+    <path d="M-18 -76 L0 -66 L18 -76" stroke="#EDF3FF" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <path d="M-16 -62 Q-20 -30 -14 -2 L14 -2 Q20 -30 16 -62 Z" fill="#EDF3FF"/>
+    <path d="M-16 -52 L16 -34" stroke="#003DA6" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="2" cy="-86" r="16" fill="#F3D2AE"/>
+    <path d="M-14 -88 a16 16 0 0 1 32 0 Z" fill="#003DA6"/>
+    <path d="M0 -2 L-20 4 M0 -2 L20 4" stroke="#0A2C6B" stroke-width="14" stroke-linecap="round"/>
+    <ellipse cx="-20" cy="4" rx="11" ry="6" fill="#FFC845"/>
+    <ellipse cx="20" cy="4" rx="11" ry="6" fill="#FFC845"/>
+  </g>
+
+  <!-- Vignette so UI text sits on quiet ground -->
+  <rect x="0" y="0" width="1080" height="480" fill="#04122B" opacity="0.55"/>
+  <rect x="0" y="1640" width="1080" height="280" fill="#01040A" opacity="0.65"/>
 </svg>

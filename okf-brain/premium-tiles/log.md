@@ -45,3 +45,52 @@ only U+2713 in the verbatim lead-modal HTML checkbox (allowed UI copy);
 no emoji in any canvas drawing. Lead capture / slot booking / playCount
 wired per standard §2. README with concept, hook, controls, scoring,
 port 5071, build commands.
+
+---
+
+## 2026-07-31 — lead form trimmed, how-to-play rebuilt as animation, asset sheet
+
+Three scoped changes. No gameplay touched: `data.js`, `synth.js` and
+`PremiumTilesGame.jsx` are byte-identical, so the chart, the fall-speed ramp,
+the anti-mash rules and the star thresholds are all unchanged.
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx` lost `EMAIL_RE`, the
+`email` state, the "Email Field" block, the `errs.email` branch, both
+`lastSubmittedEmail` sessionStorage calls, and `email` from the `submitToLMS`
+call and both `onSubmitted` payloads. `api.js` untouched — it already sends
+`email_id: email || ''`. Name + Mobile + T&C unchanged. Grep for `email` over
+`premium-tiles/src` is now empty.
+
+**G2 — `HowToPlayScreen` is now one animated demo.** Deleted: all four numbered
+instruction paragraphs and the old three-element hint panel. In their place
+`DemoLanes()` renders the real four-lane board — same lane dividers, same
+marigold DUE line, same tile gradients — running one 5.2 s loop of the three
+inputs that actually exist: a blue premium tile falls to the DUE line and a
+finger taps it (gold hit ring, melody note flies off); a tall HOLD tile lands and
+the finger presses and *stays down* (sustained ring, two more notes bank); and a
+red risk tile falls straight through lane 4 while the finger pulls clear of the
+glass and shows a red "no" glyph. Every track shares the 5.2 s duration, and all
+are disabled under `prefers-reduced-motion` (the old demo had no reduced-motion
+handling at all).
+Remaining text: the "How to Play" heading, three icon-led cues (TAP BLUE TILES /
+HOLD LONG TILES / NEVER TAP RED) and the Play button. Nothing else — including
+the "IMPULSE BUY" label that used to be baked into the old demo art. Card 340 px
+wide with a 200×275 board; stack measures ~470 px, so 360×640 fits with no
+scroll (`overflow: hidden`, was `overflowY: auto`).
+
+**G3 — `asset-from-here.md`,** 14 Nano Banana prompts on the motif *hand-carved
+woodblock printing on handmade paper*: every asset is an inked impression on rag
+paper — bled edges, uneven ink coverage, carved woodgrain streaks, hand-cut
+keylines that wobble — shot flat-on like a scanned print, with an explicit
+repo-wide ban in the sheet on glow, glass, chrome, bevel and drop shadow. Colours
+are read as dyes (indigo, marigold, madder, leaf) rather than as light. Covers
+the paper field, the premium/hold/double tiles, both red risk variants, the DUE
+rule, the note glyph, the perfect-tap ink bloom, the life pips, the combo seal,
+the star rating and both result-screen pieces.
+
+**Verification**
+
+| Gate | Result |
+| --- | --- |
+| `pnpm install` | pass |
+| `pnpm build` | pass — `✓ built in 2.03s`, 420.30 kB / 139.49 kB gzip |

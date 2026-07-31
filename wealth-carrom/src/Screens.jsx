@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { GAME_CONFIG, PIECE_LEGEND, RESULT_TARGET_COINS } from './data.js';
+import { GAME_CONFIG, RESULT_TARGET_COINS } from './data.js';
 
 const GAME_TITLE = 'Wealth Carrom';
 const TAGLINE = 'Pocket every goal — and remember, the Queen of Protection only stays yours if you cover her.';
@@ -110,16 +110,6 @@ function HomeIcon({ size = 18 }) {
   );
 }
 
-/** The queen's crown, used wherever the copy names her. */
-function CrownIcon({ size = 14, color = GOLD_LT }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true"
-      style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-      <path d="M3 8l4 4 5-7 5 7 4-4v10H3V8z" />
-    </svg>
-  );
-}
-
 /* ─── Shared keyframes ───────────────────────────────────── */
 const SCREEN_CSS = `
 @keyframes wcTitleIn { from { opacity: 0; letter-spacing: 0.24em; transform: translateY(10px); } to { opacity: 1; letter-spacing: -0.02em; transform: none; } }
@@ -150,9 +140,88 @@ const SCREEN_CSS = `
 .wc-slide { animation: wcBeatSlide 2.4s ease-in-out infinite; }
 .wc-pull  { animation: wcBeatPull 2.4s cubic-bezier(0.4,0,0.6,1) infinite; }
 .wc-cover { animation: wcBeatCover 2.4s ease-in-out infinite; }
+
+/* How-to-play demo: one 7s loop, two real strikes on a full board.
+   Strike 1 pots the Queen (pending, red ring). Strike 2 pots a gold coin and
+   the cover completes (green tick). Every transform is authored around its
+   parent group's origin. */
+@keyframes wcdStriker {
+  0%       { transform: translate(-34px, 0); }
+  8%       { transform: translate(0, 0); }
+  17%      { transform: translate(0, 22px); }
+  20%      { transform: translate(0, 22px); }
+  26%      { transform: translate(-34px, -84px); }
+  32%      { transform: translate(-52px, -58px); }
+  40%,52%  { transform: translate(0, 0); }
+  58%      { transform: translate(0, 22px); }
+  61%      { transform: translate(0, 22px); }
+  67%      { transform: translate(36px, -66px); }
+  73%      { transform: translate(52px, -42px); }
+  82%,94%  { transform: translate(0, 0); }
+  100%     { transform: translate(-34px, 0); }
+}
+@keyframes wcdFinger {
+  0%       { transform: translate(-34px, 0); opacity: 0; }
+  3%       { transform: translate(-30px, 0); opacity: 1; }
+  8%       { transform: translate(0, 0); opacity: 1; }
+  17%,20%  { transform: translate(0, 22px); opacity: 1; }
+  23%      { transform: translate(0, 28px); opacity: 0; }
+  50%      { transform: translate(0, 6px); opacity: 0; }
+  53%      { transform: translate(0, 0); opacity: 1; }
+  58%,61%  { transform: translate(0, 22px); opacity: 1; }
+  64%      { transform: translate(0, 28px); opacity: 0; }
+  94%,100% { transform: translate(-34px, 0); opacity: 0; }
+}
+@keyframes wcdPower {
+  0%,10%   { opacity: 0; transform: scale(0.7); }
+  17%,20%  { opacity: 1; transform: scale(1.55); }
+  22%,51%  { opacity: 0; transform: scale(0.7); }
+  58%,61%  { opacity: 1; transform: scale(1.45); }
+  63%,100% { opacity: 0; transform: scale(0.7); }
+}
+@keyframes wcdRayA { 0%,10% { opacity: 0; } 14%,20% { opacity: 0.95; } 23%,100% { opacity: 0; } }
+@keyframes wcdRayB { 0%,51% { opacity: 0; } 55%,61% { opacity: 0.95; } 64%,100% { opacity: 0; } }
+@keyframes wcdQueen {
+  0%,25%   { transform: translate(0,0) scale(1); opacity: 1; }
+  33%      { transform: translate(-112px,-88px) scale(0.82); opacity: 1; }
+  36%,90%  { transform: translate(-120px,-94px) scale(0.25); opacity: 0; }
+  93%      { transform: translate(0,0) scale(0.25); opacity: 0; }
+  97%,100% { transform: translate(0,0) scale(1); opacity: 1; }
+}
+@keyframes wcdCoin {
+  0%,66%   { transform: translate(0,0) scale(1); opacity: 1; }
+  73%      { transform: translate(88px,-64px) scale(0.82); opacity: 1; }
+  76%,92%  { transform: translate(94px,-70px) scale(0.25); opacity: 0; }
+  95%      { transform: translate(0,0) scale(0.25); opacity: 0; }
+  98%,100% { transform: translate(0,0) scale(1); opacity: 1; }
+}
+@keyframes wcdPocketTL { 0%,33% { opacity: 0; } 37% { opacity: 1; } 46%,100% { opacity: 0; } }
+@keyframes wcdPocketTR { 0%,73% { opacity: 0; } 77% { opacity: 1; } 86%,100% { opacity: 0; } }
+/* The Queen is pocketed but not yet paid for — this is the cover rule, shown. */
+@keyframes wcdPending { 0%,36% { opacity: 0; } 42%,72% { opacity: 0.9; } 76%,100% { opacity: 0; } }
+@keyframes wcdCover {
+  0%,76%   { opacity: 0; transform: scale(0.5); }
+  81%      { opacity: 1; transform: scale(1.18); }
+  85%      { opacity: 1; transform: scale(1); }
+  93%,100% { opacity: 0; transform: scale(1); }
+}
+.wcd-striker   { animation: wcdStriker 7s cubic-bezier(0.3,0,0.4,1) infinite; }
+.wcd-finger    { animation: wcdFinger 7s cubic-bezier(0.3,0,0.4,1) infinite; }
+.wcd-power     { animation: wcdPower 7s ease-out infinite; }
+.wcd-ray-a     { animation: wcdRayA 7s linear infinite; }
+.wcd-ray-b     { animation: wcdRayB 7s linear infinite; }
+.wcd-queen     { animation: wcdQueen 7s cubic-bezier(0.3,0,0.4,1) infinite; }
+.wcd-coin      { animation: wcdCoin 7s cubic-bezier(0.3,0,0.4,1) infinite; }
+.wcd-pocket-tl { animation: wcdPocketTL 7s ease-out infinite; }
+.wcd-pocket-tr { animation: wcdPocketTR 7s ease-out infinite; }
+.wcd-pending   { animation: wcdPending 7s ease-in-out infinite; }
+.wcd-cover     { animation: wcdCover 7s cubic-bezier(0.22,1,0.36,1) infinite; }
 @media (prefers-reduced-motion: reduce) {
   .wc-title, .wc-float, .wc-glow, .wc-chip, .wc-hero-strike, .wc-hero-coin,
-  .wc-hero-pocket, .wc-slide, .wc-pull, .wc-cover { animation: none !important; }
+  .wc-hero-pocket, .wc-slide, .wc-pull, .wc-cover,
+  .wcd-striker, .wcd-finger, .wcd-power, .wcd-ray-a, .wcd-ray-b, .wcd-queen,
+  .wcd-coin, .wcd-pocket-tl, .wcd-pocket-tr, .wcd-pending,
+  .wcd-cover { animation: none !important; }
 }
 `;
 
@@ -406,46 +475,38 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
-    </div>
-  );
-}
+/**
+ * Animation-first how-to-play. One 7 s loop plays two real strikes on a full
+ * board: place the striker on the baseline, pull back to load the aim ray and
+ * the power ring, release, pot the Queen — then pot a gold coin on the very
+ * next strike so the cover completes. No prose.
+ */
+const DEMO_POCKETS = [[30, 30], [270, 30], [30, 230], [270, 230]];
+/* Six goal coins ringing the Queen; the seventh (index -1) is the one strike 2 pots. */
+const DEMO_COINS = [[150, 88], [122, 106], [178, 106], [122, 142], [150, 160], [178, 142]];
 
-function BeatDefs() {
+function DemoDefs() {
   return (
     <defs>
-      <radialGradient id="wcBCoin" cx="0.34" cy="0.3" r="0.78">
+      <radialGradient id="wcdCoinG" cx="0.34" cy="0.3" r="0.78">
         <stop offset="0%" stopColor="#FFF6D6" />
         <stop offset="55%" stopColor={GOLD} />
         <stop offset="100%" stopColor="#8F6209" />
       </radialGradient>
-      <radialGradient id="wcBQueen" cx="0.34" cy="0.3" r="0.78">
+      <radialGradient id="wcdQueenG" cx="0.34" cy="0.3" r="0.78">
         <stop offset="0%" stopColor={QUEEN_LT} />
         <stop offset="55%" stopColor={QUEEN} />
         <stop offset="100%" stopColor="#7C1015" />
       </radialGradient>
-      <radialGradient id="wcBStriker" cx="0.34" cy="0.3" r="0.78">
+      <radialGradient id="wcdStrikerG" cx="0.34" cy="0.3" r="0.78">
         <stop offset="0%" stopColor="#FFFFFF" />
         <stop offset="60%" stopColor="#F4F7FF" />
         <stop offset="100%" stopColor="#9FB2D6" />
+      </radialGradient>
+      <radialGradient id="wcdRiskG" cx="0.34" cy="0.3" r="0.78">
+        <stop offset="0%" stopColor="#6B5FA0" />
+        <stop offset="60%" stopColor={RISK} />
+        <stop offset="100%" stopColor="#150F26" />
       </radialGradient>
     </defs>
   );
@@ -465,9 +526,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 16,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -476,96 +537,159 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '16px 13px 14px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 22, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 10px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Place the striker &middot; Pull back to aim &middot; Release to flick
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          <Beat n="1" title="Place the striker" copy="Drag along the baseline to slide the striker left and right.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatDefs />
-              <rect x="4" y="6" width="66" height="50" rx="4" fill="#0E2650" stroke="rgba(255,200,69,0.3)" strokeWidth="1" />
-              <line x1="16" y1="44" x2="58" y2="44" stroke="rgba(255,200,69,0.5)" strokeWidth="1.4" />
-              <circle cx="16" cy="44" r="3.2" fill="none" stroke="rgba(255,200,69,0.4)" strokeWidth="0.9" />
-              <circle cx="58" cy="44" r="3.2" fill="none" stroke="rgba(255,200,69,0.4)" strokeWidth="0.9" />
-              <g className="wc-slide" transform="translate(37,44)">
-                <circle cx="0" cy="0" r="6" fill="url(#wcBStriker)" />
-                <circle cx="0" cy="0" r="4.2" fill="none" stroke={ORANGE} strokeWidth="1.3" />
+        {/* ── The looping demo: two strikes on the real board ── */}
+        <svg viewBox="0 0 300 260" width="100%" role="img"
+          aria-label="A finger places the striker on the baseline, pulls back to aim, and flicks it into the Queen; on the next strike it pockets a gold coin and the cover is confirmed."
+          style={{ display: 'block', borderRadius: 14 }}>
+          <DemoDefs />
+
+          {/* Board frame and playfield */}
+          <rect x="2" y="2" width="296" height="256" rx="16" fill="#0A1A38" stroke={BLUE_LT} strokeWidth="2.5" />
+          <rect x="16" y="16" width="268" height="228" rx="8" fill="#0E2650" stroke="rgba(255,200,69,0.28)" strokeWidth="1.4" />
+
+          {/* Centre circle and the gold arcs a carrom board always has */}
+          <circle cx="150" cy="124" r="38" fill="none" stroke="rgba(255,200,69,0.3)" strokeWidth="1.4" />
+          <circle cx="150" cy="124" r="9" fill="none" stroke="rgba(255,200,69,0.45)" strokeWidth="1.2" />
+
+          {/* Corner pockets */}
+          {DEMO_POCKETS.map(([px, py]) => (
+            <g key={`${px}-${py}`}>
+              <circle cx={px} cy={py} r="15" fill="#02060F" stroke="rgba(255,200,69,0.45)" strokeWidth="1.4" />
+              <circle cx={px} cy={py} r="9" fill="#000" opacity="0.6" />
+            </g>
+          ))}
+          {/* Pocket flashes when something drops in */}
+          <circle className="wcd-pocket-tl" cx="30" cy="30" r="17" fill="none" stroke={QUEEN_LT} strokeWidth="3.5" />
+          <circle className="wcd-pocket-tr" cx="270" cy="30" r="17" fill="none" stroke={GREEN_LT} strokeWidth="3.5" />
+          {/* The Queen is in but not yet paid for */}
+          <circle className="wcd-pending" cx="30" cy="30" r="22" fill="none" stroke={QUEEN}
+            strokeWidth="2.6" strokeDasharray="5 5" />
+
+          {/* Baseline strip the striker is placed along */}
+          <line x1="62" y1="204" x2="238" y2="204" stroke="rgba(255,200,69,0.5)" strokeWidth="1.6" />
+          <line x1="62" y1="214" x2="238" y2="214" stroke="rgba(255,200,69,0.5)" strokeWidth="1.6" />
+          <circle cx="62" cy="209" r="5" fill="none" stroke="rgba(255,200,69,0.4)" strokeWidth="1.2" />
+          <circle cx="238" cy="209" r="5" fill="none" stroke="rgba(255,200,69,0.4)" strokeWidth="1.2" />
+
+          {/* Two risk discs — one parked between the baseline and the Queen */}
+          <circle cx="150" cy="180" r="11" fill="url(#wcdRiskG)" stroke={RISK_EDGE} strokeWidth="1.6" />
+          <path d="M144 174 L156 186 M156 174 L144 186" stroke={RISK_EDGE} strokeWidth="2" strokeLinecap="round" />
+          <circle cx="94" cy="72" r="11" fill="url(#wcdRiskG)" stroke={RISK_EDGE} strokeWidth="1.6" />
+          <path d="M88 66 L100 78 M100 66 L88 78" stroke={RISK_EDGE} strokeWidth="2" strokeLinecap="round" />
+
+          {/* The goal coins */}
+          {DEMO_COINS.map(([cx, cy]) => (
+            <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="11" fill="url(#wcdCoinG)"
+              stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
+          ))}
+          {/* The coin strike 2 pots, which is what covers the Queen */}
+          <g transform="translate(206,124)">
+            <circle className="wcd-coin" cx="0" cy="0" r="11" fill="url(#wcdCoinG)"
+              stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
+          </g>
+
+          {/* The Queen of Protection on the centre spot */}
+          <g transform="translate(150,124)">
+            <g className="wcd-queen">
+              <circle cx="0" cy="0" r="12.5" fill="url(#wcdQueenG)" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
+              <path d="M-6 -2 l3 3 l3 -6 l3 6 l3 -3 v6 h-12 z" fill={GOLD_LT} />
+            </g>
+          </g>
+
+          {/* Aim rays: dashed, opposite the pull, exactly as the game draws them */}
+          <line className="wcd-ray-a" x1="150" y1="208" x2="106" y2="102"
+            stroke={ORANGE_LT} strokeWidth="2.2" strokeDasharray="6 5" strokeLinecap="round" />
+          <line className="wcd-ray-b" x1="150" y1="208" x2="206" y2="106"
+            stroke={ORANGE_LT} strokeWidth="2.2" strokeDasharray="6 5" strokeLinecap="round" />
+
+          {/* Striker home is the baseline centre; everything else is relative */}
+          <g transform="translate(150,208)">
+            <g className="wcd-striker">
+              <circle className="wcd-power" cx="0" cy="0" r="13" fill="none" stroke={ORANGE} strokeWidth="2.4" />
+              <circle cx="0" cy="0" r="13" fill="url(#wcdStrikerG)" />
+              <circle cx="0" cy="0" r="8.5" fill="none" stroke={ORANGE} strokeWidth="2.2" />
+            </g>
+          </g>
+
+          {/* The finger: places, pulls back, releases */}
+          <g transform="translate(150,208)">
+            <g className="wcd-finger">
+              <g transform="translate(-3,-4)">
+                <path d="M13 21V7.6a3 3 0 0 1 6 0V18h1.6a3 3 0 0 1 3 3v.6l3.2 1.4a4 4 0 0 1 2.3 4.5l-1.2 5.6A5 5 0 0 1 23 37h-6.4a6 6 0 0 1-4.6-2.2l-5.6-6.9a2.8 2.8 0 0 1 3.9-4L13 26"
+                  fill="#FFFFFF" stroke="#0B1221" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
               </g>
-            </svg>
-          </Beat>
+            </g>
+          </g>
 
-          <Beat n="2" title="Pull back and let go" copy="Drag away from the striker to load power, release to flick it up the board.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatDefs />
-              <rect x="4" y="6" width="66" height="50" rx="4" fill="#0E2650" stroke="rgba(255,200,69,0.3)" strokeWidth="1" />
-              <circle cx="10" cy="12" r="6" fill="#02060F" stroke="rgba(255,200,69,0.5)" strokeWidth="0.9" />
-              <circle cx="26" cy="20" r="5" fill="url(#wcBCoin)" />
-              <line x1="37" y1="44" x2="27" y2="21" stroke={ORANGE_LT} strokeWidth="1.4" strokeDasharray="3 3" />
-              <g className="wc-pull" transform="translate(37,44)">
-                <circle cx="0" cy="0" r="6" fill="url(#wcBStriker)" />
-                <circle cx="0" cy="0" r="4.2" fill="none" stroke={ORANGE} strokeWidth="1.3" />
-              </g>
-            </svg>
-          </Beat>
+          {/* Cover confirmed */}
+          <g transform="translate(150,124)">
+            <g className="wcd-cover">
+              <circle cx="0" cy="0" r="30" fill="rgba(40,167,69,0.22)" stroke={GREEN_LT} strokeWidth="3" />
+              <path d="M-13 1 l9 10 l18 -20" fill="none" stroke={GREEN_LT} strokeWidth="6"
+                strokeLinecap="round" strokeLinejoin="round" />
+            </g>
+          </g>
+        </svg>
 
-          <Beat n="3" title="Cover the Queen" copy="Pot the red Queen, then pot a gold coin on the very next strike or she goes back.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <BeatDefs />
-              <rect x="4" y="6" width="66" height="50" rx="4" fill="#0E2650" stroke="rgba(255,200,69,0.3)" strokeWidth="1" />
-              <circle cx="24" cy="30" r="7" fill="url(#wcBQueen)" />
-              <path d="M20 28l2.5 2.4L24 26l1.5 4.4L28 28v4h-8v-4z" fill={GOLD_LT} />
-              <g className="wc-cover">
-                <circle cx="48" cy="30" r="6" fill="url(#wcBCoin)" />
-                <path d="M40 40l3.4 3.4 7-7.6" fill="none" stroke={GREEN_LT} strokeWidth="2.4"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </g>
-            </svg>
-          </Beat>
-        </div>
-
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.strikesPerSession} strikes</strong> or{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong> &mdash; whichever runs out first.
-          Pocket <strong style={{ color: GREEN_LT }}>{RESULT_TARGET_COINS} coins</strong> to win (a covered{' '}
-          <CrownIcon size={12} /> Queen counts as {GAME_CONFIG.scoring.queenCoinEquivalent}).
-          Three fouls and the run is over.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 18 }}>
-          {PIECE_LEGEND.map((p, i) => (
-            <span
-              key={p.key}
-              className="wc-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: p.key === 'risk' ? RISK_EDGE : p.key === 'queen' ? QUEEN_LT : GOLD_LT,
-                background: p.key === 'risk' ? 'rgba(58,51,80,0.5)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${p.key === 'risk' ? 'rgba(185,168,240,0.45)' : p.key === 'queen' ? 'rgba(255,122,128,0.5)' : 'rgba(255,200,69,0.4)'}`,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {p.count}&times; {p.label} {p.value}
-            </span>
+        {/* ── At most three icon-led labels ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, margin: '10px 2px 12px' }}>
+          {[
+            {
+              color: ORANGE_LT, word: 'PULL TO AIM',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="16" r="5" fill="#F4F7FF" stroke={ORANGE} strokeWidth="1.8" />
+                  <path d="M12 10.5 V2.6" stroke={ORANGE_LT} strokeWidth="2.2" strokeDasharray="3 3" strokeLinecap="round" />
+                  <path d="M8.6 5.6 L12 2 l3.4 3.6" fill="none" stroke={ORANGE_LT} strokeWidth="2.2"
+                    strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ),
+            },
+            {
+              color: GOLD_LT, word: 'POCKET COINS',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M2 2 h8 a8 8 0 0 1 -8 8 z" fill="#02060F" stroke={GOLD} strokeWidth="1.4" />
+                  <circle cx="15" cy="15" r="6" fill={GOLD} stroke="#8F6209" strokeWidth="1.6" />
+                  <circle cx="13" cy="13" r="1.8" fill={GOLD_LT} />
+                </svg>
+              ),
+            },
+            {
+              color: QUEEN_LT, word: 'COVER THE QUEEN',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8.4" fill={QUEEN} stroke={QUEEN_LT} strokeWidth="1.6" />
+                  <path d="M7 11 l2.4 2.4 l2.6 -5 l2.6 5 L17 11 v4.6 H7 z" fill={GOLD_LT} />
+                </svg>
+              ),
+            },
+          ].map(({ color, word, icon }) => (
+            <div key={word} style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              padding: '6px 2px', borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)', border: `1px solid ${color}44`,
+            }}>
+              {icon}
+              <span style={{ fontSize: 9.5, fontWeight: 900, color, letterSpacing: '0.03em', lineHeight: 1.15 }}>
+                {word}
+              </span>
+            </div>
           ))}
         </div>
 

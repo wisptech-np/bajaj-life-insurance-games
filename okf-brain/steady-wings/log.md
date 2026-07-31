@@ -451,3 +451,44 @@ Recorded as a known risk with the argument, not silently fixed.
 inherited byte-for-byte from `guardian-shelter` and shared by all 30+ games.
 Changing it here would make this game inconsistent with the rest of the repo for
 no benefit; it belongs to whoever owns the shared scaffold. Noted, not touched.
+
+## [2026-07-31] Revamp: email field removed, animated how-to-play, asset sheet
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx`: deleted `EMAIL_RE`, the
+`email` `useState`, the whole "Email Field" `sl-lead-field` block, the
+`errs.email` validation branch, and both `sessionStorage` touches of
+`lastSubmittedEmail`. Dropped `email` from the `submitToLMS({...})` call and from
+both `onSubmitted({...})` payloads. `api.js` untouched — `submitToLMS` already
+sends `email_id: email || ''`, so the LMS payload shape is unchanged. Name +
+Mobile + T&C unchanged. Grep for `email` outside `src/kit/` and `src/api.js`
+returns zero hits.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first.** `src/Screens.jsx`:
+- Deleted the `Beat` component, all three numbered step blocks with their titles
+  and copy, the difficulty-ramp paragraph and the four scoring chips.
+- New 300×200 inline-SVG scene runs the actual game on a loop: paired basalt
+  expense pillars (`url(#swStone)`, coral cap bands) scroll right-to-left on a
+  seamless 2.4 s `translateX(-150px)` cycle with three gate copies spaced 150 px
+  apart; the existing `Glider` component sits at x=62 and rides a 1.2 s
+  tap-and-fall arc that threads the 68–132 slot; a white hand glyph presses in
+  the lower left with a gold ripple ring on the same 1.2 s beat, so one tap
+  visibly equals one lift. A gold coin and a blue cover token ride in the slots.
+- Ceiling and floor kill bands are drawn, so "don't touch the edges" is shown.
+- Remaining text: the "How to Play" heading, three icon-led labels (`TAP TO
+  LIFT`, `THREAD GAP`, `COVER SAVES ONE`), and the Play button. Nothing else.
+- Container switched from `overflowY: auto` to `overflow: hidden`; measured
+  stack is ~400 px so it fits 360×640 without scrolling. New keyframes are added
+  to the existing `prefers-reduced-motion` kill switch.
+
+**G3 — `steady-wings/asset-from-here.md`.** 12 Nano Banana prompts on a "monsoon
+dusk over a river gorge" motif — soft-edged painterly gouache, eroded organic
+shapes, layered atmospheric haze, wet basalt. Deliberately the opposite shape
+language to the hard industrial sheets elsewhere in the repo. Covers the tileable
+sky, glider and covered glider, both pillar halves, coin, cover token, hazard
+bands, two HUD icons and both result-screen illustrations.
+
+**Not changed:** gameplay, balance, `flight.js` physics, HUD layout,
+`ResultsScreen`, `HomeScreen`, canvas artwork, `data.js`, `api.js`, `src/kit/`.
+
+**Build:** `pnpm install && pnpm build` — exit 0, `✓ built in 2.53s`
+(`dist/assets/index-B2eAY6e3.js 422.91 kB │ gzip: 140.82 kB`).

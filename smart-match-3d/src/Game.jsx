@@ -78,6 +78,7 @@ const easeOutBack = (t) => {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 };
 const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+const RING_C = 2 * Math.PI * 9.5; // HUD time-ring circumference
 
 function shuffleArr(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -230,6 +231,7 @@ export default function SmartMatchGame({ config = GAME_CONFIG, onWin, onLose }) 
       boardRect: { x: 0, y: 0, w: 0, h: 0 },
       particles: [],
       floats: [],
+      slotPulses: [], // brief ring flash on the tray slots a trio just vacated
       pendingPulls: 0, // magnet tokens scheduled but not yet in the tray
       shake: { t: 0, dur: 0, power: 0 },
       time: config.duration,
@@ -451,10 +453,12 @@ export default function SmartMatchGame({ config = GAME_CONFIG, onWin, onLose }) 
       SFX.merge(st.combo);
       const mid = trio[1];
       spawnBurst(st, mid.x, mid.y - st.S * 0.2, goal, 16);
-      addFloat(st, mid.x, mid.y - st.S * 0.85, `+${gained}`, '#FFD97A', 19);
-      addFloat(st, mid.x, mid.y - st.S * 1.35, `${goal.label} goal secured!`, goal.glow, 12);
-      if (st.combo > 1) addFloat(st, mid.x, mid.y - st.S * 1.75, `Combo x${st.combo}`, '#FF9D5C', 13);
+      // Feedback at the point of action: a floating +N and a pulse on the freed slots.
+      addFloat(st, mid.x, mid.y - st.S * 0.85, `+${gained}`, '#FFD97A', 20);
+      if (st.combo > 1) addFloat(st, mid.x, mid.y - st.S * 1.35, `×${st.combo}`, '#FF9D5C', 15);
       trio.forEach((t, i) => {
+        const slot = st.tray.indexOf(t);
+        if (slot >= 0) st.slotPulses.push({ i: slot, t: 0, color: goal.glow });
         t.state = 'merge';
         t.mergeT = -i * 0.05; // slight cascade
       });
@@ -745,6 +749,11 @@ export default function SmartMatchGame({ config = GAME_CONFIG, onWin, onLose }) 
         f.t += dt;
         if (f.t >= f.life) st.floats.splice(i, 1);
       }
+      // tray-slot pulses
+      for (let i = st.slotPulses.length - 1; i >= 0; i--) {
+        st.slotPulses[i].t += dt / 0.45;
+        if (st.slotPulses[i].t >= 1) st.slotPulses.splice(i, 1);
+      }
       // shake
       if (st.shake.t < st.shake.dur) st.shake.t += dt;
 
@@ -866,6 +875,18 @@ export default function SmartMatchGame({ config = GAME_CONFIG, onWin, onLose }) 
       roundRect(ctx, c.x - s / 2 + 0.5, c.y - s / 2 + 0.5, s - 1, s - 1, 12);
       ctx.stroke();
     }
+    // freed-slot pulse — the only "score feedback" the tray gives
+    for (const p of st.slotPulses) {
+      const k = clamp(p.t, 0, 1);
+      const c = slotCenter(st, p.i);
+      const s = (tr.slot - 8) * (1 + 0.42 * Math.sin(k * Math.PI));
+      ctx.globalAlpha = 1 - k * k;
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 2.6;
+      roundRect(ctx, c.x - s / 2, c.y - s / 2, s, s, 13);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
   }
 
   function drawToken(ctx, st, t) {
@@ -896,11 +917,12 @@ export default function SmartMatchGame({ config = GAME_CONFIG, onWin, onLose }) 
     ctx.restore();
   }
 
-  /* ── HUD ────────────────────────────────────────────────── */
-  const mm = Math.floor(hud.time / 60);
-  const ss = String(hud.time % 60).padStart(2, '0');
-  const timeFrac = hud.time / config.duration;
-  const barClass = timeFrac < 0.15 ? 'danger' : timeFrac < 0.35 ? 'warn' : '';
+  /* ── HUD ────────────────────────────────────────────────────
+     Deliberately quiet: one collection rail (goals secured), one
+     depleting time ring, one small score number. No labels. */
+  const timeFrac = clamp(hud.time / config.duration, 0, 1);
+  const collectPct = (hud.matches / config.totalTriplets) * 100;
+  const lowTime = hud.time <= 15;
 
   const boosterDefs = useMemo(
     () => [
@@ -913,29 +935,43 @@ export default function SmartMatchGame({ config = GAME_CONFIG, onWin, onLose }) 
 
   return (
     <div className="sm3-game-root">
-      <div className="sm3-hud">
-        <div className="sm3-chip">
-          <span className="sm3-chip-label">Score</span>
-          <span className="sm3-chip-value">{hud.score.toLocaleString()}</span>
-        </div>
-        <div className="sm3-chip">
-          <span className="sm3-chip-label">Goals</span>
-          <span className="sm3-chip-value">
-            {hud.matches}/{config.totalTriplets}
-          </span>
-        </div>
-        <div className="sm3-chip">
-          <span className="sm3-chip-label">Time</span>
-          <span className={`sm3-chip-value${hud.time <= 15 ? ' danger' : ''}`}>
-            {mm}:{ss}
-          </span>
-        </div>
-      </div>
-      <div className="sm3-timerbar">
+      <div className="sm3-rail">
+        <svg
+          className={`sm3-ring${lowTime ? ' low' : ''}`}
+          viewBox="0 0 24 24"
+          role="img"
+          aria-label={`${hud.time} seconds left`}
+        >
+          <circle cx="12" cy="12" r="9.5" fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth="3" />
+          <circle
+            cx="12"
+            cy="12"
+            r="9.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={RING_C}
+            strokeDashoffset={RING_C * (1 - timeFrac)}
+            transform="rotate(-90 12 12)"
+          />
+        </svg>
+
         <div
-          className={`sm3-timerbar-fill ${barClass}`}
-          style={{ width: `${timeFrac * 100}%` }}
-        />
+          className="sm3-collect"
+          role="progressbar"
+          aria-label="Goals secured"
+          aria-valuemin={0}
+          aria-valuemax={config.totalTriplets}
+          aria-valuenow={hud.matches}
+        >
+          <div className="sm3-collect-fill" style={{ width: `${collectPct}%` }} />
+          <div className="sm3-collect-ticks" aria-hidden="true" />
+        </div>
+
+        <span key={hud.score} className="sm3-score">
+          {hud.score.toLocaleString()}
+        </span>
       </div>
 
       <div className="sm3-canvas-wrap" ref={wrapRef}>
@@ -960,7 +996,6 @@ export default function SmartMatchGame({ config = GAME_CONFIG, onWin, onLose }) 
           >
             {b.icon}
             <span className="sm3-booster-badge">{boosters[b.key]}</span>
-            <span className="sm3-booster-label">{b.label}</span>
           </button>
         ))}
       </div>

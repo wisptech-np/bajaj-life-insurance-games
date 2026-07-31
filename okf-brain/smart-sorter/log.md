@@ -178,3 +178,44 @@ reviewer would otherwise have to guess:
 - No on-device pass: the build was verified headlessly. The geometry claims are
   asserted through `layout.js` in the balance gate across six stage sizes rather
   than observed in a browser.
+
+## [2026-07-31] Revamp: email field removed, animated how-to-play, asset sheet
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx`: deleted `EMAIL_RE`, the
+`email` `useState`, the whole "Email Field" `sl-lead-field` block, the
+`errs.email` validation branch, and both `sessionStorage` touches of
+`lastSubmittedEmail`. Dropped `email` from the `submitToLMS({...})` call and from
+both `onSubmitted({...})` payloads. `api.js` untouched — `submitToLMS` already
+sends `email_id: email || ''`, so the LMS payload shape is unchanged. Name +
+Mobile + T&C are byte-identical to before. Repo grep for `email` outside
+`src/kit/` and `src/api.js` now returns zero hits.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first.** `src/Screens.jsx`:
+- Deleted the `ShelfRow` component, the three-row shelf list, the three stat
+  chips and every instruction paragraph, plus the now-dead `SHELVES` and `GLYPH`
+  constants and the `BY_FAMILY` import.
+- New 208 px demo stage renders the actual mechanic: a scrolling rubber belt
+  between two rails, an amber dashed sorting-head bracket, and three shelf tiles
+  (Protect left / Grow right / Bin bottom). Three cards ride down the belt on a
+  single 6 s loop staggered 0 s / 2 s / 4 s; a white `FingerGlyph` pointer
+  presses each card at the head and drags it off to its shelf, and the
+  destination tile flashes on landing. Cards carry only the family glyph, no
+  words, so the demo is language-free.
+- Remaining text on the screen: the "How to Play" heading, three icon-led labels
+  (`← PROTECT`, `→ GROW`, `↓ BIN`), and the Play button. Nothing else.
+- Container switched from `overflowY: auto` to `overflow: hidden`; measured
+  stack is ~440 px tall so it fits 360×640 without scrolling. All new keyframes
+  are covered by the existing `prefers-reduced-motion` kill switch.
+
+**G3 — `smart-sorter/asset-from-here.md`.** 14 Nano Banana prompts on a
+"night-shift logistics depot" motif — rectilinear industrial shape language,
+brushed steel, rubber cleats, hazard chevrons, courier parcels. Covers the depot
+floor background, tileable rail and belt-tread strips, all three card families,
+both shelf tiles, the reject chute, the sorting-head bracket, two HUD icons and
+both result-screen illustrations.
+
+**Not changed:** gameplay, balance, physics, HUD layout, `ResultsScreen`, canvas
+artwork, `data.js`, `items.js`, `rules.js`, `layout.js`, `api.js`, `src/kit/`.
+
+**Build:** `pnpm install && pnpm build` — exit 0, `✓ built in 3.29s`
+(`dist/assets/index-D5wt_Lne.js 430.37 kB │ gzip: 142.04 kB`).

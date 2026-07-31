@@ -359,3 +359,61 @@ of their budget gone was drawn identically to a fresh one. Fixed in
 (0.4 alpha) partial arc via the same `drawHoldRing`, so the run-wide budget
 stays readable after release. Gate re-run after the change: PASS at all three
 sizes (35.0 / 36.5 / 35.0%), build green.
+
+---
+
+## 2026-07-31 — Lead-form slim-down, animation-first how-to-play, asset prompt sheet
+
+Narrow scope: no gameplay, balance, physics, HUD or `ResultsScreen` changes.
+`src/traffic.js`, `src/data.js` and `scripts/balance.mjs` are untouched.
+
+### G1 — email field removed from lead capture
+
+`src/LeadCaptureModal.jsx`: deleted `EMAIL_RE`, the `email` `useState`, the whole
+"Email Field" `sl-lead-field` block, the `errs.email` branch, both the read and
+the write of `sessionStorage.lastSubmittedEmail`, and the `email` key from
+`submitToLMS({...})` and both `onSubmitted({...})` payloads. `src/api.js`
+untouched — `email_id: email || ''` already tolerates the missing key, so the LMS
+payload shape is unchanged. `ThankYouScreen.jsx` / `SlotBookingModal.jsx` never
+read it. Name, Mobile and T&C are unchanged.
+
+### G2 — `HowToPlayScreen` is now animation-first
+
+`src/Screens.jsx`: deleted the three `Beat` step cards with their titles and
+copy, the scoring paragraph, the `You are the junction…` subtitle, and the
+`VEHICLE_TYPES` chip row (with its now-dead import). The `Beat` and `BeatRoads`
+components went with them.
+
+New `TutorJunction` — one 4.4 s CSS loop on a proper four-way junction drawn with
+the canvas's own `MiniVehicle` geometry and colours: a `TapHand` finger glyph
+descends and taps the blue family car, the car's brake lights light and it stops
+on the stop line, the orange risk truck ploughs straight through the box with
+dead grey tail lamps, then the car releases and clears with a green tick. The
+hold window (26%–68% of the loop) is deliberately wider than the truck's
+occupancy of the box (36%–64%), so the causal link reads without narration. Same
+SVG transform discipline as `HeroJunction`: CSS only sets `translateX` on `<g>`
+elements that carry no transform attribute of their own. `prefers-reduced-motion`
+disables all six new animations.
+
+Under the demo, exactly three icon-led cues: tap glyph + "TAP TO HOLD", orange
+truck pin + "TRUCK NEVER STOPS", shield + "ONE CRASH SPARE". Remaining text on
+the screen is the heading, three ≤4-word labels and the Play button — nothing
+else, no numerals inside icons. Card is ~440 px tall inside a 640 px viewport, so
+it does not scroll at 360×640.
+
+### G3 — `asset-from-here.md`
+
+13 Nano Banana prompts written to `safe-crossing/asset-from-here.md`. Motif is
+**hard-enamel pin badge metalwork**: a brushed dark-steel control plate with
+acid-etched road markings, and every vehicle/icon/effect as a cloisonné enamel
+pin with raised polished-gold ridges and a glossy epoxy dome, always orthographic
+top-down. Covers the background plate, all four `VEHICLE_TYPES`, the hold ring,
+near-miss spark, crash burst, Claim Cushion shield, HUD icon set, the yellow
+keep-clear box marking, and win/loss tableaus.
+
+### Verification
+
+- `pnpm build` — **green**: `dist/assets/index-u3L__x6Q.js` 426.40 kB
+  (141.93 kB gzip), `index-v4scUYR6.css` 33.00 kB, built in 2.51 s.
+- `node scripts/balance.mjs --runs 60` — **GATE: PASS** (reaction bot 30.0% at
+  338×452, do-nothing crash-out 5.7 s, park-N/S 3.3%). Balance harness unmodified.

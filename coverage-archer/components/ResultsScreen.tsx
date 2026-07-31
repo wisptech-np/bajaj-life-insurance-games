@@ -1,7 +1,10 @@
-// ResultsScreen — full-screen game-over view: animated score ring, stats, CTAs.
-// Follows the life-goals-bubble-shooter ResultsScreen structure.
+// ResultsScreen — canonical repo scoring screen (guardian-shelter is the reference):
+// animated count-up, SVG progress ring, confetti on a win, Share Score, glass action
+// card with Call Specialist + Book Consultation, ghost Play again, tiny disclaimer.
 import React, { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { GameResult } from '../types';
+import { GAME_CONFIG } from '../data';
 import { buildShareUrl, encryptPayload } from '../utils/crypto';
 import { shortenUrl } from '../utils/shortener';
 
@@ -13,7 +16,7 @@ interface Props {
 }
 
 /* ── Icons ─────────────────────────────────────────────── */
-function ShareIcon({ size = 16 }: { size?: number }) {
+function ShareIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="18" cy="5" r="3" />
@@ -25,7 +28,7 @@ function ShareIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-function PhoneIcon({ size = 16 }: { size?: number }) {
+function PhoneIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -33,7 +36,7 @@ function PhoneIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-function CalendarIcon({ size = 16 }: { size?: number }) {
+function CalendarIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="3" y="5" width="18" height="16" rx="2" />
@@ -42,7 +45,7 @@ function CalendarIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-function RotateIcon({ size = 16 }: { size?: number }) {
+function RotateIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
@@ -65,7 +68,7 @@ function Confetti() {
     []
   );
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden z-[1]" aria-hidden="true">
+    <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden" aria-hidden="true">
       {pieces.map((p, i) => (
         <div
           key={i}
@@ -82,8 +85,6 @@ function Confetti() {
     </div>
   );
 }
-
-const TARGET_SCORE = 2000; // full ring
 
 const ResultsScreen: React.FC<Props> = ({ result, onRetry, onHome, onBookSlot }) => {
   const [animatedScore, setAnimatedScore] = useState(0);
@@ -117,18 +118,14 @@ const ResultsScreen: React.FC<Props> = ({ result, onRetry, onHome, onBookSlot })
       longUrl = `${origin}/gamification/${encodeURIComponent(guestPayload.game_id)}?token=${encodeURIComponent(newToken)}`;
     }
 
-    const shareText = `Hi! I scored ${result.score} points as a Guardian Archer, protecting a family from every risk. Test your precision here:`;
+    const shareText = `Hi! I scored ${result.score} points as a Guardian Archer, covering every risk my family faced. Test your precision here:`;
 
     try {
       const shortUrl = await shortenUrl(longUrl);
       const finalUrl = shortUrl || longUrl;
 
       if (navigator.share) {
-        await navigator.share({
-          title: 'Guardian Archer — Bajaj Life',
-          text: shareText,
-          url: finalUrl,
-        });
+        await navigator.share({ title: 'Guardian Archer — Bajaj Life', text: shareText, url: finalUrl });
       } else {
         await navigator.clipboard.writeText(`${shareText} ${finalUrl}`);
         alert('Score and game link copied to clipboard!');
@@ -147,37 +144,39 @@ const ResultsScreen: React.FC<Props> = ({ result, onRetry, onHome, onBookSlot })
   // Progress ring
   const radius = 75;
   const circumference = 2 * Math.PI * radius;
-  const progress = (Math.min(animatedScore, TARGET_SCORE) / TARGET_SCORE) * circumference;
+  const progress = (Math.min(result.score, GAME_CONFIG.TARGET_SCORE) / GAME_CONFIG.TARGET_SCORE) * circumference;
   const strokeColor = result.won ? '#28A745' : result.score >= 800 ? '#F26522' : '#EF4444';
   const glowColor = result.won ? 'rgba(40,167,69,0.4)' : 'rgba(242,101,34,0.4)';
 
   const headline = result.won
-    ? 'Family secured! Every risk neutralized with precision.'
+    ? 'Every risk covered. That is what precise protection looks like.'
     : result.accuracy >= 60
-      ? 'Sharp shooting! A few risks slipped through — cover them all next time.'
-      : 'Risks got past your arrows. Real protection needs the right cover.';
+      ? 'Sharp shooting — but a few risks still slipped through.'
+      : 'Risks got past your arrows. Real cover leaves no gaps.';
 
   return (
-    <div
-      className="screen-scroll relative flex flex-col items-center px-5 pt-9 pb-6"
-      style={{ background: 'linear-gradient(185deg, #030F26 0%, #08224F 50%, #030F26 100%)' }}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 15 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 1.04, y: -15 }}
+      transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+      className="screen-scroll relative flex flex-col items-center px-5 pb-6 pt-9"
+      style={{ background: 'linear-gradient(185deg, #04122B 0%, #08224F 50%, #04122B 100%)' }}
     >
       {result.won && <Confetti />}
 
       {/* Header */}
-      <div className="relative z-10 text-center mb-4">
-        <h2 className="text-xl font-black text-white leading-tight">
+      <div className="relative z-10 mb-4 text-center">
+        <h2 className="text-2xl font-black leading-tight text-white" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
           Hi <span className="text-[#00AEEF]">{leadName || 'Guardian'}!</span>
         </h2>
-        <p className="text-[10px] text-blue-200/50 uppercase tracking-widest mt-0.5">
-          {result.won ? 'Mission Accomplished' : 'Mission Report'}
-        </p>
+        <p className="mt-0.5 text-[15px] font-extrabold text-white/85">Your Score</p>
       </div>
 
       {/* Score ring */}
-      <div className="relative z-10 flex justify-center items-center mb-4">
-        <div className="relative w-[168px] h-[168px] flex items-center justify-center">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+      <div className="relative z-10 mb-5 flex items-center justify-center">
+        <div className="relative flex h-[170px] w-[170px] items-center justify-center">
+          <svg className="h-full w-full" viewBox="0 0 200 200" style={{ transform: 'rotate(-90deg)' }}>
             <circle cx="100" cy="100" r={radius} fill="none" stroke="#0f172a" strokeWidth="10" />
             <circle cx="100" cy="100" r={radius + 6} fill="none" stroke="#1e293b" strokeWidth="1" opacity="0.3" />
             <circle
@@ -190,100 +189,105 @@ const ResultsScreen: React.FC<Props> = ({ result, onRetry, onHome, onBookSlot })
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={circumference - progress}
-              style={{ filter: `drop-shadow(0 0 8px ${glowColor})`, transition: 'stroke-dashoffset 0.3s linear' }}
+              style={{ filter: `drop-shadow(0 0 8px ${glowColor})`, transition: 'stroke-dashoffset 1.2s ease-out' }}
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-[27px] font-black italic text-white leading-none" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+            <span className="text-[26px] font-black leading-none text-white" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
               {animatedScore.toLocaleString('en-IN')}
             </span>
-            <span className="text-[9px] font-black text-blue-200/60 uppercase tracking-[0.2em] mt-1">Points</span>
+            <span className="mt-1 text-[9px] font-black uppercase tracking-[0.15em] text-white/60">Points</span>
           </div>
         </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="relative z-10 w-full max-w-[340px] grid grid-cols-4 gap-2 mb-4">
+      {/* Stats */}
+      <div className="relative z-10 mb-5 grid w-full max-w-[340px] grid-cols-4 gap-2">
         {[
-          { label: 'Hits', value: `${result.virusesNeutralized}/${result.totalViruses}`, color: '#28A745' },
+          { label: 'Covered', value: `${result.risksNeutralized}/${result.totalRisks}`, color: '#28A745' },
           { label: 'Accuracy', value: `${result.accuracy}%`, color: '#00AEEF' },
           { label: 'Criticals', value: `${result.criticalHits}`, color: '#FACC15' },
-          { label: 'Waves', value: `${result.wavesCleared}/3`, color: '#F26522' },
+          { label: 'Waves', value: `${result.wavesCleared}/${GAME_CONFIG.WAVES.length}`, color: '#F26522' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/5 border border-white/10 rounded-xl py-2.5 px-1 text-center backdrop-blur-sm">
-            <span className="text-sm font-black block" style={{ color: s.color }}>
+          <div key={s.label} className="rounded-xl border border-white/10 bg-white/5 px-1 py-2.5 text-center backdrop-blur-sm">
+            <span className="block text-sm font-black" style={{ color: s.color }}>
               {s.value}
             </span>
-            <span className="text-[7.5px] font-black text-blue-200/50 uppercase tracking-wider">{s.label}</span>
+            <span className="text-[7.5px] font-black uppercase tracking-wider text-blue-200/50">{s.label}</span>
           </div>
         ))}
       </div>
 
       {/* Message */}
-      <p className="relative z-10 text-center text-[13px] font-bold text-blue-100 leading-relaxed max-w-[300px] mb-5">
-        {headline}
-      </p>
-      <p className="relative z-10 text-center text-xs font-black text-white leading-snug max-w-[300px] mb-5">
-        Know how much Life Cover your family needs to stay protected from every risk
-      </p>
-
-      {/* Action card */}
-      <div className="relative z-10 w-full max-w-[340px] bg-slate-950/70 border border-white/10 rounded-3xl p-4 backdrop-blur-md shadow-xl mb-4 space-y-3">
-        <button
-          onClick={onBookSlot}
-          className="btn-press w-full rounded-2xl py-3.5 text-sm font-black uppercase tracking-wider text-white flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(40,167,69,0.35)]"
-          style={{ background: 'linear-gradient(135deg, #28A745 0%, #16A34A 100%)' }}
-        >
-          <CalendarIcon />
-          Book a Slot
-        </button>
-
-        {empPhone && (
-          <a
-            href={`tel:${empPhone}`}
-            className="btn-press w-full rounded-2xl py-3 text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2"
-            style={{ background: 'linear-gradient(135deg, #FACC15 0%, #F26522 100%)' }}
-          >
-            <PhoneIcon />
-            Call Now
-          </a>
-        )}
-
-        <button
-          onClick={handleShare}
-          className="btn-press w-full rounded-2xl py-3 text-xs font-black uppercase tracking-wider text-white flex items-center justify-center gap-2 bg-[#003DA6] border border-white/10"
-        >
-          <ShareIcon />
-          Share Score
-        </button>
+      <div className="relative z-10 mb-5 px-4 text-center">
+        <h3 className="m-0 text-[17px] font-black leading-snug text-white" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+          {headline}
+        </h3>
       </div>
 
-      {/* Secondary actions */}
-      <div className="relative z-10 flex gap-3 w-full max-w-[340px] mb-5">
-        <button
-          onClick={onRetry}
-          className="btn-press flex-1 rounded-xl py-3 text-xs font-black uppercase tracking-wider text-white border border-white/20 hover:bg-white/5 flex items-center justify-center gap-2"
-        >
+      {/* Primary action */}
+      <motion.button
+        whileTap={{ scale: 0.96 }}
+        onClick={handleShare}
+        className="btn-secondary relative z-10 mb-5"
+        style={{ maxWidth: 280 }}
+      >
+        <ShareIcon />
+        <span>Share Score</span>
+      </motion.button>
+
+      {/* Action card */}
+      <div className="glass-card relative z-10 mb-5 w-full max-w-[340px] px-4 py-5 text-center">
+        <p className="m-0 mb-4 text-[15px] font-bold leading-snug text-white">
+          Consult a specialist to size the cover your family actually needs.
+        </p>
+
+        <div className="flex flex-col gap-3">
+          {empPhone && (
+            <a href={`tel:${empPhone}`} className="btn-primary btn-press" style={{ textDecoration: 'none' }}>
+              <PhoneIcon />
+              <span>Call Specialist</span>
+            </a>
+          )}
+
+          {empPhone && (
+            <div className="my-1 flex items-center gap-3">
+              <div className="h-px flex-1 bg-white/10" />
+              <span className="text-[9px] font-bold tracking-[0.15em] text-white/30">OR</span>
+              <div className="h-px flex-1 bg-white/10" />
+            </div>
+          )}
+
+          <motion.button whileTap={{ scale: 0.96 }} onClick={onBookSlot} className="btn-accent">
+            <CalendarIcon />
+            <span>Book Consultation</span>
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Ghost actions */}
+      <div className="relative z-10 flex flex-col items-center">
+        <motion.button whileTap={{ scale: 0.96 }} onClick={onRetry} className="btn-ghost">
           <RotateIcon />
-          {result.won ? 'Play Again' : 'Try Again'}
-        </button>
-        <button
-          onClick={onHome}
-          className="btn-press flex-1 rounded-xl py-3 text-xs font-black uppercase tracking-wider text-white/60 border border-white/10 hover:bg-white/5"
-        >
+          <span>Play again</span>
+        </motion.button>
+        <button onClick={onHome} className="btn-ghost" style={{ fontSize: 12, opacity: 0.55, padding: '4px 16px' }}>
           Home
         </button>
       </div>
 
       {/* Disclaimer */}
-      <div className="relative z-10 text-center text-[7.5px] leading-relaxed text-blue-300/30 px-2">
-        <strong>Disclaimer:</strong> The results shown in this game are indicative and based solely on the information
-        provided by the participant. They are intended for engagement and awareness purposes only and do not constitute
-        financial advice or a recommendation to purchase any life insurance product. Participants should seek
-        independent professional advice before making any financial or insurance decisions. While due care has been
-        taken in designing the game, Bajaj Life Insurance assumes no liability for its outcomes.
+      <div className="relative z-10 w-full max-w-[340px] px-3 pb-5 pt-3 opacity-40">
+        <p className="m-0 text-center text-[8px] font-bold leading-relaxed text-white">
+          <span className="mr-1 opacity-70">Disclaimer:</span>
+          The results shown in this game are indicative and based solely on the information provided by the
+          participant. They are intended for engagement and awareness purposes only and do not constitute financial
+          advice or a recommendation to purchase any life insurance product. Participants should seek independent
+          professional advice before making any financial or insurance decisions. While due care has been taken in
+          designing the game, Bajaj Life Insurance Ltd. assumes no liability for its outcomes.
+        </p>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

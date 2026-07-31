@@ -1,109 +1,180 @@
 import React from 'react';
+import { CloseIcon, GustIcon, HandIcon } from './Icons';
 
 interface Props {
   onStart: () => void;
   onClose: () => void;
 }
 
+/** Walker built from the same shapes the Phaser sprite uses. */
+const DemoWalker: React.FC = () => (
+  <g>
+    <path d="M-19 -17 L19 -17" stroke="#F26522" strokeWidth="3.4" strokeLinecap="round" />
+    <circle cx="-19" cy="-17" r="2.6" fill="#F26522" />
+    <circle cx="19" cy="-17" r="2.6" fill="#F26522" />
+    <path d="M-4 -16.6 L0 -14 L4 -16.6" stroke="#EDF3FF" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+    <path d="M-3.6 -13.6 Q-4.6 -7 -3.2 -0.6 L3.2 -0.6 Q4.6 -7 3.6 -13.6 Z" fill="#EDF3FF" />
+    <path d="M-3.4 -11.4 L3.4 -7.4" stroke="#003DA6" strokeWidth="2.1" strokeLinecap="round" />
+    <circle cx="0.4" cy="-19" r="3.5" fill="#F3D2AE" />
+    <path d="M-3.1 -19.4 a3.5 3.5 0 0 1 7 0 Z" fill="#003DA6" />
+    <path d="M0 -0.6 L-4.4 1 M0 -0.6 L4.4 1" stroke="#0A2C6B" strokeWidth="3.1" strokeLinecap="round" />
+    <ellipse cx="-4.4" cy="1" rx="2.5" ry="1.4" fill="#FFC845" />
+    <ellipse cx="4.4" cy="1" rx="2.5" ry="1.4" fill="#FFC845" />
+  </g>
+);
+
+/** Arrow glyphs used as the two input labels — no instruction sentences. */
+const SwipeGlyph: React.FC = () => (
+  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 20V5" stroke="#F26522" strokeWidth="2.4" strokeLinecap="round" />
+    <path d="m6.5 10.5 5.5-5.5 5.5 5.5" stroke="#F26522" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const HopGlyph: React.FC = () => (
+  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M3 18c4-11 14-11 18 0" stroke="#FFC845" strokeWidth="2.4" strokeLinecap="round" />
+    <circle cx="12" cy="7.4" r="2.6" fill="#FFC845" />
+    <path d="M2.5 21h19" stroke="#7E97BB" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const LABELS: { glyph: React.ReactNode; text: string }[] = [
+  { glyph: <SwipeGlyph />, text: 'Swipe' },
+  { glyph: <HopGlyph />, text: 'Tap to hop' },
+  { glyph: <GustIcon size={22} />, text: 'Avoid gusts' },
+];
+
 const HowToPlayPopup: React.FC<Props> = ({ onStart, onClose }) => {
   return (
-    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 animate-fade-in">
-      {/* Container Card */}
-      <div 
-        className="relative w-full max-w-[380px] bg-[#061939]/95 border border-white/15 rounded-[1.5rem] p-6 shadow-[0_12px_40px_rgba(0,0,0,0.6)] text-center flex flex-col justify-between overflow-hidden"
-        style={{ height: 'auto', minHeight: '460px' }}
+    <div
+      className="absolute inset-0 z-[100] flex items-center justify-center"
+      style={{ background: 'rgba(1,4,10,0.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: 'var(--s4)' }}
+    >
+      <div
+        className="pop tp-glass relative w-full"
+        style={{ maxWidth: 340, padding: 'var(--s5)', background: 'rgba(7,27,62,0.86)' }}
       >
-        {/* Decorative corner light */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[#00AEEF]/20 rounded-full blur-[40px] pointer-events-none"></div>
+        {/* corner light */}
+        <div
+          className="pointer-events-none absolute"
+          style={{ top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', background: 'rgba(242,101,34,0.24)', filter: 'blur(42px)' }}
+        />
 
-        {/* Header */}
-        <div className="mb-4">
-          <h2 className="text-sm font-black tracking-widest text-blue-200 uppercase">How to Play</h2>
-          <div className="h-[2px] w-12 bg-[#00AEEF] mx-auto mt-1 rounded-full"></div>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="btn-press absolute flex items-center justify-center"
+          style={{ top: 8, right: 8, width: 44, height: 44, background: 'transparent', borderRadius: 'var(--tp-r)' }}
+        >
+          <CloseIcon size={18} />
+        </button>
+
+        <h2
+          style={{
+            fontSize: 12,
+            fontWeight: 900,
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'var(--tp-text-2)',
+            textAlign: 'center',
+            marginBottom: 'var(--s4)',
+          }}
+        >
+          How to Play
+        </h2>
+
+        {/* ── Looping demo: the only teaching surface ── */}
+        <div
+          className="relative w-full overflow-hidden"
+          style={{
+            height: 168,
+            borderRadius: 'var(--tp-r)',
+            border: '1px solid var(--tp-stroke)',
+            background: 'linear-gradient(180deg,#030913 0%,#071B3E 62%,#02060F 100%)',
+          }}
+        >
+          <svg viewBox="0 0 260 168" width="100%" height="100%" aria-hidden="true">
+            {/* skyline hint */}
+            <g fill="#0A2450" opacity="0.7">
+              <rect x="6" y="84" width="26" height="84" />
+              <rect x="40" y="66" width="18" height="102" />
+              <rect x="196" y="76" width="30" height="92" />
+              <rect x="232" y="58" width="22" height="110" />
+            </g>
+
+            {/* lower cable */}
+            <line x1="0" y1="138" x2="260" y2="138" stroke="#02060F" strokeWidth="6" />
+            <line className="tp-rope-cold" x1="0" y1="137" x2="260" y2="137" stroke="#F26522" strokeWidth="3.2" />
+            <line className="tp-rope-hot" x1="0" y1="137" x2="260" y2="137" stroke="#7E97BB" strokeWidth="2.4" opacity="0.55" />
+
+            {/* upper cable */}
+            <line x1="0" y1="108" x2="260" y2="108" stroke="#02060F" strokeWidth="6" />
+            <line className="tp-rope-hot" x1="0" y1="107" x2="260" y2="107" stroke="#F26522" strokeWidth="3.2" />
+            <line className="tp-rope-cold" x1="0" y1="107" x2="260" y2="107" stroke="#7E97BB" strokeWidth="2.4" opacity="0.55" />
+
+            {/* the walker, anchored on the lower cable and driven by CSS */}
+            <g className="tp-walker-demo" transform="translate(70 137)">
+              <DemoWalker />
+            </g>
+
+            {/* the gust she hops over */}
+            <g className="tp-gust-run" transform="translate(246 96)">
+              <circle r="9" fill="#5B0E1E" />
+              <circle r="9" fill="none" stroke="#FF5C78" strokeWidth="2.6" />
+              <path d="M-3 -3.4 L0.8 0 L-3 3.4" stroke="#FFE3E9" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M11 -6 h13 M11 0 h17 M11 6 h11" stroke="#FF5C78" strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+            </g>
+
+            {/* a coin on the upper cable to show the reward */}
+            <g transform="translate(178 92)">
+              <circle r="8" fill="#E8A317" />
+              <circle r="6.2" fill="#FFC845" />
+              <path d="M-3 -2.6h6M-3 -0.4h6M1.4 -2.6c1.2 0 1.7.8 1.7 1.7 0 1.1-.9 2-2.2 2h-2.9l3.6 3.8" stroke="#8A5A05" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </g>
+          </svg>
+
+          {/* finger glyph performing the real input, over the walker */}
+          <div
+            className="tp-hand pointer-events-none absolute"
+            style={{ left: '26%', top: '52%' }}
+          >
+            <HandIcon size={32} />
+          </div>
         </div>
 
-        {/* Interactive Tutorial Animation Area */}
-        <div className="relative w-full h-[150px] bg-slate-950/80 rounded-xl border border-white/10 overflow-hidden mb-4 flex flex-col justify-center">
-          
-          {/* Flat Ground Track Mockup */}
-          <div className="absolute inset-x-0 bottom-6 h-6 bg-[#00AEEF]/10 border-t border-[#00AEEF]/30"></div>
-          <div className="absolute inset-x-0 bottom-[14px] h-[1px] stroke-dashed bg-[#00AEEF]/50"></div>
-
-          {/* Looping Hero Mascot running */}
-          <div className="absolute left-10 bottom-6 flex flex-col items-center">
-            <div className="w-8 h-8 rounded-full bg-[#22C55E] flex items-center justify-center border-2 border-[#00AEEF] animate-bounce">
-              <span className="text-[14px]">🐞</span>
+        {/* ── Three icon-led labels, nothing else ── */}
+        <div
+          className="flex items-start justify-between"
+          style={{ marginTop: 'var(--s4)', gap: 'var(--s2)' }}
+        >
+          {LABELS.map((l) => (
+            <div key={l.text} className="flex flex-1 flex-col items-center" style={{ gap: 6 }}>
+              {l.glyph}
+              <span
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: 900,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--tp-text-2)',
+                  textAlign: 'center',
+                  lineHeight: 1.25,
+                }}
+              >
+                {l.text}
+              </span>
             </div>
-          </div>
-
-          {/* Floating score representation for Positive Tokens */}
-          <div className="absolute left-[35%] top-[15%] flex flex-col items-center">
-            <span className="text-[18px]">🪙</span>
-            <span className="text-[10px] font-black text-green-400 absolute top-[-16px] animate-pulse">+1000</span>
-          </div>
-          
-          <div className="absolute left-[52%] top-[35%] flex flex-col items-center">
-            <span className="text-[18px]">🛡️</span>
-            <span className="text-[10px] font-black text-[#00AEEF] absolute top-[-16px] animate-pulse">+800</span>
-          </div>
-
-          {/* Green Virus Risk Representation */}
-          <div className="absolute right-[15%] bottom-7 flex flex-col items-center">
-            <span className="text-[18px] animate-pulse">🦠</span>
-            <span className="text-[10px] font-black text-red-400 absolute top-[-16px] animate-pulse">-1400</span>
-          </div>
-
-          {/* Looping Hand Gesture Animation */}
-          <div className="absolute left-[80px] top-[40px] pointer-events-none z-20 flex flex-col items-center">
-            <span className="text-2xl swipe-hand">👆</span>
-          </div>
+          ))}
         </div>
 
-        {/* Instructions list */}
-        <div className="text-left text-xs text-blue-100 space-y-2.5 mb-6 px-1">
-          <div className="flex items-start gap-2.5">
-            <span className="text-[#00AEEF] font-bold">1.</span>
-            <p>
-              Swipe <strong className="text-white">Up/Down</strong> or use <strong className="text-white">Arrow Keys</strong> to switch lanes on flat ground.
-            </p>
-          </div>
-          <div className="flex items-start gap-2.5">
-            <span className="text-[#00AEEF] font-bold">2.</span>
-            <p>
-              Tap <strong className="text-white">Screen</strong> or press <strong className="text-white">Space</strong> to Jump over hazards.
-            </p>
-          </div>
-          <div className="flex items-start gap-2.5">
-            <span className="text-[#00AEEF] font-bold">3.</span>
-            <p>
-              Collect <strong className="text-green-400">Rupee Coins</strong> & <strong className="text-cyan-400">Shields</strong> while dodging <strong className="text-red-400">Green Virus Risks 🦠</strong>.
-            </p>
-          </div>
-        </div>
-
-        {/* Objective & CTA */}
-        <div className="space-y-4">
-          <p className="text-xs font-black text-blue-200/90 tracking-wide uppercase italic bg-[#00AEEF]/5 py-2 rounded-lg border border-[#00AEEF]/20">
-            "Run on flat ground, dodge green viruses and secure your future!"
-          </p>
-          <div className="grid grid-cols-5 gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="btn-press col-span-2 rounded-xl border border-white/20 bg-white/10 py-3 text-xs font-bold text-white hover:bg-white/15"
-            >
-              Back
-            </button>
-            <button
-              onClick={onStart}
-              className="btn-press col-span-3 rounded-xl py-3 text-xs font-black uppercase text-white shadow-[0_4px_16px_rgba(34,197,94,0.4)]"
-              style={{
-                background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
-              }}
-            >
-              Start Game
-            </button>
-          </div>
-        </div>
+        <button
+          onClick={onStart}
+          className="btn-press tp-btn tp-btn-rope pulse-cta"
+          style={{ marginTop: 'var(--s5)' }}
+        >
+          Play
+        </button>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { GAME_CONFIG, perfectScore } from './data.js';
+import { perfectScore } from './data.js';
 import { LEVELS, TOTAL_PAR } from './levels.js';
 
 const GAME_TITLE = 'Slide to Safety';
@@ -131,9 +131,15 @@ const SCREEN_CSS = `
 }
 @keyframes ssHeroTrail { 0% { stroke-dashoffset: 300; } 60%,100% { stroke-dashoffset: 0; } }
 @keyframes ssGust { 0% { opacity: 0.25; transform: translateX(-6px); } 50% { opacity: 0.9; } 100% { opacity: 0.25; transform: translateX(6px); } }
-@keyframes ssBeatGlide { 0%,10% { transform: translateX(0); } 55%,100% { transform: translateX(34px); } }
-@keyframes ssBeatCrack { 0%,45% { opacity: 0.25; } 60%,100% { opacity: 1; } }
-@keyframes ssBeatPush { 0%,40% { transform: translate(0,0); } 70%,100% { transform: translate(20px, 12px); } }
+/* How-to-play loop (5.2 s), one cell = 26px: the token is swiped right, glides
+   until the rock stops it (picking up a coin on the way), is then swiped up,
+   crosses thin ice without stopping on it, and lands on the family tile. */
+@keyframes stsGlide { 0%,20% { transform: translate(0,0); } 36%,54% { transform: translate(78px,0); } 70%,100% { transform: translate(78px,-78px); } }
+@keyframes stsTrail { 0%,20% { stroke-dashoffset: 156; } 36%,54% { stroke-dashoffset: 78; } 70%,100% { stroke-dashoffset: 0; } }
+@keyframes stsHand  { 0% { opacity: 0; transform: translate(-16px,28px); } 8%,20% { opacity: 1; transform: translate(0,15px); } 34% { opacity: 1; transform: translate(78px,15px); } 40%,47% { opacity: 0; transform: translate(78px,15px); } 54% { opacity: 1; transform: translate(94px,15px); } 68% { opacity: 1; transform: translate(94px,-63px); } 76%,100% { opacity: 0; transform: translate(94px,-63px); } }
+@keyframes stsCoin  { 0%,28% { opacity: 1; transform: translate(0,0) scale(1); } 34% { opacity: 1; transform: translate(0,-10px) scale(1.3); } 46%,100% { opacity: 0; transform: translate(0,-24px) scale(0.6); } }
+@keyframes stsCrack { 0%,58% { opacity: 0.4; } 66%,100% { opacity: 1; } }
+@keyframes stsWin   { 0%,70% { opacity: 0; transform: scale(0.55); } 78% { opacity: 1; transform: scale(1); } 92%,100% { opacity: 0; transform: scale(1.55); } }
 .ss-title { animation: ssTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .ss-float { animation: ssFloat 4s ease-in-out infinite; }
 .ss-glow  { animation: ssGlow 2.2s ease-in-out infinite; }
@@ -141,12 +147,16 @@ const SCREEN_CSS = `
 .ss-hero-slide { animation: ssHeroSlide 5s cubic-bezier(0.3,0,0.2,1) infinite; }
 .ss-hero-trail { animation: ssHeroTrail 5s cubic-bezier(0.3,0,0.2,1) infinite; }
 .ss-gust  { animation: ssGust 1.8s ease-in-out infinite; }
-.ss-glide { animation: ssBeatGlide 2.4s cubic-bezier(0.25,0,0.2,1) infinite; }
-.ss-crack { animation: ssBeatCrack 2.4s ease-in-out infinite; }
-.ss-push  { animation: ssBeatPush 2.4s cubic-bezier(0.25,0,0.2,1) infinite; }
+.sts-glide { animation: stsGlide 5.2s cubic-bezier(0.25,0,0.15,1) infinite; }
+.sts-trail { animation: stsTrail 5.2s cubic-bezier(0.25,0,0.15,1) infinite; }
+.sts-hand  { animation: stsHand 5.2s cubic-bezier(0.3,0,0.3,1) infinite; }
+.sts-coin  { animation: stsCoin 5.2s ease-out infinite; }
+.sts-crack { animation: stsCrack 5.2s ease-in-out infinite; }
+.sts-win   { animation: stsWin 5.2s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .ss-title, .ss-float, .ss-glow, .ss-chip, .ss-hero-slide, .ss-hero-trail,
-  .ss-gust, .ss-glide, .ss-crack, .ss-push { animation: none !important; }
+  .ss-gust, .sts-glide, .sts-trail, .sts-hand, .sts-coin, .sts-crack,
+  .sts-win { animation: none !important; }
 }
 `;
 
@@ -440,25 +450,107 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
+/** A premium coin, same gold token the board drops. */
+function CoinToken({ r = 8 }) {
+  return (
+    <g>
+      <circle cx="0" cy="0" r={r} fill={GOLD} stroke='#B07B12' strokeWidth={r * 0.2} />
+      <circle cx="0" cy="0" r={r * 0.58} fill="none" stroke={GOLD_LT} strokeWidth={r * 0.16} />
+      <ellipse cx={-r * 0.3} cy={-r * 0.36} rx={r * 0.26} ry={r * 0.14} fill="rgba(255,255,255,0.6)"
+        transform={`rotate(-24 ${-r * 0.3} ${-r * 0.36})`} />
+    </g>
+  );
+}
+
+/** A four-finger swipe hand; the leading fingertip sits on the local origin. */
+function SwipeHand({ scale = 1 }) {
+  return (
+    <g transform={`scale(${scale}) translate(-9,-2)`} fill="rgba(11,18,33,0.55)"
+      stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+      <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+      <path d="M10 10.5V3a2 2 0 0 0-4 0v11" />
+      <path d="M6 14v-2.5a2 2 0 0 0-4 0V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
+    </g>
+  );
+}
+
+/** Icon-led cue under the demo. Label must stay ≤ 4 words. */
+function Cue({ label, tint, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+      <div style={{
+        width: 46, height: 46, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+      }}>
+        {children}
+      </div>
+      <span style={{
+        fontSize: 9.5, fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase',
+        color: tint, lineHeight: 1.2, textAlign: 'center',
+      }}>{label}</span>
+    </div>
+  );
+}
+
+/**
+ * One 5.2 s loop of the real puzzle, built from the board's own tiles: a swipe
+ * sends the shield token gliding right until the rock stops it — a premium coin
+ * is swept up on the way — then a second swipe sends it up across thin ice
+ * (crossed, never stopped on) onto the family tile. Cell size, tile art and the
+ * orange route trail are the ones the canvas draws.
+ * CSS transforms only ever touch <g> elements with no transform attribute.
+ */
+const TUT_CELL = 26;
+const TUT_X0 = 72;
+const TUT_Y0 = 26;
+const tutC = (col, row) => [TUT_X0 + col * TUT_CELL + TUT_CELL / 2, TUT_Y0 + row * TUT_CELL + TUT_CELL / 2];
+
+function BoardDemo() {
+  const [sx, sy] = tutC(0, 3);
+  const [coinX, coinY] = tutC(2, 3);
   return (
     <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
+      position: 'relative', width: '100%', height: 156,
+      background: 'rgba(6,18,41,0.6)', borderRadius: 16,
+      border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 16,
     }}>
-      <div style={{ width: 78, height: 58, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+      <svg width="100%" height="100%" viewBox="0 0 300 156" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <IceGrid cols={6} rows={4} cell={TUT_CELL} x={TUT_X0} y={TUT_Y0} />
+        <CrackTile cell={TUT_CELL} x={TUT_X0 + TUT_CELL * 3} y={TUT_Y0 + TUT_CELL} className="sts-crack" />
+        <RockTile cell={TUT_CELL} x={TUT_X0 + TUT_CELL * 4} y={TUT_Y0 + TUT_CELL * 3} />
+        <FamilyTile cell={TUT_CELL} x={TUT_X0 + TUT_CELL * 3} y={TUT_Y0} />
+
+        {/* The route the two swipes carve */}
+        <path
+          className="sts-trail"
+          d={`M${sx} ${sy} H${sx + 78} V${sy - 78}`}
+          fill="none" stroke={ORANGE_LT} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"
+          strokeDasharray="156" opacity="0.7"
+        />
+
+        {/* Premium coin swept up en route */}
+        <g transform={`translate(${coinX} ${coinY})`}>
+          <g className="sts-coin"><CoinToken r={8} /></g>
+        </g>
+
+        {/* Arrival flash on the family tile */}
+        <g transform={`translate(${sx + 78} ${sy - 78})`}>
+          <g className="sts-win">
+            <circle cx="0" cy="0" r="15" fill="none" stroke={GREEN_LT} strokeWidth="2.6" />
+          </g>
+        </g>
+
+        {/* The shield token */}
+        <g transform={`translate(${sx} ${sy})`}>
+          <g className="sts-glide"><ShieldToken s={9} /></g>
+        </g>
+
+        {/* The real input */}
+        <g transform={`translate(${sx} ${sy})`}>
+          <g className="sts-hand"><SwipeHand scale={1.15} /></g>
+        </g>
+      </svg>
     </div>
   );
 }
@@ -503,81 +595,27 @@ export function HowToPlayScreen({ onPlay }) {
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 14px 0', lineHeight: 1.4 }}>
-          Swipe to glide &middot; Thin ice breaks &middot; Reach the family tile
-        </p>
+        <BoardDemo />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 14 }}>
-          <Beat n="1" title="Swipe to glide" copy="The shield slides until a rock, the shore or the family stops it.">
-            <svg width="78" height="58" viewBox="0 0 78 58" aria-hidden="true">
-              <IceGrid cols={4} rows={2} cell={C} x={2} y={11} />
-              <RockTile cell={C} x={2 + C * 3} y={11} />
-              <g className="ss-glide" transform={`translate(${2 + C * 0.5}, ${11 + C * 0.5})`}>
-                <ShieldToken s={6.5} />
-              </g>
+        <div style={{ display: 'flex', justifyContent: 'space-around', gap: 6, marginBottom: 16 }}>
+          <Cue label="Swipe to glide" tint={ORANGE_LT}>
+            <svg width="30" height="30" viewBox="0 0 30 30">
+              <g transform="translate(13,6)"><SwipeHand scale={0.7} /></g>
+              <path d="M4 25 H25" stroke={ORANGE_LT} strokeWidth="2" strokeLinecap="round" strokeDasharray="3 3" />
+              <path d="M21.5 22 L25 25 L21.5 28" fill="none" stroke={ORANGE_LT} strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </Beat>
-
-          <Beat n="2" title="Thin ice cracks" copy="Cross it fast and it only deepens. Stop on it and you are through.">
-            <svg width="78" height="58" viewBox="0 0 78 58" aria-hidden="true">
-              <IceGrid cols={4} rows={2} cell={C} x={2} y={11} />
-              <CrackTile cell={C} x={2 + C * 2} y={11} className="ss-crack" />
-              <g transform={`translate(${2 + C * 0.5}, ${11 + C * 0.5})`}>
-                <ShieldToken s={6.5} />
-              </g>
-              <path d={`M${2 + C} ${11 + C * 0.5} L${2 + C * 3.6} ${11 + C * 0.5}`} stroke={ORANGE_LT}
-                strokeWidth="1.8" strokeDasharray="3 3" strokeLinecap="round" />
+          </Cue>
+          <Cue label="Thin ice breaks" tint={CRACK}>
+            <svg width="30" height="30" viewBox="0 0 30 30">
+              <CrackTile cell={C + 6} x={3} y={3} />
             </svg>
-          </Beat>
-
-          <Beat n="3" title="Mind the gust" copy="A wind lane shoves you one cell sideways as you cross it.">
-            <svg width="78" height="58" viewBox="0 0 78 58" aria-hidden="true">
-              <IceGrid cols={4} rows={2} cell={C} x={2} y={11} />
-              <g className="ss-gust">
-                <rect x={2 + C * 2 + 1} y={12} width={C - 2} height={C * 2 - 2} rx={C * 0.18}
-                  fill="rgba(166,208,255,0.55)" />
-                <path d={`M${2 + C * 2.3} ${11 + C * 0.7} L${2 + C * 2.5} ${11 + C * 1.05}
-                          L${2 + C * 2.7} ${11 + C * 0.7}`}
-                  fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </g>
-              <FamilyTile cell={C} x={2 + C * 3} y={11 + C} />
-              <g className="ss-push" transform={`translate(${2 + C * 0.5}, ${11 + C * 0.5})`}>
-                <ShieldToken s={6.5} />
-              </g>
+          </Cue>
+          <Cue label="Reach the family" tint={GREEN_LT}>
+            <svg width="30" height="30" viewBox="0 0 30 30">
+              <FamilyTile cell={C + 6} x={3} y={3} />
             </svg>
-          </Beat>
-        </div>
-
-        <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.62)', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{LEVELS.length} boards</strong> in{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong> with{' '}
-          <strong style={{ color: BLUE_LT }}>{GAME_CONFIG.retries} retries</strong>. Coins pay{' '}
-          <strong style={{ color: GOLD_LT }}>{GAME_CONFIG.scoring.coin}</strong>; finishing a board pays{' '}
-          <strong style={{ color: GREEN_LT }}>{GAME_CONFIG.scoring.levelComplete}</strong>, plus{' '}
-          <strong style={{ color: GREEN_LT }}>{GAME_CONFIG.scoring.parBonus}</strong> if you match par.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 16 }}>
-          {LEVELS.map((lv, i) => (
-            <span
-              key={lv.id}
-              className="ss-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 9.5,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: ICE,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {lv.name} · par {lv.par}
-            </span>
-          ))}
+          </Cue>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

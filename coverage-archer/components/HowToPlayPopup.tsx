@@ -1,172 +1,292 @@
+// HowToPlayPopup — animation only (GAME_STANDARD G2).
+// One looping SMIL demo of the real mechanic: finger pulls back, power ring fills,
+// arrow arcs with the wind, risk target takes the hit. Three icon-led labels, no prose.
 import React from 'react';
+import { motion } from 'framer-motion';
 
 interface Props {
   onStart: () => void;
   onBack: () => void;
 }
 
-/* Small vector virus for the tutorial mock (no emoji) */
-function MiniVirus({ size = 34, x, y, bounce = false }: { size?: number; x: string; y: string; bounce?: boolean }) {
-  const r = size / 2;
+const LOOP = '4s';
+
+/* ── Icon-led labels (<= 4 words each) ─────────────────────── */
+function PullIcon() {
   return (
-    <div className={bounce ? 'absolute animate-bounce' : 'absolute'} style={{ left: x, top: y, width: size, height: size }} aria-hidden="true">
-      <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-        <defs>
-          <radialGradient id={`mv-${size}-${x}`} cx="35%" cy="35%" r="80%">
-            <stop offset="0%" stopColor="#5EE07C" />
-            <stop offset="60%" stopColor="#28A745" />
-            <stop offset="100%" stopColor="#166534" />
-          </radialGradient>
-        </defs>
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
-          <line
-            key={deg}
-            x1="20" y1="20"
-            x2={20 + Math.cos((deg * Math.PI) / 180) * 18}
-            y2={20 + Math.sin((deg * Math.PI) / 180) * 18}
-            stroke="#166534" strokeWidth="3" strokeLinecap="round"
-          />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+      <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+      <path d="M10 10.5V3a2 2 0 0 0-4 0v11" />
+      <path d="M6 14v-2a2 2 0 0 0-4 0v5a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-2" />
+    </svg>
+  );
+}
+
+function WindIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00AEEF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 8h10a3 3 0 1 0-3-3" />
+      <path d="M3 13h14a3 3 0 1 1-3 3" />
+      <path d="M3 18h7" />
+    </svg>
+  );
+}
+
+function CoreIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F26522" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="4" fill="#F26522" stroke="none" />
+      <path d="M12 1v3M12 20v3M1 12h3M20 12h3" />
+    </svg>
+  );
+}
+
+/* ── The looping demo ──────────────────────────────────────── */
+function ArcheryDemo() {
+  // Timeline over LOOP: 0.10 draw -> 0.45 release -> 0.78 impact -> reset
+  return (
+    <svg viewBox="0 0 320 180" width="100%" height="100%" aria-label="Pull back, release, hit the core" role="img">
+      <defs>
+        <linearGradient id="ga-htp-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#04122B" />
+          <stop offset="100%" stopColor="#0A1F47" />
+        </linearGradient>
+        <linearGradient id="ga-htp-cell" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fb7185" />
+          <stop offset="100%" stopColor="#7f1d1d" />
+        </linearGradient>
+      </defs>
+
+      <rect x="0" y="0" width="320" height="180" fill="url(#ga-htp-sky)" />
+
+      {/* Wind streaks — the same left-to-right drift the game draws */}
+      <g stroke="#00AEEF" strokeWidth="1.4" strokeLinecap="round" opacity="0.45">
+        {[38, 74, 108, 142].map((y, i) => (
+          <line key={y} x1="-30" y1={y} x2={4 + i * 6} y2={y}>
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="0 0; 360 0"
+              dur={LOOP}
+              begin={`${i * 0.35}s`}
+              repeatCount="indefinite"
+            />
+          </line>
         ))}
-        <circle cx="20" cy="20" r={r > 15 ? 13 : 12} fill={`url(#mv-${size}-${x})`} />
-        <circle cx="20" cy="20" r="4.5" fill="#EAFFEF" />
-        <circle cx="20" cy="20" r="6.5" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1" strokeDasharray="2,2" />
-        <circle cx="16" cy="14" r="1.8" fill="#052E13" />
-        <circle cx="24" cy="14" r="1.8" fill="#052E13" />
-      </svg>
-    </div>
-  );
-}
+      </g>
 
-function MiniArcher() {
-  return (
-    <svg width="34" height="40" viewBox="0 0 34 40" fill="none" aria-hidden="true">
-      <ellipse cx="15" cy="24" rx="7" ry="10" fill="#003DA6" />
-      <circle cx="15" cy="10" r="5.5" fill="#FFCDB2" />
-      <path d="M9.5 10 a5.5 5.5 0 0 1 11 0" fill="#003DA6" />
-      <path d="M22 8 C 30 14, 30 26, 22 32" stroke="#D97706" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-      <line x1="22" y1="8" x2="22" y2="32" stroke="rgba(255,255,255,0.8)" strokeWidth="1" />
-      <rect x="10" y="34" width="3.5" height="5" fill="#fff" />
-      <rect x="16" y="34" width="3.5" height="5" fill="#fff" />
+      {/* Ground */}
+      <path d="M0 152 Q90 140 175 150 T320 144 L320 180 L0 180 Z" fill="#14532D" />
+
+      {/* Risk target — illness hex cell with a glowing core */}
+      <g transform="translate(248 62)">
+        <animateTransform
+          attributeName="transform"
+          type="translate"
+          values="248 62; 248 62; 262 70; 262 70"
+          keyTimes="0; 0.78; 0.9; 1"
+          dur={LOOP}
+          repeatCount="indefinite"
+        />
+        <g>
+          {/* shatter on impact, stays gone until the loop restarts */}
+          <animateTransform
+            attributeName="transform"
+            type="scale"
+            values="1; 1; 1.25; 0.1; 0; 0"
+            keyTimes="0; 0.78; 0.83; 0.9; 0.94; 1"
+            dur={LOOP}
+            repeatCount="indefinite"
+          />
+          <g stroke="#7f1d1d" strokeWidth="3.4" strokeLinecap="round">
+            {[0, 60, 120, 180, 240, 300].map((d) => {
+              const a = ((d - 90) * Math.PI) / 180;
+              return (
+                <line
+                  key={d}
+                  x1={Math.cos(a) * 17}
+                  y1={Math.sin(a) * 17}
+                  x2={Math.cos(a) * 24}
+                  y2={Math.sin(a) * 24}
+                />
+              );
+            })}
+          </g>
+          <polygon
+            points={[0, 60, 120, 180, 240, 300]
+              .map((d) => {
+                const a = ((d - 90) * Math.PI) / 180;
+                return `${(Math.cos(a) * 18).toFixed(1)},${(Math.sin(a) * 18).toFixed(1)}`;
+              })
+              .join(' ')}
+            fill="url(#ga-htp-cell)"
+            stroke="rgba(255,255,255,0.35)"
+            strokeWidth="1.4"
+          />
+          <circle cx="0" cy="0" r="6.5" fill="none" stroke="#FF9DB0" strokeWidth="1.2" strokeDasharray="3 3" />
+          <circle cx="0" cy="0" r="3.6" fill="#fff">
+            <animate attributeName="r" values="3.2;4.4;3.2" dur="1.1s" repeatCount="indefinite" />
+          </circle>
+        </g>
+      </g>
+
+      {/* Impact burst + score pop */}
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.77;0.82;0.95;1" dur={LOOP} repeatCount="indefinite" />
+        <circle cx="248" cy="62" r="6" fill="none" stroke="#FACC15" strokeWidth="3">
+          <animate attributeName="r" values="6;6;34;34" keyTimes="0;0.77;0.9;1" dur={LOOP} repeatCount="indefinite" />
+        </circle>
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((d) => {
+          const a = (d * Math.PI) / 180;
+          return (
+            <circle
+              key={d}
+              cx={248 + Math.cos(a) * 26}
+              cy={62 + Math.sin(a) * 26}
+              r="2.6"
+              fill="#FACC15"
+            />
+          );
+        })}
+        <text x="248" y="30" textAnchor="middle" fill="#FACC15" fontSize="15" fontWeight="900" fontFamily="'Plus Jakarta Sans', sans-serif">
+          x2
+        </text>
+      </g>
+
+      {/* Archer */}
+      <g transform="translate(34 118)">
+        <ellipse cx="0" cy="20" rx="7.5" ry="11" fill="#003DA6" />
+        <circle cx="0" cy="6" r="6" fill="#FFCDB2" />
+        <path d="M-6 6 a6 6 0 0 1 12 0" fill="#003DA6" />
+        <path d="M8 -4 C 17 4, 17 20, 8 28" stroke="#D97706" strokeWidth="3" strokeLinecap="round" fill="none" />
+        <rect x="-5" y="31" width="3.5" height="6" fill="#fff" />
+        <rect x="1.5" y="31" width="3.5" height="6" fill="#fff" />
+      </g>
+
+      {/* Bowstring pulling back with the finger */}
+      <line x1="42" y1="114" x2="42" y2="142" stroke="#fff" strokeWidth="1.6" opacity="0.85">
+        <animate attributeName="x2" values="42;42;18;42;42" keyTimes="0;0.1;0.45;0.5;1" dur={LOOP} repeatCount="indefinite" />
+        <animate attributeName="y2" values="128;128;146;128;128" keyTimes="0;0.1;0.45;0.5;1" dur={LOOP} repeatCount="indefinite" />
+      </line>
+
+      {/* Power ring around the launch anchor */}
+      <circle cx="46" cy="128" r="26" fill="none" stroke="#0B1F42" strokeWidth="4" opacity="0.9" />
+      <circle
+        cx="46"
+        cy="128"
+        r="26"
+        fill="none"
+        stroke="#28A745"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray="163.4"
+        strokeDashoffset="163.4"
+        transform="rotate(-90 46 128)"
+      >
+        <animate attributeName="stroke-dashoffset" values="163.4;163.4;16;16;163.4;163.4" keyTimes="0;0.1;0.44;0.46;0.5;1" dur={LOOP} repeatCount="indefinite" />
+        <animate attributeName="stroke" values="#28A745;#28A745;#FACC15;#F26522;#F26522" keyTimes="0;0.2;0.32;0.45;1" dur={LOOP} repeatCount="indefinite" />
+      </circle>
+
+      {/* Predicted arc, revealed while drawing */}
+      <path d="M56 124 Q140 30 244 62" fill="none" stroke="#00AEEF" strokeWidth="2" strokeDasharray="3 7" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.9;0.9;0" keyTimes="0;0.15;0.4;0.48;0.6" dur={LOOP} repeatCount="indefinite" />
+      </path>
+
+      {/* The arrow — flies the same curve, nose along the velocity vector */}
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.45;0.47;0.77;0.79;1" dur={LOOP} repeatCount="indefinite" />
+        <animateMotion
+          dur={LOOP}
+          repeatCount="indefinite"
+          rotate="auto"
+          path="M56 124 Q140 30 244 62"
+          keyPoints="0;0;1;1"
+          keyTimes="0;0.45;0.78;1"
+          calcMode="linear"
+        />
+        <line x1="-14" y1="0" x2="8" y2="0" stroke="#fff" strokeWidth="2.2" />
+        <polygon points="8,-4 15,0 8,4" fill="#00AEEF" stroke="#fff" strokeWidth="0.8" />
+        <polygon points="-14,0 -19,-4 -16,0 -19,4" fill="#003DA6" />
+      </g>
+
+      {/* Finger glyph doing the real input */}
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;0.95;0.95;0;0" keyTimes="0;0.12;0.44;0.5;1" dur={LOOP} repeatCount="indefinite" />
+        <animateTransform
+          attributeName="transform"
+          type="translate"
+          values="46 122; 46 122; 22 140; 46 122; 46 122"
+          keyTimes="0;0.1;0.45;0.5;1"
+          dur={LOOP}
+          repeatCount="indefinite"
+        />
+        <g transform="scale(0.95)" stroke="#FACC15" strokeWidth="2" fill="#04122B" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 5V-1a2 2 0 0 1 4 0v6" />
+          <path d="M13 4V0a2 2 0 0 1 4 0v9" />
+          <path d="M17 6v-1a2 2 0 0 1 4 0v9a7 7 0 0 1-7 7h-3a7 7 0 0 1-6-4l-3-6a2 2 0 0 1 3-2l2 3" />
+        </g>
+      </g>
     </svg>
   );
 }
 
-function DragHand() {
-  return (
-    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.6))' }}>
-      <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-      <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-      <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
-      <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
-    </svg>
-  );
-}
+const LABELS = [
+  { icon: <PullIcon />, text: 'Pull back' },
+  { icon: <WindIcon />, text: 'Mind the wind' },
+  { icon: <CoreIcon />, text: 'Hit the core' },
+];
 
 const HowToPlayPopup: React.FC<Props> = ({ onStart, onBack }) => {
   return (
-    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 animate-fade-in">
-      <div
-        className="relative w-full max-w-[380px] bg-[#061939]/95 border border-white/15 rounded-[1.5rem] p-6 shadow-[0_12px_40px_rgba(0,0,0,0.6)] text-center flex flex-col justify-between overflow-hidden"
-        style={{ height: 'auto', minHeight: '480px' }}
+    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-[#04122B]/70 backdrop-blur-md p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 1.04, y: -14 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+        className="glass-card relative w-full max-w-[360px] p-5"
       >
-        {/* Corner light */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[#00AEEF]/20 rounded-full blur-[40px] pointer-events-none"></div>
-
-        {/* Header */}
-        <div className="mb-4">
-          <h2 className="text-sm font-black tracking-widest text-blue-200 uppercase">How to Play</h2>
-          <div className="h-[2px] w-12 bg-[#00AEEF] mx-auto mt-1 rounded-full"></div>
-        </div>
-
-        {/* Tutorial mock area */}
-        <div className="relative w-full h-[160px] bg-slate-950/80 rounded-xl border border-white/10 overflow-hidden mb-4 flex flex-col justify-center select-none">
-          {/* Ground */}
-          <div className="absolute inset-x-0 bottom-0 h-4 bg-slate-900 border-t border-white/5"></div>
-
-          {/* Archer bottom-left */}
-          <div className="absolute left-6 bottom-4">
-            <MiniArcher />
-          </div>
-
-          {/* Dotted trajectory */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
-            <path
-              d="M 58 108 Q 130 30 220 52 Q 265 64 300 92"
-              fill="none"
-              stroke="#00AEEF"
-              strokeDasharray="4,5"
-              strokeWidth="2"
-            />
+        {/* Back — icon only, keeps the text budget for the demo */}
+        <button
+          onClick={onBack}
+          aria-label="Back"
+          className="btn-press absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/70"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
           </svg>
+        </button>
 
-          {/* Virus targets — varied sizes / positions */}
-          <MiniVirus size={40} x="60%" y="18%" />
-          <MiniVirus size={30} x="78%" y="46%" bounce />
-          <MiniVirus size={24} x="48%" y="8%" />
+        <h2 className="mb-4 text-center text-base font-black uppercase tracking-[0.16em] text-white">
+          How to Play
+        </h2>
 
-          {/* Critical callout */}
-          <span className="absolute right-[4%] top-[24%] text-[8px] font-black text-[#FACC15] animate-pulse">
-            CORE = x2
-          </span>
-
-          {/* Drag gesture */}
-          <div className="absolute left-[42px] top-[74px] pointer-events-none z-20 swipe-hand">
-            <DragHand />
-          </div>
+        {/* Looping demo of the real mechanic */}
+        <div className="mb-4 h-[180px] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#04122B]">
+          <ArcheryDemo />
         </div>
 
-        {/* Steps */}
-        <div className="text-left text-xs text-blue-100 space-y-2.5 mb-6 px-1">
-          <div className="flex items-start gap-2.5">
-            <span className="text-[#00AEEF] font-bold">1.</span>
-            <p>
-              <strong className="text-white">Drag back</strong> anywhere to set{' '}
-              <strong className="text-white">angle & power</strong> — release to fire. A dotted
-              trajectory guides your first 3 shots.
-            </p>
-          </div>
-          <div className="flex items-start gap-2.5">
-            <span className="text-[#00AEEF] font-bold">2.</span>
-            <p>
-              Pop the <strong className="text-green-400">green risk viruses</strong> across 3 waves.
-              Small &amp; distant targets score more. Watch the <strong className="text-[#00AEEF]">wind</strong> —
-              it bends every arrow.
-            </p>
-          </div>
-          <div className="flex items-start gap-2.5">
-            <span className="text-[#00AEEF] font-bold">3.</span>
-            <p>
-              Strike the glowing <strong className="text-[#FACC15]">core</strong> for a{' '}
-              <strong className="text-[#FACC15]">CRITICAL x2</strong>. You have{' '}
-              <strong className="text-white">12 arrows</strong> and{' '}
-              <strong className="text-white">2 minutes</strong> — they never fire back, but every
-              arrow counts.
-            </p>
-          </div>
-        </div>
-
-        {/* Objective & CTA */}
-        <div className="space-y-4">
-          <p className="text-xs font-black text-blue-200/90 tracking-wide uppercase italic bg-[#00AEEF]/5 py-2 rounded-lg border border-[#00AEEF]/20">
-            "Precision coverage beats every risk!"
-          </p>
-          <div className="grid grid-cols-5 gap-3 pt-2">
-            <button
-              onClick={onBack}
-              className="btn-press col-span-2 rounded-full border border-white/20 bg-white/10 py-3 text-xs font-bold text-white hover:bg-white/15"
+        {/* Three icon-led labels — the only copy on the screen */}
+        <div className="mb-5 grid grid-cols-3 gap-2">
+          {LABELS.map((l) => (
+            <div
+              key={l.text}
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5"
             >
-              Back
-            </button>
-            <button
-              onClick={onStart}
-              className="btn-press col-span-3 rounded-full py-3 text-xs font-black uppercase tracking-wider text-black shadow-[0_4px_16px_rgba(242,101,34,0.4)]"
-              style={{ background: 'linear-gradient(135deg, #F26522 0%, #FACC15 100%)' }}
-            >
-              Start Game
-            </button>
-          </div>
+              {l.icon}
+              <span className="text-[9px] font-black uppercase tracking-wider text-blue-100/85 text-center leading-tight">
+                {l.text}
+              </span>
+            </div>
+          ))}
         </div>
-      </div>
+
+        <button onClick={onStart} className="btn-primary btn-press w-full">
+          Start Game
+        </button>
+      </motion.div>
     </div>
   );
 };

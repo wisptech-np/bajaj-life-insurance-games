@@ -38,6 +38,10 @@ const outBack = (t) => {
 const AIM_DASH = [7, 7];
 const NO_DASH = [];
 
+/** HUD wave gauge: a concentric ring, driven by strokeDashoffset from render(). */
+const GAUGE_R = 11;
+const GAUGE_C = TAU * GAUGE_R;
+
 /* ─── Offscreen pre-render ───────────────────────────────────
    Orbs are drawn up to 60 times a frame and the backdrop once. Building their
    art (gradients, glow, spikes) every frame is what makes a canvas game stutter
@@ -55,44 +59,81 @@ function offscreen(w, h, dpr) {
   return { cv, c };
 }
 
-/** The still background: deep-blue wash, a centre bloom, and faint guide rings. */
+/**
+ * The still background: an abyss, quiet enough that a single aqua wave is the
+ * brightest thing on screen. Three layers of concentric rings at two different
+ * centres give the standing-water interference pattern that is this game's
+ * signature — the board already looks like a ripple before the player taps it.
+ * Every value here is deliberately low-contrast: figure/ground separation is
+ * bought by keeping the ground dark, not by making the figures louder.
+ */
 function makeBackdrop(W, H, dpr) {
   const { cv, c } = offscreen(W, H, dpr);
+  const cx = W * 0.5;
+  const cy = H * 0.52;
+  const span = Math.max(W, H);
 
   const sky = c.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, COLORS.skyTop);
-  sky.addColorStop(0.55, COLORS.skyMid);
-  sky.addColorStop(1, '#071A36');
+  sky.addColorStop(0.5, COLORS.skyMid);
+  sky.addColorStop(1, '#041A2B');
   c.fillStyle = sky;
   c.fillRect(0, 0, W, H);
 
-  const bloom = c.createRadialGradient(W * 0.5, H * 0.46, 10, W * 0.5, H * 0.46, Math.max(W, H) * 0.62);
-  bloom.addColorStop(0, 'rgba(30,107,224,0.24)');
-  bloom.addColorStop(0.55, 'rgba(14,49,96,0.16)');
-  bloom.addColorStop(1, 'rgba(6,22,52,0)');
+  // A cold aqua depth-bloom, kept small and low so it lifts the centre of the
+  // board without washing the orbs out.
+  const bloom = c.createRadialGradient(cx, cy, 4, cx, cy, span * 0.58);
+  bloom.addColorStop(0, 'rgba(25,227,214,0.13)');
+  bloom.addColorStop(0.42, 'rgba(15,110,140,0.09)');
+  bloom.addColorStop(1, 'rgba(3,16,30,0)');
   c.fillStyle = bloom;
   c.fillRect(0, 0, W, H);
 
-  // Faint concentric rings — the ripple motif, sitting still until the tap.
-  c.strokeStyle = 'rgba(126,184,255,0.06)';
-  c.lineWidth = 1.2;
-  for (let i = 1; i <= 5; i++) {
+  // Primary standing wave: rings whose spacing tightens outward, so the field
+  // reads as energy radiating rather than as a target.
+  c.lineCap = 'round';
+  for (let i = 1; i <= 13; i++) {
+    const t = i / 13;
+    const r = span * 0.055 * i * (1 - t * 0.22);
+    c.strokeStyle = `rgba(140,255,244,${(0.085 * (1 - t * 0.8)).toFixed(4)})`;
+    c.lineWidth = 1.9 - t * 1.1;
     c.beginPath();
-    c.arc(W * 0.5, H * 0.5, (Math.max(W, H) * 0.1) * i, 0, TAU);
+    c.arc(cx, cy, r, 0, TAU);
     c.stroke();
   }
 
-  // Top fade so the HUD glass always has something to sit on.
-  const fade = c.createLinearGradient(0, 0, 0, 132);
-  fade.addColorStop(0, 'rgba(6,16,34,0.78)');
-  fade.addColorStop(1, 'rgba(6,16,34,0)');
-  c.fillStyle = fade;
-  c.fillRect(0, 0, W, 132);
+  // Secondary wave from an off-centre source. Where the two families cross,
+  // the strokes add — that is the interference the motif is named after.
+  const ox = W * 0.16;
+  const oy = H * 0.2;
+  for (let i = 1; i <= 9; i++) {
+    const t = i / 9;
+    c.strokeStyle = `rgba(30,107,224,${(0.075 * (1 - t * 0.7)).toFixed(4)})`;
+    c.lineWidth = 1.5 - t * 0.8;
+    c.beginPath();
+    c.arc(ox, oy, span * 0.085 * i, 0, TAU);
+    c.stroke();
+  }
 
-  // Vignette.
-  const vig = c.createRadialGradient(W * 0.5, H * 0.5, Math.min(W, H) * 0.38, W * 0.5, H * 0.5, Math.max(W, H) * 0.78);
+  // Caustic floor: a single wide arc band low on the board, the "surface" the
+  // waves travel across.
+  const floor = c.createLinearGradient(0, H * 0.74, 0, H);
+  floor.addColorStop(0, 'rgba(10,110,122,0)');
+  floor.addColorStop(1, 'rgba(10,110,122,0.16)');
+  c.fillStyle = floor;
+  c.fillRect(0, H * 0.74, W, H * 0.26);
+
+  // Top fade so HUD ink always has a dark substrate under it (contrast).
+  const fade = c.createLinearGradient(0, 0, 0, 124);
+  fade.addColorStop(0, 'rgba(2,10,20,0.9)');
+  fade.addColorStop(1, 'rgba(2,10,20,0)');
+  c.fillStyle = fade;
+  c.fillRect(0, 0, W, 124);
+
+  // Vignette — heavier than the old one; the board's corners go to near-black.
+  const vig = c.createRadialGradient(cx, cy, Math.min(W, H) * 0.3, cx, cy, span * 0.8);
   vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.5)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.62)');
   c.fillStyle = vig;
   c.fillRect(0, 0, W, H);
 
@@ -100,29 +141,37 @@ function makeBackdrop(W, H, dpr) {
 }
 
 /**
- * A family orb: glass bead with a baked halo and a three-dot family motif.
- * `safe` swaps the palette to gold and adds the cover tick — the same bead, now
- * covered, so the board reads at a glance as "who is still exposed".
+ * A family orb, built in layers so it reads as a lit object rather than a
+ * coloured dot: baked outer glow, body gradient offset toward the key light,
+ * a dark occlusion arc on the shadow side, a bright RIM LIGHT arc on the
+ * lower-right (bounce off the board), a specular cap, and the three-bead family
+ * motif. `safe` re-lights the whole bead in the game's signature aqua and adds
+ * a detached halo ring, so a covered orb is unmistakable at 8 px.
  */
 function makeOrbSprite({ r, dpr, safe, glow }) {
-  const pad = glow ? Math.max(10, r * 0.9) : 4;
+  // Safe orbs carry a halo ring outside the body, so they need more padding.
+  const pad = (glow ? Math.max(10, r * 0.95) : 5) + (safe ? r * 0.5 : 0);
   const size = (r + pad) * 2;
   const { cv, c } = offscreen(size, size, dpr);
   c.translate(size / 2, size / 2);
+  c.lineCap = 'round';
 
   if (glow) {
-    c.shadowColor = safe ? 'rgba(255,200,69,0.85)' : COLORS.brandBlueGlow;
-    c.shadowBlur = safe ? r * 1.15 : r * 0.85;
+    c.shadowColor = safe ? COLORS.aquaGlow : COLORS.brandBlueGlow;
+    c.shadowBlur = safe ? r * 1.5 : r * 0.8;
   }
 
-  const body = c.createRadialGradient(-r * 0.32, -r * 0.36, r * 0.1, 0, 0, r);
+  // Body — key light from the upper-left, deep core on the far side.
+  const body = c.createRadialGradient(-r * 0.34, -r * 0.4, r * 0.06, 0, 0, r * 1.02);
   if (safe) {
-    body.addColorStop(0, '#FFF6DC');
-    body.addColorStop(0.5, COLORS.orbSafeCore);
-    body.addColorStop(1, COLORS.orbSafeRim);
+    body.addColorStop(0, '#FFFFFF');
+    body.addColorStop(0.34, COLORS.orbSafeCore);
+    body.addColorStop(0.72, COLORS.orbSafeRim);
+    body.addColorStop(1, COLORS.aquaDeep);
   } else {
-    body.addColorStop(0, '#5C9BFF');
-    body.addColorStop(0.55, COLORS.brandBlueLt);
+    body.addColorStop(0, '#7FB4FF');
+    body.addColorStop(0.4, COLORS.brandBlueLt);
+    body.addColorStop(0.8, '#0C3576');
     body.addColorStop(1, COLORS.orbCore);
   }
   c.fillStyle = body;
@@ -131,35 +180,61 @@ function makeOrbSprite({ r, dpr, safe, glow }) {
   c.fill();
   c.shadowBlur = 0;
 
-  c.strokeStyle = safe ? 'rgba(255,255,255,0.9)' : 'rgba(168,206,255,0.75)';
-  c.lineWidth = 1.6;
+  // Occlusion on the shadow side keeps the sphere from looking flat.
+  c.save();
   c.beginPath();
-  c.arc(0, 0, r - 0.9, 0, TAU);
+  c.arc(0, 0, r, 0, TAU);
+  c.clip();
+  const occ = c.createRadialGradient(r * 0.42, r * 0.5, r * 0.1, r * 0.3, r * 0.42, r * 1.25);
+  occ.addColorStop(0, 'rgba(0,0,0,0.34)');
+  occ.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = occ;
+  c.fillRect(-r, -r, r * 2, r * 2);
+  c.restore();
+
+  // Rim light: a bright arc on the lower-right edge only.
+  c.strokeStyle = safe ? 'rgba(255,255,255,0.95)' : 'rgba(160,214,255,0.9)';
+  c.lineWidth = Math.max(1.1, r * 0.12);
+  c.beginPath();
+  c.arc(0, 0, r - c.lineWidth * 0.5, 0.28, 2.1);
   c.stroke();
 
-  // Specular highlight.
-  c.fillStyle = 'rgba(255,255,255,0.42)';
+  // Cold containment line all the way round, thin, so the silhouette snaps.
+  c.strokeStyle = safe ? 'rgba(140,255,244,0.55)' : 'rgba(120,175,255,0.32)';
+  c.lineWidth = 1;
   c.beginPath();
-  c.ellipse(-r * 0.3, -r * 0.38, r * 0.3, r * 0.19, -0.6, 0, TAU);
+  c.arc(0, 0, r - 0.5, 0, TAU);
+  c.stroke();
+
+  // Specular cap.
+  c.fillStyle = 'rgba(255,255,255,0.5)';
+  c.beginPath();
+  c.ellipse(-r * 0.31, -r * 0.4, r * 0.31, r * 0.18, -0.62, 0, TAU);
   c.fill();
 
   if (safe) {
-    // Cover tick.
-    c.strokeStyle = '#7A4B06';
-    c.lineWidth = Math.max(1.8, r * 0.19);
-    c.lineCap = 'round';
+    // Detached halo — the wave that reached it, frozen. Pure motif.
+    c.strokeStyle = 'rgba(25,227,214,0.55)';
+    c.lineWidth = Math.max(1, r * 0.11);
+    c.beginPath();
+    c.arc(0, 0, r * 1.34, 0, TAU);
+    c.stroke();
+
+    // Cover tick, dark enough on aqua to stay legible (7.9:1).
+    c.strokeStyle = '#03303A';
+    c.lineWidth = Math.max(1.9, r * 0.2);
     c.lineJoin = 'round';
     c.beginPath();
-    c.moveTo(-r * 0.38, r * 0.03);
-    c.lineTo(-r * 0.08, r * 0.32);
-    c.lineTo(r * 0.42, -r * 0.34);
+    c.moveTo(-r * 0.36, r * 0.02);
+    c.lineTo(-r * 0.07, r * 0.31);
+    c.lineTo(r * 0.4, -r * 0.33);
     c.stroke();
   } else {
     // Family motif: two adults and a child, as three beads.
-    c.fillStyle = 'rgba(255,255,255,0.82)';
+    c.fillStyle = 'rgba(233,244,255,0.9)';
     c.beginPath();
-    c.arc(-r * 0.3, r * 0.06, r * 0.19, 0, TAU);
-    c.arc(r * 0.3, r * 0.06, r * 0.19, 0, TAU);
+    c.arc(-r * 0.3, r * 0.05, r * 0.19, 0, TAU);
+    c.arc(r * 0.3, r * 0.05, r * 0.19, 0, TAU);
     c.arc(0, r * 0.34, r * 0.14, 0, TAU);
     c.fill();
   }
@@ -167,28 +242,38 @@ function makeOrbSprite({ r, dpr, safe, glow }) {
   return { cv, size, half: size / 2 };
 }
 
-/** A virus orb: spiked disc with a dark core. Green is always risk. */
+/**
+ * A virus orb: an irregular spiked husk with a hot red nucleus. Two spike
+ * lengths alternate so the silhouette is jagged rather than a neat star, and
+ * the body is a deep desaturated green — far darker than the aqua a protected
+ * orb wears, so risk never competes for "collect me" at a glance.
+ */
 function makeVirusSprite({ r, dpr, spikes, glow }) {
-  const pad = glow ? Math.max(10, r * 0.9) : 5;
-  const size = (r * 1.34 + pad) * 2;
+  const pad = glow ? Math.max(10, r * 0.9) : 6;
+  const size = (r * 1.44 + pad) * 2;
   const { cv, c } = offscreen(size, size, dpr);
   c.translate(size / 2, size / 2);
 
   if (glow) {
-    c.shadowColor = 'rgba(73,226,75,0.55)';
-    c.shadowBlur = r * 0.8;
+    c.shadowColor = 'rgba(63,212,94,0.45)';
+    c.shadowBlur = r * 0.7;
   }
 
-  c.fillStyle = COLORS.virus;
+  // Husk spikes, alternating long/short, drawn under the body.
   for (let i = 0; i < spikes; i++) {
     const a = (i / spikes) * TAU;
     const cx = Math.cos(a);
     const sy = Math.sin(a);
     const px = -sy;
     const py = cx;
-    const base = r * 0.86;
-    const tip = r * 1.3;
-    const half = r * 0.18;
+    const long = i % 2 === 0;
+    const base = r * 0.84;
+    const tip = long ? r * 1.42 : r * 1.14;
+    const half = r * (long ? 0.17 : 0.22);
+    const g = c.createLinearGradient(cx * base, sy * base, cx * tip, sy * tip);
+    g.addColorStop(0, COLORS.virusBody);
+    g.addColorStop(1, COLORS.virus);
+    c.fillStyle = g;
     c.beginPath();
     c.moveTo(cx * base + px * half, sy * base + py * half);
     c.lineTo(cx * tip, sy * tip);
@@ -197,25 +282,39 @@ function makeVirusSprite({ r, dpr, spikes, glow }) {
     c.fill();
   }
 
-  const body = c.createRadialGradient(-r * 0.3, -r * 0.34, 1, 0, 0, r);
-  body.addColorStop(0, '#B6FBAE');
-  body.addColorStop(0.5, COLORS.virus);
-  body.addColorStop(1, '#127A28');
+  const body = c.createRadialGradient(-r * 0.3, -r * 0.36, r * 0.05, 0, 0, r);
+  body.addColorStop(0, '#5FE97C');
+  body.addColorStop(0.45, COLORS.virus);
+  body.addColorStop(0.86, COLORS.virusBody);
+  body.addColorStop(1, '#083D1A');
   c.fillStyle = body;
   c.beginPath();
-  c.arc(0, 0, r * 0.92, 0, TAU);
+  c.arc(0, 0, r * 0.94, 0, TAU);
   c.fill();
   c.shadowBlur = 0;
 
-  c.fillStyle = COLORS.virusCore;
+  // Rim light on the shadow side, cool, so the husk sits in the same world as
+  // the orbs.
+  c.strokeStyle = 'rgba(150,255,180,0.55)';
+  c.lineWidth = Math.max(1, r * 0.1);
   c.beginPath();
-  c.arc(0, 0, r * 0.5, 0, TAU);
-  c.fill();
+  c.arc(0, 0, r * 0.94 - c.lineWidth * 0.5, 0.4, 2.2);
+  c.stroke();
 
-  c.fillStyle = 'rgba(214,255,206,0.85)';
+  // Hot nucleus — the one warm thing on the whole board.
+  if (glow) {
+    c.shadowColor = 'rgba(255,90,90,0.9)';
+    c.shadowBlur = r * 0.6;
+  }
+  const core = c.createRadialGradient(0, 0, r * 0.04, 0, 0, r * 0.5);
+  core.addColorStop(0, '#FFE3E3');
+  core.addColorStop(0.42, COLORS.virusCore);
+  core.addColorStop(1, '#8C1414');
+  c.fillStyle = core;
   c.beginPath();
-  c.arc(0, 0, r * 0.2, 0, TAU);
+  c.arc(0, 0, r * 0.46, 0, TAU);
   c.fill();
+  c.shadowBlur = 0;
 
   return { cv, size, half: size / 2 };
 }
@@ -229,17 +328,25 @@ function makeVirusSprite({ r, dpr, spikes, glow }) {
 const RIPPLE_UNIT = 100;
 
 function buildPaints(ctx) {
+  // Real falloff, not a flat disc: the interior is almost empty, energy piles
+  // up over the last fifth of the radius, peaks just inside the crest, and
+  // dies to zero exactly at it. Drawn with 'lighter', so overlapping waves add
+  // to white instead of stacking into mud.
   const fill = ctx.createRadialGradient(0, 0, 0, 0, 0, RIPPLE_UNIT);
-  fill.addColorStop(0, 'rgba(30,107,224,0)');
-  fill.addColorStop(0.68, 'rgba(30,107,224,0.14)');
-  fill.addColorStop(0.94, 'rgba(126,184,255,0.4)');
-  fill.addColorStop(1, 'rgba(168,206,255,0)');
+  fill.addColorStop(0, 'rgba(10,110,122,0)');
+  fill.addColorStop(0.5, 'rgba(10,110,122,0.05)');
+  fill.addColorStop(0.78, 'rgba(25,227,214,0.13)');
+  fill.addColorStop(0.92, 'rgba(63,216,230,0.34)');
+  fill.addColorStop(0.985, 'rgba(196,255,250,0.5)');
+  fill.addColorStop(1, 'rgba(196,255,250,0)');
 
   const hurt = ctx.createRadialGradient(0, 0, 0, 0, 0, RIPPLE_UNIT);
-  hurt.addColorStop(0, 'rgba(242,101,34,0)');
-  hurt.addColorStop(0.68, 'rgba(242,101,34,0.14)');
-  hurt.addColorStop(0.94, 'rgba(255,138,61,0.42)');
-  hurt.addColorStop(1, 'rgba(255,180,120,0)');
+  hurt.addColorStop(0, 'rgba(140,52,10,0)');
+  hurt.addColorStop(0.5, 'rgba(140,52,10,0.05)');
+  hurt.addColorStop(0.78, 'rgba(242,101,34,0.14)');
+  hurt.addColorStop(0.92, 'rgba(255,138,61,0.36)');
+  hurt.addColorStop(0.985, 'rgba(255,206,168,0.52)');
+  hurt.addColorStop(1, 'rgba(255,206,168,0)');
 
   return { fill, hurt };
 }
@@ -247,51 +354,87 @@ function buildPaints(ctx) {
 /* ─── Entity draw functions (all programmatic — no emoji, no images) ── */
 
 /**
- * One ripple: a translucent bloom disc, a bright leading ring, and a trailing
- * echo. Additive blending is what turns overlapping ripples into light rather
- * than mud, which is the whole look.
+ * One ripple, drawn as five layers so the wave has body and a direction of
+ * travel: the falloff disc, a soft outer haze just ahead of the crest, the
+ * crest itself, a white-hot hairline inside it, and two trailing echoes that
+ * thin and dim with distance behind the front.
+ *
+ * Everything is additive. The crest also thins as the wave spends itself
+ * (`energy`), which is what makes a fifth-generation ripple LOOK weaker than
+ * the root instead of merely being weaker in the simulation.
  */
 function drawRipple(ctx, paints, rp, cfg, band, shadows) {
   const fadeK = rp.fade > 0 ? clamp(rp.fade / cfg.ripple.fadeSeconds, 0, 1) : 1;
   const growK = clamp(rp.r / Math.max(1, rp.maxR), 0, 1);
-  const alpha = fadeK * (1 - growK * 0.3);
+  // Quadratic-ish decay: the wave holds its brightness through the useful part
+  // of its life and then drops away fast, like a real surface wave.
+  const alpha = fadeK * (1 - growK * growK * 0.72);
   if (alpha <= 0.02 || rp.r < 1) return;
   const hurt = rp.hurt > 0;
+  // How much reach this generation still carries, 0..1 against the root. `band`
+  // is already scaled to the playfield, so it doubles as the scale factor and
+  // drawRipple needs no extra argument.
+  const rootScaled = (band / cfg.ripple.bandPx) * cfg.ripple.rootRadius;
+  const energy = clamp(rp.maxR / rootScaled, 0, 1);
+  const crest = band * (0.55 + energy * 0.45);
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
 
-  // Bloom disc.
+  // Falloff disc.
   ctx.save();
   ctx.translate(rp.x, rp.y);
   const k = rp.r / RIPPLE_UNIT;
   ctx.scale(k, k);
-  ctx.globalAlpha = alpha * 0.85;
+  ctx.globalAlpha = alpha * 0.9;
   ctx.fillStyle = hurt ? paints.hurt : paints.fill;
   ctx.beginPath();
   ctx.arc(0, 0, RIPPLE_UNIT, 0, TAU);
   ctx.fill();
   ctx.restore();
 
-  // Leading ring.
+  // Outer haze, wide and faint, riding just ahead of the crest. This is what
+  // gives the edge its additive bloom without a per-frame shadow on every ring.
+  ctx.globalAlpha = alpha * 0.3;
+  ctx.strokeStyle = hurt ? 'rgba(255,138,61,0.8)' : COLORS.aqua;
+  ctx.lineWidth = crest * 2.6;
+  ctx.beginPath();
+  ctx.arc(rp.x, rp.y, rp.r + crest * 0.4, 0, TAU);
+  ctx.stroke();
+
+  // Crest.
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = hurt ? COLORS.rippleHurt : COLORS.rippleEdge;
-  ctx.lineWidth = band;
+  ctx.lineWidth = crest;
   if (shadows) {
-    ctx.shadowColor = hurt ? 'rgba(242,101,34,0.9)' : COLORS.brandBlueGlow;
-    ctx.shadowBlur = band * 1.6;
+    ctx.shadowColor = hurt ? 'rgba(255,138,61,0.95)' : COLORS.aquaGlow;
+    ctx.shadowBlur = crest * 1.9;
   }
   ctx.beginPath();
   ctx.arc(rp.x, rp.y, rp.r, 0, TAU);
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Echo behind the front, so the ring reads as travelling outward.
-  if (rp.r > band * 2.4) {
-    ctx.globalAlpha = alpha * 0.4;
-    ctx.lineWidth = band * 0.5;
+  // White-hot hairline on the inner face of the crest.
+  ctx.globalAlpha = alpha * 0.75;
+  ctx.strokeStyle = hurt ? '#FFE0C4' : '#FFFFFF';
+  ctx.lineWidth = Math.max(0.8, crest * 0.22);
+  ctx.beginPath();
+  ctx.arc(rp.x, rp.y, rp.r - crest * 0.34, 0, TAU);
+  ctx.stroke();
+
+  // Two echoes behind the front. Spacing widens and alpha halves each step, so
+  // the wave reads as travelling outward rather than as three static rings.
+  const echoColor = hurt ? 'rgba(255,176,120,0.9)' : 'rgba(140,255,244,0.9)';
+  ctx.strokeStyle = echoColor;
+  for (let e = 1; e <= 2; e++) {
+    const er = rp.r - band * (1.9 * e + 0.5 * e * e);
+    if (er <= band * 0.6) break;
+    ctx.globalAlpha = alpha * (0.34 / e);
+    ctx.lineWidth = Math.max(0.7, crest * (0.42 / e));
     ctx.beginPath();
-    ctx.arc(rp.x, rp.y, rp.r - band * 1.9, 0, TAU);
+    ctx.arc(rp.x, rp.y, er, 0, TAU);
     ctx.stroke();
   }
 
@@ -312,26 +455,49 @@ function drawOrb(ctx, sprite, o, time, safeSprite) {
   ctx.drawImage(spr.cv, -spr.half, -spr.half, spr.size, spr.size);
   ctx.restore();
 
+  // Contact flash: two rings leaving the orb at different speeds — the moment
+  // an orb becomes a source of its own wave, stated in the motif's own language.
   if (o.flash > 0) {
     const a = clamp(o.flash / 0.32, 0, 1);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = a * 0.9;
-    ctx.strokeStyle = o.virus ? COLORS.greenLt : '#FFF3CF';
-    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = o.virus ? COLORS.virusCore : COLORS.aquaLt;
+    ctx.globalAlpha = a * 0.95;
+    ctx.lineWidth = 2.6 * a + 0.6;
     ctx.beginPath();
-    ctx.arc(o.x, o.y, o.r + (1 - a) * o.r * 1.5, 0, TAU);
+    ctx.arc(o.x, o.y, o.r + (1 - a) * o.r * 1.9, 0, TAU);
+    ctx.stroke();
+    ctx.globalAlpha = a * 0.4;
+    ctx.lineWidth = 1.4 * a + 0.4;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r + (1 - a) * o.r * 3.1, 0, TAU);
     ctx.stroke();
     ctx.restore();
   }
 }
 
-/** The aim reticle: where the shield will land, and how far it reaches. */
+/**
+ * The aim reticle. Four concentric elements, all sharing the finger's centre:
+ * a faint reach fill so the player can see WHICH orbs are inside the shot, a
+ * rotating dashed reach ring, a static half-radius tick ring, and a pulsing
+ * aqua core with four gap marks. No crosshair arms — this game aims in circles.
+ */
 function drawAim(ctx, x, y, reach, time, alpha) {
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.strokeStyle = 'rgba(168,206,255,0.75)';
-  ctx.lineWidth = 1.6;
+
+  // Reach fill — the single most useful piece of information before the tap.
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = alpha * 0.1;
+  ctx.fillStyle = COLORS.aquaDeep;
+  ctx.beginPath();
+  ctx.arc(x, y, reach, 0, TAU);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+  ctx.globalAlpha = alpha * 0.85;
+  ctx.strokeStyle = COLORS.aqua;
+  ctx.lineWidth = 1.8;
   ctx.setLineDash(AIM_DASH);
   ctx.lineDashOffset = -time * 26;
   ctx.beginPath();
@@ -339,22 +505,30 @@ function drawAim(ctx, x, y, reach, time, alpha) {
   ctx.stroke();
   ctx.setLineDash(NO_DASH);
 
-  const pulse = 1 + Math.sin(time * 5) * 0.12;
-  ctx.strokeStyle = COLORS.orangeLt;
-  ctx.lineWidth = 2.2;
+  // Half-reach tick ring: reads as depth, and marks the band where the first
+  // generation of children will be born.
+  ctx.globalAlpha = alpha * 0.34;
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(x, y, 13 * pulse, 0, TAU);
+  ctx.arc(x, y, reach * 0.55, 0, TAU);
   ctx.stroke();
+
+  // Pulsing core.
+  const pulse = 1 + Math.sin(time * 5) * 0.14;
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = COLORS.aquaLt;
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const a0 = i * (TAU / 4) + 0.32;
+    ctx.beginPath();
+    ctx.arc(x, y, 12 * pulse, a0, a0 + TAU / 4 - 0.64);
+    ctx.stroke();
+  }
+  ctx.fillStyle = COLORS.aquaLt;
   ctx.beginPath();
-  ctx.moveTo(x - 21, y);
-  ctx.lineTo(x - 6, y);
-  ctx.moveTo(x + 6, y);
-  ctx.lineTo(x + 21, y);
-  ctx.moveTo(x, y - 21);
-  ctx.lineTo(x, y - 6);
-  ctx.moveTo(x, y + 6);
-  ctx.lineTo(x, y + 21);
-  ctx.stroke();
+  ctx.arc(x, y, 3.2, 0, TAU);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -675,14 +849,14 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
         audio.victory();
         haptic('success');
         fx.burst({
-          x: bx, y: by, count: pc(cfg.fx.winParticles), color: COLORS.gold,
+          x: bx, y: by, count: pc(cfg.fx.winParticles), color: COLORS.aqua,
           speed: 320, spread: TAU, size: 5, life: 1.1, gravity: 300, drag: 0.93,
         });
         fx.burst({
-          x: bx, y: by - 20, count: pc(cfg.fx.winParticles), color: '#9FCCFF',
+          x: bx, y: by - 20, count: pc(cfg.fx.winParticles), color: COLORS.aquaLt,
           speed: 230, spread: TAU, size: 4, life: 1.2, gravity: 240, drag: 0.94,
         });
-        fx.floatText(bx, Math.max(34, by - 56), 'EVERY WAVE PROTECTED', COLORS.goldLt, 18);
+        fx.floatText(bx, Math.max(34, by - 56), 'ALL WAVES HELD', COLORS.aquaLt, 19);
       } else {
         audio.failure();
         haptic('failure');
@@ -691,8 +865,8 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
           x: bx, y: by, count: pc(cfg.fx.hitParticles), color: cause === 'timeout' ? COLORS.orangeLt : COLORS.virus,
           speed: 260, spread: TAU, size: 4, life: 0.8, gravity: 380, drag: 0.9,
         });
-        const label = cause === 'timeout' ? 'TIME UP' : 'WAVE TARGET MISSED';
-        fx.floatText(bx, Math.max(30, by - 46), label, COLORS.danger, 17);
+        const label = cause === 'timeout' ? 'TIME UP' : 'WAVE SHORT';
+        fx.floatText(bx, Math.max(30, by - 46), label, COLORS.danger, 18);
       }
 
       endTimerRef.current = setTimeout(() => {
@@ -718,8 +892,8 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
       if (childMax > cfg.ripple.minRadius * s.scale) spawnRipple(o.x, o.y, childMax, depth);
 
       fx.burst({
-        x: o.x, y: o.y, count: pc(cfg.fx.orbParticles), color: '#BFE0FF',
-        speed: 150, spread: TAU, size: 2.6, life: 0.45, gravity: 0, drag: 0.9,
+        x: o.x, y: o.y, count: pc(cfg.fx.orbParticles), color: COLORS.aquaLt,
+        speed: 160, spread: TAU, size: 2.8, life: 0.45, gravity: 0, drag: 0.9,
       });
 
       // One rising note per orb would be a 30-note stampede; throttling to ~20
@@ -729,8 +903,16 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
         audio.combo(depth);
       }
 
+      // Points float at the POINT OF IMPACT rather than being read off a static
+      // panel — the HUD carries an icon and a number and nothing else. One float
+      // per orb would fire 25 in half a second and blow the pool, so the value
+      // is banked over `floatEveryOrbs` and shown as a single honest total.
       if (s.chainCount % cfg.fx.floatEveryOrbs === 0) {
-        fx.floatText(o.x, o.y - o.r * 2, `CHAIN ${s.chainCount}`, COLORS.goldLt, 14);
+        fx.floatText(
+          o.x, o.y - o.r * 2.1,
+          `+${cfg.scoring.orb * cfg.fx.floatEveryOrbs}`,
+          COLORS.aquaLt, 16,
+        );
       }
 
       if (!s.megaFired && s.chainCount >= cfg.slowMo.triggerChain) {
@@ -740,7 +922,7 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
         audio.powerUp();
         haptic('success');
         setMega(true);
-        fx.floatText(s.W * 0.5, s.H * 0.34, `MEGA CHAIN ${s.chainCount}`, COLORS.goldLt, 20);
+        fx.floatText(s.W * 0.5, s.H * 0.34, `x${s.chainCount} CHAIN`, COLORS.aquaLt, 22);
       }
     };
 
@@ -757,7 +939,9 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
         s.lastVirusFloat = s.time;
         audio.hit();
         haptic('light');
-        fx.floatText(o.x, o.y - o.r * 2, 'RISK', COLORS.greenLt, 13);
+        // Negative feedback speaks the same "+N at the impact" language: the
+        // number is the reach, in reference px, that this contact just ate.
+        fx.floatText(o.x, o.y - o.r * 2.1, `-${cfg.ripple.virusShrinkPx}`, COLORS.virusCore, 15);
       }
     };
 
@@ -775,8 +959,12 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
       audio.powerUp();
       haptic('medium');
       fx.burst({
-        x, y, count: pc(cfg.fx.tapParticles), color: '#A8CEFF',
-        speed: 210, spread: TAU, size: 3.2, life: 0.5, gravity: 0, drag: 0.9,
+        x, y, count: pc(cfg.fx.tapParticles), color: COLORS.aquaLt,
+        speed: 230, spread: TAU, size: 3.4, life: 0.5, gravity: 0, drag: 0.9,
+      });
+      fx.burst({
+        x, y, count: pc(cfg.fx.orbParticles), color: '#FFFFFF',
+        speed: 110, spread: TAU, size: 2.2, life: 0.34, gravity: 0, drag: 0.86,
       });
     };
 
@@ -800,9 +988,10 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
       const bx = clamp(s.W * 0.5, 30, s.W - 30);
       const by = clamp(s.H * 0.42, 60, s.H - 40);
       fx.burst({
-        x: bx, y: by, count: pc(cfg.fx.waveParticles), color: COLORS.gold,
+        x: bx, y: by, count: pc(cfg.fx.waveParticles), color: COLORS.aqua,
         speed: 260, spread: TAU, size: 3.6, life: 0.8, gravity: 200, drag: 0.92,
       });
+      fx.floatText(bx, by - 30, `+${cfg.scoring.waveClear + chainBonus}`, COLORS.aquaLt, 20);
       setBanner({
         id: s.waveIndex,
         wave: s.waveIndex + 1,
@@ -949,15 +1138,20 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
       fx.draw(ctx);
       fx.endCamera(ctx);
 
-      // Slow-motion wash: a cool bloom over the whole board for the beat the
-      // mega-chain owns.
+      // Slow-motion wash: an aqua bloom over the whole board for the beat the
+      // mega-chain owns, plus a rim of light around the stage edge so the
+      // moment is felt at the frame as well as at the centre.
       if (s.slowT > 0) {
-        const a = Math.min(1, s.slowT / cfg.slowMo.seconds) * 0.22;
+        const k = Math.min(1, s.slowT / cfg.slowMo.seconds);
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = a;
-        ctx.fillStyle = COLORS.brandBlueLt;
+        ctx.globalAlpha = k * 0.2;
+        ctx.fillStyle = COLORS.aquaDeep;
         ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = k * 0.85;
+        ctx.strokeStyle = COLORS.aqua;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(1.5, 1.5, W - 3, H - 3);
         ctx.restore();
       }
 
@@ -974,9 +1168,12 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
       if (s.protectedWave !== s.shownProtected && protectedElRef.current) {
         s.shownProtected = s.protectedWave;
         protectedElRef.current.textContent = String(s.protectedWave);
+        // The wave goal is a concentric gauge, not a bar: same information, on
+        // the motif, and a quarter of the HUD footprint.
         if (barElRef.current) {
           const target = cfg.waves[s.waveIndex].target;
-          barElRef.current.style.width = `${Math.min(100, (s.protectedWave / target) * 100)}%`;
+          const k = Math.min(1, s.protectedWave / target);
+          barElRef.current.style.strokeDashoffset = String(GAUGE_C * (1 - k));
         }
       }
       if (protectedElRef.current && Math.abs(s.tickPop - s.shownTickPop) > 0.01) {
@@ -1052,109 +1249,135 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
     <div style={styles.root}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-      <div ref={wrapRef} style={styles.stage} className="rs-stage">
+      <div
+        ref={wrapRef}
+        style={{ ...styles.stage, ...(mega ? styles.stageMega : null) }}
+        className="rs-stage"
+      >
         <canvas ref={canvasRef} style={styles.canvas} />
 
-        {/* HUD ------------------------------------------------------- */}
+        {/* HUD — one row, icon + number, nothing else --------------- */}
         <div style={styles.hudTop}>
-          <div style={styles.pill}>
-            <span style={styles.pillLabel}>Score</span>
-            <span ref={scoreElRef} style={styles.pillValue}>0</span>
+          <div style={styles.chip} aria-label="Score">
+            <WaveMark size={15} />
+            <span ref={scoreElRef} style={styles.chipNum}>0</span>
           </div>
-          <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Time</span>
-            <span style={{
-              ...styles.pillValue,
-              color: lowTime ? COLORS.orangeLt : '#fff',
-              animation: lowTime ? 'rsPulse 0.9s ease-in-out infinite' : 'none',
-            }}>
-              {timeLeft}s
-            </span>
-          </div>
-        </div>
 
-        <div style={styles.progressWrap}>
-          <div style={styles.progressPill}>
-            <span style={styles.progressText}>
-              <span style={{ opacity: 0.55 }}>Wave {waveNo} · protect </span>
-              <span ref={protectedElRef} style={styles.ticker}>0</span>
-              <span style={{ opacity: 0.55 }}> / {wave.target} of {wave.orbs}</span>
-            </span>
-            <div style={styles.track}>
-              <div ref={barElRef} style={styles.trackFill} />
-            </div>
-            <div style={styles.dots}>
-              {cfg.waves.map((w, i) => (
-                <span
-                  key={w.orbs}
-                  style={{
-                    ...styles.dot,
-                    background: i < waveNo - 1 ? COLORS.gold : i === waveNo - 1 ? '#fff' : 'rgba(255,255,255,0.2)',
-                    boxShadow: i < waveNo ? `0 0 7px ${i < waveNo - 1 ? COLORS.gold : '#9FCCFF'}` : 'none',
-                  }}
+          {/* Wave goal as a concentric gauge: the ring fills as the cascade
+              protects orbs, so the HUD speaks the game's own shape. */}
+          <div style={styles.chip} aria-label={`Protected of ${wave.target}`}>
+            <span style={styles.gaugeWrap}>
+              <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+                <circle cx="13" cy="13" r={GAUGE_R} fill="none"
+                  stroke="rgba(140,255,244,0.18)" strokeWidth="3" />
+                <circle
+                  ref={barElRef}
+                  cx="13" cy="13" r={GAUGE_R} fill="none"
+                  stroke={COLORS.aqua} strokeWidth="3" strokeLinecap="round"
+                  strokeDasharray={GAUGE_C} strokeDashoffset={GAUGE_C}
+                  transform="rotate(-90 13 13)"
+                  style={{ transition: 'stroke-dashoffset 160ms linear' }}
                 />
-              ))}
-            </div>
+                <circle cx="13" cy="13" r="2.2" fill={COLORS.aquaLt} />
+              </svg>
+            </span>
+            <span style={styles.chipNum}>
+              <span ref={protectedElRef} style={styles.ticker}>0</span>
+              <span style={styles.chipSlash}>/{wave.target}</span>
+            </span>
+          </div>
+
+          <div style={styles.chip} aria-label="Time left">
+            <ClockMark size={15} dim={!lowTime} />
+            <span style={{
+              ...styles.chipNum,
+              color: lowTime ? COLORS.orangeInk : COLORS.ink,
+            }}
+              className={lowTime ? 'rs-low' : undefined}
+            >
+              {timeLeft}
+            </span>
           </div>
         </div>
 
-        {/* Status chips ---------------------------------------------- */}
-        <div style={styles.statusWrap}>
-          {armed && !over && (
-            <div className="rs-armed" style={{ ...styles.status, borderColor: 'rgba(255,138,61,0.6)' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={COLORS.orangeLt}
-                strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="3.4" />
-                <circle cx="12" cy="12" r="8.6" opacity="0.55" />
-              </svg>
-              <span style={{ color: COLORS.orangeLt }}>1 tap ready</span>
-            </div>
-          )}
-          {mega && (
-            <div className="rs-mega" style={{ ...styles.status, borderColor: 'rgba(255,200,69,0.65)' }}>
-              <span style={{ color: COLORS.goldLt }}>Mega chain</span>
-            </div>
-          )}
+        {/* Wave pips ------------------------------------------------- */}
+        <div style={styles.pips} aria-label={`Wave ${waveNo} of ${cfg.waves.length}`}>
+          {cfg.waves.map((w, i) => (
+            <span
+              key={w.orbs}
+              className={i === waveNo - 1 ? 'rs-pip' : undefined}
+              style={{
+                ...styles.pip,
+                width: i === waveNo - 1 ? 16 : 6,
+                background: i < waveNo - 1 ? COLORS.aqua
+                  : i === waveNo - 1 ? COLORS.aquaLt
+                    : 'rgba(140,255,244,0.2)',
+                boxShadow: i <= waveNo - 1 ? `0 0 8px ${COLORS.aquaGlow}` : 'none',
+              }}
+            />
+          ))}
         </div>
 
-        {/* Wave banner ----------------------------------------------- */}
+        {/* Wave-clear beat ------------------------------------------- */}
         {banner && (
           <div key={banner.id} style={styles.bannerWrap} className="rs-banner">
+            <svg width="188" height="188" viewBox="0 0 188 188" style={styles.bannerRings} aria-hidden="true">
+              <g fill="none" stroke={COLORS.aqua} strokeWidth="1.4">
+                <circle cx="94" cy="94" r="40" opacity="0.5" />
+                <circle cx="94" cy="94" r="62" opacity="0.3" />
+                <circle cx="94" cy="94" r="86" opacity="0.16" />
+              </g>
+            </svg>
             <div style={styles.banner}>
               <span style={styles.bannerLabel}>
-                {banner.last ? 'Final wave cleared' : `Wave ${banner.wave} cleared`}
+                {banner.last ? 'Final wave' : `Wave ${banner.wave}`}
               </span>
-              <span style={styles.bannerTitle}>
-                {banner.protectedCount} protected
-              </span>
-              <span style={styles.bannerPoints}>
-                chain depth {banner.depth} · +{banner.points}
+              <span style={styles.bannerPoints}>+{banner.points}</span>
+              <span style={styles.bannerSub}>
+                <TickMark size={11} />
+                {banner.protectedCount}
+                <span style={styles.bannerDot} />
+                <WaveMark size={11} />
+                {banner.depth}
               </span>
             </div>
           </div>
         )}
 
-        {/* First-run hint -------------------------------------------- */}
-        {hint && !over && (
-          <div style={styles.hintWrap} className="rs-hint">
-            <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>One tap</strong> per wave · hold to aim,
-              release to send the ripple
+        {/* Armed indicator + first-run gesture demo ------------------- */}
+        {armed && !over && (
+          <div style={styles.armedWrap}>
+            <div className="rs-armed" style={styles.armedChip} aria-label="One tap ready">
+              <TapMark size={16} />
+              <span style={styles.armedNum}>1</span>
             </div>
+            {hint && (
+              <div style={styles.gestureWrap} aria-hidden="true">
+                <svg width="120" height="76" viewBox="0 0 120 76">
+                  <g fill="none" stroke={COLORS.aqua} strokeWidth="2">
+                    <circle className="rs-gr1" cx="60" cy="34" r="30" style={{ transformOrigin: '60px 34px' }} />
+                    <circle className="rs-gr2" cx="60" cy="34" r="30" style={{ transformOrigin: '60px 34px' }} />
+                  </g>
+                  <g className="rs-gfinger">
+                    <FingerGlyph />
+                  </g>
+                </svg>
+              </div>
+            )}
           </div>
         )}
 
         {/* Auto-pause veil ------------------------------------------- */}
         {paused && !over && (
           <div style={styles.pauseVeil}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-              <rect x="6" y="4" width="4" height="16" rx="1.5" />
-              <rect x="14" y="4" width="4" height="16" rx="1.5" />
+            <svg width="66" height="66" viewBox="0 0 66 66" aria-hidden="true">
+              <circle cx="33" cy="33" r="30" fill="none" stroke={COLORS.aqua} strokeWidth="1.4" opacity="0.35" />
+              <circle cx="33" cy="33" r="23" fill="none" stroke={COLORS.aqua} strokeWidth="2" opacity="0.7" />
+              <rect x="26" y="24" width="4.6" height="18" rx="2.3" fill={COLORS.aquaLt} />
+              <rect x="35.4" y="24" width="4.6" height="18" rx="2.3" fill={COLORS.aquaLt} />
             </svg>
-            <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Paused</div>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
-              Your timer is safe. Come back and start the ripple.
-            </div>
+            <div style={styles.pauseTitle}>Paused</div>
+            <div style={styles.pauseCopy}>Your timer is safe.</div>
           </div>
         )}
 
@@ -1182,35 +1405,112 @@ export default function RippleShieldGame({ config, onWin, onLose }) {
   );
 }
 
+/* ─── HUD glyphs ─────────────────────────────────────────────
+   Every icon in this game is built from concentric arcs. That is the whole
+   icon system: no pictograms, no borrowed metaphors, no emoji. */
+
+/** Score: a wave leaving a source. Also the chain-depth mark on the banner. */
+function WaveMark({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="2.6" fill={COLORS.aquaLt} />
+      <g stroke={COLORS.aqua} strokeWidth="2" fill="none" strokeLinecap="round">
+        <path d="M17.2 12a5.2 5.2 0 0 0-5.2-5.2" opacity="0.95" />
+        <path d="M6.8 12A5.2 5.2 0 0 0 12 17.2" opacity="0.95" />
+        <path d="M21.4 12A9.4 9.4 0 0 0 12 2.6" opacity="0.45" />
+        <path d="M2.6 12A9.4 9.4 0 0 0 12 21.4" opacity="0.45" />
+      </g>
+    </svg>
+  );
+}
+
+/** Time: a ring with a single hand. */
+function ClockMark({ size = 15, dim = true }) {
+  const c = dim ? COLORS.aqua : COLORS.orangeLt;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9.2" stroke={c} strokeWidth="2" opacity="0.9" />
+      <circle cx="12" cy="12" r="4.6" stroke={c} strokeWidth="1.2" opacity="0.35" />
+      <path d="M12 7.4V12l3.4 2.2" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Protected count on the wave-clear beat. */
+function TickMark({ size = 11 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke={COLORS.aqua} strokeWidth="2" opacity="0.55" />
+      <path d="M7.4 12.4 10.6 15.6 16.8 8.8" stroke={COLORS.aquaLt} strokeWidth="2.6"
+        strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Armed: a finger over concentric rings. */
+function TapMark({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="10.4" stroke={COLORS.orangeLt} strokeWidth="1.6" opacity="0.45" />
+      <circle cx="12" cy="12" r="6.4" stroke={COLORS.orangeLt} strokeWidth="1.9" opacity="0.8" />
+      <circle cx="12" cy="12" r="2.6" fill={COLORS.orangeLt} />
+    </svg>
+  );
+}
+
+/** The pointing hand used by the in-game gesture demo. Drawn, never an emoji. */
+function FingerGlyph() {
+  return (
+    <g transform="translate(52,30)">
+      <path
+        d="M8 2c0-1.6-1.2-2.9-2.8-2.9S2.4.4 2.4 2v13.3l-3.5-3a2.5 2.5 0 0 0-3.4.2 2.4 2.4 0 0 0 .1 3.3l7.4 7.6c1 1 2.3 1.5 3.7 1.5h5.5a5 5 0 0 0 5-5V12c0-1.4-1.1-2.5-2.5-2.5-.5 0-1 .2-1.4.5-.2-1.1-1.2-2-2.4-2-.6 0-1.1.2-1.5.5C9 7.4 8 6.6 8 6.6z"
+        fill="#0A1A2A" stroke={COLORS.aquaLt} strokeWidth="1.7" strokeLinejoin="round"
+      />
+    </g>
+  );
+}
+
 /* ─── Styles ─────────────────────────────────────────────── */
 const CSS = `
-@keyframes rsIn { from { opacity: 0; transform: scale(0.965) translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes rsPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
+@keyframes rsIn { from { opacity: 0; transform: scale(0.965) translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes rsPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.14); opacity: 0.72; } }
 @keyframes rsBanner {
-  0%   { opacity: 0; transform: translateY(18px) scale(0.86); }
-  18%  { opacity: 1; transform: translateY(0) scale(1.06); }
-  30%  { transform: translateY(0) scale(1); }
+  0%   { opacity: 0; transform: translateY(20px) scale(0.82); }
+  16%  { opacity: 1; transform: translateY(0) scale(1.07); }
+  28%  { transform: translateY(0) scale(1); }
   80%  { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-16px) scale(0.96); }
+  100% { opacity: 0; transform: translateY(-18px) scale(0.94); }
 }
-@keyframes rsHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
-@keyframes rsArmed { 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
-@keyframes rsMega { 0%,100% { transform: scale(1); } 50% { transform: scale(1.09); } }
-.rs-stage { animation: rsIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
-.rs-banner { animation: rsBanner 1.35s ease-out both; }
-.rs-hint { animation: rsHint 1.6s ease-in-out infinite; }
-.rs-armed { animation: rsArmed 1.4s ease-in-out infinite; }
-.rs-mega { animation: rsMega 0.5s ease-in-out infinite; }
+@keyframes rsArmed { 0%,100% { opacity: 0.72; transform: scale(1); } 50% { opacity: 1; transform: scale(1.07); } }
+@keyframes rsPip   { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes rsGRing { 0%,10% { transform: scale(0.16); opacity: 0; } 22% { transform: scale(0.22); opacity: 0.95; } 78%,100% { transform: scale(1); opacity: 0; } }
+@keyframes rsGPress { 0%,14% { transform: translate(0,8px); } 26%,44% { transform: translate(0,-2px); } 62%,100% { transform: translate(0,8px); } }
+.rs-stage  { animation: rsIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
+.rs-banner { animation: rsBanner 1.35s cubic-bezier(0.22,1,0.36,1) both; }
+.rs-armed  { animation: rsArmed 1.5s ease-in-out infinite; }
+.rs-low    { animation: rsPulse 0.9s ease-in-out infinite; display: inline-block; }
+.rs-pip    { animation: rsPip 1.6s ease-in-out infinite; }
+.rs-gr1    { animation: rsGRing 2.4s ease-out infinite; }
+.rs-gr2    { animation: rsGRing 2.4s ease-out 0.42s infinite; }
+.rs-gfinger { animation: rsGPress 2.4s cubic-bezier(0.34,1.4,0.5,1) infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .rs-stage, .rs-banner, .rs-hint, .rs-armed, .rs-mega { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+  .rs-stage, .rs-banner, .rs-armed, .rs-low, .rs-pip,
+  .rs-gr1, .rs-gr2, .rs-gfinger { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
 }
 `;
 
-const glass = {
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  backdropFilter: 'blur(12px)',
-  WebkitBackdropFilter: 'blur(12px)',
+/* Spacing scale used throughout: 4 / 8 / 12 / 16 / 20 / 28. Nothing off-grid. */
+const chipBase = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  height: 30,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: COLORS.glass,
+  border: `1px solid ${COLORS.glassLine}`,
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
 };
 
 const styles = {
@@ -1221,178 +1521,156 @@ const styles = {
     maxWidth: 430,
     margin: '0 auto',
     display: 'flex',
-    padding: 10,
+    padding: 12,
     boxSizing: 'border-box',
   },
   stage: {
     position: 'relative',
     flex: 1,
     minHeight: 420,
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
     background: COLORS.bgDark,
-    border: '1.5px solid rgba(255,255,255,0.1)',
-    boxShadow: '0 20px 44px rgba(0,0,0,0.55)',
+    border: '1.5px solid rgba(140,255,244,0.16)',
+    boxShadow: '0 22px 48px rgba(0,0,0,0.62), inset 0 0 60px rgba(10,110,122,0.18)',
     touchAction: 'none',
+    transition: 'box-shadow 240ms ease, border-color 240ms ease',
+  },
+  stageMega: {
+    borderColor: 'rgba(140,255,244,0.65)',
+    boxShadow: '0 22px 48px rgba(0,0,0,0.62), 0 0 34px rgba(25,227,214,0.45), inset 0 0 70px rgba(25,227,214,0.22)',
   },
   canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
+
   hudTop: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
+    top: 12,
+    left: 12,
+    right: 12,
     display: 'flex',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
-    pointerEvents: 'none',
-    zIndex: 4,
-  },
-  pill: {
-    ...glass,
-    display: 'flex',
-    flexDirection: 'column',
-    borderRadius: 12,
-    padding: '5px 12px',
-    minWidth: 74,
-  },
-  pillLabel: {
-    fontSize: 8,
-    fontWeight: 800,
-    letterSpacing: '0.16em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
-  },
-  pillValue: {
-    fontSize: 19,
-    fontWeight: 900,
-    color: '#fff',
-    lineHeight: 1.15,
-    fontVariantNumeric: 'tabular-nums',
-    display: 'inline-block',
-  },
-  progressWrap: {
-    position: 'absolute',
-    top: 62,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-    zIndex: 4,
-  },
-  progressPill: { ...glass, borderRadius: 12, padding: '6px 14px 7px', minWidth: 196, textAlign: 'center' },
-  progressText: {
-    fontSize: 12,
-    fontWeight: 800,
-    color: '#fff',
-    letterSpacing: '0.03em',
-    fontVariantNumeric: 'tabular-nums',
-  },
-  ticker: {
-    display: 'inline-block',
-    color: COLORS.goldLt,
-    fontWeight: 900,
-    transformOrigin: 'center',
-  },
-  track: {
-    marginTop: 5,
-    height: 5,
-    borderRadius: 3,
-    background: 'rgba(255,255,255,0.14)',
-    overflow: 'hidden',
-  },
-  trackFill: {
-    height: '100%',
-    width: '0%',
-    borderRadius: 3,
-    background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.gold})`,
-    transition: 'width 160ms linear',
-  },
-  dots: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    display: 'inline-block',
-    transition: 'background 240ms ease, box-shadow 240ms ease',
-  },
-  statusWrap: {
-    position: 'absolute',
-    top: 142,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
     gap: 8,
     pointerEvents: 'none',
     zIndex: 4,
   },
-  status: {
-    ...glass,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 999,
-    padding: '4px 10px',
-    fontSize: 10,
+  chip: chipBase,
+  chipNum: {
+    fontSize: 16,
     fontWeight: 900,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
+    color: COLORS.ink,
+    lineHeight: 1,
+    fontVariantNumeric: 'tabular-nums',
+    letterSpacing: '-0.01em',
   },
-  bannerWrap: {
+  chipSlash: { color: COLORS.inkDim, fontWeight: 800, fontSize: 12 },
+  gaugeWrap: { display: 'flex', width: 26, height: 26 },
+  ticker: {
+    display: 'inline-block',
+    color: COLORS.aquaLt,
+    fontWeight: 900,
+    transformOrigin: 'center',
+  },
+
+  pips: {
     position: 'absolute',
-    top: '32%',
+    top: 50,
     left: 0,
     right: 0,
     display: 'flex',
     justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    pointerEvents: 'none',
+    zIndex: 4,
+  },
+  pip: {
+    height: 6,
+    borderRadius: 999,
+    display: 'inline-block',
+    transition: 'width 240ms ease, background 240ms ease, box-shadow 240ms ease',
+  },
+
+  bannerWrap: {
+    position: 'absolute',
+    top: '34%',
+    left: 0,
+    right: 0,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     pointerEvents: 'none',
     zIndex: 6,
   },
+  bannerRings: { position: 'absolute', pointerEvents: 'none' },
   banner: {
+    position: 'relative',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: 2,
-    padding: '12px 26px',
-    borderRadius: 18,
-    background: 'linear-gradient(180deg, rgba(30,107,224,0.95), rgba(0,61,166,0.95))',
-    border: '1px solid rgba(255,255,255,0.28)',
-    boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
+    padding: '12px 28px',
+    borderRadius: 999,
+    background: 'linear-gradient(180deg, rgba(6,33,52,0.96), rgba(3,16,30,0.96))',
+    border: '1.5px solid rgba(140,255,244,0.5)',
+    boxShadow: '0 16px 38px rgba(0,0,0,0.55), 0 0 26px rgba(25,227,214,0.28)',
   },
   bannerLabel: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: 900,
-    letterSpacing: '0.2em',
+    letterSpacing: '0.22em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.8)',
+    color: COLORS.inkDim,
   },
-  bannerTitle: { fontSize: 21, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' },
-  bannerPoints: { fontSize: 12, fontWeight: 900, color: COLORS.goldLt },
-  hintWrap: {
+  bannerPoints: {
+    fontSize: 30,
+    fontWeight: 900,
+    color: COLORS.aquaLt,
+    letterSpacing: '-0.03em',
+    lineHeight: 1.05,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  bannerSub: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 12,
+    fontWeight: 900,
+    color: COLORS.ink,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  bannerDot: {
+    width: 3, height: 3, borderRadius: 999,
+    background: COLORS.inkDim, margin: '0 3px',
+  },
+
+  armedWrap: {
     position: 'absolute',
-    bottom: 66,
-    left: 12,
-    right: 12,
+    left: 0,
+    right: 0,
+    bottom: 20,
     display: 'flex',
-    justifyContent: 'center',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
     pointerEvents: 'none',
     zIndex: 5,
   },
-  hint: {
-    ...glass,
-    borderRadius: 999,
-    padding: '9px 16px',
-    fontSize: 12,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.92)',
-    textAlign: 'center',
+  armedChip: {
+    ...chipBase,
+    height: 28,
+    order: 2,
+    borderColor: 'rgba(255,138,61,0.55)',
   },
+  armedNum: {
+    fontSize: 17,
+    fontWeight: 900,
+    color: COLORS.orangeInk,
+    lineHeight: 1,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  gestureWrap: { order: 1, opacity: 0.95 },
+
   pauseVeil: {
     position: 'absolute',
     inset: 0,
@@ -1400,22 +1678,27 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    background: 'rgba(11,18,33,0.84)',
+    gap: 12,
+    background: 'rgba(3,16,30,0.9)',
     backdropFilter: 'blur(8px)',
     WebkitBackdropFilter: 'blur(8px)',
     zIndex: 8,
   },
+  pauseTitle: { color: COLORS.ink, fontWeight: 900, fontSize: 20, letterSpacing: '-0.02em' },
+  pauseCopy: { color: COLORS.inkDim, fontSize: 13, textAlign: 'center', maxWidth: 250 },
+
   muteBtn: {
     position: 'absolute',
-    right: 10,
-    bottom: 10,
+    right: 12,
+    bottom: 12,
     width: 44,
     height: 44,
-    borderRadius: 14,
-    background: 'rgba(11,18,33,0.6)',
-    border: '1px solid rgba(255,255,255,0.16)',
-    color: '#fff',
+    borderRadius: 999,
+    background: COLORS.glass,
+    border: `1px solid ${COLORS.glassLine}`,
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    color: COLORS.aquaLt,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

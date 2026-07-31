@@ -234,6 +234,104 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to Play ──────────────────────────────────────── */
+/**
+ * Animation-first how-to-play. One 6.4 s loop plays the real jar: the finger
+ * drags along the mouth with a drop guide under it, releases, the token falls
+ * beside its twin, they merge into the next tier — and that result is itself a
+ * twin of its neighbour, so a second merge fires inside the chain window. No
+ * prose; the tier ladder underneath shows where the chain is going.
+ */
+const TUT_CSS = `
+@keyframes wmDemoHand {
+  0%       { transform: translate(-56px, 0); opacity: 0; }
+  4%       { transform: translate(-56px, 0); opacity: 1; }
+  18%      { transform: translate(0, 0);     opacity: 1; }
+  22%      { transform: translate(0, 6px);   opacity: 1; }
+  26%      { transform: translate(0, 12px);  opacity: 0; }
+  94%,100% { transform: translate(-56px, 0); opacity: 0; }
+}
+@keyframes wmDemoGuide {
+  0%,3%    { transform: translateX(-56px); opacity: 0; }
+  6%       { transform: translateX(-56px); opacity: 0.8; }
+  18%      { transform: translateX(0);     opacity: 0.8; }
+  23%,100% { transform: translateX(0);     opacity: 0; }
+}
+@keyframes wmDemoDrop {
+  0%,3%    { transform: translate(-56px, 0);  opacity: 0; }
+  6%       { transform: translate(-56px, 0);  opacity: 1; }
+  18%,22%  { transform: translate(0, 0);      opacity: 1; }
+  30%      { transform: translate(0, 174px);  opacity: 1; }
+  32%      { transform: translate(0, 166px);  opacity: 1; }
+  35%,36%  { transform: translate(0, 174px);  opacity: 1; }
+  39%,100% { transform: translate(0, 174px);  opacity: 0; }
+}
+@keyframes wmDemoTokA {
+  0%,36%   { opacity: 1; transform: scale(1); }
+  39%,93%  { opacity: 0; transform: scale(0.55); }
+  97%,100% { opacity: 1; transform: scale(1); }
+}
+@keyframes wmDemoM1 {
+  0%,37%   { opacity: 0; transform: scale(0.2); }
+  41%      { opacity: 1; transform: scale(1.28); }
+  45%,57%  { opacity: 1; transform: scale(1); }
+  60%,100% { opacity: 0; transform: scale(0.55); }
+}
+@keyframes wmDemoTokC {
+  0%,57%   { opacity: 1; transform: scale(1); }
+  60%,93%  { opacity: 0; transform: scale(0.55); }
+  97%,100% { opacity: 1; transform: scale(1); }
+}
+@keyframes wmDemoM2 {
+  0%,58%   { opacity: 0; transform: scale(0.2); }
+  62%      { opacity: 1; transform: scale(1.28); }
+  66%,88%  { opacity: 1; transform: scale(1); }
+  93%,100% { opacity: 0; transform: scale(0.55); }
+}
+@keyframes wmDemoBurst1 {
+  0%,37%   { opacity: 0; transform: scale(0.3); }
+  41%      { opacity: 0.95; transform: scale(1); }
+  49%,100% { opacity: 0; transform: scale(1.7); }
+}
+@keyframes wmDemoBurst2 {
+  0%,58%   { opacity: 0; transform: scale(0.3); }
+  62%      { opacity: 0.95; transform: scale(1); }
+  71%,100% { opacity: 0; transform: scale(1.8); }
+}
+/* The second merge lands inside the 1s chain window, so the multiplier fires. */
+@keyframes wmDemoChain {
+  0%,60%   { opacity: 0; transform: scale(0.5); }
+  65%      { opacity: 1; transform: scale(1.15); }
+  70%,82%  { opacity: 1; transform: scale(1); }
+  90%,100% { opacity: 0; transform: scale(1); }
+}
+@keyframes wmDemoDanger { 0%,100% { opacity: 0.4; } 50% { opacity: 0.95; } }
+.wm-d-hand   { animation: wmDemoHand 6.4s ease-in-out infinite; }
+.wm-d-guide  { animation: wmDemoGuide 6.4s ease-in-out infinite; }
+.wm-d-drop   { animation: wmDemoDrop 6.4s cubic-bezier(0.5,0,0.75,1) infinite; }
+.wm-d-a      { animation: wmDemoTokA 6.4s ease-out infinite; }
+.wm-d-m1     { animation: wmDemoM1 6.4s cubic-bezier(0.34,1.56,0.64,1) infinite; }
+.wm-d-c      { animation: wmDemoTokC 6.4s ease-out infinite; }
+.wm-d-m2     { animation: wmDemoM2 6.4s cubic-bezier(0.34,1.56,0.64,1) infinite; }
+.wm-d-burst1 { animation: wmDemoBurst1 6.4s ease-out infinite; }
+.wm-d-burst2 { animation: wmDemoBurst2 6.4s ease-out infinite; }
+.wm-d-chain  { animation: wmDemoChain 6.4s cubic-bezier(0.22,1,0.36,1) infinite; }
+.wm-d-danger { animation: wmDemoDanger 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .wm-d-hand, .wm-d-guide, .wm-d-drop, .wm-d-a, .wm-d-m1, .wm-d-c, .wm-d-m2,
+  .wm-d-burst1, .wm-d-burst2, .wm-d-chain, .wm-d-danger { animation: none !important; }
+}
+`;
+
+/** One wealth token, drawn around its parent group's origin. */
+function Tok({ r, tier, cls }) {
+  return (
+    <g className={cls}>
+      <circle cx="0" cy="0" r={r} fill={`url(#wmg${tier})`} />
+      <circle cx={-r * 0.3} cy={-r * 0.34} r={r * 0.22} fill="rgba(255,255,255,0.55)" />
+    </g>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
   return (
     <motion.div
@@ -248,183 +346,183 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: 16,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: TUT_CSS }} />
+
       <div style={{
         background: 'rgba(0, 30, 70, 0.65)',
         border: '1px solid rgba(255, 255, 255, 0.14)',
         borderRadius: 24,
-        padding: '28px 24px 24px',
+        padding: '16px 13px 14px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 26,
+          fontSize: 22,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 18px 0',
+          margin: '0 0 10px 0',
           color: '#fff',
           textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           How to Play
         </h2>
 
-        {/* Animated demo: drop, merge, pop */}
+        {/* ── The looping demo: drop → merge → chain ── */}
+        <svg viewBox="0 0 300 230" width="100%" role="img"
+          aria-label="A finger drags along the jar mouth and releases a token; it lands beside an identical token, they merge into a bigger one, and that one merges again with its neighbour."
+          style={{ display: 'block', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+          <defs>
+            {TIERS.slice(0, 5).map((t, i) => (
+              <radialGradient key={t.key} id={`wmg${i}`} cx="32%" cy="28%" r="78%">
+                <stop offset="0%" stopColor={t.colorLt} />
+                <stop offset="45%" stopColor={t.color} />
+                <stop offset="100%" stopColor={t.colorDeep} />
+              </radialGradient>
+            ))}
+            <clipPath id="wmDemoClip"><rect x="0" y="0" width="300" height="230" rx="14" /></clipPath>
+          </defs>
+
+          <g clipPath="url(#wmDemoClip)">
+            <rect x="0" y="0" width="300" height="230" fill="rgba(5,20,45,0.65)" />
+
+            {/* The glass jar */}
+            <path d="M54 26 V202 a12 12 0 0 0 12 12 H234 a12 12 0 0 0 12 -12 V26"
+              fill={COLORS.jarGlass} stroke={COLORS.jarWallLit} strokeWidth="4" strokeLinecap="round" />
+
+            {/* The danger line: always visible, always the rule */}
+            <line className="wm-d-danger" x1="58" y1="56" x2="242" y2="56"
+              stroke={COLORS.danger} strokeWidth="2.6" strokeDasharray="8 6" strokeLinecap="round" />
+
+            {/* Filler tokens already resting in the jar */}
+            <g transform="translate(78,198)"><Tok r={12} tier={0} /></g>
+            <g transform="translate(214,198)"><Tok r={12} tier={0} /></g>
+
+            {/* The twin waiting for the drop */}
+            <g transform="translate(120,192)"><Tok r={16} tier={1} cls="wm-d-a" /></g>
+
+            {/* The token being aimed and dropped */}
+            <g transform="translate(152,18)">
+              <g className="wm-d-drop"><Tok r={16} tier={1} /></g>
+            </g>
+
+            {/* The drop guide the game draws under the aimed token */}
+            <line className="wm-d-guide" x1="152" y1="34" x2="152" y2="200"
+              stroke={COLORS.guide} strokeWidth="2" strokeDasharray="5 7" strokeLinecap="round" />
+
+            {/* The finger doing the real drag-and-release */}
+            <g transform="translate(152,26)">
+              <g className="wm-d-hand">
+                <g transform="translate(-6,-4)">
+                  <path d="M13 21V7.6a3 3 0 0 1 6 0V18h1.6a3 3 0 0 1 3 3v.6l3.2 1.4a4 4 0 0 1 2.3 4.5l-1.2 5.6A5 5 0 0 1 23 37h-6.4a6 6 0 0 1-4.6-2.2l-5.6-6.9a2.8 2.8 0 0 1 3.9-4L13 26"
+                    fill="#FFFFFF" stroke="#061229" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                </g>
+              </g>
+            </g>
+
+            {/* Merge 1 — two twins become the next tier at their contact point */}
+            <g transform="translate(136,188)">
+              <circle className="wm-d-burst1" cx="0" cy="0" r="26" fill="none"
+                stroke={COLORS.goldLt} strokeWidth="3.5" />
+              <Tok r={22} tier={2} cls="wm-d-m1" />
+            </g>
+
+            {/* Its neighbour, already the same tier */}
+            <g transform="translate(180,186)"><Tok r={22} tier={2} cls="wm-d-c" /></g>
+
+            {/* Merge 2 — inside the chain window, so the multiplier fires */}
+            <g transform="translate(158,180)">
+              <circle className="wm-d-burst2" cx="0" cy="0" r="34" fill="none"
+                stroke={COLORS.orangeLt} strokeWidth="3.5" />
+              <Tok r={30} tier={3} cls="wm-d-m2" />
+            </g>
+
+            {/* Chain multiplier: three ascending chevrons, no number needed */}
+            <g transform="translate(210,110)">
+              <g className="wm-d-chain">
+                {[0, 1, 2].map((i) => (
+                  <path key={i} transform={`translate(0,${i * 13})`}
+                    d="M-13 6 L0 -5 L13 6" fill="none" stroke={COLORS.greenLt}
+                    strokeWidth={4 - i} strokeLinecap="round" strokeLinejoin="round"
+                    opacity={1 - i * 0.24} />
+                ))}
+              </g>
+            </g>
+          </g>
+        </svg>
+
+        {/* The 8-tier ladder: what the merging is for. Pure shapes, no words. */}
         <div style={{
-          position: 'relative',
-          width: '100%',
-          height: 170,
-          background: 'rgba(5, 20, 45, 0.5)',
-          borderRadius: 16,
-          border: '1px solid rgba(255,255,255,0.06)',
-          overflow: 'hidden',
-          marginBottom: 18,
-        }}>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes wmTutDrop {
-              0%, 12% { transform: translate(0, 0); opacity: 1; }
-              38%     { transform: translate(0, 92px); opacity: 1; }
-              46%, 100% { transform: translate(0, 92px); opacity: 0; }
-            }
-            @keyframes wmTutSit {
-              0%, 40% { transform: scale(1); opacity: 1; }
-              46%, 100% { opacity: 0; }
-            }
-            @keyframes wmTutMerged {
-              0%, 42% { transform: scale(0); opacity: 0; }
-              50%  { transform: scale(1.35); opacity: 1; }
-              60%  { transform: scale(1); opacity: 1; }
-              92%  { transform: scale(1); opacity: 1; }
-              100% { transform: scale(1); opacity: 0; }
-            }
-            @keyframes wmTutScore {
-              0%, 48% { transform: translateY(0); opacity: 0; }
-              56% { transform: translateY(-10px); opacity: 1; }
-              85%, 100% { transform: translateY(-26px); opacity: 0; }
-            }
-            @keyframes wmTutHand {
-              0% { transform: translateX(-34px); opacity: 0; }
-              8% { opacity: 1; }
-              12% { transform: translateX(0); opacity: 1; }
-              20% { transform: translateX(0) scale(1.15); opacity: 1; }
-              30%, 100% { transform: translateX(0); opacity: 0; }
-            }
-          ` }} />
-
-          {/* Jar outline */}
-          <div style={{
-            position: 'absolute', left: 40, right: 40, top: 26, bottom: 12,
-            borderLeft: '3px solid rgba(190,220,255,0.5)',
-            borderRight: '3px solid rgba(190,220,255,0.5)',
-            borderBottom: '3px solid rgba(190,220,255,0.5)',
-            borderRadius: '0 0 10px 10px',
-          }} />
-
-          {/* Resting same-tier token */}
-          <div style={{
-            position: 'absolute', left: 'calc(50% - 34px)', bottom: 16,
-            width: 28, height: 28, borderRadius: '50%',
-            background: 'radial-gradient(circle at 32% 28%, #FFECA8 0%, #FFD25E 45%, #9A6B0A 100%)',
-            animation: 'wmTutSit 4s infinite',
-          }} />
-
-          {/* Dropping token */}
-          <div style={{
-            position: 'absolute', left: 'calc(50% + 6px)', top: 30,
-            width: 28, height: 28, borderRadius: '50%',
-            background: 'radial-gradient(circle at 32% 28%, #FFECA8 0%, #FFD25E 45%, #9A6B0A 100%)',
-            animation: 'wmTutDrop 4s ease-in infinite',
-          }} />
-
-          {/* Merged bigger token */}
-          <div style={{
-            position: 'absolute', left: 'calc(50% - 20px)', bottom: 12,
-            width: 40, height: 40, borderRadius: '50%',
-            background: 'radial-gradient(circle at 32% 28%, #FFE38A 0%, #FFC845 45%, #8F6206 100%)',
-            boxShadow: '0 0 18px rgba(255,200,69,0.65)',
-            animation: 'wmTutMerged 4s cubic-bezier(0.34,1.56,0.64,1) infinite',
-          }} />
-
-          {/* Score float */}
-          <div style={{
-            position: 'absolute', left: 0, right: 0, bottom: 64,
-            textAlign: 'center', fontWeight: 900, fontSize: 15, color: '#FFE38A',
-            animation: 'wmTutScore 4s ease-out infinite',
-          }}>
-            +3 MERGE!
-          </div>
-
-          {/* Hand dragging to aim */}
-          <div style={{
-            position: 'absolute', left: 'calc(50% + 14px)', top: 52,
-            width: 30, height: 30,
-            animation: 'wmTutHand 4s ease-in-out infinite',
-          }}>
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.5">
-              <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-              <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-              <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
-              <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Tier ladder strip */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 4,
-          marginBottom: 16,
-          flexWrap: 'nowrap',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 5, margin: '10px 0 4px', flexWrap: 'nowrap',
         }}>
           {TIERS.map((t, i) => (
-            <React.Fragment key={t.key}>
-              <span style={{
-                width: 10 + i * 2.6,
-                height: 10 + i * 2.6,
-                borderRadius: '50%',
-                flexShrink: 0,
-                background: `radial-gradient(circle at 32% 28%, ${t.colorLt} 0%, ${t.color} 45%, ${t.colorDeep} 100%)`,
-                boxShadow: i === TIERS.length - 1 ? `0 0 10px ${t.glow}` : 'none',
-              }} />
-              {i < TIERS.length - 1 && (
-                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9, fontWeight: 900 }}>{'>'}</span>
-              )}
-            </React.Fragment>
+            <span key={t.key} style={{
+              width: 9 + i * 2.6,
+              height: 9 + i * 2.6,
+              borderRadius: '50%',
+              flexShrink: 0,
+              background: `radial-gradient(circle at 32% 28%, ${t.colorLt} 0%, ${t.color} 45%, ${t.colorDeep} 100%)`,
+              boxShadow: i === TIERS.length - 1 ? `0 0 12px ${t.glow}` : 'none',
+            }} />
           ))}
         </div>
 
-        <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 14,
-          lineHeight: 1.45,
-          marginBottom: 22,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>1.</span>
-            <span><strong>Drag</strong> to aim, <strong>release</strong> to drop a wealth token into the jar. Two identical tokens <strong>merge into the next tier</strong> — chase the glowing Retirement Corpus.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>2.</span>
-            <span>Quick back-to-back merges build a <strong>chain multiplier</strong> (x1.5, x2, x3...). Score <strong>300 points in 100 seconds</strong> — or forge the Corpus to win instantly.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>3.</span>
-            <span>Keep the pile <strong>below the red line</strong>. If a resting token sits above it for 2 seconds, the jar overflows — merge your way out before the countdown ends!</span>
-          </div>
+        {/* ── At most three icon-led labels ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, margin: '8px 2px 12px' }}>
+          {[
+            {
+              color: COLORS.goldLt, word: 'DRAG AND DROP',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="5.4" r="4" fill={COLORS.gold} />
+                  <path d="M12 11.4 V19" stroke={COLORS.goldLt} strokeWidth="2" strokeDasharray="3 3" strokeLinecap="round" />
+                  <path d="M8.4 15.8 L12 19.6 L15.6 15.8" fill="none" stroke={COLORS.goldLt}
+                    strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ),
+            },
+            {
+              color: COLORS.greenLt, word: 'SAME TIERS MERGE',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="6.6" cy="15" r="4.4" fill={COLORS.greenLt} opacity="0.85" />
+                  <circle cx="17.4" cy="15" r="4.4" fill={COLORS.greenLt} opacity="0.85" />
+                  <circle cx="12" cy="7.4" r="6" fill={COLORS.green} stroke={COLORS.greenLt} strokeWidth="1.6" />
+                </svg>
+              ),
+            },
+            {
+              color: COLORS.dangerLt, word: 'STAY BELOW LINE',
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M2 7h20" stroke={COLORS.danger} strokeWidth="2.4" strokeDasharray="4 3" strokeLinecap="round" />
+                  <circle cx="8" cy="16" r="4.4" fill={COLORS.dangerLt} opacity="0.8" />
+                  <circle cx="17" cy="17.5" r="3.2" fill={COLORS.dangerLt} opacity="0.8" />
+                </svg>
+              ),
+            },
+          ].map(({ color, word, icon }) => (
+            <div key={word} style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              padding: '6px 2px', borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)', border: `1px solid ${color}44`,
+            }}>
+              {icon}
+              <span style={{ fontSize: 9.5, fontWeight: 900, color, letterSpacing: '0.03em', lineHeight: 1.15 }}>
+                {word}
+              </span>
+            </div>
+          ))}
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

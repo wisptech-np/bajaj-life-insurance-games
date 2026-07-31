@@ -20,7 +20,6 @@ export const GAME_CONFIG = {
 
   // Scoring
   scorePerMemberSaved: 100,
-  scorePerUnusedShield: 50,
   timeBonusPerSecond: 5,        // awarded on clearing all rounds
 
   // Physics (logical px/s)
@@ -29,9 +28,6 @@ export const GAME_CONFIG = {
   virusRestitution: 0.5,
   virusMaxBounces: 4,
   virusLifeSeconds: 4.5,
-
-  // Placement
-  autoGoSeconds: 3,             // countdown once every shield is placed
 
   // Playfield geometry (logical units)
   fieldWidth: 400,

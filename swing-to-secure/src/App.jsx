@@ -9,9 +9,14 @@ import ThankYouScreen from './ThankYouScreen.jsx';
 import { LEAD_NO_KEY } from './api.js';
 import { GAME_CONFIG } from './data.js';
 
+// Dusk field: night overhead falling into a sunset horizon. Matches the canvas
+// sky and the three screens, so the frame around the stage never reads as a
+// different game to the world inside it.
+const DUSK = 'linear-gradient(180deg, #04091C 0%, #0C2352 44%, #2E3E7C 74%, #7E3413 100%)';
+
 const THEME = {
-  homeBg: 'linear-gradient(180deg, #003366 0%, #00509E 50%, #00224B 100%)',
-  gameBg: 'linear-gradient(180deg, #051a3a 0%, #0e4f94 60%, #005BAC 100%)',
+  homeBg: DUSK,
+  gameBg: DUSK,
 };
 
 export default function App() {
@@ -69,7 +74,7 @@ export default function App() {
       maxWidth: 430,
       margin: '0 auto',
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, #051a3a 0%, #0e4f94 60%, #005BAC 100%)',
+      background: DUSK,
     }}>
       {screen === 'home' && (
         <HomeScreen onStart={showHowToPlay} theme={THEME} />

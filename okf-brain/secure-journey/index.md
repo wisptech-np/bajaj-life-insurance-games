@@ -14,7 +14,7 @@ timestamp: 2026-07-09T22:30:00+05:30
 
 # Secure Journey
 
-An interactive 3-lane auto-runner crowd shooter focusing on dodging financial risks (virus blobs), collecting protective health shields, and reaching the Wealth Vault.
+An interactive 3-lane auto-runner focusing on clearing financial risks (Risk Barricades — angular road-hazard plates), collecting Cover Shields, breaking the Inflation Storm-Front boss, and reaching the Wealth Vault.
 
 ## Tech Stack
 - **Game UI/State**: React 18 + Framer Motion

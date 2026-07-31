@@ -150,11 +150,50 @@ abandoned for an inverted-pendulum acceleration; the tower comes apart at
 before the fall — and because damping is constant while stiffness collapses, a
 critical tower goes over *slowly*, which is what sells it.
 
-Ambient breathing sway (`wobble.idleSwayRad`, scaled by `1 - stability`) is
-folded in once per tick as `visualTheta` so the renderer, the hit test and the
-pull feedback all agree where a block is. It never feeds back into the
-integrator: a shaky reading should look shaky without being able to accumulate
-into a topple on its own.
+### 4. The joint chain (what you actually see)
+
+`createFlexChain(cfg)`. The integrator above decides whether the tower falls; it
+does not decide what the tower looks like. There is no skew transform anywhere —
+the pose is a chain of twelve damped-spring joints, one per layer, each holding a
+bend angle **relative to the layer below**:
+
+```
+target_i = theta * leanGain * share_i          // share sums to 1 over the stack
+alpha_i  = -k_i * softness * (a_i - target_i) - c_i * a_i' + breath_i
+```
+
+The renderer walks the chain from the plinth up, advancing one layer pitch along
+each joint's current direction, so rotation *and* sideways displacement fall out
+of one integration. That is why the base looks planted and the top swings: joint
+0 carries about 3% of the bend and joint 11 about 15%, but the top block inherits
+the sum of all twelve.
+
+Two gradients make it read as mass rather than as an easing curve:
+
+- **Stiffness falls with height** (`softenTop` 0.62), so the base rings at
+  ~2.3 Hz and the top at ~1.4 Hz. Kick the chain and the base has already
+  returned while the top is still travelling out — a wave up the tower.
+- **Damping ratio falls with height** (`zetaBase` 0.38 → `zetaTop` 0.15), so the
+  base snaps back and the top overshoots and rings down over roughly a second.
+
+`softness` is the same `max(minStiffnessFrac, margin)` coupling the lean solver
+uses, so a critical tower is visibly floppy before it commits to falling. The
+breathing sway is now a **torque** scaled by `1 - stability` rather than an angle
+pasted on afterwards — it enters the same springs everything else does, and since
+the statics still read `lean.theta` and never the chain, it still cannot
+accumulate into a topple.
+
+Secondary motion falls out of the same state: `separations[i]` rides the joints
+open on a squared stress curve (invisible in normal play, obvious near failure),
+`thump()` drops the whole stack a couple of pixels after each pull and springs it
+back, and the normalised joint stress drives both the dust at the worst joint and
+the creak. The collapse is not a separate animation — each block is handed the
+position, rotation, velocity and spin the chain was already giving it on the
+frame the tower let go.
+
+`node scripts/balance.mjs` asserts the three properties the feel depends on: the
+chain settles exactly on `theta * leanGain`, the top swings ~49x the base joint,
+and the top peaks ~42 ms later.
 
 ### Alternating layers in a flat front view
 

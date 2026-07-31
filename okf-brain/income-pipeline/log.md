@@ -192,3 +192,68 @@ discarded before the numbers above were reachable:
   the third board's outcome long before the session expires. The dominant lose
   path is a board ending with zero tanks connected, which is immediate and very
   reachable (a passive player loses on level 1 in 18s).
+
+## 2026-07-31 — Lead-form slim, animation-first tutorial, asset prompt sheet
+
+**G1 — email field removed from lead capture** (`src/LeadCaptureModal.jsx`)
+
+- Deleted `EMAIL_RE`, the `email` `useState` seeded from
+  `sessionStorage.lastSubmittedEmail`, the entire "Email Field"
+  `<div className="sl-lead-field">` block and the `errs.email` branch of
+  `validate()`.
+- Removed the `sessionStorage.setItem('lastSubmittedEmail', …)` write and the
+  `email` key from the `submitToLMS({…})` call and from both `onSubmitted({…})`
+  payloads.
+- `src/api.js` untouched: `submitToLMS` already defaults `email_id: email || ''`,
+  so the LMS request body is byte-identical to before.
+- Repo-folder grep for `email` / `lastSubmittedEmail` afterwards is clean
+  outside `src/kit/` and `src/api.js`; `ThankYouScreen.jsx` and
+  `SlotBookingModal.jsx` never referenced it.
+- Name, Mobile and the T&C checkbox are untouched.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first** (`src/Screens.jsx`)
+
+- Removed the `Beat` step component and all three numbered step blocks, the
+  orange one-line subtitle, the scoring paragraph
+  (`+tankFilled / −leakPenalty / +earlyBonusPerSecond`) and the row of level
+  chips. `GAME_CONFIG` is no longer referenced on this screen and was dropped
+  from the `data.js` import.
+- New 4.6 s CSS `@keyframes` loop (`IP_TUT_CSS`) that dramatises the actual
+  rule set on a 2-row mini board drawn with the canvas's own tile wells, casing
+  stroke, pipe bore and gold flow: an elbow tile sits turned the wrong way, the
+  live route dead-ends and sprays red leak jets, a yellow finger glyph taps that
+  tile, the tile snaps a quarter turn **clockwise** (matching `tapCell()`), the
+  leak stops, gold money runs the whole salary→tank route via
+  `stroke-dashoffset`, and the goal tank fills. Then it resets.
+- The rotating tile is a `<g transform="translate(126 62)">` wrapper with an
+  inner CSS-rotated group pinned to `transform-origin: 0 0`, so it pivots about
+  the true cell centre rather than its own bounding box.
+- Remaining text is exactly: the "How to Play" heading, three icon-led labels
+  ("Tap to turn" / "Fill every tank" / "Seal the leaks", 3 words each, each with
+  an inline SVG glyph) and the "Play" button.
+- Card padding tightened to `22px 18px 20px`, outer padding 18 px,
+  `overflow: hidden` — the card is ~440 px tall, so 360×640 fits without a
+  scrollbar.
+- `prefers-reduced-motion` disables the whole demo, matching the existing
+  `SCREEN_CSS` block.
+- Gameplay, `flow.js`, `levels.js`, HUD, balance and `ResultsScreen` untouched.
+
+**G3 — `asset-from-here.md`**
+
+- New `income-pipeline/asset-from-here.md`, 14 Nano Banana prompts.
+- Motif chosen for this game: **engineering blueprint made physical** — flat
+  front-on 2-D, cyanotype drafting-plate construction marks, constant line
+  weights, machined collars, with money as the only warm material in the set.
+  Deliberately the opposite of a glossy 3-D casual look, and distinct from every
+  other sheet in this batch.
+- The sheet restates and enforces the existing colour grammar from `data.js`
+  (gold = money in motion, blue = plumbing you own, orange = the tile under your
+  finger, green = a funded goal, red = income sprayed away).
+- Covers: board plate, empty tile well, straight / elbow / tee / welded-cross
+  tiles, salary inlet valve, empty and funded tanks, the tiling money-flow
+  strip, the leak spray, the payday clock HUD badge, and both result states.
+
+**Verification**
+
+- `pnpm install` — OK.
+- `pnpm build` (vite --mode uat) — **passes**, `✓ built in 4.22s`.

@@ -230,6 +230,124 @@ export function HomeScreen({ onStart }) {
   );
 }
 
+/* ─── How to play ─────────────────────────────────────────
+   No instructions: one looping 4 s demo of the real thing. The pair starts
+   vertical, a centre bar drops toward them, a hand holds the right half, the
+   ring spins 90° so both orbs sit in the side gaps, and the bar sweeps through
+   clean. Same geometry as the canvas — a centre bar's half width is narrower
+   than the ring radius, which is exactly why turning horizontal saves you. */
+const DEMO_CSS = `
+@keyframes dcdScene  { 0%,1% { opacity: 0; } 3%,97% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes dcdSpin   { 0%,12% { transform: rotate(0deg); } 42%,100% { transform: rotate(90deg); } }
+@keyframes dcdBar    { 0% { transform: translateY(-30px); } 100% { transform: translateY(212px); } }
+@keyframes dcdHold   { 0%,10% { opacity: 0; } 14%,44% { opacity: 1; } 50%,100% { opacity: 0; } }
+@keyframes dcdHand   { 0%,8% { opacity: 0; transform: translateY(14px); } 14%,44% { opacity: 1; transform: translateY(0); } 52%,100% { opacity: 0; transform: translateY(14px); } }
+@keyframes dcdRipple { 0%,12% { r: 4; opacity: 0.9; } 34%,100% { r: 26; opacity: 0; } }
+@keyframes dcdArrow  { 0%,12% { opacity: 0; } 20%,40% { opacity: 1; } 50%,100% { opacity: 0; } }
+@keyframes dcdPass   { 0%,56% { opacity: 0; transform: scale(0.9); } 64% { opacity: 1; transform: scale(1); } 78%,100% { opacity: 0; transform: scale(1.12); } }
+.dcd-scene  { animation: dcdScene 4s linear infinite; }
+.dcd-spin   { animation: dcdSpin 4s cubic-bezier(0.35,0,0.2,1) infinite; transform-origin: 150px 118px; }
+.dcd-bar    { animation: dcdBar 4s linear infinite; }
+.dcd-hold   { animation: dcdHold 4s ease-in-out infinite; }
+.dcd-hand   { animation: dcdHand 4s ease-out infinite; }
+.dcd-ripple { animation: dcdRipple 4s ease-out infinite; }
+.dcd-arrow  { animation: dcdArrow 4s ease-in-out infinite; }
+.dcd-pass   { animation: dcdPass 4s ease-out infinite; transform-origin: 150px 118px; }
+@media (prefers-reduced-motion: reduce) {
+  .dcd-scene, .dcd-spin, .dcd-bar, .dcd-hold, .dcd-hand, .dcd-ripple, .dcd-arrow, .dcd-pass {
+    animation: none !important;
+  }
+}
+`;
+
+function Orb({ kind }) {
+  const blue = kind === 'blue';
+  return (
+    <>
+      <circle r="13" fill={`url(#dcd${blue ? 'Blue' : 'Orange'})`} />
+      {blue
+        ? <path d="M0,-7 L5.2,-4.4 L5.2,0.9 C5.2,4.8 3,6.6 0,7.8 C-3,6.6 -5.2,4.8 -5.2,0.9 L-5.2,-4.4 Z" fill="#fff" opacity="0.92" />
+        : <path d="M0,-7.5 L5,-2 L2,-2 L2,7 L-2,7 L-2,-2 L-5,-2 Z" fill="#fff" opacity="0.92" />}
+      <ellipse cx="-4.4" cy="-5.2" rx="4" ry="2.3" fill="rgba(255,255,255,0.5)" transform="rotate(-35 -4.4 -5.2)" />
+    </>
+  );
+}
+
+function DemoOrbit() {
+  return (
+    <svg width="100%" viewBox="0 0 300 200" style={{ display: 'block' }} aria-hidden="true">
+      <defs>
+        <radialGradient id="dcdBlue" cx="0.35" cy="0.3" r="1">
+          <stop offset="0%" stopColor={COLORS.blueLt} />
+          <stop offset="50%" stopColor={COLORS.blue} />
+          <stop offset="100%" stopColor={COLORS.blueDeep} />
+        </radialGradient>
+        <radialGradient id="dcdOrange" cx="0.35" cy="0.3" r="1">
+          <stop offset="0%" stopColor="#FFD9B0" />
+          <stop offset="50%" stopColor={COLORS.orangeBright} />
+          <stop offset="100%" stopColor={COLORS.orangeDeep} />
+        </radialGradient>
+        <clipPath id="dcdClip"><rect x="0" y="0" width="300" height="200" rx="16" /></clipPath>
+      </defs>
+
+      <g clipPath="url(#dcdClip)" className="dcd-scene">
+        <rect x="0" y="0" width="300" height="200" fill="rgba(5,20,45,0.6)" />
+        {/* The two control halves, stated by geometry rather than by a caption */}
+        <line x1="150" y1="6" x2="150" y2="194" stroke="rgba(190,214,255,0.16)" strokeWidth="1.4" strokeDasharray="4 6" />
+        <rect className="dcd-hold" x="150" y="0" width="150" height="200" fill="rgba(127,192,255,0.09)" />
+
+        {/* Descending centre bar: gaps at the far left and far right */}
+        <g className="dcd-bar">
+          <rect x="118" y="-6.5" width="64" height="13" rx="5.5" fill={COLORS.barMid} />
+          <rect x="118" y="-6.5" width="64" height="3.6" rx="1.8" fill={COLORS.barHi} />
+          <rect x="118" y="2.9" width="64" height="3.6" rx="1.8" fill={COLORS.barLo} />
+        </g>
+
+        {/* The ring and its two orbs */}
+        <circle cx="150" cy="118" r="48" fill="none" stroke={COLORS.ring} strokeWidth="2.5" strokeDasharray="3 6" />
+        <circle className="dcd-pass" cx="150" cy="118" r="48" fill="none" stroke={COLORS.greenLt} strokeWidth="3.5" />
+        <g className="dcd-spin">
+          <g transform="translate(150,70)"><Orb kind="blue" /></g>
+          <g transform="translate(150,166)"><Orb kind="orange" /></g>
+        </g>
+
+        {/* Spin direction, shown only while the half is held */}
+        <g className="dcd-arrow" fill="none" stroke={COLORS.gold} strokeWidth="2.6" strokeLinecap="round">
+          <path d="M150 52 A 66 66 0 0 1 209 88" />
+          <path d="M203 76 L211 90 L196 92" strokeLinejoin="round" />
+        </g>
+
+        {/* The real input: a hand holding the right half */}
+        <g className="dcd-hand">
+          <circle className="dcd-ripple" cx="228" cy="150" r="4" fill="none" stroke="#fff" strokeWidth="2" />
+          <g transform="translate(216,138) scale(1.05)" fill="none" stroke={COLORS.goldLt} strokeWidth="2.4"
+            strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+            <path d="M14 10V5a2 2 0 0 0-4 0v5" />
+            <path d="M10 10.5V2a2 2 0 0 0-4 0v8.5" />
+            <path d="M6 14v-2.5a2 2 0 0 0-4 0V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+/** Icon + ≤4 words. The only prose allowed on this screen. */
+function Cue({ tint, label, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">{children}</svg>
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: tint,
+        textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.15,
+      }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay, assist, onToggleAssist }) {
   return (
     <motion.div
@@ -244,154 +362,83 @@ export function HowToPlayScreen({ onPlay, assist, onToggleAssist }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: DEMO_CSS }} />
+
       <div style={{
         background: 'rgba(0, 30, 70, 0.65)',
         border: '1px solid rgba(255, 255, 255, 0.14)',
         borderRadius: 24,
-        padding: '26px 24px 24px',
+        padding: '20px 16px 18px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 26,
+          fontSize: 24,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 18px 0',
+          margin: '0 0 14px 0',
           color: '#fff',
           textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           How to Play
         </h2>
 
-        {/* CSS animation demo: the orbit turning past a descending bar */}
-        <div style={{
-          position: 'relative',
-          width: '100%',
-          height: 180,
-          background: 'rgba(5, 20, 45, 0.5)',
-          borderRadius: 16,
-          border: '1px solid rgba(255,255,255,0.06)',
-          overflow: 'hidden',
-          marginBottom: 18,
-        }}>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes dcTutBar {
-              0%   { transform: translateY(-40px); opacity: 0; }
-              12%  { opacity: 1; }
-              85%  { transform: translateY(200px); opacity: 1; }
-              100% { transform: translateY(210px); opacity: 0; }
-            }
-            @keyframes dcTutSpin {
-              0%, 20% { transform: rotate(0deg); }
-              45%, 70% { transform: rotate(90deg); }
-              95%, 100% { transform: rotate(0deg); }
-            }
-            @keyframes dcTutHand {
-              0%, 18% { opacity: 0; transform: translateX(0) scale(1); }
-              24% { opacity: 1; transform: translateX(0) scale(0.85); }
-              45% { opacity: 1; transform: translateX(0) scale(0.85); }
-              52% { opacity: 0; transform: translateX(0) scale(1); }
-              100% { opacity: 0; }
-            }
-          ` }} />
-          {/* descending wall */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, width: '42%', height: 13,
-            borderRadius: 6, background: '#9FB4D8',
-            boxShadow: 'inset 0 3px 0 #D7E3F8, inset 0 -3px 0 #5F749C',
-            animation: 'dcTutBar 4s linear infinite',
-          }} />
-          {/* orbit + orbs */}
-          <div style={{
-            position: 'absolute', left: '50%', top: '58%', width: 96, height: 96,
-            margin: '-48px 0 0 -48px',
-            animation: 'dcTutSpin 4s cubic-bezier(0.4, 0, 0.2, 1) infinite',
-          }}>
-            <div style={{
-              position: 'absolute', inset: 0, borderRadius: '50%',
-              border: '2px dashed rgba(190,214,255,0.35)',
-            }} />
-            <div style={{
-              position: 'absolute', right: -11, top: '50%', marginTop: -11,
-              width: 22, height: 22, borderRadius: '50%',
-              background: 'radial-gradient(circle at 35% 30%, #7FC0FF, #1E6BE0 55%, #062C6B)',
-              boxShadow: '0 0 10px rgba(30,107,224,0.8)',
-            }} />
-            <div style={{
-              position: 'absolute', left: -11, top: '50%', marginTop: -11,
-              width: 22, height: 22, borderRadius: '50%',
-              background: 'radial-gradient(circle at 35% 30%, #FFD9B0, #FF8A3D 55%, #8C3708)',
-              boxShadow: '0 0 10px rgba(242,101,34,0.8)',
-            }} />
-          </div>
-          {/* hand tapping the right half */}
-          <div style={{
-            position: 'absolute', right: 26, bottom: 18, width: 32, height: 32,
-            animation: 'dcTutHand 4s ease-in-out infinite',
-          }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.5">
-              <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-              <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-              <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
-              <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
-            </svg>
-          </div>
+        <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <DemoOrbit />
         </div>
 
-        {/* Instructions */}
-        <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 14,
-          lineHeight: 1.45,
-          marginBottom: 16,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>1.</span>
-            <span><strong>Hold the left or right half</strong> of the screen to spin the two orbs around their ring. Release and they stop dead. Holding both sides holds still.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>2.</span>
-            <span>Steer <strong style={{ color: '#7FC0FF' }}>Protection</strong> and <strong style={{ color: '#FFB27A' }}>Growth</strong> through every falling wall, gate, spinner and squeeze — <strong>both</strong> orbs must survive.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>3.</span>
-            <span>You carry <strong>3 shields</strong>. A fourth hit ends the run. Survive the full 90-second descent to win — clean passes build your combo.</span>
-          </div>
+        <div style={{ display: 'flex', gap: 6, margin: '14px 0 12px' }}>
+          <Cue tint={COLORS.goldLt} label="Hold to spin">
+            <path d="M20 11V6.5a2 2 0 0 0-4 0V11" fill="none" stroke={COLORS.goldLt} strokeWidth="2" strokeLinecap="round" />
+            <path d="M16 10.5V5a2 2 0 0 0-4 0v5.5" fill="none" stroke={COLORS.goldLt} strokeWidth="2" strokeLinecap="round" />
+            <path d="M12 11V3a2 2 0 0 0-4 0v10" fill="none" stroke={COLORS.goldLt} strokeWidth="2" strokeLinecap="round" />
+            <path d="M8 14v-2a2 2 0 0 0-4 0v5a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-2" fill="none" stroke={COLORS.goldLt} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </Cue>
+          <Cue tint={COLORS.blueLt} label="Both must clear">
+            <circle cx="13" cy="13" r="9" fill="none" stroke={COLORS.ring} strokeWidth="1.6" strokeDasharray="2 3" />
+            <circle cx="13" cy="4.5" r="4.2" fill={COLORS.blue} />
+            <circle cx="13" cy="21.5" r="4.2" fill={COLORS.orangeBright} />
+          </Cue>
+          <Cue tint={COLORS.dangerLt} label="Three shields only">
+            {[4.5, 13, 21.5].map((x, i) => (
+              <path key={x} d={`M${x} 6 l4 1.6 l0 4.4 c0 3.2 -1.8 5.4 -4 6.4 c-2.2 -1 -4 -3.2 -4 -6.4 l0 -4.4 z`}
+                fill={i === 2 ? 'none' : COLORS.blue} stroke={i === 2 ? COLORS.danger : COLORS.blueLt} strokeWidth="1.3" />
+            ))}
+          </Cue>
         </div>
 
-        {/* Accessibility toggle: direct-drag steering (default off) */}
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          justifyContent: 'center',
-          marginBottom: 18,
-          cursor: 'pointer',
-          fontSize: 12,
-          fontWeight: 700,
-          color: 'rgba(255,255,255,0.75)',
-        }}>
+        {/* Accessibility control (not an instruction): direct-drag steering, default off */}
+        <label
+          aria-label="Assist mode: drag to steer instead of hold to spin"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7, justifyContent: 'center',
+            marginBottom: 14, cursor: 'pointer', fontSize: 10, fontWeight: 900,
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.7)', padding: '6px 12px', borderRadius: 999,
+            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+          }}
+        >
           <input
             type="checkbox"
             checked={!!assist}
             onChange={(e) => onToggleAssist?.(e.target.checked)}
-            style={{ width: 16, height: 16, accentColor: '#FF8A3D', cursor: 'pointer' }}
+            style={{ width: 15, height: 15, accentColor: COLORS.orangeBright, cursor: 'pointer' }}
           />
-          <span>Assist mode: drag to steer instead of hold-to-spin</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
+            strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14M8 8l-4 4 4 4M16 8l4 4-4 4" />
+          </svg>
+          <span>Assist: drag</span>
         </label>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

@@ -271,6 +271,70 @@ export function HomeScreen({ onStart }) {
   );
 }
 
+/* ─── How-to-play: one looping demo of drag → plant → auto-fire ──────── */
+const GUA_TUT_CSS = `
+@keyframes guaTutGuardian {
+  0%   { transform: translate(0, 0); }
+  30%, 100% { transform: translate(72px, -22px); }
+}
+@keyframes guaTutFinger {
+  0%   { opacity: 1; transform: translate(0, 0) scale(1); }
+  8%   { opacity: 1; transform: translate(0, 0) scale(0.88); }
+  30%  { opacity: 1; transform: translate(72px, -22px) scale(0.88); }
+  38%  { opacity: 0; transform: translate(72px, -22px) scale(1); }
+  100% { opacity: 0; transform: translate(72px, -22px) scale(1); }
+}
+@keyframes guaTutStick {
+  0%, 32% { opacity: 1; }
+  38%, 100% { opacity: 0; }
+}
+@keyframes guaTutKnob {
+  0%   { transform: translate(0, 0); }
+  30%, 100% { transform: translate(17px, -6px); }
+}
+@keyframes guaTutLock {
+  0%, 40% { opacity: 0; transform: scale(1.7) rotate(0deg); }
+  50%, 74% { opacity: 1; transform: scale(1) rotate(60deg); }
+  82%, 100% { opacity: 0; transform: scale(1) rotate(120deg); }
+}
+@keyframes guaTutBolt {
+  0%, 50% { opacity: 0; transform: translate(0, 0); }
+  53% { opacity: 1; transform: translate(0, 0); }
+  70% { opacity: 1; transform: translate(84px, -30px); }
+  72%, 100% { opacity: 0; transform: translate(84px, -30px); }
+}
+@keyframes guaTutVirus {
+  0%, 68% { opacity: 1; transform: scale(1); }
+  73% { opacity: 1; transform: scale(1.4); }
+  77%, 90% { opacity: 0; transform: scale(0.1); }
+  97%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes guaTutBurst {
+  0%, 72% { opacity: 0; transform: scale(0.2); }
+  76% { opacity: 0.9; transform: scale(1); }
+  84%, 100% { opacity: 0; transform: scale(1.7); }
+}
+`;
+
+function TutLabel({ children, icon }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      {icon}
+      <span style={{
+        fontSize: 9.5,
+        fontWeight: 900,
+        letterSpacing: '0.09em',
+        textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.82)',
+        lineHeight: 1.15,
+        textAlign: 'center',
+      }}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
   return (
     <motion.div
@@ -285,16 +349,18 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: '18px',
         background: BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: GUA_TUT_CSS }} />
+
       <div style={{
         background: 'rgba(0, 30, 70, 0.65)',
         border: '1px solid rgba(255, 255, 255, 0.14)',
         borderRadius: 24,
-        padding: '30px 24px 24px',
+        padding: '22px 18px 20px',
         width: '100%',
         maxWidth: 360,
         boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
@@ -303,133 +369,125 @@ export function HowToPlayScreen({ onPlay }) {
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 26,
+          fontSize: 24,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 20px 0',
+          margin: '0 0 14px 0',
           color: '#fff',
           textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           How to Play
         </h2>
 
-        {/* Animated demo: move (silent) → stop (fire) → repeat */}
+        {/* Looping demo: drag the floating stick → plant → bolts fly → virus pops */}
         <div style={{
           position: 'relative',
           width: '100%',
-          height: 170,
-          background: 'rgba(5, 20, 45, 0.5)',
+          height: 196,
+          background: 'radial-gradient(circle at 50% 45%, #101c36 0%, #080f1f 100%)',
           borderRadius: 16,
           border: '1px solid rgba(255,255,255,0.06)',
           overflow: 'hidden',
-          marginBottom: 20,
+          marginBottom: 16,
         }}>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes guaTutGuardian {
-              0%   { transform: translate(0, 0); }
-              28%  { transform: translate(64px, -18px); }
-              38%, 100% { transform: translate(64px, -18px); }
-            }
-            @keyframes guaTutBolt {
-              0%, 44% { opacity: 0; transform: translate(0, 0); }
-              48% { opacity: 1; transform: translate(0, 0); }
-              62% { opacity: 1; transform: translate(96px, -26px); }
-              64%, 100% { opacity: 0; transform: translate(96px, -26px); }
-            }
-            @keyframes guaTutVirus {
-              0%, 60% { opacity: 1; transform: scale(1); }
-              66% { opacity: 1; transform: scale(1.35); }
-              70%, 88% { opacity: 0; transform: scale(0.1); }
-              96%, 100% { opacity: 1; transform: scale(1); }
-            }
-            @keyframes guaTutFinger {
-              0%   { opacity: 1; transform: translate(0, 0); }
-              28%  { opacity: 1; transform: translate(64px, -18px); }
-              34%  { opacity: 0; transform: translate(64px, -10px); }
-              100% { opacity: 0; transform: translate(64px, -10px); }
-            }
-          ` }} />
+          {/* arena floor rings, same look as the canvas well */}
+          <svg width="100%" height="100%" viewBox="0 0 320 196" style={{ position: 'absolute', inset: 0 }} aria-hidden="true">
+            <circle cx="160" cy="92" r="80" fill="none" stroke="rgba(127,192,255,0.10)" strokeWidth="1" />
+            <circle cx="160" cy="92" r="52" fill="none" stroke="rgba(127,192,255,0.08)" strokeWidth="1" />
+          </svg>
 
-          {/* Virus target */}
-          <div style={{ position: 'absolute', right: 34, top: 38, width: 30, height: 30, animation: 'guaTutVirus 4s ease-in-out infinite' }}>
-            <svg width="30" height="30" viewBox="0 0 30 30">
-              <g stroke="#2FBF3F" strokeWidth="2.4" strokeLinecap="round">
-                <line x1="2" y1="15" x2="28" y2="15" />
-                <line x1="15" y1="2" x2="15" y2="28" />
-                <line x1="6" y1="6" x2="24" y2="24" />
-                <line x1="6" y1="24" x2="24" y2="6" />
+          {/* Virus blob — the real green spiked enemy */}
+          <div style={{ position: 'absolute', right: 42, top: 44, width: 36, height: 36, animation: 'guaTutVirus 4.2s ease-in-out infinite' }}>
+            <svg width="36" height="36" viewBox="0 0 36 36">
+              <g stroke="#2FBF3F" strokeWidth="2.8" strokeLinecap="round">
+                <line x1="2" y1="18" x2="34" y2="18" />
+                <line x1="18" y1="2" x2="18" y2="34" />
+                <line x1="7" y1="7" x2="29" y2="29" />
+                <line x1="7" y1="29" x2="29" y2="7" />
               </g>
-              <circle cx="15" cy="15" r="10" fill="#49E24B" />
-              <circle cx="15" cy="15" r="4.5" fill="#0E5C1D" />
+              <circle cx="18" cy="18" r="12" fill="#49E24B" />
+              <circle cx="18" cy="18" r="5.5" fill="#0E5C1D" />
             </svg>
           </div>
 
-          {/* Guardian moving then planting */}
-          <div style={{ position: 'absolute', left: 46, top: 96, width: 34, height: 34, animation: 'guaTutGuardian 4s ease-in-out infinite' }}>
-            <svg width="34" height="34" viewBox="0 0 34 34">
-              <circle cx="17" cy="17" r="14" fill="#1E6BE0" stroke="#9FD1FF" strokeWidth="1.6" />
-              <path d="M17 8 l6.5 3 v6 c0 4-3 6.4-6.5 8 c-3.5-1.6-6.5-4-6.5-8 v-6 Z" fill="rgba(255,255,255,0.94)" />
-              <path d="M17 11.4 l3.8 1.8 v3.6 c0 2.4-1.8 3.8-3.8 4.8 c-2-1-3.8-2.4-3.8-4.8 v-3.6 Z" fill="#003DA6" />
+          {/* Kill burst */}
+          <div style={{ position: 'absolute', right: 42, top: 44, width: 36, height: 36, animation: 'guaTutBurst 4.2s ease-out infinite' }}>
+            <svg width="36" height="36" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="14" fill="none" stroke="#FFC845" strokeWidth="3" />
             </svg>
           </div>
 
-          {/* Bolt fired once stationary */}
-          <div style={{ position: 'absolute', left: 82, top: 106, width: 18, height: 8, animation: 'guaTutBolt 4s linear infinite' }}>
-            <svg width="18" height="8" viewBox="0 0 18 8">
-              <line x1="1" y1="4" x2="11" y2="4" stroke="rgba(127,192,255,0.6)" strokeWidth="3" strokeLinecap="round" />
-              <circle cx="14" cy="4" r="3.4" fill="#DFF0FF" />
+          {/* Target-lock reticle, orange like the canvas one */}
+          <div style={{ position: 'absolute', right: 36, top: 38, width: 48, height: 48, animation: 'guaTutLock 4.2s ease-out infinite' }}>
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#FF8A3D" strokeWidth="2.6" strokeLinecap="round">
+              <path d="M 6 17 A 19 19 0 0 1 17 6" />
+              <path d="M 31 6 A 19 19 0 0 1 42 17" />
+              <path d="M 42 31 A 19 19 0 0 1 31 42" />
+              <path d="M 17 42 A 19 19 0 0 1 6 31" />
             </svg>
           </div>
 
-          {/* Finger dragging the joystick */}
-          <div style={{ position: 'absolute', left: 58, top: 118, width: 30, height: 30, animation: 'guaTutFinger 4s ease-in-out infinite', zIndex: 5 }}>
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.5">
+          {/* Guardian: blue disc + white shield crest */}
+          <div style={{ position: 'absolute', left: 44, top: 112, width: 40, height: 40, animation: 'guaTutGuardian 4.2s ease-in-out infinite' }}>
+            <svg width="40" height="40" viewBox="0 0 40 40">
+              <ellipse cx="20" cy="35" rx="12" ry="3.5" fill="rgba(0,0,0,0.35)" />
+              <circle cx="20" cy="20" r="16" fill="#1E6BE0" stroke="#9FD1FF" strokeWidth="1.8" />
+              <path d="M20 9 l7.5 3.5 v7 c0 4.6-3.4 7.4-7.5 9.2 c-4.1-1.8-7.5-4.6-7.5-9.2 v-7 Z" fill="rgba(255,255,255,0.95)" />
+              <path d="M20 13 l4.4 2 v4.2 c0 2.7-2 4.4-4.4 5.5 c-2.4-1.1-4.4-2.8-4.4-5.5 v-4.2 Z" fill="#003DA6" />
+            </svg>
+          </div>
+
+          {/* Bolts — only after the guardian plants */}
+          <div style={{ position: 'absolute', left: 84, top: 126, width: 22, height: 10, animation: 'guaTutBolt 4.2s linear infinite' }}>
+            <svg width="22" height="10" viewBox="0 0 22 10">
+              <line x1="1" y1="5" x2="13" y2="5" stroke="rgba(127,192,255,0.55)" strokeWidth="3.4" strokeLinecap="round" />
+              <circle cx="17" cy="5" r="4" fill="#DFF0FF" />
+              <circle cx="16" cy="5" r="2.2" fill="#1E6BE0" />
+            </svg>
+          </div>
+
+          {/* Floating joystick under the finger */}
+          <div style={{ position: 'absolute', left: 34, top: 132, width: 60, height: 60, animation: 'guaTutStick 4.2s linear infinite' }}>
+            <svg width="60" height="60" viewBox="0 0 60 60">
+              <circle cx="30" cy="30" r="22" fill="rgba(255,255,255,0.07)" stroke="rgba(255,255,255,0.45)" strokeWidth="2" />
+              <g style={{ animation: 'guaTutKnob 4.2s ease-in-out infinite' }}>
+                <circle cx="30" cy="30" r="10" fill="#7FC0FF" />
+              </g>
+            </svg>
+          </div>
+
+          {/* Finger doing the real drag */}
+          <div style={{ position: 'absolute', left: 56, top: 146, width: 32, height: 32, animation: 'guaTutFinger 4.2s ease-in-out infinite', zIndex: 5 }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.4" strokeLinejoin="round">
               <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
               <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
               <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
               <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
             </svg>
           </div>
-
-          <div style={{
-            position: 'absolute',
-            bottom: 8,
-            left: 0,
-            right: 0,
-            textAlign: 'center',
-            fontSize: 9,
-            fontWeight: 900,
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.55)',
-          }}>
-            Move · Stop · Fire · Repeat
-          </div>
         </div>
 
-        <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 14,
-          lineHeight: 1.45,
-          marginBottom: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>1.</span>
-            <span><strong>Hold and drag anywhere</strong> to move your guardian — a floating joystick appears under your finger.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>2.</span>
-            <span><strong>Stand still to auto-fire</strong> at the nearest virus. Moving stops the firing — dodge, plant your feet, shoot.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>3.</span>
-            <span>Clear a wave, <strong>pick 1 of 3 rider upgrades</strong>, and survive all {GAME_CONFIG.waves.length} waves — down the mini-boss to win big.</span>
-          </div>
+        {/* At most 3 icon-led labels, ≤ 4 words each */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <circle cx="13" cy="13" r="10" stroke="rgba(255,255,255,0.4)" strokeWidth="2" />
+              <circle cx="18" cy="10" r="4.6" fill="#7FC0FF" />
+            </svg>
+          }>Drag to move</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#FF8A3D" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+              <circle cx="13" cy="13" r="8" />
+              <path d="M13 1v5M13 20v5M1 13h5M20 13h5" />
+            </svg>
+          }>Stop to fire</TutLabel>
+          <TutLabel icon={
+            <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+              <path d="M13 2 l9 4 v7c0 6-4.4 9.6-9 11.6C8.4 22.6 4 19 4 13V6 Z" fill="#28A745" />
+              <path d="M13 8v9M8.5 12.5h9" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+            </svg>
+          }>Pick a rider</TutLabel>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
@@ -450,7 +508,7 @@ export function HowToPlayScreen({ onPlay }) {
               cursor: 'pointer',
             }}
           >
-            Play Game
+            Play
           </button>
         </motion.div>
       </div>

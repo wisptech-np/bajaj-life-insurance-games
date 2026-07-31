@@ -614,103 +614,188 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   );
 }
 
-/* ─── Interactive instruction animation ───────────────── */
-function TutGliderAnimation() {
+/* ─── Animated demo of the real mechanic (no instruction text) ──────────
+   4s loop: finger presses the full-width zone → glider dives and picks up
+   speed; finger releases → glider soars over the spike and takes the coin.
+   The canyon scrolls right-to-left exactly as it does in game.            */
+
+function DemoSpike({ left, floor }) {
+  return (
+    <div style={{
+      position: 'absolute',
+      left,
+      [floor ? 'bottom' : 'top']: 26,
+      width: 0,
+      height: 0,
+      borderLeft: '9px solid transparent',
+      borderRight: '9px solid transparent',
+      [floor ? 'borderBottom' : 'borderTop']: '22px solid #B91C1C',
+      filter: 'drop-shadow(0 0 3px rgba(239,68,68,0.7))',
+    }} />
+  );
+}
+
+function DemoStrip() {
+  // one half of the scrolling loop, duplicated for a seamless wrap
+  const half = (
+    <div style={{ position: 'relative', width: '50%', height: '100%', flexShrink: 0 }}>
+      <DemoSpike left="18%" />
+      <DemoSpike left="46%" floor />
+      <DemoSpike left="78%" />
+      {/* wealth coin */}
+      <div style={{
+        position: 'absolute', left: '62%', top: '30%',
+        width: 16, height: 16, borderRadius: '50%',
+        background: 'radial-gradient(circle at 35% 35%, #FFE875, #FACC15, #CA8A04)',
+        boxShadow: '0 0 10px rgba(250,204,21,0.6)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontWeight: 900, fontSize: 9, color: '#854D0E',
+      }}>₹</div>
+      {/* protection shield */}
+      <div style={{
+        position: 'absolute', left: '30%', top: '58%',
+        width: 16, height: 18,
+        background: 'linear-gradient(180deg, #60A5FA, #2563EB)',
+        boxShadow: '0 0 10px rgba(59,130,246,0.6)',
+        clipPath: 'polygon(50% 0%, 100% 30%, 80% 82%, 50% 100%, 20% 82%, 0% 30%)',
+      }} />
+    </div>
+  );
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, display: 'flex', width: '200%',
+      animation: 'ls-htp-scroll 7s linear infinite',
+    }}>
+      {half}{half}
+    </div>
+  );
+}
+
+function HowToPlayDemo() {
   return (
     <div
       aria-hidden="true"
       style={{
         position: 'relative',
         width: '100%',
-        height: 180,
+        height: 190,
         borderRadius: 16,
         overflow: 'hidden',
         backgroundImage: `linear-gradient(rgba(5, 26, 58, 0.45), rgba(5, 26, 58, 0.85)), url(${introBg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 16
+        border: '1px solid rgba(255, 255, 255, 0.12)',
       }}
     >
-      {/* Undulating bounds */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 35, background: '#0a172e', borderBottom: '1px solid rgba(59, 141, 212, 0.3)' }} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 35, background: '#0a172e', borderTop: '1px solid rgba(59, 141, 212, 0.3)' }} />
+      {/* canyon walls */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 26, background: '#0a172e', borderBottom: '2px solid rgba(59,141,212,0.45)' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 26, background: '#0a172e', borderTop: '2px solid rgba(59,141,212,0.45)' }} />
 
-      {/* Floating hazard */}
-      <div style={{
-        position: 'absolute', left: '75%', top: '45%',
-        width: 20, height: 20, borderRadius: '50%',
-        background: 'radial-gradient(circle at 35% 35%, #4ADE80, #16A34A, #14532D)',
-        border: '1px solid #22C55E',
-        boxShadow: '0 0 8px rgba(22, 163, 74, 0.4)',
-        animation: 'float-item-tut 2s ease-in-out infinite'
-      }} />
+      {/* scrolling obstacles + pickups */}
+      <DemoStrip />
 
-      {/* Gold coin */}
+      {/* the glider — dives on press, soars on release */}
       <div style={{
-        position: 'absolute', left: '50%', top: '65%',
-        width: 16, height: 16, borderRadius: '50%',
-        background: 'radial-gradient(circle at 35% 35%, #FFE875, #FACC15, #CA8A04)',
-        boxShadow: '0 0 8px rgba(250, 204, 21, 0.5)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontWeight: 'bold', fontSize: 9, color: '#854D0E',
-        animation: 'float-item-tut 2s ease-in-out infinite 0.5s'
-      }}>₹</div>
-
-      {/* Tutorial Glider */}
-      <div style={{
-        position: 'absolute', left: 40, top: '40%',
-        width: 44, height: 28,
-        animation: 'tut-glider 4s linear infinite',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        position: 'absolute', left: 34, top: '46%',
+        width: 46, height: 30,
+        animation: 'ls-htp-fly 4s cubic-bezier(.45,.05,.55,.95) infinite',
       }}>
         <CleanGliderImage style={{ width: '100%', height: '100%' }} />
       </div>
 
-      {/* Gesture Finger overlay */}
+      {/* full-width input zone lighting up under the thumb */}
       <div style={{
-        position: 'absolute', bottom: 15, right: 30,
-        width: 40, height: 40,
-        animation: 'tut-hand 4s linear infinite',
-        display: 'flex', alignItems: 'center', justifyContent: 'center'
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: 34,
+        borderTop: '2px solid rgba(255,255,255,0.18)',
+        background: 'rgba(255,255,255,0.08)',
+        animation: 'ls-htp-zone 4s linear infinite',
+      }} />
+
+      {/* finger glyph doing the press */}
+      <div style={{
+        position: 'absolute', bottom: 6, left: '50%', marginLeft: -18,
+        width: 36, height: 36,
+        animation: 'ls-htp-press 4s linear infinite',
       }}>
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.6))' }}>
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.7))' }}>
           <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
           <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
           <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
           <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
         </svg>
       </div>
-
-      {/* Action text overlay */}
-      <div className="tut-action-label" style={{
-        position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-        fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase'
+      {/* touch ripple on press-down */}
+      <div style={{
+        position: 'absolute', bottom: 10, left: '50%', marginLeft: -22,
+        width: 44, height: 44, borderRadius: '50%',
+        border: '2px solid #F26522',
+        animation: 'ls-htp-ripple 4s linear infinite',
       }} />
 
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes float-item-tut {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes ls-htp-scroll {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
         }
-        @keyframes tut-glider {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          25% { transform: translateY(35px) rotate(15deg); }
-          50% { transform: translateY(35px) rotate(0deg); }
-          75% { transform: translateY(-25px) rotate(-15deg); }
+        @keyframes ls-htp-fly {
+          0%, 8%    { transform: translateY(-34px) rotate(-15deg); }
+          46%       { transform: translateY(30px)  rotate(24deg); }
+          54%       { transform: translateY(34px)  rotate(8deg); }
+          96%, 100% { transform: translateY(-34px) rotate(-15deg); }
         }
-        @keyframes tut-hand {
-          0%, 100% { transform: scale(1.0); opacity: 0.3; }
-          20% { transform: scale(0.85); opacity: 1; }
-          45% { transform: scale(0.85); opacity: 1; }
-          50% { transform: scale(1.0); opacity: 0.3; }
+        @keyframes ls-htp-press {
+          0%, 6%    { transform: translateY(0) scale(1);    opacity: .45; }
+          10%, 44%  { transform: translateY(6px) scale(.82); opacity: 1; }
+          48%, 100% { transform: translateY(0) scale(1);    opacity: .45; }
+        }
+        @keyframes ls-htp-zone {
+          0%, 6%    { background: rgba(255,255,255,0.08); border-top-color: rgba(255,255,255,0.18); }
+          10%, 44%  { background: rgba(242,101,34,0.62);  border-top-color: rgba(255,180,120,0.95); }
+          48%, 100% { background: rgba(255,255,255,0.08); border-top-color: rgba(255,255,255,0.18); }
+        }
+        @keyframes ls-htp-ripple {
+          0%, 7%    { transform: scale(.35); opacity: 0; }
+          13%       { transform: scale(1);   opacity: .85; }
+          30%, 100% { transform: scale(1.6); opacity: 0; }
         }
       `}} />
+    </div>
+  );
+}
+
+/* three icon-led labels — the only words allowed on this screen */
+function DemoLegend() {
+  const item = (icon, label, color) => (
+    <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1 }}>
+      <div style={{
+        width: 38, height: 38, borderRadius: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: `${color}22`, border: `1.5px solid ${color}66`, color,
+      }}>{icon}</div>
+      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>
+    </div>
+  );
+
+  const finger = (down) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+      style={{ transform: down ? 'none' : 'rotate(180deg)' }}>
+      <path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V5a2 2 0 0 0-4 0v5M10 10.5V2a2 2 0 0 0-4 0v12" />
+      <path d="M6 14v-2.5a2 2 0 0 0-4 0V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
+    </svg>
+  );
+
+  return (
+    <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+      {item(finger(true), 'Hold · Dive', '#F26522')}
+      {item(finger(false), 'Release · Soar', '#3B8DD4')}
+      {item(
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 3 3 20h18L12 3Zm0 6 4.2 8H7.8L12 9Z" />
+        </svg>,
+        'Avoid Spikes', '#EF4444'
+      )}
     </div>
   );
 }
@@ -728,55 +813,25 @@ export function HowToPlayScreen({ onPlay }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'flex-start', // Fix: allow scroll to top
-        padding: '32px 24px',
+        justifyContent: 'center',
+        padding: '20px 20px',
         background: 'radial-gradient(ellipse at 50% 30%, rgba(14, 79, 148, 0.55), rgba(5, 26, 58, 0.85) 70%), #051a3a',
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
-      <div className="tutorial-card" style={{ width: '100%', maxWidth: 360, margin: 'auto 0' }}>
-        {/* Title */}
-        <h2 style={{ fontSize: 26, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.02em', margin: '0 0 16px 0', color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center' }}>
+      <div className="tutorial-card" style={{ width: '100%', maxWidth: 360, gap: 14 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.02em', margin: 0, color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center' }}>
           How to Play
         </h2>
 
-        {/* Gesture Animation Screen */}
-        <TutGliderAnimation />
+        <HowToPlayDemo />
+        <DemoLegend />
 
-        {/* Instructions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', marginBottom: 20, padding: '0 8px' }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.15)', fontSize: 11, fontWeight: 'bold', flexShrink: 0 }}>1</span>
-            <p style={{ fontSize: 13, margin: 0, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, fontWeight: 600 }}>
-              Hold the screen to <strong style={{ color: '#F26922' }}>DIVE</strong> and build up speed.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.15)', fontSize: 11, fontWeight: 'bold', flexShrink: 0 }}>2</span>
-            <p style={{ fontSize: 13, margin: 0, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, fontWeight: 600 }}>
-              Release your hold to convert speed into lift and <strong style={{ color: '#3B8DD4' }}>SOAR</strong> upward!
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.15)', fontSize: 11, fontWeight: 'bold', flexShrink: 0 }}>3</span>
-            <p style={{ fontSize: 13, margin: 0, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, fontWeight: 600 }}>
-              Collect gold <strong style={{ color: '#FACC15' }}>Wealth Coins</strong> and blue <strong style={{ color: '#60A5FA' }}>Protection Shields</strong>.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.15)', fontSize: 11, fontWeight: 'bold', flexShrink: 0 }}>4</span>
-            <p style={{ fontSize: 13, margin: 0, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, fontWeight: 600 }}>
-              Shields protect against collision. Avoid spiky green viruses and red wall spikes. Reach 2000m to win!
-            </p>
-          </div>
-        </div>
-
-        {/* CTA Play Button */}
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button
             onClick={onPlay}
             className="bubble-play-btn"
-            style={{ width: '100%', height: 56, marginTop: 8 }}
+            style={{ width: '100%', height: 56 }}
           >
             <span style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontSize: 22, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Let's Fly

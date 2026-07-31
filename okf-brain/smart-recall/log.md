@@ -406,3 +406,60 @@ other 32. Flagged for a repo-wide pass by the orchestrator.
 - The board is fixed at 3x3 for all seven rounds. A larger board in the late
   rounds would raise difficulty without lengthening the session, but it would
   invalidate the measured band and was not in the brief.
+
+---
+
+## 2026-07-31 — Lead-form slim-down, animation-first how-to-play, asset prompt sheet
+
+Narrow scope: no gameplay, balance, physics, HUD or `ResultsScreen` changes.
+`src/sequence.js`, `src/data.js` and `scripts/balance.mjs` untouched.
+
+### G1 — email field removed from lead capture
+
+`src/LeadCaptureModal.jsx`: deleted `EMAIL_RE`, the `email` `useState`, the
+"Email Field" `sl-lead-field` block, the `errs.email` branch, the
+`sessionStorage.lastSubmittedEmail` read and write, and the `email` key from
+`submitToLMS({...})` and both `onSubmitted({...})` payloads. `src/api.js`
+untouched — `email_id: email || ''` keeps the LMS payload shape identical.
+Nothing else under `src/` referenced it. Name, Mobile and T&C unchanged.
+
+### G2 — `HowToPlayScreen` is now animation-first
+
+`src/Screens.jsx`: deleted the three `Beat` step cards (and the `Beat` component),
+the `Watch the order · Tap it back · Skip the red` subtitle, the scoring
+paragraph and the per-round `ROUNDS` chip row.
+
+New `RecallDemo` — one 6 s loop on the real 3×3 board of all nine `GOALS`,
+using the canvas's own `GoalGlyph` silhouettes and per-goal hues. First half is
+the plan playing itself back — Home, Family, a red detour, Retirement, each cap
+lighting in turn at the game's cadence. Second half is a `TapFinger` glyph
+tapping Home, Family, Retirement in that same order, arcing *around* the red
+tile without touching it, then the whole board rings green. Ordering is carried
+by time plus a dashed route drawn between the three tiles, **not** by numeric step
+badges — the old `MiniTile` badge numerals were removed so the demo contains no
+text at all. `prefers-reduced-motion` disables all ten new animations.
+
+Under it, exactly three icon-led cues: an eye + "WATCH THE ORDER", a tap glyph +
+"TAP IT BACK", and the real red risk tile + "SKIP THE RED". Remaining text:
+heading, three ≤4-word labels, Play button. Card is ~452 px tall inside a 640 px
+viewport — no scroll at 360×640.
+
+### G3 — `asset-from-here.md`
+
+12 Nano Banana prompts written to `smart-recall/asset-from-here.md`. Motif is a
+**mid-century electro-mechanical annunciator console**: bakelite pushbuttons with
+frosted acrylic legend lenses on an aged ivory phenolic faceplate, back-lit by
+*incandescent* lamps with an off-centre filament hot-spot and warm uneven bloom —
+explicitly never LED, neon, pixel or flat-vector. The sheet holds the resting cap,
+the lit cap in all nine goal hues, both legend-glyph sets (all nine goal
+silhouettes), the red fault cap, the lamp bloom, the slip buzz, the round lamp
+strip, the engraved HUD icon set and win/loss tableaus. Red `#EF4444` is reserved
+for the risk step in the prompts exactly as it is in `data.js`.
+
+### Verification
+
+- `pnpm install` + `pnpm build` — **green**: `dist/assets/index-C-lH60uo.js`
+  428.43 kB (142.42 kB gzip), `index-v4scUYR6.css` 33.00 kB, built in 4.64 s.
+- `node scripts/balance.mjs` — **GATE: PASS** (generator clean over 252 000 plans,
+  honest bot 27.6%–38.6%, sharp ≥ 98.6%, careful ≥ 98.4% with zero clock losses).
+  Harness unmodified.

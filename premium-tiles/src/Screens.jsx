@@ -264,6 +264,245 @@ export function HomeScreen({ onStart }) {
   );
 }
 
+/* ─── How to play ────────────────────────────────────────── */
+/* One 5.2s loop of the real chart: a blue premium tile lands on the DUE line and
+   is tapped (note flies), a tall HOLD tile lands and is held down (two more
+   notes bank), and a red risk tile falls straight through while the finger stays
+   clear of the glass. Same four lanes, same tile colours and same DUE line as
+   PremiumTilesGame.jsx. Every track shares the 5.2s duration. */
+const HTP_CSS = `
+@keyframes ptuTileA {
+  0%        { transform: translateY(-50px); opacity: 1; }
+  26%       { transform: translateY(145px); opacity: 1; }
+  33%       { transform: translateY(145px); opacity: 1; }
+  38%, 100% { transform: translateY(145px); opacity: 0; }
+}
+@keyframes ptuFlashA {
+  0%, 27%   { transform: scale(0.9); opacity: 0; }
+  31%       { transform: scale(1);   opacity: 1; }
+  42%, 100% { transform: scale(1.4); opacity: 0; }
+}
+@keyframes ptuHold {
+  0%, 16%   { transform: translateY(-110px); opacity: 1; }
+  46%       { transform: translateY(105px);  opacity: 1; }
+  70%       { transform: translateY(105px);  opacity: 1; }
+  77%, 100% { transform: translateY(105px);  opacity: 0; }
+}
+@keyframes ptuHoldGlow {
+  0%, 46%   { opacity: 0; }
+  50%       { opacity: 1; }
+  68%       { opacity: 1; }
+  76%, 100% { opacity: 0; }
+}
+@keyframes ptuRed {
+  0%, 52%   { transform: translateY(-50px); opacity: 0; }
+  57%       { transform: translateY(-10px); opacity: 1; }
+  86%       { transform: translateY(178px); opacity: 1; }
+  95%, 100% { transform: translateY(220px); opacity: 0; }
+}
+@keyframes ptuFinger {
+  0%        { transform: translate(20px, 208px); }
+  26%, 33%  { transform: translate(20px, 160px); }
+  40%       { transform: translate(20px, 204px); }
+  47%       { transform: translate(60px, 152px); }
+  50%, 70%  { transform: translate(60px, 146px); }
+  78%       { transform: translate(60px, 204px); }
+  86%, 96%  { transform: translate(40px, 212px); }
+  100%      { transform: translate(20px, 208px); }
+}
+@keyframes ptuPress {
+  0%, 26%   { transform: scale(0.4);  opacity: 0; }
+  29%       { transform: scale(0.55); opacity: 0.9; }
+  38%       { transform: scale(1.7);  opacity: 0; }
+  47%       { transform: scale(0.6);  opacity: 0; }
+  51%       { transform: scale(1.15); opacity: 0.85; }
+  68%       { transform: scale(1.15); opacity: 0.85; }
+  75%, 100% { transform: scale(1.7);  opacity: 0; }
+}
+@keyframes ptuNoteA {
+  0%, 30%   { transform: translate(0, 0);      opacity: 0; }
+  34%       { transform: translate(4px, -10px); opacity: 1; }
+  52%, 100% { transform: translate(20px, -62px); opacity: 0; }
+}
+@keyframes ptuNoteB {
+  0%, 52%   { transform: translate(0, 0);       opacity: 0; }
+  56%       { transform: translate(4px, -10px); opacity: 1; }
+  70%, 100% { transform: translate(22px, -58px); opacity: 0; }
+}
+@keyframes ptuNoteC {
+  0%, 62%   { transform: translate(0, 0);        opacity: 0; }
+  66%       { transform: translate(-4px, -10px); opacity: 1; }
+  82%, 100% { transform: translate(-20px, -60px); opacity: 0; }
+}
+@keyframes ptuNo  { 0%, 78% { opacity: 0; } 84%, 94% { opacity: 1; } 99%, 100% { opacity: 0; } }
+@keyframes ptuDue { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+.ptu-tile-a  { animation: ptuTileA 5.2s cubic-bezier(0.45,0,0.7,0.6) infinite; }
+.ptu-flash-a { animation: ptuFlashA 5.2s ease-out infinite; transform-origin: 20px 160px; }
+.ptu-hold    { animation: ptuHold 5.2s cubic-bezier(0.45,0,0.7,0.6) infinite; }
+.ptu-holdglow{ animation: ptuHoldGlow 5.2s ease-in-out infinite; }
+.ptu-red     { animation: ptuRed 5.2s linear infinite; }
+.ptu-finger  { animation: ptuFinger 5.2s cubic-bezier(0.4,0,0.2,1) infinite; }
+.ptu-press   { animation: ptuPress 5.2s ease-out infinite; transform-origin: 0 0; }
+.ptu-note-a  { animation: ptuNoteA 5.2s ease-out infinite; }
+.ptu-note-b  { animation: ptuNoteB 5.2s ease-out infinite; }
+.ptu-note-c  { animation: ptuNoteC 5.2s ease-out infinite; }
+.ptu-no      { animation: ptuNo 5.2s ease-out infinite; }
+.ptu-due     { animation: ptuDue 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ptu-tile-a, .ptu-flash-a, .ptu-hold, .ptu-holdglow, .ptu-red, .ptu-finger,
+  .ptu-press, .ptu-note-a, .ptu-note-b, .ptu-note-c, .ptu-no, .ptu-due {
+    animation: none !important;
+  }
+}
+`;
+
+/** The melody note that flies off every tile the player performs. */
+function Note({ className, x, y, color }) {
+  return (
+    <g className={className} transform={`translate(${x},${y})`}>
+      <g fill={color}>
+        <ellipse cx="-3.5" cy="6" rx="4.2" ry="3" transform="rotate(-20 -3.5 6)" />
+        <rect x="-0.4" y="-7" width="1.9" height="13" rx="0.95" />
+        <path d="M-0.2 -7 q6.6 2.2 5.3 8.3 q-1.1 -4.5 -5.3 -4.5 z" />
+      </g>
+    </g>
+  );
+}
+
+function DemoLanes() {
+  return (
+    <svg width="200" height="275" viewBox="0 0 160 220" aria-hidden="true">
+      <defs>
+        <linearGradient id="ptuBlue" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#2F7BE8" />
+          <stop offset="60%" stopColor="#003DA6" />
+          <stop offset="100%" stopColor="#00185A" />
+        </linearGradient>
+        <linearGradient id="ptuHoldGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7FC0FF" />
+          <stop offset="45%" stopColor="#1E6BE0" />
+          <stop offset="100%" stopColor="#00185A" />
+        </linearGradient>
+        <linearGradient id="ptuRedGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#F05555" />
+          <stop offset="100%" stopColor="#5F1010" />
+        </linearGradient>
+        <clipPath id="ptuClip"><rect x="0" y="0" width="160" height="220" rx="14" /></clipPath>
+      </defs>
+
+      <rect x="0" y="0" width="160" height="220" rx="14" fill="rgba(5,20,45,0.6)"
+        stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+
+      <g clipPath="url(#ptuClip)">
+        {/* four lanes */}
+        {[40, 80, 120].map((x) => (
+          <line key={x} x1={x} y1="6" x2={x} y2="214" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+        ))}
+
+        {/* the DUE line */}
+        <line className="ptu-due" x1="6" y1="175" x2="154" y2="175" stroke="#FF8A3D" strokeWidth="3"
+          strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 6px rgba(255,138,61,0.85))' }} />
+
+        {/* lane 1 — a premium tile, tapped on the line */}
+        <g className="ptu-tile-a">
+          <rect x="4" y="0" width="32" height="30" rx="6" fill="url(#ptuBlue)"
+            stroke="rgba(255,255,255,0.4)" strokeWidth="1.4" />
+        </g>
+        <g className="ptu-flash-a">
+          <rect x="2" y="143" width="36" height="34" rx="7" fill="none" stroke="#FFD68A" strokeWidth="2.6" />
+        </g>
+
+        {/* lane 2 — a HOLD tile, pressed and kept down */}
+        <g className="ptu-hold">
+          <rect x="44" y="0" width="32" height="70" rx="6" fill="url(#ptuHoldGrad)"
+            stroke="rgba(255,255,255,0.45)" strokeWidth="1.4" />
+          <rect x="56" y="12" width="8" height="46" rx="4" fill="rgba(255,255,255,0.35)" />
+        </g>
+        <g className="ptu-holdglow">
+          <rect x="42" y="103" width="36" height="74" rx="7" fill="none" stroke="#7FC0FF" strokeWidth="2.4" />
+        </g>
+
+        {/* lane 4 — a risk tile, allowed to fall straight through */}
+        <g className="ptu-red">
+          <rect x="124" y="0" width="32" height="28" rx="6" fill="url(#ptuRedGrad)"
+            stroke="rgba(255,255,255,0.28)" strokeWidth="1.2" />
+          <line x1="132" y1="10" x2="148" y2="18" stroke="rgba(255,255,255,0.75)" strokeWidth="2.4" strokeLinecap="round" />
+          <line x1="148" y1="10" x2="132" y2="18" stroke="rgba(255,255,255,0.75)" strokeWidth="2.4" strokeLinecap="round" />
+        </g>
+
+        {/* the melody the taps perform */}
+        <Note className="ptu-note-a" x={30} y={150} color="#FFD68A" />
+        <Note className="ptu-note-b" x={72} y={140} color="#FFD68A" />
+        <Note className="ptu-note-c" x={50} y={132} color="#FFD68A" />
+
+        {/* the finger: taps, holds, then stays clear of the red lane */}
+        <g className="ptu-finger">
+          <g className="ptu-press">
+            <circle cx="0" cy="0" r="14" fill="none" stroke="#fff" strokeWidth="2.4" />
+          </g>
+          <circle cx="0" cy="0" r="8" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.3)" strokeWidth="1" />
+          <g className="ptu-no" transform="translate(0,-22)">
+            <circle cx="0" cy="0" r="8.5" fill="rgba(8,21,48,0.9)" stroke="#E23B3B" strokeWidth="2.4" />
+            <line x1="-4.6" y1="4.6" x2="4.6" y2="-4.6" stroke="#E23B3B" strokeWidth="2.4" strokeLinecap="round" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function TileGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5" y="4" width="14" height="10" rx="2.5" fill="#1E6BE0" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2" />
+      <line x1="3" y1="17" x2="21" y2="17" stroke="#FF8A3D" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="20.5" r="2.6" fill="rgba(255,255,255,0.9)" />
+    </svg>
+  );
+}
+
+function HoldGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="6" y="2" width="12" height="15" rx="2.5" fill="#1E6BE0" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2" />
+      <rect x="10.5" y="4.5" width="3" height="10" rx="1.5" fill="rgba(255,255,255,0.4)" />
+      <circle cx="12" cy="20.5" r="2.6" fill="rgba(255,255,255,0.9)" />
+      <circle cx="12" cy="20.5" r="5" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
+function RiskGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5" y="6" width="14" height="10" rx="2.5" fill="#E23B3B" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" />
+      <line x1="9" y1="9" x2="15" y2="13" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+      <line x1="15" y1="9" x2="9" y2="13" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+      <line x1="3.5" y1="20.5" x2="20.5" y2="20.5" stroke="rgba(255,255,255,0.3)" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** icon + one short label. The only words allowed on this screen. */
+function Cue({ icon, word }) {
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+      padding: '9px 4px', borderRadius: 13,
+      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+    }}>
+      {icon}
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em',
+        color: 'rgba(255,255,255,0.82)', textAlign: 'center', lineHeight: 1.1,
+      }}>
+        {word}
+      </span>
+    </div>
+  );
+}
+
 export function HowToPlayScreen({ onPlay }) {
   return (
     <motion.div
@@ -278,167 +517,43 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: HTP_CSS }} />
+
       <div style={{
         background: 'rgba(0, 30, 70, 0.65)',
         border: '1px solid rgba(255, 255, 255, 0.14)',
         borderRadius: 24,
-        padding: '28px 24px 24px',
+        padding: '18px 16px 16px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 340,
         boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 26,
+          fontSize: 24,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 18px 0',
+          margin: '0 0 8px 0',
           color: '#fff',
           textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           How to Play
         </h2>
 
-        {/* Animated demo: a tile falls to the line and a hand taps it */}
-        <div style={{
-          position: 'relative',
-          width: '100%',
-          height: 170,
-          background: 'rgba(5, 20, 45, 0.5)',
-          borderRadius: 16,
-          border: '1px solid rgba(255,255,255,0.06)',
-          overflow: 'hidden',
-          marginBottom: 18,
-        }}>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes tutTileFall {
-              0% { transform: translateY(-60px); opacity: 1; }
-              55% { transform: translateY(78px); opacity: 1; }
-              62% { transform: translateY(78px) scale(1.15); opacity: 1; filter: brightness(1.9); }
-              70%, 100% { transform: translateY(78px) scale(0.1); opacity: 0; }
-            }
-            @keyframes tutTapHand {
-              0%, 38% { transform: translate(24px, 34px); opacity: 0; }
-              50% { transform: translate(4px, 6px); opacity: 1; }
-              58% { transform: translate(4px, 6px) scale(0.85); opacity: 1; }
-              70%, 100% { transform: translate(24px, 34px); opacity: 0; }
-            }
-            @keyframes tutNoteFly {
-              0%, 60% { transform: translate(0, 0); opacity: 0; }
-              66% { opacity: 1; }
-              100% { transform: translate(26px, -60px); opacity: 0; }
-            }
-          `}} />
+        <DemoLanes />
 
-          {/* lanes */}
-          {[25, 50, 75].map((p) => (
-            <div key={p} style={{ position: 'absolute', top: 8, bottom: 8, left: `${p}%`, width: 1, background: 'rgba(255,255,255,0.10)' }} />
-          ))}
-          {/* DUE line */}
-          <div style={{ position: 'absolute', left: 8, right: 8, bottom: 42, height: 3, borderRadius: 2, background: '#FF8A3D', boxShadow: '0 0 12px rgba(255,138,61,0.8)' }} />
-
-          {/* falling tile in lane 2 */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 'calc(37.5% - 34px)',
-            width: 68,
-            height: 40,
-            borderRadius: 8,
-            background: 'linear-gradient(180deg, #2F7BE8, #003DA6 60%, #00185A)',
-            border: '1.5px solid rgba(255,255,255,0.4)',
-            animation: 'tutTileFall 2.8s ease-in infinite',
-          }} />
-
-          {/* flying note */}
-          <div style={{
-            position: 'absolute',
-            bottom: 56,
-            left: 'calc(37.5% + 8px)',
-            animation: 'tutNoteFly 2.8s ease-out infinite',
-            color: '#FFD68A',
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <ellipse cx="7" cy="18" rx="4.4" ry="3.2" transform="rotate(-20 7 18)" />
-              <rect x="10.4" y="4" width="2" height="14" rx="1" />
-              <path d="M10.6 4 q7 2.4 5.6 8.8 q-1.2 -4.8 -5.6 -4.8 z" />
-            </svg>
-          </div>
-
-          {/* tapping hand */}
-          <div style={{
-            position: 'absolute',
-            bottom: 34,
-            left: 'calc(37.5% - 10px)',
-            width: 30,
-            height: 30,
-            animation: 'tutTapHand 2.8s ease-in-out infinite',
-            zIndex: 5,
-          }}>
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.5">
-              <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-              <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" />
-              <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" />
-              <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
-            </svg>
-          </div>
-
-          {/* red tile hint, lane 4 */}
-          <div style={{
-            position: 'absolute',
-            top: 22,
-            right: '4%',
-            width: 60,
-            height: 34,
-            borderRadius: 8,
-            background: 'linear-gradient(180deg, #F05555, #5F1010)',
-            border: '1px solid rgba(255,255,255,0.25)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: 7,
-            fontWeight: 900,
-            letterSpacing: '0.05em',
-          }}>
-            IMPULSE BUY
-          </div>
-        </div>
-
-        <div style={{
-          textAlign: 'left',
-          color: 'rgba(255, 255, 255, 0.9)',
-          fontSize: 13.5,
-          lineHeight: 1.45,
-          marginBottom: 22,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 11,
-        }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>1.</span>
-            <span>Tap the <strong>blue premium tiles</strong>, lowest first — every tap plays the next note of the melody. Tap near the DUE line for a <strong>Perfect (+2)</strong>.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>2.</span>
-            <span><strong>HOLD</strong> tiles: keep your finger down for a sustained note (+1 every beat). <strong>TAP BOTH</strong> tiles: hit both lanes together.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>3.</span>
-            <span>Never touch the <strong>red risk tiles</strong> (impulse buys, scam calls) and never tap an empty lane — each costs a life. You have 3.</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <span style={{ color: '#FF8A3D', fontWeight: 900 }}>4.</span>
-            <span>Chain hits to raise your combo to <strong>x4</strong>. Finish the whole song with a life left to win — Perfect taps earn up to 3 stars.</span>
-          </div>
+        <div style={{ display: 'flex', gap: 7, margin: '8px 0 12px' }}>
+          <Cue icon={<TileGlyph />} word="TAP BLUE TILES" />
+          <Cue icon={<HoldGlyph />} word="HOLD LONG TILES" />
+          <Cue icon={<RiskGlyph />} word="NEVER TAP RED" />
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

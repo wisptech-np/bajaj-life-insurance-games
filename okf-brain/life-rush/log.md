@@ -507,3 +507,77 @@ Final verification: gate PASS (honest 28.2/35.6/34.0/32.0 across 4 blocks, mean
 bundle greps clean: 0 unresolved `linGrad`/`radGrad` references. Reviewer probe
 scripts (`review-*.mjs`) deleted; `render-smoke.mjs` and `policies.mjs` stay —
 they are the gate.
+
+## 2026-07-31 — Lead-form slim, animation-first tutorial, asset prompt sheet
+
+**G1 — email field removed from lead capture** (`src/LeadCaptureModal.jsx`)
+
+- Deleted `EMAIL_RE`, the `email` `useState` seeded from
+  `sessionStorage.lastSubmittedEmail`, the whole "Email Field"
+  `<div className="sl-lead-field">` block and the `errs.email` branch of
+  `validate()`.
+- Removed the `sessionStorage.setItem('lastSubmittedEmail', …)` write and the
+  `email` key from the `submitToLMS({…})` call and from both `onSubmitted({…})`
+  payloads.
+- `src/api.js` untouched — `submitToLMS` already sends `email_id: email || ''`.
+- Grep of the game folder afterwards is clean outside `src/kit/` and
+  `src/api.js`. Name, Mobile and T&C untouched.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first** (`src/Screens.jsx`)
+
+- Deleted the `Beat` step component, the `HandGlyph` helper, all three numbered
+  step blocks, the orange one-line subtitle, the paragraph quoting
+  `gamesPerRun` / `duration.startSeconds` / `duration.endSeconds`, and the row
+  of scoring chips. `GAME_CONFIG` is still imported for `ResultsScreen`.
+- New 6.6 s CSS `@keyframes` loop (`LR_TUT_CSS`) that plays **three real
+  microgame scenes back to back**, which is what the run actually is:
+  1. tap — the blue premium card with the orange button (the `pay.js` family):
+     finger presses, a gold cue ring ripples, green tick;
+  2. swipe — the paper sheet with the dashed signature guide (`sign.js`):
+     finger sweeps left to right and a green stroke draws in along the guide
+     via `stroke-dashoffset`, green tick;
+  3. hold — the gold SIP jar with the dashed green target band (`grow.js`):
+     finger presses and holds, the gold fill grows and stops inside the band,
+     green tick.
+- Above all three, the shared HUD runs live: the orange action-window bar
+  drains on its own 2.2 s cycle (one cycle per scene, so the shrinking-window
+  pressure is visible) and the three blue shield lives sit top-right.
+- The three scenes share **one** keyframe set and are offset purely with
+  negative `animation-delay` (`0`, `-4.4s`, `-2.2s` via `.lr-d2` / `.lr-d3`),
+  so adding or reordering a scene is a delay change rather than new CSS.
+- Deliberate trade-off worth a human eye: the real game slams a **command
+  word** ("PAY!", "SIGN!", "GROW!") onto the banner, but the spec caps this
+  screen's text at the heading, three short labels and the button — so the demo
+  banner carries a **verb glyph** (tap rings / arrow / dashed hold ring)
+  instead of the word. The banner shape, colour and slam-in motion are the real
+  ones.
+- Remaining text is exactly: the "How to Play" heading, three icon-led labels
+  ("Tap, swipe or hold" / "Beat the clock" / "Three shields only", ≤4 words
+  each, each with an inline SVG glyph) and the "Play" button.
+- Card padding tightened to `22px 18px 20px`, outer padding 18 px,
+  `overflow: hidden` — ~430 px tall, so 360×640 does not scroll.
+- `prefers-reduced-motion` disables the whole demo.
+- `scheduler.js`, every `microgames/*.js`, the orchestrator, HUD, balance and
+  `ResultsScreen` untouched.
+
+**G3 — `asset-from-here.md`**
+
+- New `life-rush/asset-from-here.md`, 15 Nano Banana prompts.
+- Motif chosen for this game: **paper-cut craft diorama** — every prop built
+  from two or three layers of matte cardstock with visible scissor edges and a
+  few px of layer offset, standing on a dark velvet paper-theatre stage under
+  one overhead lamp. Flat colour only; depth comes from layer separation, never
+  from gloss or bevel. Chosen because a microgame collection needs props that
+  parse in a third of a second, and hard-edged flat paper does that better than
+  any rendered style.
+- The sheet restates the `data.js` colour grammar and makes it a hard rule
+  ("if a prop is orange it is what your finger wants").
+- Covers: stage plate, command banner slab, action-window meter, shield life
+  (lit and spent), premium card, signature sheet, SIP jar, scam call, umbrella
+  + family pair, rain band, piggy/coin money props, clear burst, miss crack,
+  SPEED UP interstitial, and both result states.
+
+**Verification**
+
+- `pnpm install` — OK.
+- `pnpm build` (vite --mode uat) — **passes**, `✓ built in 2.23s`.

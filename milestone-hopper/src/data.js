@@ -10,12 +10,19 @@
 /* ─── Palette ─────────────────────────────────────────────
    Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745, dark bg #0B1221.
 
-   Colour grammar for the course, kept consistent with the rest of the catalog:
-   green is ALWAYS risk (viruses, the uncertainty rivers, the risk tide), blue is
-   ALWAYS protection (safe rows, coverage platforms, the guardian, shield tokens),
-   gold is wealth (coins) and the milestone rules. That is why safe rows are a
-   blue-slate pavement rather than the usual green grass — grass would put the
-   safest thing on screen in the exact colour of the deadliest. */
+   Colour grammar, unique to this game in the catalog:
+     BLUE   = ground you own — safe pavement, coverage platforms, the hopper.
+     GOLD   = wealth and the milestone gates (this game's accent; every gate is a
+              gold chevron rule, which is also the shape language: chevrons
+              always point up-course, in the direction of progress).
+     EMBER  = the only hazard colour — the debt weights sliding across the
+              expense lanes, and the arrears tide climbing behind you.
+     SLATE  = the uncertainty rivers (cold, unlit, nothing to stand on).
+     GREEN  = reserved exclusively for a milestone that has been *reached*.
+
+   That last rule is the reason the old green hazard had to go: green was doing
+   double duty as both "you made it" and "this kills you". Now nothing green on
+   screen can hurt you, and anything ember can. */
 export const COLORS = {
   brandBlue: '#003DA6',
   brandBlueLt: '#1E6BE0',
@@ -27,44 +34,49 @@ export const COLORS = {
   gold: '#FFC845',
   goldLt: '#FFE38A',
   goldDeep: '#B07B12',
-  virus: '#49E24B',
-  virusCore: '#0E5C1D',
+
+  /* Debt weight — the hazard. Ember cast iron: hot rim, dead-black core. */
+  debt: '#D0421F',
+  debtLt: '#FF8A3D',
+  debtHot: '#FFD3A0',
+  debtDeep: '#390C05',
+  debtGlow: 'rgba(255,122,45,0.6)',
+
   danger: '#EF4444',
   bgDark: '#0B1221',
-  skyTop: '#061634',
+  skyTop: '#050F26',
   skyMid: '#0A2444',
-  skyLow: '#0E3160',
+  skyLow: '#123A6E',
   ink: '#FFFFFF',
   inkDim: 'rgba(255,255,255,0.62)',
   glass: 'rgba(255,255,255,0.05)',
   glassLine: 'rgba(255,255,255,0.12)',
 
   // Row slabs: [top face light, top face dark, front face] per lane type.
-  rowSafeTop: '#2E63A8',
-  rowSafeBot: '#204B82',
+  rowSafeTop: '#3570B8',
+  rowSafeBot: '#23508A',
   rowSafeFront: '#123059',
-  rowSafeAltTop: '#27579A',
-  rowSafeAltBot: '#1B4275',
+  rowSafeAltTop: '#2C63A8',
+  rowSafeAltBot: '#1D477E',
   rowSafeAltFront: '#0F2A4E',
-  rowRoadTop: '#242E45',
-  rowRoadBot: '#171F31',
-  rowRoadFront: '#0B1120',
-  rowRiverTop: '#12483B',
-  rowRiverBot: '#0B2E27',
-  rowRiverFront: '#061A15',
+  rowRoadTop: '#332635',
+  rowRoadBot: '#1E1622',
+  rowRoadFront: '#100A14',
+  rowRiverTop: '#123A52',
+  rowRiverBot: '#0A2436',
+  rowRiverFront: '#05141F',
   rowGoalTop: '#249049',
   rowGoalBot: '#166433',
   rowGoalFront: '#0B3B1D',
 
   planter: '#17335C',
-  planterRim: '#3B72B8',
-  shrub: '#6E9C8A',
-  shrubDeep: '#3F6B5C',
+  planterRim: '#5B93D8',
+  shrub: '#7FB8D8',
+  shrubDeep: '#3D6E96',
   platformGlass: 'rgba(126,184,255,0.34)',
-  platformEdge: 'rgba(180,214,255,0.85)',
-  tideFog: 'rgba(30,150,70,0.0)',
-  tideFogMid: 'rgba(28,140,64,0.55)',
-  tideFogDeep: 'rgba(9,60,28,0.94)',
+  platformEdge: 'rgba(190,222,255,0.9)',
+  tideFogMid: 'rgba(168,52,18,0.62)',
+  tideFogDeep: 'rgba(46,10,4,0.96)',
 };
 
 /* ─── Gameplay configuration ──────────────────────────────
@@ -106,12 +118,12 @@ export const GAME_CONFIG = {
     minSpeed: 90,
     maxSpeed: 220,
     minGapCells: 2.2,
-    maxViruses: 4,
+    maxWeights: 4,
 
     // -- derived spacing guard rails (CORRECTION) --------------------------
     // Lane speeds are authored in px/s at this reference cell width, then
     // converted to cells/s. Without the conversion the same lane is measurably
-    // harder on a narrow phone (a 220 px/s virus crosses a 48 px cell in 0.22 s
+    // harder on a narrow phone (a 220 px/s weight crosses a 48 px cell in 0.22 s
     // but a 60 px cell in 0.27 s), and course generation — which runs at mount,
     // before the canvas has been measured — has no cell size to reason about.
     refCellPx: 56,
@@ -123,13 +135,15 @@ export const GAME_CONFIG = {
     // is derived from whichever floor binds, so the lane always reads the same
     // way to a player however fast it is running.
     gapSeconds: [1.8, 1.2],
-    // Viruses wrap around a cycle sized from the spacing, not from the screen,
+    // Weights wrap around a cycle sized from the spacing, not from the screen,
     // so a lane can be genuinely sparse without ever showing two copies of the
-    // same blob. This margin is the dead space beyond each edge that the cycle
+    // same weight. This margin is the dead space beyond each edge that the cycle
     // must at minimum cover.
     spawnMarginCells: 1.4,
-    virusCells: 0.8,
-    // Collision half-width, in cells: |virusCol - playerCol| < hitCells.
+    // Drawn width of a debt weight, in cells. Kept under `hitCells * 2` plus a
+    // little, so the sprite never looks wider than the thing that kills you.
+    weightCells: 1.15,
+    // Collision half-width, in cells: |weightCol - playerCol| < hitCells.
     hitCells: 0.55,
   },
 
@@ -191,7 +205,7 @@ export const GAME_CONFIG = {
     coinChance: 0.15,
     shieldPerSegment: 1,
     // A shield that only absorbs the hit leaves the guardian standing on the
-    // virus that just spent it, so the next frame kills them anyway. The
+    // weight that just spent it, so the next frame kills them anyway. The
     // invulnerability window is what makes the token a save rather than a stay
     // of execution (CORRECTION).
     shieldInvulnSeconds: 1.0,

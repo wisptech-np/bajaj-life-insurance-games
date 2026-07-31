@@ -8,18 +8,25 @@
 // buffer, particle budgets, haptics) come from the kit: src/kit/config.js BALANCE.
 
 /* ─── Palette ─────────────────────────────────────────────
-   Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745, dark bg #0B1221.
+   Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745.
 
-   Colour grammar, kept consistent with the rest of the catalog: green is ALWAYS
-   risk (the virus-bottle pins), blue is ALWAYS protection (the shield ball, the
-   lane's cover glow, the aim line), gold is the reward (strike banners, score
-   marks). The lane itself is a cool blue-slate rather than bowling-alley maple,
-   because warm wood would put the playfield in the same family as the orange
-   CTAs and flatten the read. */
+   Identity: IMPACT. Risk Strike owns the ignition-orange accent (#FF6A1A) and
+   the ring language that goes with it — timing rings, shockwaves, impact
+   flashes. Nothing else in the catalog is built on a concentric-ring motif over
+   near-black, which is what keeps this game from reading like its neighbours.
+
+   Figure/ground is the other half of the identity. The arena and the lane are
+   pushed down to near-black indigo so the only high-value things on screen are
+   the three that matter: the green risk bottles, the blue shield ball, and the
+   orange impact. The previous mid-blue lane (#2B5FA6) sat at almost the same
+   value as the ball and flattened the read at 360x640.
+
+   Colour grammar, consistent with the rest of the catalog: green is ALWAYS risk,
+   blue is ALWAYS protection, gold is the reward, orange is the moment of impact. */
 export const COLORS = {
   brandBlue: '#003DA6',
-  brandBlueLt: '#1E6BE0',
-  brandBlueGlow: 'rgba(30,107,224,0.55)',
+  brandBlueLt: '#2E7BF0',
+  brandBlueGlow: 'rgba(46,123,240,0.6)',
   orange: '#F26522',
   orangeLt: '#FF8A3D',
   green: '#28A745',
@@ -27,32 +34,41 @@ export const COLORS = {
   gold: '#FFC845',
   goldLt: '#FFE38A',
   goldDeep: '#B07B12',
-  virus: '#49E24B',
-  virusDeep: '#127A28',
-  virusCore: '#0E5C1D',
-  danger: '#EF4444',
-  bgDark: '#0B1221',
+  virus: '#3FD34A',
+  virusDeep: '#0E6420',
+  virusCore: '#06380F',
+  virusRim: '#C6FFB4',
+  danger: '#FF5A5A',
+  bgDark: '#050912',
 
-  // Hall behind the deck.
-  hallTop: '#061634',
-  hallMid: '#0A2444',
-  hallLow: '#0E3160',
+  /* -- the signature accent ------------------------------------------------ */
+  impact: '#FF6A1A',
+  impactHot: '#FFE0B8',
+  shock: 'rgba(255,138,61,0.95)',
+  shockCool: 'rgba(140,200,255,0.85)',
+
+  // Arena behind the deck — deliberately quiet.
+  hallTop: '#070C1A',
+  hallMid: '#0A1428',
+  hallLow: '#0D1E3A',
 
   // Lane surface, near edge to far edge.
-  laneNear: '#2B5FA6',
-  laneFar: '#0F2B52',
-  laneEdge: 'rgba(160,205,255,0.55)',
-  laneGloss: 'rgba(180,214,255,0.22)',
-  gutterTop: '#0A1730',
-  gutterLow: '#050C1B',
-  approach: '#16233D',
-  foulLine: 'rgba(255,138,61,0.85)',
-  arrow: 'rgba(255,200,69,0.5)',
+  laneNear: '#1B2C4E',
+  laneMid: '#12203C',
+  laneFar: '#070D1B',
+  laneEdge: 'rgba(150,196,255,0.5)',
+  laneGloss: 'rgba(160,200,255,0.18)',
+  gutterTop: '#080E1C',
+  gutterLow: '#02050C',
+  approach: '#090F1D',
+  foulLine: 'rgba(255,106,26,0.9)',
+  arrow: 'rgba(255,138,61,0.45)',
 
   ink: '#FFFFFF',
-  inkDim: 'rgba(255,255,255,0.62)',
-  glass: 'rgba(255,255,255,0.05)',
-  glassLine: 'rgba(255,255,255,0.12)',
+  // 0.72 on #050912 clears WCAG AA body contrast (4.5:1); 0.62 did not.
+  inkDim: 'rgba(255,255,255,0.72)',
+  glass: 'rgba(255,255,255,0.06)',
+  glassLine: 'rgba(255,255,255,0.14)',
 };
 
 /* ─── Gameplay configuration ──────────────────────────────
@@ -258,6 +274,18 @@ export const GAME_CONFIG = {
     // Minimum gap between pin-clack ticks. A rack in full collapse produces
     // dozens of contacts a second and they would otherwise fuse into a buzz.
     clackGapSeconds: 0.055,
+
+    /* -- impact signature -------------------------------------------------
+       The ring language. A shockwave is an ellipse flattened onto the lane
+       plane, so it reads as ground-level energy rather than a flat HUD circle.
+       Cap is the pool size: rings past it recycle the oldest slot. */
+    shockSeconds: 0.42,
+    shockStrikeSeconds: 0.62,
+    shockCap: 10,
+    // Full-screen impact flash, in seconds and peak alpha.
+    flashSeconds: 0.26,
+    flashPeak: 0.5,
+    strikeFlashPeak: 0.8,
   },
 
   hud: {

@@ -1,11 +1,16 @@
 // MilestoneHopperGame.jsx — Crossy-Road-style lane hopper.
 //
 // The player is a guardian hopping up a fixed 48-row course of life stages.
-// Safe rows are pavement, risk rows are roads with green virus blobs streaming
-// across them, and past Marriage the course opens into uncertainty rivers that
-// can only be crossed on drifting coverage platforms. A risk tide climbs the
-// course from below, so standing still is its own way to lose. Reach the
-// Retirement row inside the 120 s session.
+// Safe rows are blue pavement, expense lanes are dark asphalt with ember DEBT
+// WEIGHTS — squat cast-iron slabs on a drag chain — sliding across them, and
+// past Marriage the course opens into cold uncertainty rivers that can only be
+// crossed on drifting coverage platforms. An arrears tide climbs the course
+// from below, so standing still is its own way to lose. Reach the Retirement
+// gate inside the 120 s session.
+//
+// Colour grammar (see data.js): blue = ground you own, gold = milestone gates
+// and coins, ember = the only thing that can hurt you, green = a milestone you
+// already reached. Shape language is the chevron, always pointing up-course.
 //
 // Structure mirrors GuardianShelterGame.jsx and SwingToSecureGame.jsx: one
 // canvas component whose mutable state lives in refs (never React state — a
@@ -68,7 +73,7 @@ function pickTreeCount(cfg, rand) {
   return 0;
 }
 
-/** One road lane: viruses evenly spaced around a wrap cycle, streaming one way. */
+/** One expense lane: debt weights evenly spaced around a wrap cycle, one way. */
 function makeRoadLane(cfg, rand, seg, spanCells, loCell) {
   const t = clamp(seg / 5, 0, 1);
   const base = lerp(cfg.roads.minSpeed, cfg.roads.maxSpeed, t);
@@ -86,14 +91,14 @@ function makeRoadLane(cfg, rand, seg, spanCells, loCell) {
   const stand = lerp(cfg.roads.gapSeconds[0], cfg.roads.gapSeconds[1], t);
   let gap = Math.max(cfg.roads.minGapCells, speed * stand + cfg.roads.hitCells * 2);
 
-  // Virus count ramps with the segment for visual density, but never below what
-  // it takes for the wrap cycle to outrun the visible span — otherwise a lane
-  // would show two copies of the same blob.
-  const design = Math.round(lerp(2, cfg.roads.maxViruses, t));
+  // Weight count ramps with the segment for visual density, but never below
+  // what it takes for the wrap cycle to outrun the visible span — otherwise a
+  // lane would show two copies of the same weight.
+  const design = Math.round(lerp(2, cfg.roads.maxWeights, t));
   const count = clamp(
     Math.max(design, Math.ceil((spanCells + 1) / gap)),
     1,
-    cfg.roads.maxViruses,
+    cfg.roads.maxWeights,
   );
   if (count * gap < spanCells + 1) gap = (spanCells + 1) / count;
   const cycle = count * gap;
@@ -254,7 +259,7 @@ function buildCourse(cfg, rand) {
 
   /* -- 3. pickups ------------------------------------------------------ */
   // Coins sit on open cells of safe rows only: never under a planter, never on
-  // a road, where the "reward" would be a cell a virus is scheduled to occupy.
+  // a lane, where the "reward" is a cell a debt weight is scheduled to occupy.
   for (let r = 1; r <= N; r++) {
     const row = rows[r];
     if (row.type !== 'safe') continue;
@@ -286,7 +291,7 @@ function buildCourse(cfg, rand) {
 }
 
 /* ─── Offscreen pre-render ───────────────────────────────────
-   Row slabs, planters, viruses and platforms are static art drawn many times
+   Row slabs, planters, debt weights and platforms are static art drawn many times
    per frame. Building them once per resize and blitting keeps the hot loop free
    of path construction and gradient allocation. */
 
@@ -332,7 +337,9 @@ function makeSlab({ kind, W, rowH, frontH, cell, cols, dpr }) {
   c.fillRect(0, topH, W, frontH);
 
   if (kind === 'safe' || kind === 'safeAlt') {
-    c.strokeStyle = 'rgba(255,255,255,0.055)';
+    // Paving joints, plus a bright rim along the leading edge so the slab reads
+    // as a solid block lit from above rather than a flat colour field.
+    c.strokeStyle = 'rgba(255,255,255,0.06)';
     c.lineWidth = 1;
     for (let i = 1; i < cols; i++) {
       const x = Math.round(i * cell) + 0.5;
@@ -341,21 +348,40 @@ function makeSlab({ kind, W, rowH, frontH, cell, cols, dpr }) {
       c.lineTo(x, topH - 1);
       c.stroke();
     }
-    c.fillStyle = 'rgba(255,255,255,0.07)';
+    c.fillStyle = 'rgba(190,224,255,0.34)';
     c.fillRect(0, topH - 2, W, 2);
   } else if (kind === 'road') {
-    // Kerb lines top and bottom, dashed centre line down the middle.
-    c.fillStyle = 'rgba(255,255,255,0.1)';
+    // Expense lane: warm-dark asphalt with a drag channel and ember chevrons
+    // pointing up-course. The chevron is the game's shape language, and here it
+    // doubles as a read that this band is traffic, not ground.
+    c.fillStyle = 'rgba(255,138,61,0.14)';
     c.fillRect(0, 1, W, 1.5);
     c.fillRect(0, topH - 2.5, W, 1.5);
-    const dashW = cell * 0.42;
-    const dashY = topH * 0.5 - 1.5;
-    c.fillStyle = 'rgba(255,255,255,0.2)';
-    for (let x = cell * 0.1; x < W; x += cell * 0.85) {
-      c.fillRect(x, dashY, dashW, 3);
+
+    const gch = c.createLinearGradient(0, 0, 0, topH);
+    gch.addColorStop(0, 'rgba(208,66,31,0.16)');
+    gch.addColorStop(1, 'rgba(0,0,0,0.22)');
+    c.fillStyle = gch;
+    c.fillRect(0, 0, W, topH);
+
+    const cw = cell * 0.34;
+    const chh = topH * 0.24;
+    const cy = topH * 0.5;
+    c.strokeStyle = 'rgba(255,160,90,0.28)';
+    c.lineWidth = 2.2;
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    for (let x = cell * 0.35; x < W; x += cell * 0.9) {
+      c.beginPath();
+      c.moveTo(x - cw / 2, cy + chh / 2);
+      c.lineTo(x, cy - chh / 2);
+      c.lineTo(x + cw / 2, cy + chh / 2);
+      c.stroke();
     }
   } else if (kind === 'river') {
-    c.strokeStyle = 'rgba(90,220,150,0.16)';
+    // Uncertainty river: cold, unlit slate water. Nothing to stand on, and
+    // deliberately the lowest-contrast band on screen.
+    c.strokeStyle = 'rgba(150,200,235,0.14)';
     c.lineWidth = 1.4;
     for (let i = 1; i <= 3; i++) {
       const y = (topH * i) / 4;
@@ -367,23 +393,43 @@ function makeSlab({ kind, W, rowH, frontH, cell, cols, dpr }) {
       c.stroke();
     }
     const gv = c.createLinearGradient(0, 0, 0, topH);
-    gv.addColorStop(0, 'rgba(73,226,75,0.13)');
-    gv.addColorStop(1, 'rgba(0,0,0,0.18)');
+    gv.addColorStop(0, 'rgba(10,26,42,0.55)');
+    gv.addColorStop(1, 'rgba(0,0,0,0.34)');
     c.fillStyle = gv;
     c.fillRect(0, 0, W, topH);
   } else if (kind === 'goal') {
-    c.fillStyle = COLORS.gold;
-    c.fillRect(0, 0, W, 2.5);
+    // Milestone gate: a gold rule, a warm wash and a row of small gold
+    // chevrons along the base — the visual promise of the row above.
     const gg = c.createLinearGradient(0, 0, 0, topH);
-    gg.addColorStop(0, 'rgba(255,227,138,0.28)');
-    gg.addColorStop(1, 'rgba(255,227,138,0)');
+    gg.addColorStop(0, 'rgba(255,200,69,0.34)');
+    gg.addColorStop(0.6, 'rgba(255,200,69,0.06)');
+    gg.addColorStop(1, 'rgba(255,200,69,0)');
     c.fillStyle = gg;
     c.fillRect(0, 0, W, topH);
+
+    c.fillStyle = COLORS.goldLt;
+    c.fillRect(0, 0, W, 1.5);
+    c.fillStyle = COLORS.gold;
+    c.fillRect(0, 1.5, W, 2);
+
+    c.strokeStyle = 'rgba(255,227,138,0.4)';
+    c.lineWidth = 1.8;
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    const gw = cell * 0.24;
+    const gy = topH - 5;
+    for (let x = cell * 0.3; x < W; x += cell * 0.5) {
+      c.beginPath();
+      c.moveTo(x - gw / 2, gy + 3);
+      c.lineTo(x, gy - 1);
+      c.lineTo(x + gw / 2, gy + 3);
+      c.stroke();
+    }
   }
 
   // Ambient shadow along the top edge — the row behind casting onto this one.
   const gs = c.createLinearGradient(0, 0, 0, Math.min(11, topH * 0.45));
-  gs.addColorStop(0, 'rgba(0,0,0,0.34)');
+  gs.addColorStop(0, 'rgba(0,0,0,0.38)');
   gs.addColorStop(1, 'rgba(0,0,0,0)');
   c.fillStyle = gs;
   c.fillRect(0, 0, W, Math.min(11, topH * 0.45));
@@ -429,49 +475,115 @@ function makePlanter({ cell, dpr }) {
   return { cv, w, h };
 }
 
-/** A virus blob: spiked disc with a glowing core. Eye-glow is drawn live. */
-function makeVirus({ cell, dpr, spikes = 9 }) {
-  const r = cell * 0.4;
-  const d = r * 2.7;
-  const { cv, c } = offscreen(d, d, dpr);
-  c.translate(d / 2, d / 2);
+/**
+ * A DEBT WEIGHT — this game's hazard, and nothing like the spiky blobs used
+ * elsewhere in the catalog. A squat cast-iron ingot: wide flat base, tapered
+ * shoulders, a lifting bar over the top and a molten seam glowing through the
+ * middle. The silhouette is deliberately bottom-heavy and horizontal, so it
+ * reads as MASS sliding across the lane rather than something alive — it is the
+ * cost of a missed payment, not a germ. Ember only; nothing green anywhere.
+ */
+function makeWeight({ cell, cellsWide, dpr, detail = true }) {
+  const w = cell * cellsWide;
+  const barH = w * 0.2;
+  const bodyH = w * 0.46;
+  const pad = 9;
+  const cw = w + pad * 2;
+  const ch = barH + bodyH + pad * 2 + 5;
+  const { cv, c } = offscreen(cw, ch, dpr);
+  c.translate(pad, pad);
 
-  c.fillStyle = COLORS.virus;
-  for (let i = 0; i < spikes; i++) {
-    const a = (i / spikes) * Math.PI * 2;
-    const cx = Math.cos(a);
-    const sy = Math.sin(a);
-    const px = -sy;
-    const py = cx;
-    const base = r * 0.86;
-    const tip = r * 1.28;
-    const half = r * 0.17;
+  const cx = w / 2;
+  const topY = barH;
+  const botY = barH + bodyH;
+  const halfTop = w * 0.32;
+  const halfBot = w * 0.5;
+
+  // Lifting bar over the shoulders.
+  c.strokeStyle = '#2A1008';
+  c.lineWidth = w * 0.085;
+  c.lineCap = 'round';
+  c.beginPath();
+  c.moveTo(cx - w * 0.2, topY + 1);
+  c.quadraticCurveTo(cx, -barH * 0.5, cx + w * 0.2, topY + 1);
+  c.stroke();
+  c.strokeStyle = 'rgba(255,180,120,0.45)';
+  c.lineWidth = w * 0.028;
+  c.beginPath();
+  c.moveTo(cx - w * 0.19, topY);
+  c.quadraticCurveTo(cx, -barH * 0.42, cx + w * 0.19, topY);
+  c.stroke();
+
+  // Ingot body — one trapezoid, corners rounded by a same-colour stroke.
+  const bodyPath = () => {
     c.beginPath();
-    c.moveTo(cx * base + px * half, sy * base + py * half);
-    c.lineTo(cx * tip, sy * tip);
-    c.lineTo(cx * base - px * half, sy * base - py * half);
+    c.moveTo(cx - halfTop, topY);
+    c.lineTo(cx + halfTop, topY);
+    c.lineTo(cx + halfBot, botY);
+    c.lineTo(cx - halfBot, botY);
     c.closePath();
-    c.fill();
+  };
+
+  const g = c.createLinearGradient(0, topY, 0, botY);
+  g.addColorStop(0, COLORS.debtLt);
+  g.addColorStop(0.34, COLORS.debt);
+  g.addColorStop(1, COLORS.debtDeep);
+
+  c.lineJoin = 'round';
+  c.shadowColor = COLORS.debtGlow;
+  c.shadowBlur = detail ? 12 : 0;
+  c.fillStyle = g;
+  c.strokeStyle = g;
+  c.lineWidth = w * 0.07;
+  bodyPath();
+  c.fill();
+  c.stroke();
+  c.shadowBlur = 0;
+
+  // Rim light along the lit top edge, and a dark undercut on the base.
+  c.strokeStyle = COLORS.debtHot;
+  c.lineWidth = 1.8;
+  c.beginPath();
+  c.moveTo(cx - halfTop + 2, topY + 0.5);
+  c.lineTo(cx + halfTop - 2, topY + 0.5);
+  c.stroke();
+  c.fillStyle = 'rgba(0,0,0,0.4)';
+  c.fillRect(cx - halfBot + 2, botY - 3, halfBot * 2 - 4, 3);
+
+  // Recessed centre plate with a molten seam and two down-chevrons: the hazard
+  // chevron points BACK down the course, the exact inverse of the gold gate
+  // chevrons, so direction alone tells you which markings help you.
+  const plateH = bodyH * 0.46;
+  const plateY = topY + bodyH * 0.28;
+  c.fillStyle = 'rgba(24,6,2,0.72)';
+  c.beginPath();
+  c.roundRect(cx - w * 0.26, plateY, w * 0.52, plateH, plateH * 0.35);
+  c.fill();
+
+  if (detail) {
+    c.strokeStyle = 'rgba(255,180,110,0.72)';
+    c.lineWidth = 1.7;
+    c.lineCap = 'round';
+    for (let i = 0; i < 2; i++) {
+      const yy = plateY + plateH * (0.3 + i * 0.38);
+      c.beginPath();
+      c.moveTo(cx - w * 0.11, yy - plateH * 0.14);
+      c.lineTo(cx, yy + plateH * 0.14);
+      c.lineTo(cx + w * 0.11, yy - plateH * 0.14);
+      c.stroke();
+    }
   }
 
-  const body = c.createRadialGradient(-r * 0.3, -r * 0.34, 1, 0, 0, r);
-  body.addColorStop(0, '#B6FBAE');
-  body.addColorStop(0.5, COLORS.virus);
-  body.addColorStop(1, '#127A28');
-  c.fillStyle = body;
+  // Ground contact shadow, baked in so the weight sits on the lane.
+  c.fillStyle = 'rgba(0,0,0,0.34)';
   c.beginPath();
-  c.arc(0, 0, r * 0.92, 0, Math.PI * 2);
+  c.ellipse(cx, botY + 3, halfBot * 0.96, 3.4, 0, 0, Math.PI * 2);
   c.fill();
 
-  c.fillStyle = COLORS.virusCore;
-  c.beginPath();
-  c.arc(0, 0, r * 0.52, 0, Math.PI * 2);
-  c.fill();
-
-  return { cv, d, r };
+  return { cv, cw, ch, w };
 }
 
-/** A coverage platform: glowing glass slab, `w` cells wide. */
+/** A coverage platform: glowing glass slab with a rim light, `w` cells wide. */
 function makePlatform({ w, cell, topH, dpr }) {
   const pw = w * cell;
   const ph = topH * 0.9;
@@ -481,9 +593,9 @@ function makePlatform({ w, cell, topH, dpr }) {
   c.translate(pad, pad);
 
   const g = c.createLinearGradient(0, 0, 0, ph);
-  g.addColorStop(0, 'rgba(150,199,255,0.5)');
-  g.addColorStop(0.5, COLORS.platformGlass);
-  g.addColorStop(1, 'rgba(30,107,224,0.42)');
+  g.addColorStop(0, 'rgba(178,215,255,0.62)');
+  g.addColorStop(0.42, COLORS.platformGlass);
+  g.addColorStop(1, 'rgba(12,58,132,0.5)');
 
   c.shadowColor = COLORS.brandBlueGlow;
   c.shadowBlur = 14;
@@ -499,21 +611,27 @@ function makePlatform({ w, cell, topH, dpr }) {
   c.roundRect(2, 2, pw - 4, ph - 4, ph * 0.3);
   c.stroke();
 
-  c.strokeStyle = 'rgba(255,255,255,0.45)';
-  c.lineWidth = 1.2;
+  // Specular rim along the top edge — the depth cue that separates a platform
+  // from the flat river band behind it.
+  c.strokeStyle = 'rgba(255,255,255,0.6)';
+  c.lineWidth = 1.4;
   c.beginPath();
-  c.moveTo(ph * 0.4, ph * 0.3);
-  c.lineTo(pw - ph * 0.4, ph * 0.3);
+  c.moveTo(ph * 0.45, ph * 0.26);
+  c.lineTo(pw - ph * 0.45, ph * 0.26);
   c.stroke();
 
-  // Corner cover ticks, so the safe footprint is legible at a glance.
-  c.fillStyle = 'rgba(255,255,255,0.7)';
-  for (let i = 0; i < 2; i++) {
-    const x = i === 0 ? ph * 0.32 : pw - ph * 0.32;
-    c.beginPath();
-    c.arc(x, ph * 0.62, 2.2, 0, Math.PI * 2);
-    c.fill();
-  }
+  // Up-chevron in the middle: the safe footprint, marked in the game's own
+  // shape language.
+  c.strokeStyle = 'rgba(226,240,255,0.85)';
+  c.lineWidth = 1.9;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  const chw = Math.min(cell * 0.2, pw * 0.16);
+  c.beginPath();
+  c.moveTo(pw / 2 - chw, ph * 0.68);
+  c.lineTo(pw / 2, ph * 0.46);
+  c.lineTo(pw / 2 + chw, ph * 0.68);
+  c.stroke();
 
   return { cv, pw, ph, pad };
 }
@@ -526,18 +644,34 @@ function makePlatform({ w, cell, topH, dpr }) {
 function buildPaints(ctx, cfg, W, H, cell) {
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, COLORS.skyTop);
-  sky.addColorStop(0.55, COLORS.skyMid);
+  sky.addColorStop(0.5, COLORS.skyMid);
   sky.addColorStop(1, COLORS.skyLow);
 
+  // Depth pass over the sky: a cool glow behind the course so the middle of the
+  // screen sits forward of the corners, and a vignette that darkens the frame
+  // edges. Together they stop the background competing with the slabs at 360px.
+  const skyGlow = ctx.createRadialGradient(
+    W / 2, H * 0.34, cell * 0.5, W / 2, H * 0.34, Math.max(W, H) * 0.78,
+  );
+  skyGlow.addColorStop(0, 'rgba(64,150,255,0.22)');
+  skyGlow.addColorStop(0.55, 'rgba(24,74,150,0.1)');
+  skyGlow.addColorStop(1, 'rgba(0,0,0,0)');
+
+  const vignette = ctx.createRadialGradient(
+    W / 2, H * 0.5, Math.min(W, H) * 0.34, W / 2, H * 0.5, Math.max(W, H) * 0.72,
+  );
+  vignette.addColorStop(0, 'rgba(0,0,0,0)');
+  vignette.addColorStop(1, 'rgba(2,7,18,0.62)');
+
   const tide = ctx.createLinearGradient(0, 0, 0, cfg.view.tideDepthPx);
-  tide.addColorStop(0, 'rgba(73,226,75,0.0)');
-  tide.addColorStop(0.16, 'rgba(73,226,75,0.42)');
+  tide.addColorStop(0, 'rgba(255,138,61,0.0)');
+  tide.addColorStop(0.14, 'rgba(255,122,45,0.4)');
   tide.addColorStop(0.5, COLORS.tideFogMid);
   tide.addColorStop(1, COLORS.tideFogDeep);
 
-  const topFade = ctx.createLinearGradient(0, 0, 0, 108);
-  topFade.addColorStop(0, 'rgba(6,16,34,0.72)');
-  topFade.addColorStop(1, 'rgba(6,16,34,0)');
+  const topFade = ctx.createLinearGradient(0, 0, 0, 92);
+  topFade.addColorStop(0, 'rgba(4,11,26,0.8)');
+  topFade.addColorStop(1, 'rgba(4,11,26,0)');
 
   const cr = cell * 0.2;
   const coin = ctx.createRadialGradient(-cr * 0.3, -cr * 0.35, 1, 0, 0, cr);
@@ -546,15 +680,18 @@ function buildPaints(ctx, cfg, W, H, cell) {
   coin.addColorStop(1, COLORS.goldDeep);
 
   const pw = cell * cfg.player.cubeFrac;
-  const body = ctx.createLinearGradient(0, -pw * 0.8, 0, 0);
-  body.addColorStop(0, '#3D86F5');
-  body.addColorStop(0.55, COLORS.brandBlueLt);
-  body.addColorStop(1, COLORS.brandBlue);
+  // Side-lit body: hot key light from the upper left falls off to brand blue and
+  // then to a near-black core, which is what gives the hopper volume instead of
+  // reading as a flat blue tile.
+  const body = ctx.createLinearGradient(-pw * 0.5, -pw * 0.8, pw * 0.5, 0);
+  body.addColorStop(0, '#6FB0FF');
+  body.addColorStop(0.42, COLORS.brandBlueLt);
+  body.addColorStop(1, '#00265F');
 
   // The lit top face sits roughly one cube-height above the ground point, so the
   // gradient has to be anchored there rather than at the origin.
   const bodyTop = ctx.createLinearGradient(0, -pw * 1.06, 0, -pw * 0.7);
-  bodyTop.addColorStop(0, '#A8CEFF');
+  bodyTop.addColorStop(0, '#CFE6FF');
   bodyTop.addColorStop(1, '#4E96FF');
 
   const sr = cell * 0.24;
@@ -563,7 +700,7 @@ function buildPaints(ctx, cfg, W, H, cell) {
   shield.addColorStop(0.5, COLORS.brandBlueLt);
   shield.addColorStop(1, COLORS.brandBlue);
 
-  return { sky, tide, topFade, coin, body, bodyTop, shield };
+  return { sky, skyGlow, vignette, tide, topFade, coin, body, bodyTop, shield };
 }
 
 /* ─── Entity draw functions (all programmatic — no emoji, no images) ── */
@@ -619,23 +756,41 @@ function drawShieldToken(ctx, paints, cell, x, y, time, shadows) {
   ctx.restore();
 }
 
-function drawVirusSprite(ctx, sprite, x, y, time, phase, shadows) {
-  const pulse = 1 + Math.sin(time * 5 + phase) * 0.07;
+/**
+ * A debt weight sliding down its lane. Motion is deliberately heavy: it rocks
+ * on its base rather than spinning, sinks a little on each rock, and drags a
+ * short ember scrape behind it in its direction of travel. No allocation — the
+ * scrape is two fills and the heat seam is one.
+ */
+function drawWeight(ctx, sprite, x, y, time, phase, dir, shadows) {
+  const rock = Math.sin(time * 2.3 + phase) * 0.075;
+  const bob = Math.abs(Math.sin(time * 2.3 + phase)) * sprite.w * 0.022;
+  const heat = 0.45 + 0.55 * Math.abs(Math.sin(time * 3.4 + phase));
+
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(Math.sin(time * 1.1 + phase) * 0.4);
-  ctx.scale(pulse, pulse);
-  ctx.drawImage(sprite.cv, -sprite.d / 2, -sprite.d / 2, sprite.d, sprite.d);
-  // Eye glow: the one live detail, so the blob reads as awake rather than drawn.
-  const glow = 0.45 + 0.55 * Math.abs(Math.sin(time * 2.6 + phase));
+
+  // Drag scrape: two tapering ember strokes trailing the direction of travel.
+  ctx.globalAlpha = 0.34 + heat * 0.26;
+  ctx.fillStyle = COLORS.debtLt;
+  const tail = -dir * sprite.w * 0.5;
+  ctx.fillRect(tail, sprite.w * 0.16, -dir * sprite.w * 0.46, 2);
+  ctx.globalAlpha = 0.18 + heat * 0.16;
+  ctx.fillRect(tail, sprite.w * 0.22, -dir * sprite.w * 0.7, 1.4);
+  ctx.globalAlpha = 1;
+
+  ctx.rotate(rock);
+  ctx.translate(0, bob);
+  ctx.drawImage(sprite.cv, -sprite.cw / 2, -sprite.ch / 2, sprite.cw, sprite.ch);
+
+  // Molten seam through the centre plate — the one live detail, so the weight
+  // reads as hot iron rather than a decal.
   if (shadows) {
-    ctx.shadowColor = 'rgba(180,255,170,0.9)';
-    ctx.shadowBlur = 6 + glow * 8;
+    ctx.shadowColor = COLORS.debtGlow;
+    ctx.shadowBlur = 4 + heat * 9;
   }
-  ctx.fillStyle = `rgba(214,255,206,${0.55 + glow * 0.4})`;
-  ctx.beginPath();
-  ctx.arc(0, 0, sprite.r * 0.24, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillStyle = `rgba(255,214,160,${0.4 + heat * 0.5})`;
+  ctx.fillRect(-sprite.w * 0.2, -sprite.w * 0.01, sprite.w * 0.4, 1.8);
   ctx.restore();
 }
 
@@ -657,7 +812,12 @@ function drawPlatform(ctx, sprite, x, centerY, time, phase) {
   ctx.restore();
 }
 
-/** The guardian: a rounded cube with a lit top face and a visor that turns. */
+/**
+ * The hopper: a rounded cube with a lit top face, a hard rim light down its key
+ * side, a dark contact edge down the other, a visor that turns with the facing
+ * direction, and a gold double-chevron on the chest — the same chevron the
+ * milestone gates use, so the player and the goal share one shape language.
+ */
 function drawGuardian(ctx, paints, cfg, s, gx, gy, lift, cell, time) {
   const w = cell * cfg.player.cubeFrac;
   const bodyH = w * 0.8;
@@ -713,6 +873,22 @@ function drawGuardian(ctx, paints, cfg, s, gx, gy, lift, cell, time) {
   ctx.roundRect(-w / 2, -bodyH, w, bodyH, w * 0.26);
   ctx.fill();
 
+  // Rim light down the key side and a dark contact edge down the shadow side.
+  // Two strokes are the whole difference between a blue tile and a solid body.
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(198,228,255,0.8)';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.5 + 1.2, -bodyH * 0.76);
+  ctx.lineTo(-w * 0.5 + 1.2, -bodyH * 0.18);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,16,44,0.55)';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.5 - 1.4, -bodyH * 0.7);
+  ctx.lineTo(w * 0.5 - 1.4, -bodyH * 0.14);
+  ctx.stroke();
+
   // Lit top face, offset up to read as a cube seen slightly from above.
   ctx.fillStyle = paints.bodyTop;
   ctx.beginPath();
@@ -730,38 +906,72 @@ function drawGuardian(ctx, paints, cfg, s, gx, gy, lift, cell, time) {
   ctx.roundRect(-w * 0.26 + vx, -bodyH * 0.78, w * 0.3, bodyH * 0.14, bodyH * 0.07);
   ctx.fill();
 
-  // Chest crest.
-  ctx.fillStyle = COLORS.goldLt;
-  ctx.beginPath();
-  ctx.moveTo(0, -bodyH * 0.46);
-  ctx.lineTo(w * 0.17, -bodyH * 0.38);
-  ctx.quadraticCurveTo(w * 0.17, -bodyH * 0.1, 0, -bodyH * 0.02);
-  ctx.quadraticCurveTo(-w * 0.17, -bodyH * 0.1, -w * 0.17, -bodyH * 0.38);
-  ctx.closePath();
-  ctx.fill();
+  // Chest crest: gold double-chevron pointing up-course.
+  ctx.strokeStyle = COLORS.goldLt;
+  ctx.lineWidth = Math.max(1.6, w * 0.072);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 2; i++) {
+    const yy = -bodyH * (0.4 - i * 0.19);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.17, yy);
+    ctx.lineTo(0, yy - bodyH * 0.14);
+    ctx.lineTo(w * 0.17, yy);
+    ctx.stroke();
+  }
 
   ctx.globalAlpha = 1;
   ctx.restore();
 }
 
-/** Milestone rows carry their life stage across the band. */
-function drawGoalLabel(ctx, label, W, y, topH, font, hit) {
+/**
+ * A milestone gate: the life-stage name flanked by gold chevrons, which brighten
+ * to green once the gate has been passed. The chevrons are what make the row
+ * read as a gate rather than as decorative text on a green band.
+ */
+function drawGoalLabel(ctx, label, W, y, topH, font, hit, time) {
+  const text = label.toUpperCase();
+  const ty = y + topH * 0.5;
+  const tint = hit ? COLORS.greenLt : COLORS.goldLt;
+
   ctx.save();
   ctx.font = font;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const ty = y + topH * 0.5;
-  ctx.fillStyle = 'rgba(6,32,15,0.5)';
-  ctx.fillText(label.toUpperCase(), W / 2, ty + 1.5);
-  ctx.fillStyle = hit ? COLORS.goldLt : 'rgba(255,255,255,0.94)';
-  ctx.fillText(label.toUpperCase(), W / 2, ty);
+
+  const halfText = ctx.measureText(text).width / 2;
+  const pulse = hit ? 1 : 0.55 + 0.45 * Math.abs(Math.sin(time * 2.2));
+  const size = topH * 0.24;
+
+  ctx.strokeStyle = tint;
+  ctx.globalAlpha = pulse;
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let s = -1; s <= 1; s += 2) {
+    for (let i = 0; i < 2; i++) {
+      const cx = W / 2 + s * (halfText + 12 + i * 9);
+      ctx.beginPath();
+      ctx.moveTo(cx - size * 0.55, ty + size * 0.42);
+      ctx.lineTo(cx, ty - size * 0.42);
+      ctx.lineTo(cx + size * 0.55, ty + size * 0.42);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = 'rgba(4,26,12,0.6)';
+  ctx.fillText(text, W / 2, ty + 1.5);
+  ctx.fillStyle = hit ? COLORS.greenLt : '#FFFFFF';
+  ctx.fillText(text, W / 2, ty);
   ctx.restore();
 }
 
 /**
- * The risk tide: a fog wall with a live top edge and virus silhouettes inside.
- * The gradient is pre-built from the origin, so the whole wall is one translate
- * plus one fill however far up the course it has climbed.
+ * The arrears tide: an ember smoke wall with a live burning crest and the
+ * silhouettes of debt weights tumbling inside it. The gradient is pre-built from
+ * the origin, so the whole wall is one translate plus one fill however far up
+ * the course it has climbed.
  */
 function drawTide(ctx, paints, cfg, W, H, topY, time, shadows) {
   if (topY > H + 4) return;
@@ -786,34 +996,42 @@ function drawTide(ctx, paints, cfg, W, H, topY, time, shadows) {
   ctx.fillStyle = paints.tide;
   ctx.fillRect(0, -20, W, h + 20);
 
-  // Silhouettes drifting inside the fog: the risk you can see coming.
-  ctx.fillStyle = 'rgba(6,44,20,0.5)';
+  // Silhouettes tumbling inside the smoke: the same trapezoid ingot as the lane
+  // hazard, so the tide is legibly "more of what already killed you".
+  ctx.fillStyle = 'rgba(58,12,4,0.62)';
   for (let i = 0; i < 6; i++) {
     const px = ((i * 0.173 + time * 0.045 * (i % 2 ? 1 : -1)) % 1 + 1) % 1;
     const cx = px * (W + 80) - 40;
     const cy = 26 + i * 26 + Math.sin(time * 1.3 + i) * 7;
     if (cy > h) continue;
-    const r = 11 + (i % 3) * 3;
+    const r = 12 + (i % 3) * 3.5;
+    const tilt = Math.sin(time * 0.9 + i * 1.4) * 0.5;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(tilt);
     ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.moveTo(-r * 0.62, -r * 0.42);
+    ctx.lineTo(r * 0.62, -r * 0.42);
+    ctx.lineTo(r, r * 0.42);
+    ctx.lineTo(-r, r * 0.42);
+    ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = 'rgba(6,44,20,0.5)';
-    ctx.lineWidth = 2.4;
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2 + time * 0.4;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
-      ctx.lineTo(cx + Math.cos(a) * (r + 5), cy + Math.sin(a) * (r + 5));
-      ctx.stroke();
-    }
+    ctx.strokeStyle = 'rgba(58,12,4,0.62)';
+    ctx.lineWidth = r * 0.2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.36, -r * 0.42);
+    ctx.quadraticCurveTo(0, -r * 1.05, r * 0.36, -r * 0.42);
+    ctx.stroke();
+    ctx.restore();
   }
   ctx.restore();
 
-  // Bright crest so the boundary is unmistakable.
-  ctx.strokeStyle = `rgba(150,255,150,${0.55 + 0.25 * Math.sin(time * 4)})`;
+  // Burning crest so the boundary is unmistakable.
+  ctx.strokeStyle = `rgba(255,190,130,${0.6 + 0.25 * Math.sin(time * 4)})`;
   ctx.lineWidth = 2.4;
   if (shadows) {
-    ctx.shadowColor = 'rgba(73,226,75,0.85)';
+    ctx.shadowColor = COLORS.debtGlow;
     ctx.shadowBlur = 12;
   }
   ctx.beginPath();
@@ -824,6 +1042,33 @@ function drawTide(ctx, paints, cfg, W, H, topY, time, shadows) {
   ctx.stroke();
   ctx.restore();
 }
+
+/* ─── HUD glyphs ─────────────────────────────────────────── */
+/** The game's mark: a double chevron pointing up-course. */
+function ChevronMark({ size = 14, color = '#fff' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+      strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 13l6-6 6 6" />
+      <path d="M6 19l6-6 6 6" opacity="0.55" />
+    </svg>
+  );
+}
+
+/** Tapping finger, used by the in-game hint and by the How to Play demo. */
+function FingerGlyph({ size = 20, color = '#fff' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+      strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10 11V5.5a1.8 1.8 0 0 1 3.6 0V12" />
+      <path d="M13.6 12V9.6a1.7 1.7 0 0 1 3.4 0V16a5 5 0 0 1-5 5h-1a4 4 0 0 1-3.2-1.6l-2.6-3.5a1.6 1.6 0 0 1 2.4-2L9.6 15" />
+    </svg>
+  );
+}
+
+const MILESTONE_ROWS = (cfg) => Object.keys(cfg.milestoneRows)
+  .map(Number)
+  .sort((a, b) => a - b);
 
 /* ─── Component ──────────────────────────────────────────── */
 export default function MilestoneHopperGame({ config, onWin, onLose }) {
@@ -892,7 +1137,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       paints: null,
       slabs: null,
       planter: null,
-      virus: null,
+      weight: null,
       platforms: null,
       fontGoal: '',
       effects: null,
@@ -983,7 +1228,12 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         goal: makeSlab({ ...slabArgs, kind: 'goal' }),
       };
       s.planter = makePlanter({ cell: s.cell, dpr: s.dpr });
-      s.virus = makeVirus({ cell: s.cell, dpr: s.dpr, spikes: tier === 'low' ? 7 : 9 });
+      s.weight = makeWeight({
+        cell: s.cell,
+        cellsWide: cfg.roads.weightCells,
+        dpr: s.dpr,
+        detail: tier !== 'low',
+      });
       s.platforms = {};
       for (let pw = cfg.rivers.platformCells[0]; pw <= cfg.rivers.platformCells[1]; pw++) {
         s.platforms[pw] = makePlatform({ w: pw, cell: s.cell, topH: s.topH, dpr: s.dpr });
@@ -1041,7 +1291,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
           x: bx, y: by - 20, count: cfg.fx.winParticles, color: COLORS.greenLt,
           speed: 230, spread: Math.PI * 2, size: 4, life: 1.2, gravity: 400, drag: 0.94,
         });
-        fx.floatText(bx, Math.max(34, by - 52), 'RETIREMENT SECURED', COLORS.goldLt, 18);
+        fx.floatText(bx, Math.max(34, by - 52), 'RETIREMENT', COLORS.goldLt, 18);
       } else {
         audio.failure();
         haptic('failure');
@@ -1050,15 +1300,15 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         // rather than simply stopping.
         s.landT = cfg.player.landSquashSeconds;
         s.hurtFlash = cfg.hud.endBeatMs / 1000;
-        const tint = cause === 'virus' ? COLORS.virus
-          : cause === 'timeout' ? COLORS.orangeLt : COLORS.greenLt;
+        const tint = cause === 'river' ? '#7FB8D8'
+          : cause === 'timeout' ? COLORS.orangeLt : COLORS.debtLt;
         fx.burst({
           x: bx, y: by, count: cfg.fx.hitParticles, color: tint,
           speed: 260, spread: Math.PI * 2, size: 4, life: 0.8, gravity: 640, drag: 0.9,
         });
-        const label = cause === 'virus' ? 'RISK HIT'
+        const label = cause === 'debt' ? 'DEBT HIT'
           : cause === 'river' ? 'SWEPT AWAY'
-            : cause === 'tide' ? 'RISK CAUGHT UP' : 'TIME UP';
+            : cause === 'tide' ? 'ARREARS CAUGHT UP' : 'TIME UP';
         fx.floatText(bx, Math.max(30, by - 44), label, COLORS.danger, 17);
       }
 
@@ -1067,8 +1317,8 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       }, cfg.hud.endBeatMs);
     };
 
-    const showBanner = (label, points) => {
-      setBanner({ id: s.milestones, label, points });
+    const showBanner = (label) => {
+      setBanner({ id: s.milestones, label });
       clearTimeout(bannerTimerRef.current);
       bannerTimerRef.current = setTimeout(() => setBanner(null), cfg.fx.bannerSeconds * 1000);
     };
@@ -1161,7 +1411,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         if (!pl) {
           fx.burst({
             x: colX(p.col), y: groundY(p.row), count: cfg.fx.hitParticles,
-            color: COLORS.greenLt, speed: 170, spread: Math.PI * 2,
+            color: '#7FB8D8', speed: 170, spread: Math.PI * 2,
             size: 3.4, life: 0.7, gravity: 260, drag: 0.9,
           });
           endRun(false, 'river');
@@ -1195,7 +1445,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
           color: COLORS.brandBlueLt, speed: 200, spread: Math.PI * 2, size: 3.4,
           life: 0.6, gravity: 200, drag: 0.9,
         });
-        fx.floatText(colX(p.col), groundY(p.row) - s.cell * 0.6, 'COVER ON', '#9FCCFF', 15);
+        fx.floatText(colX(p.col), groundY(p.row) - s.cell * 0.6, 'COVER', '#9FCCFF', 15);
       }
 
       if (row.label && !row.banner) {
@@ -1206,10 +1456,10 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         audio.powerUp();
         audio.combo(s.milestones);
         haptic('success');
-        showBanner(row.label, cfg.scoring.milestone);
+        showBanner(row.label);
         fx.burst({
           x: colX(p.col), y: groundY(p.row), count: cfg.fx.milestoneParticles,
-          color: COLORS.greenLt, speed: 250, spread: Math.PI * 2, size: 3.6,
+          color: COLORS.gold, speed: 250, spread: Math.PI * 2, size: 3.6,
           life: 0.8, gravity: 320, drag: 0.92,
         });
         fx.floatText(colX(p.col), groundY(p.row) - s.cell * 0.7,
@@ -1241,8 +1491,8 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       for (let r = from; r <= to; r++) {
         const row = course.rows[r];
         if (row.road) {
-          // Viruses live on a cycle anchored at `lo`, which is longer than the
-          // visible span: the extra length is the wait between blobs.
+          // Weights live on a cycle anchored at `lo`, which is longer than the
+          // visible span: the extra length is the wait between weights.
           const lane = row.road;
           const step = lane.dir * lane.speed * dt;
           const cyc = lane.cycle;
@@ -1304,7 +1554,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       }
     };
 
-    const checkViruses = () => {
+    const checkWeights = () => {
       if (s.invuln > 0) return;
       const r = effRow();
       if (r < 0 || r > N) return;
@@ -1319,7 +1569,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         const hy = groundY(r);
         fx.addShake(cfg.fx.damageShake);
         fx.burst({
-          x: hx, y: hy, count: cfg.fx.hitParticles, color: COLORS.virus,
+          x: hx, y: hy, count: cfg.fx.hitParticles, color: COLORS.debtLt,
           speed: 240, spread: Math.PI * 2, size: 3.6, life: 0.6, gravity: 480, drag: 0.9,
         });
 
@@ -1331,9 +1581,9 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
           fx.addHitStop(budget.hitStopSeconds > 0 ? cfg.fx.hitStopSeconds : 0);
           audio.hit();
           haptic('medium');
-          fx.floatText(hx, hy - s.cell * 0.55, 'COVER USED', '#9FCCFF', 15);
+          fx.floatText(hx, hy - s.cell * 0.55, 'SAVED', '#9FCCFF', 15);
         } else {
-          endRun(false, 'virus');
+          endRun(false, 'debt');
         }
         return;
       }
@@ -1382,7 +1632,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       if (s.ended) return;
       carryPlayer();
       if (s.ended) return;
-      checkViruses();
+      checkWeights();
       if (s.ended) return;
       advanceTide(dt);
       if (s.ended) return;
@@ -1422,13 +1672,13 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         for (let i = 0; i < lane.xs.length; i++) {
           const x = lane.xs[i];
           if (x < -1.6 || x > cols + 0.6) continue;
-          drawVirusSprite(ctx, s.virus, colX(x), midY, time, lane.phases[i], s.shadows);
+          drawWeight(ctx, s.weight, colX(x), midY, time, lane.phases[i], lane.dir, s.shadows);
         }
         return;
       }
 
       if (row.type === 'goal') {
-        drawGoalLabel(ctx, row.label, s.W, y, s.topH, s.fontGoal, row.banner);
+        drawGoalLabel(ctx, row.label, s.W, y, s.topH, s.fontGoal, row.banner, time);
         return;
       }
 
@@ -1450,6 +1700,8 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       ctx.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
 
       ctx.fillStyle = paints.sky;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = paints.skyGlow;
       ctx.fillRect(0, 0, W, H);
 
       fx.beginCamera(ctx);
@@ -1492,8 +1744,10 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       fx.draw(ctx);
       fx.endCamera(ctx);
 
+      ctx.fillStyle = paints.vignette;
+      ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = paints.topFade;
-      ctx.fillRect(0, 0, W, 108);
+      ctx.fillRect(0, 0, W, 92);
 
       /* --- HUD values written straight to the DOM ---------------------
          The score counter and row readout change many times a second. Routing
@@ -1555,7 +1809,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
   }, []);
 
   const lowTime = timeLeft <= cfg.hud.lowTimeSeconds;
-  const totalMilestones = Object.keys(cfg.milestoneRows).length;
+  const marks = MILESTONE_ROWS(cfg);
 
   return (
     <div style={styles.root}>
@@ -1564,88 +1818,95 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       <div ref={wrapRef} style={styles.stage} className="mh-stage">
         <canvas ref={canvasRef} style={styles.canvas} />
 
-        {/* HUD ------------------------------------------------------- */}
+        {/* HUD — icon + number only, no panels, no labels ------------- */}
         <div style={styles.hudTop}>
-          <div style={styles.pill}>
-            <span style={styles.pillLabel}>Score</span>
-            <span ref={scoreElRef} style={styles.pillValue}>0</span>
+          <div style={styles.chip}>
+            <ChevronMark size={13} color={COLORS.goldLt} />
+            <span ref={scoreElRef} style={styles.chipValue}>0</span>
           </div>
-          <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Time</span>
+          <div style={styles.chip}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke={lowTime ? COLORS.orangeLt : 'rgba(255,255,255,0.8)'} strokeWidth="2.6"
+              strokeLinecap="round" aria-hidden="true">
+              <circle cx="12" cy="13" r="8" />
+              <path d="M12 9v4l2.5 2M9 2h6" />
+            </svg>
             <span style={{
-              ...styles.pillValue,
+              ...styles.chipValue,
               color: lowTime ? COLORS.orangeLt : '#fff',
               animation: lowTime ? 'mhPulse 0.9s ease-in-out infinite' : 'none',
             }}>
-              {timeLeft}s
+              {timeLeft}
             </span>
           </div>
         </div>
 
-        <div style={styles.progressWrap}>
-          <div style={styles.progressPill}>
-            <span style={styles.progressText}>
-              <span ref={rowElRef}>0</span>
-              <span style={{ opacity: 0.55 }}> / {cfg.totalRows} rows</span>
-            </span>
-            <div style={styles.track}>
-              <div ref={barElRef} style={styles.trackFill} />
-            </div>
-            <div style={styles.dots}>
-              {Array.from({ length: totalMilestones }).map((_, i) => (
-                <span
-                  key={i}
-                  style={{
-                    ...styles.dot,
-                    background: i < milestonesHit ? COLORS.greenLt : 'rgba(255,255,255,0.2)',
-                    boxShadow: i < milestonesHit ? `0 0 7px ${COLORS.greenLt}` : 'none',
-                  }}
-                />
-              ))}
-            </div>
+        {/* Milestone rail: a hairline, six notches, zero words -------- */}
+        <div style={styles.rail}>
+          <div style={styles.railTrack}>
+            <div ref={barElRef} style={styles.railFill} />
           </div>
+          {marks.map((row, i) => (
+            <span
+              key={row}
+              style={{
+                ...styles.notch,
+                left: `${(row / cfg.totalRows) * 100}%`,
+                background: i < milestonesHit ? COLORS.greenLt : 'rgba(255,255,255,0.28)',
+                boxShadow: i < milestonesHit ? `0 0 8px ${COLORS.greenLt}` : 'none',
+                transform: `translate(-50%,-50%) scale(${i < milestonesHit ? 1.2 : 1})`,
+              }}
+            />
+          ))}
+          {/* Hidden live row readout — kept for assistive tech only. */}
+          <span ref={rowElRef} style={styles.srOnly}>0</span>
         </div>
 
-        {/* Cover + tide indicators ----------------------------------- */}
+        {/* Status badges — icon only --------------------------------- */}
         <div style={styles.statusWrap}>
           {shieldOn && (
-            <div style={{ ...styles.status, borderColor: 'rgba(126,184,255,0.55)' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9FCCFF"
+            <div style={{ ...styles.badge, borderColor: 'rgba(126,184,255,0.6)', background: 'rgba(16,52,110,0.62)' }}
+              title="Cover active">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9FCCFF"
                 strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
               </svg>
-              <span style={{ color: '#9FCCFF' }}>Cover</span>
             </div>
           )}
           {tideNear && !over && (
-            <div className="mh-warn" style={{ ...styles.status, borderColor: 'rgba(73,226,75,0.6)' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={COLORS.virus}
+            <div className="mh-warn" title="Arrears tide closing"
+              style={{ ...styles.badge, borderColor: 'rgba(255,138,61,0.7)', background: 'rgba(96,26,10,0.7)' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={COLORS.debtLt}
                 strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M6 15l6-6 6 6" />
-                <path d="M6 9l6-6 6 6" opacity="0.55" />
+                <path d="M6 9l6 6 6-6" />
+                <path d="M6 15l6 6 6-6" opacity="0.5" />
               </svg>
-              <span style={{ color: COLORS.virus }}>Risk tide</span>
             </div>
           )}
         </div>
 
-        {/* Milestone banner ------------------------------------------ */}
+        {/* Milestone banner — slim gold gate pill --------------------- */}
         {banner && (
           <div key={banner.id} style={styles.bannerWrap} className="mh-banner">
             <div style={styles.banner}>
-              <span style={styles.bannerLabel}>Milestone reached</span>
+              <ChevronMark size={13} color={COLORS.goldLt} />
               <span style={styles.bannerTitle}>{banner.label}</span>
-              <span style={styles.bannerPoints}>+{banner.points}</span>
+              <ChevronMark size={13} color={COLORS.goldLt} />
             </div>
           </div>
         )}
 
-        {/* First-run hint -------------------------------------------- */}
+        {/* First-run hint — glyphs, not a sentence -------------------- */}
         {hint && !over && (
           <div style={styles.hintWrap} className="mh-hint">
             <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>Tap</strong> to hop forward ·{' '}
-              <strong style={{ color: COLORS.orangeLt }}>Swipe</strong> to steer
+              <FingerGlyph size={18} />
+              <ChevronMark size={12} color={COLORS.orangeLt} />
+              <span style={styles.hintDivider} />
+              <svg width="20" height="14" viewBox="0 0 26 14" fill="none" stroke={COLORS.orangeLt}
+                strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 7h16M8 3.5 4.5 7 8 10.5M18 3.5 21.5 7 18 10.5" />
+              </svg>
             </div>
           </div>
         )}
@@ -1742,7 +2003,7 @@ const styles = {
   canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
   hudTop: {
     position: 'absolute',
-    top: 10,
+    top: 9,
     left: 10,
     right: 10,
     display: 'flex',
@@ -1751,77 +2012,72 @@ const styles = {
     pointerEvents: 'none',
     zIndex: 4,
   },
-  pill: {
+  chip: {
     ...glass,
     display: 'flex',
-    flexDirection: 'column',
-    borderRadius: 12,
-    padding: '5px 12px',
-    minWidth: 74,
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    padding: '4px 11px 4px 9px',
+    height: 28,
   },
-  pillLabel: {
-    fontSize: 8,
-    fontWeight: 800,
-    letterSpacing: '0.16em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
-  },
-  pillValue: {
-    fontSize: 19,
+  chipValue: {
+    fontSize: 17,
     fontWeight: 900,
     color: '#fff',
-    lineHeight: 1.15,
+    lineHeight: 1,
     fontVariantNumeric: 'tabular-nums',
     display: 'inline-block',
   },
-  progressWrap: {
+  // Milestone rail: one hairline across the top with six notches on it. No
+  // counter, no panel — the "+N" that used to justify the panel now floats at
+  // the point of action instead.
+  rail: {
     position: 'absolute',
-    top: 62,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
+    top: 45,
+    left: 14,
+    right: 14,
+    height: 10,
     pointerEvents: 'none',
     zIndex: 4,
   },
-  progressPill: { ...glass, borderRadius: 12, padding: '6px 14px 7px', minWidth: 176, textAlign: 'center' },
-  progressText: {
-    fontSize: 12,
-    fontWeight: 800,
-    color: '#fff',
-    letterSpacing: '0.04em',
-    fontVariantNumeric: 'tabular-nums',
-  },
-  track: {
-    marginTop: 5,
-    height: 5,
-    borderRadius: 3,
-    background: 'rgba(255,255,255,0.14)',
+  railTrack: {
+    position: 'absolute',
+    top: 4,
+    left: 0,
+    right: 0,
+    height: 3,
+    borderRadius: 2,
+    background: 'rgba(255,255,255,0.16)',
     overflow: 'hidden',
   },
-  trackFill: {
+  railFill: {
     height: '100%',
     width: '0%',
-    borderRadius: 3,
-    background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.greenLt})`,
+    borderRadius: 2,
+    background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.gold})`,
     transition: 'width 180ms linear',
   },
-  dots: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 6,
-  },
-  dot: {
+  notch: {
+    position: 'absolute',
+    top: 5.5,
     width: 6,
     height: 6,
     borderRadius: '50%',
     display: 'inline-block',
-    transition: 'background 240ms ease, box-shadow 240ms ease',
+    transition: 'background 240ms ease, box-shadow 240ms ease, transform 240ms ease',
+  },
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    overflow: 'hidden',
+    clip: 'rect(0 0 0 0)',
+    whiteSpace: 'nowrap',
   },
   statusWrap: {
     position: 'absolute',
-    top: 138,
+    top: 62,
     left: 10,
     right: 10,
     display: 'flex',
@@ -1830,21 +2086,20 @@ const styles = {
     pointerEvents: 'none',
     zIndex: 4,
   },
-  status: {
-    ...glass,
+  badge: {
     display: 'flex',
     alignItems: 'center',
-    gap: 5,
-    borderRadius: 999,
-    padding: '4px 10px',
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
+    justifyContent: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: '50%',
+    border: '1px solid',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
   },
   bannerWrap: {
     position: 'absolute',
-    top: '30%',
+    top: '28%',
     left: 0,
     right: 0,
     display: 'flex',
@@ -1854,27 +2109,24 @@ const styles = {
   },
   banner: {
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
-    gap: 2,
-    padding: '12px 26px',
-    borderRadius: 18,
-    background: 'linear-gradient(180deg, rgba(40,167,69,0.95), rgba(18,92,40,0.95))',
-    border: '1px solid rgba(255,255,255,0.28)',
-    boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
+    gap: 8,
+    padding: '7px 16px',
+    borderRadius: 999,
+    background: 'linear-gradient(180deg, rgba(20,44,86,0.95), rgba(6,18,40,0.95))',
+    border: `1px solid ${COLORS.gold}`,
+    boxShadow: '0 10px 26px rgba(0,0,0,0.5), 0 0 18px rgba(255,200,69,0.28)',
   },
-  bannerLabel: {
-    fontSize: 8,
+  bannerTitle: {
+    fontSize: 16,
     fontWeight: 900,
-    letterSpacing: '0.2em',
+    color: '#fff',
+    letterSpacing: '0.02em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.8)',
   },
-  bannerTitle: { fontSize: 21, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' },
-  bannerPoints: { fontSize: 13, fontWeight: 900, color: COLORS.goldLt },
   hintWrap: {
     position: 'absolute',
-    bottom: 66,
+    bottom: 64,
     left: 12,
     right: 12,
     display: 'flex',
@@ -1885,11 +2137,17 @@ const styles = {
   hint: {
     ...glass,
     borderRadius: 999,
-    padding: '9px 16px',
-    fontSize: 12,
-    fontWeight: 700,
+    padding: '7px 15px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
     color: 'rgba(255,255,255,0.92)',
-    textAlign: 'center',
+  },
+  hintDivider: {
+    width: 1,
+    height: 14,
+    background: 'rgba(255,255,255,0.22)',
+    display: 'inline-block',
   },
   pauseVeil: {
     position: 'absolute',

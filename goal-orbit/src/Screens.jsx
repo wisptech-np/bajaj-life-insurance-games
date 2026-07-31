@@ -122,15 +122,30 @@ const SCREEN_CSS = `
 @keyframes goChip    { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
 @keyframes goCoinPop { 0%,100% { opacity: 0.35; transform: scale(0.75); } 50% { opacity: 1; transform: scale(1.15); } }
 
-/* Beat 1 — tap to release tangentially. */
-@keyframes goB1Ping  { 0%,16% { opacity: 0; transform: scale(0.45); } 26% { opacity: 1; transform: scale(1); } 46%,100% { opacity: 0; transform: scale(1.75); } }
-@keyframes goB1Fly   { 0%,26% { transform: translate(0,0); opacity: 1; } 72% { transform: translate(36px,-24px); opacity: 1; } 88%,100% { transform: translate(54px,-36px); opacity: 0; } }
-/* Beat 2 — the transfer arc into the next ring. */
-@keyframes goB2Fly   { 0% { transform: translate(0,0); opacity: 0; } 12% { opacity: 1; } 52% { transform: translate(23px,-15px); } 88% { transform: translate(45px,-31px); opacity: 1; } 100% { transform: translate(45px,-31px); opacity: 0; } }
-@keyframes goB2Lock  { 0%,74% { opacity: 0; transform: scale(1.5); } 88% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
-/* Beat 3 — the rock sweeps across the line; you leave a beat later. */
-@keyframes goB3Rock  { 0%,100% { transform: translate(0,-15px); } 50% { transform: translate(0,15px); } }
-@keyframes goB3Fly   { 0%,14% { transform: translate(0,0); opacity: 0; } 22% { opacity: 1; } 92% { transform: translate(50px,-30px); opacity: 1; } 100% { transform: translate(50px,-30px); opacity: 0; } }
+/* How-to-play demo — one 4.2s transfer. The comet's keyframes trace the real
+   geometry: five sampled points around the r=32 orbit of the planet at (66,132),
+   then a straight run from the TANGENT point (58,101) to the capture ring at
+   (224,56). That release point is the exact solution of "AR perpendicular to RB"
+   for those two planets, so the straight leg genuinely leaves the circle at a
+   tangent rather than merely looking like it might. */
+@keyframes goDScene  { 0%,1% { opacity: 0; } 3%,96% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes goDComet {
+  0%   { transform: translate(96.9px, 123.6px); }
+  13%  { transform: translate(85.6px, 157.3px); }
+  26%  { transform: translate(50.1px, 159.8px); }
+  39%  { transform: translate(34.3px, 127.9px); }
+  52%  { transform: translate(57.6px, 101.1px); }
+  60%  { transform: translate(100px, 89.5px); }
+  70%  { transform: translate(145px, 77.4px); }
+  78%  { transform: translate(190px, 65.2px); }
+  84%  { transform: translate(224px, 56px); }
+  100% { transform: translate(224px, 56px); }
+}
+@keyframes goDPing   { 0%,50% { opacity: 0; transform: scale(0.4); } 58% { opacity: 1; transform: scale(1); } 72%,100% { opacity: 0; transform: scale(1.7); } }
+@keyframes goDLock   { 0%,80% { opacity: 0; transform: scale(1.6); } 90% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+@keyframes goDPath   { 0%,48% { opacity: 0; } 56%,86% { opacity: 0.85; } 94%,100% { opacity: 0; } }
+@keyframes goDFinger { 0%,42% { opacity: 0; transform: translateY(12px); } 52%,60% { opacity: 1; transform: translateY(0); } 70%,100% { opacity: 0; transform: translateY(12px); } }
+@keyframes goDRock   { 0%,100% { transform: translate(0,-20px); } 50% { transform: translate(0,20px); } }
 
 .go-title { animation: goTitleIn 720ms cubic-bezier(0.22,1,0.36,1) both; }
 .go-float { animation: goFloat 5s ease-in-out infinite; }
@@ -144,13 +159,13 @@ const SCREEN_CSS = `
 .go-ring-a  { animation: goSpin 22s linear infinite; transform-box: view-box; transform-origin: 62px 120px; }
 .go-ring-b  { animation: goSpinRev 18s linear infinite; transform-box: view-box; transform-origin: 143px 62px; }
 
-.go-b1-ping { animation: goB1Ping 3s ease-out infinite; transform-box: view-box; transform-origin: 20px 44px; }
-.go-b1-ring { animation: goSpin 5s linear infinite; transform-box: view-box; transform-origin: 20px 44px; }
-.go-b1-fly  { animation: goB1Fly 3s cubic-bezier(0.3,0,0.7,1) infinite; }
-.go-b2-fly  { animation: goB2Fly 3s linear infinite; }
-.go-b2-lock { animation: goB2Lock 3s ease-out infinite; transform-box: view-box; transform-origin: 55px 17px; }
-.go-b3-rock { animation: goB3Rock 1.5s ease-in-out infinite; }
-.go-b3-fly  { animation: goB3Fly 3s linear infinite; }
+.go-d-scene  { animation: goDScene 4.2s linear infinite; }
+.go-d-comet  { animation: goDComet 4.2s linear infinite; }
+.go-d-ping   { animation: goDPing 4.2s ease-out infinite; transform-box: view-box; transform-origin: 57.6px 101.1px; }
+.go-d-lock   { animation: goDLock 4.2s ease-out infinite; transform-box: view-box; transform-origin: 224px 56px; }
+.go-d-path   { animation: goDPath 4.2s ease-in-out infinite; }
+.go-d-finger { animation: goDFinger 4.2s cubic-bezier(0.4,0,0.2,1) infinite; }
+.go-d-rock   { animation: goDRock 2.1s ease-in-out infinite; }
 
 .go-star-a { animation: goTwinkle 3.2s ease-in-out infinite; }
 .go-star-b { animation: goTwinkle 4.6s ease-in-out infinite 0.8s; }
@@ -159,7 +174,7 @@ const SCREEN_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .go-title, .go-float, .go-well, .go-dash, .go-chip, .go-drift, .go-coin,
   .go-orbit-a, .go-ring-a, .go-ring-b,
-  .go-b1-ping, .go-b1-ring, .go-b1-fly, .go-b2-fly, .go-b2-lock, .go-b3-rock, .go-b3-fly,
+  .go-d-scene, .go-d-comet, .go-d-ping, .go-d-lock, .go-d-path, .go-d-finger, .go-d-rock,
   .go-star-a, .go-star-b, .go-star-c { animation: none !important; }
 }
 `;
@@ -463,27 +478,84 @@ export function HomeScreen({ onStart }) {
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
-/** One beat of the release - transfer - dodge loop. Pure CSS-animated SVG. */
-function Beat({ n, title, copy, children }) {
+/* ─── How to play ─────────────────────────────────────────
+   No instructions: one looping 4.2 s demo of a real transfer. The comet circles
+   the blue planet, a finger taps, it leaves on the TANGENT, crosses a coin line
+   past a drifting virus rock, and the gold milestone planet's capture ring locks
+   it in. Planets, rings, comet and rock are the same components the Home screen
+   and the canvas use. */
+function DemoTransfer() {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: COLORS.orangeLt, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+    <svg width="100%" viewBox="0 0 300 200" style={{ display: 'block' }} aria-hidden="true">
+      <OrbitDefs />
+      <clipPath id="goDClip"><rect x="0" y="0" width="300" height="200" rx="16" /></clipPath>
+
+      <g clipPath="url(#goDClip)" className="go-d-scene">
+        <rect x="0" y="0" width="300" height="200" fill="url(#goSpace)" />
+        <g fill="#DCEBFF">
+          {[[28, 30, 0.9, 'a'], [96, 22, 1.2, 'b'], [172, 34, 0.8, 'c'], [258, 24, 1.1, 'a'],
+            [22, 78, 1.0, 'c'], [120, 130, 0.9, 'b'], [268, 108, 1.3, 'c'], [200, 168, 1.0, 'a'],
+            [86, 190, 0.8, 'b'], [252, 178, 1.1, 'b']].map(([x, y, r, cls], i) => (
+              <circle key={i} className={`go-star-${cls}`} cx={x} cy={y} r={r} />
+            ))}
+        </g>
+
+        {/* The planet you are leaving, with its gravity well and orbit ring */}
+        <circle className="go-well" cx="66" cy="132" r="52" fill="url(#goWellGrad)" />
+        <circle cx="66" cy="132" r="32" fill="none" stroke={COLORS.ring} strokeWidth="1.6"
+          strokeDasharray="5 6" strokeLinecap="round" />
+        <circle cx="66" cy="132" r="15" fill="url(#goPlanetBlue)" />
+        <path d="M 51.9 129 a 15 15 0 0 0 28.2 0" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2.4" />
+
+        {/* The milestone planet you are aiming at */}
+        <circle className="go-well" cx="224" cy="56" r="48" fill="url(#goWellGrad)" />
+        <circle cx="224" cy="56" r="30" fill="none" stroke={COLORS.ringGold} strokeWidth="1.6"
+          strokeDasharray="5 6" strokeLinecap="round" />
+        <circle cx="224" cy="56" r="15" fill="url(#goPlanetGold)" />
+        <path d="M 209.9 53 a 15 15 0 0 0 28.2 0" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2.4" />
+
+        {/* The tangent the release actually takes, and the coins that sit on it */}
+        <path className="go-d-path" d="M 57.6 101.1 L 224 56" fill="none" stroke={COLORS.ringLive}
+          strokeWidth="1.6" strokeDasharray="5 6" strokeLinecap="round" />
+        <circle className="go-coin" cx="104.5" cy="88.4" r="4" fill="url(#goGoldCoin)" />
+        <circle className="go-coin" style={{ animationDelay: '240ms' }} cx="141" cy="78.5" r="4" fill="url(#goGoldCoin)" />
+        <circle className="go-coin" style={{ animationDelay: '480ms' }} cx="177.5" cy="68.6" r="4" fill="url(#goGoldCoin)" />
+
+        {/* Green virus rock drifting near the line — risk, in the fixed grammar */}
+        <g transform="translate(152,108)">
+          <g className="go-d-rock"><VirusRock r={9} /></g>
+        </g>
+
+        {/* Release ping and capture lock */}
+        <circle className="go-d-ping" cx="57.6" cy="101.1" r="20" fill="none" stroke={COLORS.orangeLt} strokeWidth="2.6" />
+        <circle className="go-d-lock" cx="224" cy="56" r="30" fill="none" stroke={COLORS.green} strokeWidth="3" />
+
+        {/* The comet: four sampled orbit points, then the straight tangent run */}
+        <g className="go-d-comet"><Comet r={6} /></g>
+
+        {/* The real input: one tap, anywhere */}
+        <g transform="translate(150,190)">
+          <g className="go-d-finger">
+            <rect x="-4.5" y="-18" width="9" height="21" rx="4.5" fill="#EAF3FF" />
+            <rect x="-9" y="-5" width="19" height="16" rx="7" fill="#9FCCFF" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+/** Icon + ≤4 words. The only prose allowed on this screen. */
+function Cue({ tint, label, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+      <svg width="28" height="26" viewBox="0 0 28 26" aria-hidden="true">{children}</svg>
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: tint,
+        textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.15,
+      }}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -502,95 +574,56 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
-
-      {/* Gradients for the beat diagrams, kept out of the layout flow. */}
-      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-        <OrbitDefs />
-      </svg>
 
       <div style={{
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '26px 20px 22px',
+        padding: '20px 16px 18px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 344,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 16px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 14px 0', color: '#fff',
         }}>
           How to Play
         </h2>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-          <Beat n="1" title="Tap to release" copy="One tap slings the comet off its orbit, straight along the tangent.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <circle className="go-well" cx="20" cy="44" r="26" fill="url(#goWellGrad)" />
-              <g className="go-b1-ring">
-                <circle cx="20" cy="44" r="17" fill="none" stroke={COLORS.ring} strokeWidth="1.3" strokeDasharray="4 5" />
-              </g>
-              <circle cx="20" cy="44" r="8" fill="url(#goPlanetBlue)" />
-              <path d="M 12.5 42 a 8 8 0 0 0 15 0" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.4" />
-              <circle className="go-b1-ping" cx="20" cy="44" r="17" fill="none" stroke={COLORS.orangeLt} strokeWidth="2" />
-              <g className="go-b1-fly" transform="translate(20,27)">
-                <Comet r={3.6} />
-              </g>
-            </svg>
-          </Beat>
-
-          <Beat n="2" title="Time the transfer" copy="Release late or early and you sail past. Coins sit on the clean arc.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <circle className="go-well" cx="12" cy="50" r="20" fill="url(#goWellGrad)" />
-              <circle cx="12" cy="50" r="13" fill="none" stroke={COLORS.ring} strokeWidth="1.2" strokeDasharray="4 5" />
-              <circle cx="12" cy="50" r="6" fill="url(#goPlanetBlue)" />
-              <circle cx="60" cy="16" r="12" fill="none" stroke={COLORS.ringGold} strokeWidth="1.2" strokeDasharray="4 5" />
-              <circle cx="60" cy="16" r="6" fill="url(#goPlanetGold)" />
-              <path className="go-dash" d="M 15 47 L 55 17" fill="none" stroke={COLORS.ringLive}
-                strokeWidth="1.4" strokeDasharray="5 6" strokeLinecap="round" opacity="0.8" />
-              <circle cx="26" cy="39" r="2.6" fill="url(#goGoldCoin)" />
-              <circle cx="35" cy="32" r="2.6" fill="url(#goGoldCoin)" />
-              <circle cx="44" cy="26" r="2.6" fill="url(#goGoldCoin)" />
-              <circle className="go-b2-lock" cx="55" cy="17" r="10" fill="none" stroke={COLORS.green} strokeWidth="2" />
-              <g className="go-b2-fly" transform="translate(15,47)">
-                <Comet r={3.4} />
-              </g>
-            </svg>
-          </Beat>
-
-          <Beat n="3" title="Dodge the asteroids" copy="Green virus rocks sweep the arc. Wait a beat, then go — 3 lives.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <circle className="go-well" cx="10" cy="52" r="18" fill="url(#goWellGrad)" />
-              <circle cx="10" cy="52" r="12" fill="none" stroke={COLORS.ring} strokeWidth="1.2" strokeDasharray="4 5" />
-              <circle cx="10" cy="52" r="5.5" fill="url(#goPlanetBlue)" />
-              <circle cx="64" cy="14" r="6" fill="url(#goPlanetBlue)" />
-              <path d="M 13 49 L 58 18" fill="none" stroke={COLORS.ring} strokeWidth="1.2"
-                strokeDasharray="4 5" strokeLinecap="round" />
-              <g transform="translate(38,34)">
-                <g className="go-b3-rock"><VirusRock r={6.5} /></g>
-              </g>
-              <g className="go-b3-fly" transform="translate(13,49)">
-                <Comet r={3.4} />
-              </g>
-            </svg>
-          </Beat>
+        <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <DemoTransfer />
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Every 5th goal is a <strong style={{ color: COLORS.goldLt }}>milestone</strong> worth a bonus.
-          Reach all <strong style={{ color: '#fff' }}>{GAME_CONFIG.planets.count} goals</strong> inside{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong> to win.
-        </p>
+        <div style={{ display: 'flex', gap: 6, margin: '14px 0 16px' }}>
+          <Cue tint={COLORS.orangeLt} label="Tap to release">
+            <circle cx="14" cy="11" r="8.5" fill="none" stroke={COLORS.orangeLt} strokeWidth="2.2" />
+            <rect x="10.5" y="10" width="7" height="14" rx="3.5" fill="#EAF3FF" />
+            <rect x="7" y="17" width="14" height="8" rx="4" fill="#9FCCFF" />
+          </Cue>
+          <Cue tint={COLORS.goldLt} label="Reach the ring">
+            <circle cx="20" cy="9" r="7.5" fill="none" stroke={COLORS.ringGold} strokeWidth="1.8" strokeDasharray="3 3" />
+            <circle cx="20" cy="9" r="3.4" fill={COLORS.gold} />
+            <path d="M2 24 L14 13" stroke={COLORS.ringLive} strokeWidth="2" strokeLinecap="round" strokeDasharray="3.5 3.5" />
+            <circle cx="3" cy="23" r="2.6" fill={COLORS.cometMid} />
+          </Cue>
+          <Cue tint={COLORS.virus} label="Dodge green risk">
+            <circle cx="14" cy="13" r="7" fill={COLORS.virus} />
+            <circle cx="14" cy="13" r="3.2" fill={COLORS.virusCore} />
+            <g stroke={COLORS.virus} strokeWidth="2.1" strokeLinecap="round">
+              <path d="M14 6 v-3.5 M14 20 v3.5 M7 13 h-3.5 M21 13 h3.5" />
+            </g>
+          </Cue>
+        </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button

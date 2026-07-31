@@ -53,3 +53,61 @@ Built the complete game from scratch per `okf-brain/GAME_STANDARD.md` with
   gold-standard `✓` glyph in LeadCaptureModal HTML consent text, which the
   standard explicitly allows).
 - Lead capture / slot booking / playCount wired exactly per standard §2.
+
+## 2026-07-31 — Lead-form slim, animation-first tutorial, asset prompt sheet
+
+**G1 — email field removed from lead capture** (`src/LeadCaptureModal.jsx`)
+
+- Deleted `EMAIL_RE`, the `email` `useState` (which seeded from
+  `sessionStorage.lastSubmittedEmail`), the whole "Email Field"
+  `<div className="sl-lead-field">` block, and the `errs.email` validation
+  branch.
+- Dropped the `sessionStorage.setItem('lastSubmittedEmail', …)` write and the
+  `email` key from both the `submitToLMS({…})` call and the `onSubmitted({…})`
+  payload (success and catch paths).
+- `src/api.js` untouched — `submitToLMS` already sends `email_id: email || ''`,
+  so omitting the key keeps the LMS payload shape byte-identical.
+- Grepped the whole game folder afterwards: no remaining `email` /
+  `lastSubmittedEmail` reads outside `src/kit/` and `src/api.js`.
+  `ThankYouScreen.jsx` and `SlotBookingModal.jsx` never read it.
+- Name (letters+spaces), Mobile (`^[6-9]\d{9}$`) and the T&C checkbox are
+  unchanged.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first** (`src/Screens.jsx`)
+
+- Deleted all three numbered instruction paragraphs (they were the only place
+  `GAME_CONFIG.waves.length` appeared on this screen).
+- New 4.2 s CSS `@keyframes` loop (`GUA_TUT_CSS`) that plays the actual core
+  mechanic in the game's own sprite language: a yellow finger glyph presses
+  down, the floating joystick ring materialises under it with its ice-blue knob
+  deflecting, the blue guardian disc with the white shield crest slides with the
+  finger, the finger lifts, the orange target-lock reticle snaps onto the green
+  spiked pathogen, a pale-blue bolt travels out and the pathogen pops into a
+  gold burst ring. Then it resets. Colours are lifted straight from
+  `data.js COLORS` and the canvas renderer.
+- Stage sits on a radial navy plate with the same faint concentric well rings
+  the canvas draws, so the demo reads as the real arena.
+- Remaining text is exactly: the "How to Play" heading, three icon-led labels
+  ("Drag to move" / "Stop to fire" / "Pick a rider" — 3 words each, each with an
+  inline SVG glyph: joystick, crosshair, shield-plus) and the "Play" button.
+- Card padding tightened to `22px 18px 20px`, outer padding to 18 px and
+  `overflow: hidden` — content height is ~430 px, so it fits 360×640 without
+  scrolling.
+- Gameplay, HUD, physics, balance and `ResultsScreen` untouched.
+
+**G3 — `asset-from-here.md`**
+
+- New `guardian-arena/asset-from-here.md`, 14 Nano Banana prompts.
+- Motif chosen for this game: **neon bio-containment lab** — strict top-down
+  orthographic, sterile clinical hardware with thin emissive rim-light, and
+  pathogens as wet translucent gel that glows from inside. Deliberately not the
+  3D-isometric casual look used by the catalog's other games.
+- Covers: arena background plate, player guardian disc, chaser / shooter /
+  splitter / boss pathogens, player bolt, enemy glob, HP shield pip, wave
+  chevron, joystick ring, rider-card frame, and both result-screen states.
+
+**Verification**
+
+- `pnpm install` — OK.
+- `pnpm build` (vite --mode uat) — **passes**, 524 modules,
+  `✓ built in 3.08s`.

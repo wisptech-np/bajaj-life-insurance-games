@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
 import { GAME_CONFIG, RESULT_TARGET_SCORE } from './data.js';
-import { BY_FAMILY } from './items.js';
 
 const GAME_TITLE = 'Smart Sorter';
 
@@ -20,13 +19,6 @@ const GREEN_LT = '#4ADE80';
 const GOLD = '#FFC845';
 const DANGER = '#EF4444';
 const SCREEN_BG = 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221';
-
-/* The three shelves, in swipe order, used by several screens. */
-const SHELVES = [
-  { key: 'protect', title: 'Protect', gesture: 'Swipe left', color: BLUE, colorLt: BLUE_LT },
-  { key: 'grow', title: 'Grow', gesture: 'Swipe right', color: GREEN, colorLt: GREEN_LT },
-  { key: 'bin', title: 'Bin', gesture: 'Swipe down', color: ORANGE, colorLt: ORANGE_LT },
-];
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function PlayIcon({ size = 18 }) {
@@ -146,8 +138,6 @@ function HazardGlyph({ size = 18, color = '#fff' }) {
   );
 }
 
-const GLYPH = { protect: ShieldGlyph, grow: ChartGlyph, bin: HazardGlyph };
-
 /* ─── Shared keyframes ───────────────────────────────────── */
 const SCREEN_CSS = `
 @keyframes ssTitleIn { from { opacity: 0; letter-spacing: 0.24em; transform: translateY(10px); } to { opacity: 1; letter-spacing: -0.02em; transform: none; } }
@@ -185,11 +175,86 @@ const SCREEN_CSS = `
 .ss-swipe-l { animation: ssSwipeL 2.2s ease-in-out infinite; }
 .ss-swipe-r { animation: ssSwipeR 2.2s ease-in-out infinite; }
 .ss-swipe-d { animation: ssSwipeD 2.2s ease-in-out infinite; }
+
+/* How-to-play demo: one 6s loop, three cards, three real swipes. */
+@keyframes ssDemoCardL {
+  0%       { transform: translate(0,-48px) rotate(0deg); opacity: 0; }
+  4%       { transform: translate(0,-30px) rotate(0deg); opacity: 1; }
+  16%      { transform: translate(0, 62px) rotate(0deg); opacity: 1; }
+  23%      { transform: translate(0, 62px) rotate(0deg); opacity: 1; }
+  31%      { transform: translate(-108px, 74px) rotate(-24deg); opacity: 0; }
+  100%     { transform: translate(-108px, 74px) rotate(-24deg); opacity: 0; }
+}
+@keyframes ssDemoCardR {
+  0%       { transform: translate(0,-48px) rotate(0deg); opacity: 0; }
+  4%       { transform: translate(0,-30px) rotate(0deg); opacity: 1; }
+  16%      { transform: translate(0, 62px) rotate(0deg); opacity: 1; }
+  23%      { transform: translate(0, 62px) rotate(0deg); opacity: 1; }
+  31%      { transform: translate(108px, 74px) rotate(24deg); opacity: 0; }
+  100%     { transform: translate(108px, 74px) rotate(24deg); opacity: 0; }
+}
+@keyframes ssDemoCardD {
+  0%       { transform: translate(0,-48px) scale(1); opacity: 0; }
+  4%       { transform: translate(0,-30px) scale(1); opacity: 1; }
+  16%      { transform: translate(0, 62px) scale(1); opacity: 1; }
+  23%      { transform: translate(0, 62px) scale(1); opacity: 1; }
+  31%      { transform: translate(0, 152px) scale(0.72); opacity: 0; }
+  100%     { transform: translate(0, 152px) scale(0.72); opacity: 0; }
+}
+@keyframes ssDemoFingerL {
+  0%,14%   { transform: translate(10px, 78px) scale(0.7); opacity: 0; }
+  18%      { transform: translate(10px, 78px) scale(1);   opacity: 1; }
+  23%      { transform: translate(10px, 78px) scale(0.86); opacity: 1; }
+  31%      { transform: translate(-92px, 90px) scale(0.86); opacity: 1; }
+  36%,100% { transform: translate(-92px, 90px) scale(0.86); opacity: 0; }
+}
+@keyframes ssDemoFingerR {
+  0%,14%   { transform: translate(10px, 78px) scale(0.7); opacity: 0; }
+  18%      { transform: translate(10px, 78px) scale(1);   opacity: 1; }
+  23%      { transform: translate(10px, 78px) scale(0.86); opacity: 1; }
+  31%      { transform: translate(96px, 90px) scale(0.86); opacity: 1; }
+  36%,100% { transform: translate(96px, 90px) scale(0.86); opacity: 0; }
+}
+@keyframes ssDemoFingerD {
+  0%,14%   { transform: translate(10px, 78px) scale(0.7); opacity: 0; }
+  18%      { transform: translate(10px, 78px) scale(1);   opacity: 1; }
+  23%      { transform: translate(10px, 78px) scale(0.86); opacity: 1; }
+  31%      { transform: translate(10px, 158px) scale(0.86); opacity: 1; }
+  36%,100% { transform: translate(10px, 158px) scale(0.86); opacity: 0; }
+}
+@keyframes ssDemoHit {
+  0%,26%   { opacity: 0.34; transform: scale(1); }
+  32%      { opacity: 1;    transform: scale(1.16); }
+  42%,100% { opacity: 0.34; transform: scale(1); }
+}
+.ss-demo-card-l { animation: ssDemoCardL 6s cubic-bezier(0.4,0,0.5,1) 0s   infinite both; }
+.ss-demo-card-r { animation: ssDemoCardR 6s cubic-bezier(0.4,0,0.5,1) 2s   infinite both; }
+.ss-demo-card-d { animation: ssDemoCardD 6s cubic-bezier(0.4,0,0.5,1) 4s   infinite both; }
+.ss-demo-fin-l  { animation: ssDemoFingerL 6s cubic-bezier(0.4,0,0.5,1) 0s infinite both; }
+.ss-demo-fin-r  { animation: ssDemoFingerR 6s cubic-bezier(0.4,0,0.5,1) 2s infinite both; }
+.ss-demo-fin-d  { animation: ssDemoFingerD 6s cubic-bezier(0.4,0,0.5,1) 4s infinite both; }
+.ss-demo-hit-l  { animation: ssDemoHit 6s ease-in-out 0s infinite both; }
+.ss-demo-hit-r  { animation: ssDemoHit 6s ease-in-out 2s infinite both; }
+.ss-demo-hit-d  { animation: ssDemoHit 6s ease-in-out 4s infinite both; }
 @media (prefers-reduced-motion: reduce) {
   .ss-title, .ss-float, .ss-glow, .ss-chip, .ss-belt-a, .ss-belt-b, .ss-tread,
-  .ss-shelf-l, .ss-shelf-r, .ss-swipe-l, .ss-swipe-r, .ss-swipe-d { animation: none !important; }
+  .ss-shelf-l, .ss-shelf-r, .ss-swipe-l, .ss-swipe-r, .ss-swipe-d,
+  .ss-demo-card-l, .ss-demo-card-r, .ss-demo-card-d,
+  .ss-demo-fin-l, .ss-demo-fin-r, .ss-demo-fin-d,
+  .ss-demo-hit-l, .ss-demo-hit-r, .ss-demo-hit-d { animation: none !important; }
 }
 `;
+
+/** Pointing-hand cursor used by every how-to-play demo. */
+function FingerGlyph({ size = 34 }) {
+  return (
+    <svg width={size} height={size * 1.18} viewBox="0 0 34 40" fill="none" aria-hidden="true">
+      <path d="M13 21V7.6a3 3 0 0 1 6 0V18h1.6a3 3 0 0 1 3 3v.6l3.2 1.4a4 4 0 0 1 2.3 4.5l-1.2 5.6A5 5 0 0 1 23 37h-6.4a6 6 0 0 1-4.6-2.2l-5.6-6.9a2.8 2.8 0 0 1 3.9-4L13 26"
+        fill="#FFFFFF" stroke="#0B1221" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx="16" cy="4" r="3.2" fill="none" stroke="#FFFFFF" strokeWidth="2" opacity="0.55" />
+    </svg>
+  );
+}
 
 /* ─── Confetti (lightweight) ─────────────────────────── */
 function Confetti() {
@@ -423,49 +488,64 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-/** One shelf: its gesture, its icon family, and the four cards that belong on it. */
-function ShelfRow({ shelf, delay }) {
-  const Glyph = GLYPH[shelf.key];
-  const swipeClass = shelf.key === 'protect' ? 'ss-swipe-l' : shelf.key === 'grow' ? 'ss-swipe-r' : 'ss-swipe-d';
+/**
+ * Animation-first how-to-play. One 6s loop runs the real mechanic three times:
+ * a card rides the belt down to the sorting head, a finger grabs it and swipes
+ * it onto Protect (left), Grow (right) or Bin (down). No instruction prose.
+ */
+const DEMO_H = 208;
+
+/** A belt card: the family glyph on the same rounded plate the canvas draws. */
+function DemoCard({ cls, Glyph, tint }) {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 12,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: `1px solid ${shelf.colorLt}44`,
-    }}>
-      <div style={{
-        width: 46,
-        height: 46,
-        flexShrink: 0,
+    <div
+      className={cls}
+      style={{
+        position: 'absolute',
+        left: '50%',
+        top: 0,
+        marginLeft: -41,
+        width: 82,
+        height: 54,
         borderRadius: 13,
-        background: `linear-gradient(180deg, ${shelf.colorLt}, ${shelf.color})`,
+        background: 'linear-gradient(180deg, #FFFFFF 0%, #DCE6F5 100%)',
+        border: `2px solid ${tint}`,
+        boxShadow: `0 6px 16px rgba(0,0,0,0.45), inset 0 0 0 2px rgba(255,255,255,0.6)`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        position: 'relative',
-      }}>
-        <Glyph size={24} color="#fff" />
-        <span className={swipeClass} style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: 13,
-          border: '2px solid rgba(255,255,255,0.85)',
-          animationDelay: `${delay}ms`,
-        }} />
-      </div>
-      <div style={{ textAlign: 'left', minWidth: 0 }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: shelf.colorLt, textTransform: 'uppercase' }}>
-          {shelf.gesture}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{shelf.title}</div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.66)', lineHeight: 1.35 }}>
-          {BY_FAMILY[shelf.key].map((i) => i.label).join(' · ')}
-        </div>
-      </div>
+        gap: 6,
+      }}
+    >
+      <Glyph size={26} color={tint} />
+      <span style={{ display: 'block', width: 22, height: 4, borderRadius: 2, background: `${tint}55` }} />
+    </div>
+  );
+}
+
+/** A shelf tile at the edge of the belt; flashes when its card lands. */
+function DemoShelf({ side, cls, Glyph, color, colorLt }) {
+  const edge = side === 'bottom'
+    ? { left: '50%', marginLeft: -23, bottom: 4 }
+    : { [side]: 2, top: 56 };
+  return (
+    <div
+      className={cls}
+      style={{
+        position: 'absolute',
+        ...edge,
+        width: 46,
+        height: 46,
+        borderRadius: 14,
+        background: `linear-gradient(180deg, ${colorLt}, ${color})`,
+        border: '2px solid rgba(255,255,255,0.8)',
+        boxShadow: `0 0 18px ${colorLt}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Glyph size={24} color="#fff" />
     </div>
   );
 }
@@ -484,9 +564,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -495,61 +575,87 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '24px 18px 20px',
+        padding: '18px 14px 16px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 340,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 23, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 12px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 14px 0', lineHeight: 1.4 }}>
-          Cards ride the belt. When one reaches the sorting head, swipe it onto the right shelf.
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 14 }}>
-          {SHELVES.map((shelf, i) => (
-            <ShelfRow key={shelf.key} shelf={shelf} delay={i * 180} />
+        {/* ── The looping demo: belt → head → swipe → shelf ── */}
+        <div style={{
+          position: 'relative',
+          height: DEMO_H,
+          borderRadius: 18,
+          overflow: 'hidden',
+          background: 'radial-gradient(ellipse at 50% 40%, rgba(30,107,224,0.22), rgba(6,11,22,0.9) 74%), #060B16',
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}>
+          {/* Belt lane with scrolling treads */}
+          <div style={{
+            position: 'absolute', left: '50%', marginLeft: -52, top: 0, bottom: 0, width: 104,
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))',
+            borderLeft: '3px solid rgba(255,255,255,0.22)',
+            borderRight: '3px solid rgba(255,255,255,0.22)',
+            overflow: 'hidden',
+          }}>
+            <div className="ss-tread" style={{
+              position: 'absolute', left: 0, right: 0, top: -18, height: DEMO_H + 36,
+              backgroundImage: 'repeating-linear-gradient(180deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 18px)',
+            }} />
+          </div>
+
+          {/* Sorting head: the bracket the card must reach before it can be swiped */}
+          <div style={{
+            position: 'absolute', left: '50%', marginLeft: -58, top: 58, width: 116, height: 62,
+            border: `2px dashed ${GOLD}`, borderRadius: 12, opacity: 0.75,
+          }} />
+
+          {/* Shelves + bin */}
+          <DemoShelf side="left"   cls="ss-demo-hit-l" Glyph={ShieldGlyph} color={BLUE}   colorLt={BLUE_LT} />
+          <DemoShelf side="right"  cls="ss-demo-hit-r" Glyph={ChartGlyph}  color={GREEN}  colorLt={GREEN_LT} />
+          <DemoShelf side="bottom" cls="ss-demo-hit-d" Glyph={HazardGlyph} color={ORANGE} colorLt={ORANGE_LT} />
+
+          {/* Cards riding the belt */}
+          <DemoCard cls="ss-demo-card-l" Glyph={ShieldGlyph} tint={BLUE} />
+          <DemoCard cls="ss-demo-card-r" Glyph={ChartGlyph}  tint={GREEN} />
+          <DemoCard cls="ss-demo-card-d" Glyph={HazardGlyph} tint={ORANGE} />
+
+          {/* The finger doing the real swipe */}
+          {['ss-demo-fin-l', 'ss-demo-fin-r', 'ss-demo-fin-d'].map((c) => (
+            <div key={c} className={c} style={{ position: 'absolute', left: '50%', top: 0 }}>
+              <FingerGlyph size={32} />
+            </div>
           ))}
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginBottom: 14 }}>
+        {/* ── At most three icon-led labels ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, margin: '12px 2px 14px' }}>
           {[
-            { label: `Every ${GAME_CONFIG.urgentEvery}th card is urgent`, note: 'x2 points, 1.5x speed', color: GOLD },
-            { label: 'Combo', note: `x1 to x${GAME_CONFIG.scoring.maxMultiplier} on a clean run`, color: GREEN_LT },
-            { label: 'Mistakes', note: `${GAME_CONFIG.mistakes.allowed} and you are out`, color: DANGER },
-          ].map((chip, i) => (
-            <span
-              key={chip.label}
-              className="ss-chip"
-              style={{
-                animationDelay: `${140 + i * 90}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '5px 10px',
-                borderRadius: 999,
-                color: chip.color,
-                background: 'rgba(255,255,255,0.06)',
-                border: `1px solid ${chip.color}55`,
-                letterSpacing: '0.03em',
-              }}
-            >
-              {chip.label} <span style={{ opacity: 0.7 }}>&middot; {chip.note}</span>
-            </span>
+            { Glyph: ShieldGlyph, color: BLUE_LT, arrow: '←', word: 'PROTECT' },
+            { Glyph: ChartGlyph, color: GREEN_LT, arrow: '→', word: 'GROW' },
+            { Glyph: HazardGlyph, color: ORANGE_LT, arrow: '↓', word: 'BIN' },
+          ].map(({ Glyph, color, arrow, word }) => (
+            <div key={word} style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              padding: '7px 2px', borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)', border: `1px solid ${color}44`,
+            }}>
+              <Glyph size={20} color={color} />
+              <span style={{ fontSize: 11, fontWeight: 900, color, letterSpacing: '0.04em' }}>
+                {arrow} {word}
+              </span>
+            </div>
           ))}
         </div>
-
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.62)', margin: '0 0 16px 0', lineHeight: 1.45 }}>
-          A wrong shelf costs the same as letting a card scroll past. Survive{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong> and score{' '}
-          <strong style={{ color: GREEN_LT }}>{RESULT_TARGET_SCORE.toLocaleString()}</strong> to win.
-        </p>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button

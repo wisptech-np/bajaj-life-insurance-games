@@ -1,7 +1,7 @@
 ---
 type: project
 title: Guardian Archer
-description: Single-player precision archery game — drag to aim Protection Arrows at green risk viruses (no return fire); 12 arrows, 2-minute session, 3 waves, wind + gravity physics, CRITICAL x2 core hits. Built with Phaser 3 + React for Bajaj Life Insurance.
+description: Single-player precision archery game — drag to aim Protection Arrows at four financial risk antagonists (Illness, Accident, Debt, Job Loss; no return fire); 12 arrows, 2-minute session, 3 waves each with its own movement pattern, wind + gravity physics, CRITICAL x2 core hits. Built with Phaser 3 + React for Bajaj Life Insurance.
 resource: file:///C:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/coverage-archer
 tags:
   - game
@@ -17,18 +17,21 @@ timestamp: 2026-07-09T12:00:00+05:30
 # Guardian Archer
 
 Single-player target-shooting archery game (directory: `coverage-archer/`). Per stakeholder
-feedback the two-archer duel concept was removed: the opponent is replaced by green virus
-targets that **never fire back** — only the player shoots.
+feedback the two-archer duel concept was removed: the opponent is replaced by risk targets
+that **never fire back** — only the player shoots.
 
 ## Concept
-- **Financial hook**: precision coverage against risks — each virus is a named risk
-  (illness / accident / debt / income / medical); a direct core hit = CRITICAL x2
-  ("right-sized cover beats scattershot protection").
-- **Session**: 12 arrows, 120-second hard cap, 3 waves (3 large / 3 medium / 4 small
-  viruses at increasing range with bob/drift motion and stronger wind).
+- **Financial hook**: precision coverage against risks — four antagonists, each with its own
+  silhouette, palette, idle motion and death animation (Illness hexagonal cell, Accident
+  hazard triangle, Debt shackled ingot, Job Loss split briefcase); a direct core hit =
+  CRITICAL x2 ("right-sized cover beats scattershot protection").
+- **Session**: 12 arrows, 120-second hard cap, 3 waves (3 large / 3 medium / 4 small at
+  increasing range), each wave with its own movement pattern — pendulum, orbit, then
+  dart-and-hold — plus stronger wind and a 25% speed-up past 60 s remaining.
 - **Win**: clear all waves (+ time bonus). **Lose**: out of arrows or out of time.
-- Drag-to-aim (angle + power), gravity + wind physics, dotted trajectory hint for the
-  first 3 shots only, wind indicator in HUD.
+- Drag-to-aim with continuous feedback (pull vector, power ring with release-threshold tick,
+  thumb-proof power bar, live % readout), gravity + visible wind physics, dotted trajectory
+  hint for the first 3 shots only, wind indicator in HUD that pulses after a wind-blown miss.
 
 ## Tech Stack
 - **Framework**: React 19 + TypeScript

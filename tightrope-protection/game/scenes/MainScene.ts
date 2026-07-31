@@ -1,10 +1,33 @@
 import Phaser from "phaser";
 import { playSynthSFX } from "../../utils/audio";
 
+/** Signature accent for this game — the balance pole orange. */
+const ORANGE = 0xf26522;
+const ROPE_STEEL = 0x7e97bb;
+const BRAND_BLUE = 0x003da6;
+const GREEN = 0x28a745;
+const CRIMSON = 0xd92d4e;
+
+/** Explicit render order — everything is drawn programmatically, so depth is the only stacking rule. */
+const D = {
+  SKY: 0,
+  BLOOM: 1,
+  SKY_FAR: 2,
+  SKY_NEAR: 3,
+  PYLON: 4,
+  ABYSS: 5,
+  ROPE: 6,
+  GLOW: 7,
+  PROP: 8,
+  PLAYER: 9,
+  SHIELD: 10,
+  FX: 20,
+} as const;
+
 export default class MainScene extends Phaser.Scene {
   // Player state
   private player!: Phaser.GameObjects.Sprite;
-  private currentWireIndex = 1; // Start on wire 1 (0-indexed 0 to 3)
+  private currentWireIndex = 1; // Start on the middle rope
   private isSwitching = false;
   private wireProgress = 0; // used for custom arc tween
   private isJumping = false;
@@ -34,8 +57,10 @@ export default class MainScene extends Phaser.Scene {
 
   // Visual structures
   private wireGraphics!: Phaser.GameObjects.Graphics;
-  private backgroundCity!: Phaser.GameObjects.Graphics;
+  private skylineFar!: Phaser.GameObjects.Graphics;
+  private skylineNear!: Phaser.GameObjects.Graphics;
   private poles: Phaser.GameObjects.Graphics[] = [];
+  private walkerGlow!: Phaser.GameObjects.Image;
 
   // Callbacks to React
   private onScoreUpdate!: (metrics: {
@@ -83,51 +108,89 @@ export default class MainScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Setup Flat Ground Lanes (responsive positions on ground level)
+    // Rope heights (unchanged from the original layout)
     const groundBase = height * 0.64;
     const laneGap = height * 0.08;
-    this.wires = [
-      groundBase,
-      groundBase + laneGap,
-      groundBase + laneGap * 2,
-    ];
+    this.wires = [groundBase, groundBase + laneGap, groundBase + laneGap * 2];
 
-    // Enable Phaser physics
     this.physics.world.gravity.y = 1200;
 
-    // 1. Draw Static Sky Gradient
-    const sky = this.add.graphics();
-    sky.fillGradientStyle(0x030f26, 0x030f26, 0x09265c, 0x09265c, 1);
+    // ── 1. Layered sky: near-black overhead easing into brand blue at the horizon
+    const sky = this.add.graphics().setDepth(D.SKY);
+    sky.fillGradientStyle(0x030913, 0x030913, 0x061634, 0x061634, 1);
     sky.fillRect(0, 0, width, height);
+    sky.fillGradientStyle(
+      0x0b2e6b,
+      0x0b2e6b,
+      0x0b2e6b,
+      0x0b2e6b,
+      0,
+      0,
+      0.85,
+      0.85,
+    );
+    sky.fillRect(0, height * 0.18, width, height * 0.42);
 
-    // 2. Draw Distant City Skyline (Parallax City Graphics)
-    this.backgroundCity = this.add.graphics();
-    this.drawCitySkyline();
+    // Horizon bloom sitting just behind the skyline
+    const bloom = this.add.image(width * 0.62, height * 0.55, "glow");
+    bloom.setDisplaySize(width * 1.5, height * 0.5);
+    bloom.setTint(0xf26522);
+    bloom.setAlpha(0.16);
+    bloom.setDepth(D.BLOOM);
 
-    // 3. Create Wires Graphics
-    this.wireGraphics = this.add.graphics();
+    // ── 2. Two parallax skyline bands (far = flatter + darker, near = taller)
+    this.skylineFar = this.add.graphics().setDepth(D.SKY_FAR);
+    this.skylineNear = this.add.graphics().setDepth(D.SKY_NEAR);
+    this.drawSkylineBand(this.skylineFar, 0x081c40, 0.75, height * 0.60, 0.55, 7);
+    this.drawSkylineBand(this.skylineNear, 0x040f26, 0.95, height * 0.64, 1, 3);
+
+    // ── 3. Depth haze below the lowest rope — the drop the walker is over
+    const abyss = this.add.graphics().setDepth(D.ABYSS);
+    const lowest = this.wires[this.wires.length - 1];
+    abyss.fillGradientStyle(
+      0x020712,
+      0x020712,
+      0x000306,
+      0x000306,
+      0.0,
+      0.0,
+      0.95,
+      0.95,
+    );
+    abyss.fillRect(0, lowest - 30, width, height - lowest + 30);
+
+    // ── 4. Ropes
+    this.wireGraphics = this.add.graphics().setDepth(D.ROPE);
     this.drawWires();
 
-    // 4. Create Groups
+    // ── 5. Groups
     this.birdsGroup = this.add.group();
     this.collectiblesGroup = this.add.group();
 
-    // 5. Spawn Player (Protection Beetle)
+    // ── 6. Walker + the pool of light under her feet
     const initialY = this.wires[this.currentWireIndex];
-    this.player = this.add.sprite(width * 0.22, initialY, "beetle_run");
+    this.walkerGlow = this.add.image(width * 0.22, initialY, "glow");
+    this.walkerGlow.setDisplaySize(120, 60);
+    this.walkerGlow.setTint(0xf26522);
+    this.walkerGlow.setAlpha(0.2);
+    this.walkerGlow.setDepth(D.GLOW);
+
+    this.player = this.add.sprite(width * 0.22, initialY, "walker_run");
+    this.player.setDepth(D.PLAYER);
+    // Anchor at the feet so the figure stands ON the rope.
+    this.player.setOrigin(0.5, 0.8125);
     this.physics.add.existing(this.player);
 
-    // Set up rigid body bounds
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(false);
     body.setGravityY(1200);
-    body.setSize(30, 20);
-    body.setOffset(17, 22);
+    body.setSize(26, 28);
+    body.setOffset(19, 18);
 
-    if (!this.anims.exists("beetle_running")) {
+    if (!this.anims.exists("walker_walking")) {
       this.anims.create({
-        key: "beetle_running",
-        frames: this.anims.generateFrameNumbers("beetle_run", {
+        key: "walker_walking",
+        frames: this.anims.generateFrameNumbers("walker_run", {
           start: 0,
           end: 3,
         }),
@@ -135,17 +198,16 @@ export default class MainScene extends Phaser.Scene {
         repeat: -1,
       });
     }
+    this.player.play("walker_walking");
 
-    this.player.play("beetle_running");
-
-    // 6. Draw Shield Bubble overlay
-    this.shieldBubble = this.add.graphics();
+    // ── 7. Shield bubble overlay
+    this.shieldBubble = this.add.graphics().setDepth(D.SHIELD);
     this.updateShieldBubble();
 
-    // 7. Setup Inputs
+    // ── 8. Inputs
     this.setupControls();
 
-    // 8. Timers for spawning
+    // ── 9. Spawn timers
     this.time.addEvent({
       delay: 1500,
       callback: this.spawnObstacle,
@@ -160,18 +222,19 @@ export default class MainScene extends Phaser.Scene {
       loop: true,
     });
 
-    // Speed ramping timer: increases speed every 12 seconds
     this.time.addEvent({
       delay: 12000,
       callback: () => {
         if (!this.gameActive) return;
         this.speedMultiplier += 0.12;
-        playSynthSFX("switch"); // subtle audio feedback for ramp speed
+        playSynthSFX("switch");
       },
       loop: true,
     });
 
-    // Notify React of initial metrics
+    // Entry transition
+    this.cameras.main.fadeIn(320, 3, 9, 19);
+
     this.notifyReact();
   }
 
@@ -181,36 +244,33 @@ export default class MainScene extends Phaser.Scene {
     const dt = delta / 1000;
     this.timeElapsed += dt;
 
-    // 1. Calculate distance
+    // 1. Distance
     const currentFrameSpeed = this.speed * this.speedMultiplier;
-    this.distance += dt * (currentFrameSpeed / 50); // Scale distance down to look realistic
+    this.distance += dt * (currentFrameSpeed / 50);
 
-    // 2. Parallax background scrolling
+    // 2. Parallax
     this.scrollBackground(currentFrameSpeed * dt);
 
-    // 3. Keep player relative to wire
+    // 3. Keep the walker on her rope
     const currentWireY = this.wires[this.currentWireIndex];
 
     if (!this.isSwitching) {
-      // Snapping/Boundary collision for jumping
       if (this.player.y >= currentWireY) {
         const body = this.player.body as Phaser.Physics.Arcade.Body;
         if (body.velocity.y > 0) {
-          // Beetle has landed on wire
           this.player.y = currentWireY;
           body.setVelocityY(0);
           body.setAccelerationY(0);
 
           if (this.isJumping) {
             this.isJumping = false;
-            this.player.setTexture("beetle_run");
-            this.player.play("beetle_running");
+            this.player.setTexture("walker_run");
+            this.player.play("walker_walking");
 
-            // Landing squash animation
             this.tweens.add({
               targets: this.player,
-              scaleY: 0.8,
-              scaleX: 1.2,
+              scaleY: 0.82,
+              scaleX: 1.16,
               duration: 70,
               yoyo: true,
               onComplete: () => {
@@ -222,10 +282,15 @@ export default class MainScene extends Phaser.Scene {
       }
     }
 
-    // 4. Update shield overlay position
+    // 4. Overlays follow the walker
+    this.walkerGlow.y = Phaser.Math.Linear(
+      this.walkerGlow.y,
+      currentWireY,
+      0.2,
+    );
     this.updateShieldBubble();
 
-    // 5. Scroll and recycle obstacles
+    // 5. Hazards
     this.birdsGroup.getChildren().forEach((child) => {
       const bird = child as Phaser.GameObjects.Sprite;
       if (!bird.active) return;
@@ -233,7 +298,6 @@ export default class MainScene extends Phaser.Scene {
       const birdBody = bird.body as Phaser.Physics.Arcade.Body;
       birdBody.setVelocityX(-currentFrameSpeed - 80);
 
-      // Overlap checks using physics bodies
       if (this.physics.overlap(this.player, bird)) {
         this.handleHazardCollision(bird);
       }
@@ -244,7 +308,7 @@ export default class MainScene extends Phaser.Scene {
       }
     });
 
-    // 6. Scroll and recycle collectibles
+    // 6. Collectibles
     this.collectiblesGroup.getChildren().forEach((child) => {
       const item = child as Phaser.GameObjects.Sprite;
       if (!item.active) return;
@@ -261,7 +325,7 @@ export default class MainScene extends Phaser.Scene {
       }
     });
 
-    // 7. Calculate and send live updates to React HUD
+    // 7. Live HUD
     this.score =
       Math.floor(this.distance * 10) +
       this.coinsCollected * 100 +
@@ -279,111 +343,166 @@ export default class MainScene extends Phaser.Scene {
     });
   }
 
-  private drawCitySkyline() {
+  /**
+   * Tower silhouettes drawn across 2x screen width so the parallax wrap is
+   * seamless. `scale` shrinks the far band; `step` controls tower density.
+   */
+  private drawSkylineBand(
+    g: Phaser.GameObjects.Graphics,
+    color: number,
+    alpha: number,
+    baseY: number,
+    scale: number,
+    step: number,
+  ) {
     const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
-    this.backgroundCity.clear();
+    g.clear();
+    g.fillStyle(color, alpha);
 
-    // Draw silhouettes of financial towers
-    this.backgroundCity.fillStyle(0x061839, 0.45);
-    const buildingWidths = [60, 80, 50, 70, 90, 60];
-    const buildingHeights = [180, 240, 150, 210, 270, 160];
+    const widths = [46, 68, 34, 58, 82, 40, 52, 74];
+    const heights = [120, 190, 96, 160, 230, 110, 145, 205];
 
-    let xOffset = 0;
-    for (let i = 0; i < 10; i++) {
-      const idx = i % buildingWidths.length;
-      const w = buildingWidths[idx];
-      const h = buildingHeights[idx];
-      this.backgroundCity.fillRect(xOffset, height - h, w, h);
-      xOffset += w + 10;
+    let x = -20;
+    let i = 0;
+    while (x < width * 2 + 40) {
+      const w = widths[(i * step) % widths.length];
+      const h = heights[(i * step) % heights.length] * scale;
+      g.fillRect(x, baseY - h, w, h);
+      // roof mast on the tall ones
+      if (h > 150 * scale) {
+        g.fillRect(x + w / 2 - 1.5, baseY - h - 14, 3, 14);
+      }
+      // lit windows — a few warm dots for depth, cheap and static
+      g.fillStyle(0xf26522, alpha * 0.22);
+      for (let r = 0; r < Math.floor(h / 34); r++) {
+        g.fillRect(x + 7, baseY - h + 14 + r * 30, 5, 4);
+        g.fillRect(x + w - 14, baseY - h + 26 + r * 30, 5, 4);
+      }
+      g.fillStyle(color, alpha);
+      x += w + 8;
+      i++;
     }
   }
 
+  /** Three taut steel cables; the one the walker is on is warm-lit. */
   private drawWires() {
     const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
     this.wireGraphics.clear();
 
-    // 1. Solid Flat Ground Base (Pavement Runway)
-    const groundTop = this.wires[0] - 16;
-    const groundHeight = height - groundTop;
-    this.wireGraphics.fillStyle(0x061826, 0.95);
-    this.wireGraphics.fillRect(0, groundTop, width, groundHeight);
+    this.wires.forEach((laneY, i) => {
+      const active = i === this.currentWireIndex;
+      // near ropes read heavier than far ropes
+      const depth = 0.72 + i * 0.14;
 
-    // Ground top border highlight
-    this.wireGraphics.lineStyle(3, 0x00AEEF, 0.9);
-    this.wireGraphics.strokeLineShape(
-      new Phaser.Geom.Line(0, groundTop, width, groundTop)
-    );
-
-    // 2. Lane Marking Strips
-    this.wires.forEach((laneY) => {
-      // Glow lane guide
-      this.wireGraphics.lineStyle(4, 0x10B981, 0.3);
+      // soft glow bed
+      this.wireGraphics.lineStyle(12, active ? ORANGE : ROPE_STEEL, active ? 0.16 : 0.05);
       this.wireGraphics.strokeLineShape(
-        new Phaser.Geom.Line(0, laneY + 8, width, laneY + 8)
+        new Phaser.Geom.Line(0, laneY, width, laneY),
       );
 
-      // Dashed lane center
-      this.wireGraphics.lineStyle(1.5, 0x34D399, 0.8);
+      // dark under-body (gives the cable weight)
+      this.wireGraphics.lineStyle(4.5 * depth, 0x020814, 0.95);
       this.wireGraphics.strokeLineShape(
-        new Phaser.Geom.Line(0, laneY + 8, width, laneY + 8)
+        new Phaser.Geom.Line(0, laneY + 1.5, width, laneY + 1.5),
+      );
+
+      // core
+      this.wireGraphics.lineStyle(
+        3 * depth,
+        active ? ORANGE : ROPE_STEEL,
+        active ? 0.95 : 0.6,
+      );
+      this.wireGraphics.strokeLineShape(
+        new Phaser.Geom.Line(0, laneY, width, laneY),
+      );
+
+      // top rim light
+      this.wireGraphics.lineStyle(1, 0xffffff, active ? 0.75 : 0.28);
+      this.wireGraphics.strokeLineShape(
+        new Phaser.Geom.Line(0, laneY - 1.4, width, laneY - 1.4),
       );
     });
   }
 
   private scrollBackground(dx: number) {
-    // Parallax scrolling: shift city buildings slowly
-    this.backgroundCity.x -= dx * 0.15;
-    if (this.backgroundCity.x < -this.cameras.main.width) {
-      this.backgroundCity.x = 0;
+    this.skylineFar.x -= dx * 0.08;
+    if (this.skylineFar.x < -this.cameras.main.width) this.skylineFar.x = 0;
+
+    this.skylineNear.x -= dx * 0.22;
+    if (this.skylineNear.x < -this.cameras.main.width) this.skylineNear.x = 0;
+
+    // Anchor pylons scroll close to rope speed
+    for (let i = this.poles.length - 1; i >= 0; i--) {
+      const pole = this.poles[i];
+      pole.x -= dx * 0.85;
+      if (pole.x < -140) {
+        pole.destroy();
+        this.poles.splice(i, 1);
+      }
     }
 
-    // Scroll power poles (Graphics spawned on the fly)
-    this.poles.forEach((pole, idx) => {
-      pole.x -= dx * 0.9;
-      if (pole.x < -100) {
-        pole.destroy();
-        this.poles.splice(idx, 1);
-      }
-    });
-
-    // Randomly spawn poles
     if (Math.random() < 0.006 && this.poles.length < 3) {
       this.spawnPole();
     }
   }
 
+  /** Lattice anchor pylon — the structure the ropes are strung between. */
   private spawnPole() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
+    const top = this.wires[0] - 96;
+    const bottom = height + 10;
 
     const pole = this.add.graphics();
-    pole.fillStyle(0x061939, 0.7);
-    pole.lineStyle(2, 0x00aeef, 0.3);
 
-    // Draw wood/steel cross beam pole
-    pole.fillRect(0, height * 0.15, 12, height * 0.85); // main post
-    pole.fillRect(-30, height * 0.25, 72, 8); // crossbar
+    // legs
+    pole.lineStyle(4, 0x0a2149, 1);
+    pole.strokeLineShape(new Phaser.Geom.Line(-16, bottom, -4, top));
+    pole.strokeLineShape(new Phaser.Geom.Line(16, bottom, 4, top));
 
-    // Wire insulators
-    pole.fillStyle(0x00aeef, 0.6);
-    pole.fillRect(-24, height * 0.22, 6, 6);
-    pole.fillRect(30, height * 0.22, 6, 6);
+    // lattice cross-bracing
+    pole.lineStyle(1.6, 0x123566, 0.9);
+    for (let y = top + 16; y < bottom; y += 34) {
+      const t = (y - top) / (bottom - top);
+      const half = Phaser.Math.Linear(4, 16, t);
+      pole.strokeLineShape(new Phaser.Geom.Line(-half, y, half, y));
+      pole.strokeLineShape(
+        new Phaser.Geom.Line(-half, y, half, Math.min(y + 34, bottom)),
+      );
+    }
 
-    pole.x = width + 50;
+    // crown platform where the cables terminate
+    pole.fillStyle(0x0d2a58, 1);
+    pole.fillRect(-22, top - 8, 44, 9);
+    pole.fillStyle(ORANGE, 0.9);
+    pole.fillRect(-22, top - 10, 44, 2.5);
+
+    // beacon
+    pole.fillStyle(0xffc845, 0.95);
+    pole.fillCircle(0, top - 16, 3);
+    pole.fillStyle(0xffc845, 0.18);
+    pole.fillCircle(0, top - 16, 9);
+
+    // cable eyelets at each rope height
+    this.wires.forEach((laneY) => {
+      pole.fillStyle(0x1e56b4, 0.95);
+      pole.fillCircle(0, laneY, 3.2);
+      pole.fillStyle(0xffffff, 0.5);
+      pole.fillCircle(-0.8, laneY - 0.8, 1.2);
+    });
+
+    pole.x = width + 70;
+    pole.setDepth(D.PYLON);
     this.poles.push(pole);
   }
 
   private setupControls() {
-    // Keyboard inputs
     if (this.input.keyboard) {
       this.input.keyboard.on("keydown-UP", () => this.switchWire(-1));
       this.input.keyboard.on("keydown-DOWN", () => this.switchWire(1));
       this.input.keyboard.on("keydown-SPACE", () => this.jumpPlayer());
     }
 
-    // Touch gesture swipes for mobile
     let startY = 0;
     let startTime = 0;
 
@@ -396,15 +515,14 @@ export default class MainScene extends Phaser.Scene {
       const elapsed = pointer.time - startTime;
       const distY = pointer.y - startY;
 
-      // Swipe trigger limits
       if (elapsed < 300 && Math.abs(distY) > 30) {
         if (distY < 0) {
-          this.switchWire(-1); // Swipe Up
+          this.switchWire(-1);
         } else {
-          this.switchWire(1); // Swipe Down
+          this.switchWire(1);
         }
       } else if (elapsed < 200 && Math.abs(distY) < 10) {
-        this.jumpPlayer(); // Quick tap is a jump
+        this.jumpPlayer();
       }
     });
   }
@@ -416,39 +534,52 @@ export default class MainScene extends Phaser.Scene {
     if (nextIndex < 0 || nextIndex >= this.wires.length) return;
 
     this.currentWireIndex = nextIndex;
+    this.drawWires(); // re-light the rope she is now on
     const startY = this.player.y;
     const targetY = this.wires[this.currentWireIndex];
 
     playSynthSFX("switch");
 
-    // Anti-gravity arc switch tween
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+
+    // NOTE: this tween used to run 0 -> 0, so the arc never played and the
+    // switch resolved by gravity alone (an instant snap when moving up).
+    // Driving it 0 -> 1 with gravity parked is what makes the hop readable.
+    this.wireProgress = 0;
     this.tweens.add({
       targets: this,
-      wireProgress: 0,
+      wireProgress: 1,
       duration: 180,
       ease: "Quad.easeInOut",
       onStart: () => {
         this.isSwitching = true;
-        this.player.setTexture("beetle_jump");
+        this.player.setTexture("walker_hop");
+        body.setVelocityY(0);
+        body.setAccelerationY(0);
+        body.setAllowGravity(false);
       },
-      onUpdate: (tween: any, target: any) => {
+      onUpdate: (_tween: Phaser.Tweens.Tween, target: any) => {
         const t = target.wireProgress;
         const linearY = Phaser.Math.Linear(startY, targetY, t);
-        // Add upward curve factor mid-track transition
         const arcPeak = -32;
         const curveOffset = Math.sin(t * Math.PI) * arcPeak;
         this.player.y = linearY + curveOffset;
       },
       onComplete: () => {
         this.isSwitching = false;
-        this.player.setTexture("beetle_run");
-        this.player.play("beetle_running");
+        this.player.y = targetY;
+        body.setAllowGravity(true);
+        body.setVelocityY(0);
+        this.player.setTexture("walker_run");
+        this.player.play("walker_walking");
 
-        // Land squish bounce animation
+        // landing dust on the new rope
+        this.createJumpParticles();
+
         this.tweens.add({
           targets: this.player,
-          scaleY: 0.8,
-          scaleX: 1.2,
+          scaleY: 0.82,
+          scaleX: 1.16,
           duration: 60,
           yoyo: true,
           onComplete: () => {
@@ -464,65 +595,66 @@ export default class MainScene extends Phaser.Scene {
 
     this.isJumping = true;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setVelocityY(-450); // Upward jump impulse
-    this.player.setTexture("beetle_jump");
+    body.setVelocityY(-450);
+    this.player.setTexture("walker_hop");
     playSynthSFX("jump");
 
-    // Emit dust sparkles
     this.createJumpParticles();
   }
 
   private createJumpParticles() {
-    const emitter = this.add.particles(
-      this.player.x,
-      this.player.y + 6,
-      "sparkle",
-      {
-        speed: { min: 20, max: 60 },
-        angle: { min: 0, max: 360 },
-        scale: { start: 0.8, end: 0 },
-        alpha: { start: 0.7, end: 0 },
-        lifespan: 300,
-        quantity: 8,
-        gravityY: 100,
-      },
-    );
-    this.time.delayedCall(300, () => emitter.destroy());
+    const emitter = this.add.particles(this.player.x, this.player.y, "sparkle", {
+      speed: { min: 20, max: 70 },
+      angle: { min: 150, max: 390 },
+      scale: { start: 0.75, end: 0 },
+      alpha: { start: 0.8, end: 0 },
+      lifespan: 320,
+      quantity: 10,
+      gravityY: 120,
+      tint: ORANGE,
+    });
+    emitter.setDepth(D.FX);
+    this.time.delayedCall(320, () => emitter.destroy());
   }
 
   private updateShieldBubble() {
     this.shieldBubble.clear();
     if (!this.isShielded || !this.gameActive) return;
 
-    // Glowing cyan sphere surrounding beetle body
-    this.shieldBubble.fillStyle(0x00aeef, 0.12);
-    this.shieldBubble.lineStyle(2, 0x00aeef, 0.85);
+    const cx = this.player.x;
+    const cy = this.player.y - 22;
+    const pulse = 1 + Math.sin(this.time.now / 140) * 0.06;
 
-    // Add pulsing effect
-    const pulseScale = 1 + Math.sin(this.time.now / 100) * 0.05;
-    this.shieldBubble.fillCircle(
-      this.player.x,
-      this.player.y - 2,
-      25 * pulseScale,
-    );
-    this.shieldBubble.strokeCircle(
-      this.player.x,
-      this.player.y - 2,
-      25 * pulseScale,
-    );
+    this.shieldBubble.fillStyle(0x2e9bff, 0.1);
+    this.shieldBubble.fillCircle(cx, cy, 30 * pulse);
+    this.shieldBubble.lineStyle(2.2, 0x4fb4ff, 0.9);
+    this.shieldBubble.strokeCircle(cx, cy, 30 * pulse);
+    this.shieldBubble.lineStyle(1, 0xffffff, 0.5);
+    this.shieldBubble.strokeCircle(cx, cy, 30 * pulse - 4);
+  }
+
+  /** Pop-in so nothing simply appears at the screen edge. */
+  private popIn(obj: Phaser.GameObjects.Sprite, to: number) {
+    obj.setScale(to * 0.4);
+    this.tweens.add({
+      targets: obj,
+      scale: to,
+      duration: 260,
+      ease: "Back.easeOut",
+    });
   }
 
   private spawnObstacle() {
     if (!this.gameActive) return;
 
-    // Spawns a Risk Bird on one of the wires
-    const randomWire = Phaser.Math.Between(0, 3);
+    const randomWire = Phaser.Math.Between(0, this.wires.length - 1);
     const startX = this.cameras.main.width + 64;
-    const startY = this.wires[randomWire] - 6;
+    // Chest height on the rope — has to be jumped or dodged.
+    const startY = this.wires[randomWire] - 22;
 
-    let bird = this.birdsGroup.getFirstDead(false);
+    let bird = this.birdsGroup.getFirstDead(false) as Phaser.GameObjects.Sprite;
     if (!bird) {
-      bird = this.add.sprite(startX, startY, "bird_fly");
+      bird = this.add.sprite(startX, startY, "gust").setDepth(D.PROP);
       this.physics.add.existing(bird);
 
       const body = bird.body as Phaser.Physics.Arcade.Body;
@@ -531,15 +663,11 @@ export default class MainScene extends Phaser.Scene {
 
       this.birdsGroup.add(bird);
 
-      // Animate flapping wings
-      if (!this.anims.exists("bird_flapping")) {
+      if (!this.anims.exists("gust_swirl")) {
         this.anims.create({
-          key: "bird_flapping",
-          frames: this.anims.generateFrameNumbers("bird_fly", {
-            start: 0,
-            end: 2,
-          }),
-          frameRate: 8,
+          key: "gust_swirl",
+          frames: this.anims.generateFrameNumbers("gust", { start: 0, end: 2 }),
+          frameRate: 10,
           repeat: -1,
         });
       }
@@ -548,32 +676,33 @@ export default class MainScene extends Phaser.Scene {
     bird.setActive(true);
     bird.setVisible(true);
     bird.setPosition(startX, startY);
-    bird.setScale(0.9);
+    this.popIn(bird, 0.9);
 
     const body = bird.body as Phaser.Physics.Arcade.Body;
     body.enable = true;
     body.setAllowGravity(false);
     body.setVelocityY(0);
 
-    bird.play("bird_flapping");
+    bird.play("gust_swirl");
   }
 
   private spawnCollectible() {
     if (!this.gameActive) return;
 
-    // Randomize whether to spawn a Gold Coin (88% chance) or Shield Cover (12% chance)
     const isShield = Math.random() < 0.12;
-    const randomWire = Phaser.Math.Between(0, 3);
+    const randomWire = Phaser.Math.Between(0, this.wires.length - 1);
     const startX = this.cameras.main.width + 50;
+    // Hand height, so it is picked up by the walker's torso.
+    const startY = this.wires[randomWire] - 24;
 
-    // Draw item slightly higher than wire
-    const startY = this.wires[randomWire] - 12;
+    let item = this.collectiblesGroup.getFirstDead(
+      false,
+    ) as Phaser.GameObjects.Sprite;
 
-    let item = this.collectiblesGroup.getFirstDead(false);
-
-    // Recreate if no dead entity is pooled or types mismatch
     if (!item || item.name !== (isShield ? "shield" : "coin")) {
-      item = this.add.sprite(startX, startY, isShield ? "shield_item" : "coin");
+      item = this.add
+        .sprite(startX, startY, isShield ? "shield_item" : "coin")
+        .setDepth(D.PROP);
       item.name = isShield ? "shield" : "coin";
       this.physics.add.existing(item);
 
@@ -588,13 +717,13 @@ export default class MainScene extends Phaser.Scene {
     item.setVisible(true);
     item.setPosition(startX, startY);
     item.setTexture(isShield ? "shield_item" : "coin");
+    this.popIn(item, 1);
 
     const body = item.body as Phaser.Physics.Arcade.Body;
     body.enable = true;
     body.setAllowGravity(false);
     body.setVelocityY(0);
 
-    // Hover floating tween
     this.tweens.add({
       targets: item,
       y: startY - 8,
@@ -606,30 +735,30 @@ export default class MainScene extends Phaser.Scene {
   }
 
   private handleHazardCollision(bird: Phaser.GameObjects.Sprite) {
-    // Disable hazard physics immediately
     const birdBody = bird.body as Phaser.Physics.Arcade.Body;
     birdBody.enable = false;
+    this.tweens.killTweensOf(bird);
     this.birdsGroup.killAndHide(bird);
 
+    const hitY = this.player.y - 22;
+
     if (this.isShielded) {
-      // Shield cover breaks and absorbs hit
       this.isShielded = false;
       this.shieldHits += 1;
       playSynthSFX("shield");
 
-      // Explosion bubble burst visual
-      this.createBurstEffect(this.player.x, this.player.y, 0x00aeef);
-      this.cameras.main.shake(120, 0.015);
+      this.createBurstEffect(this.player.x, hitY, 0x4fb4ff);
+      this.createFloatingText(this.player.x, hitY, "BLOCKED", "#4FB4FF");
+      this.cameras.main.shake(300, 0.012);
     } else {
-      // Direct collision impact
       this.lives = Math.max(0, this.lives - 1);
       this.riskHits += 1;
       playSynthSFX("hit");
 
-      this.createBurstEffect(this.player.x, this.player.y, 0xef4444);
-      this.cameras.main.shake(200, 0.03);
+      this.createBurstEffect(this.player.x, hitY, CRIMSON);
+      this.cameras.main.shake(300, 0.03);
+      this.cameras.main.flash(140, 120, 20, 40);
 
-      // Flash player red
       this.tweens.add({
         targets: this.player,
         alpha: 0.2,
@@ -657,50 +786,68 @@ export default class MainScene extends Phaser.Scene {
     if (item.name === "shield") {
       this.isShielded = true;
       playSynthSFX("shield");
-      this.createBurstEffect(item.x, item.y, 0x00aeef);
-      this.createFloatingText(item.x, item.y, "SHIELD ON!", "#00AEEF");
+      this.createBurstEffect(item.x, item.y, BRAND_BLUE);
+      this.createFloatingText(item.x, item.y, "SHIELD", "#4FB4FF");
     } else {
       this.coinsCollected += 1;
       playSynthSFX("coin");
-      this.createBurstEffect(item.x, item.y, 0xfacc15);
-      this.createFloatingText(item.x, item.y, "+1000", "#22C55E");
+      this.createBurstEffect(item.x, item.y, 0xffc845);
+      this.createFloatingText(item.x, item.y, "+₹100", "#28A745");
     }
     this.notifyReact();
   }
 
   private createBurstEffect(x: number, y: number, color: number) {
     const emitter = this.add.particles(x, y, "sparkle", {
-      speed: { min: 40, max: 120 },
+      speed: { min: 50, max: 140 },
       angle: { min: 0, max: 360 },
-      scale: { start: 1, end: 0 },
+      scale: { start: 0.9, end: 0 },
       alpha: { start: 1, end: 0 },
-      lifespan: 400,
+      lifespan: 420,
       quantity: 14,
-      color: [color],
+      tint: color,
     });
-    this.time.delayedCall(400, () => emitter.destroy());
+    emitter.setDepth(D.FX);
+    // ring flash on top of the spark burst
+    const ring = this.add.circle(x, y, 8).setDepth(D.FX);
+    ring.setStrokeStyle(2.5, color, 0.9);
+    this.tweens.add({
+      targets: ring,
+      scale: 3.2,
+      alpha: 0,
+      duration: 380,
+      ease: "Cubic.easeOut",
+      onComplete: () => ring.destroy(),
+    });
+    this.time.delayedCall(430, () => emitter.destroy());
   }
 
-  private createFloatingText(
-    x: number,
-    y: number,
-    text: string,
-    color: string,
-  ) {
+  private createFloatingText(x: number, y: number, text: string, color: string) {
     const ft = this.add
       .text(x, y - 10, text, {
         fontFamily: '"Plus Jakarta Sans", sans-serif',
-        fontSize: "12px",
+        fontSize: "14px",
         fontStyle: "900",
-        color: color,
+        color,
+        stroke: "#02060F",
+        strokeThickness: 3,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setScale(0.6)
+      .setDepth(D.FX);
 
     this.tweens.add({
       targets: ft,
-      y: y - 50,
+      scale: 1,
+      duration: 180,
+      ease: "Back.easeOut",
+    });
+
+    this.tweens.add({
+      targets: ft,
+      y: y - 58,
       alpha: 0,
-      duration: 700,
+      duration: 760,
       ease: "Sine.easeOut",
       onComplete: () => ft.destroy(),
     });
@@ -711,22 +858,18 @@ export default class MainScene extends Phaser.Scene {
     this.physics.world.pause();
     this.tweens.pauseAll();
 
-    // Stop animations
     this.player.stop();
-    this.player.setTexture("beetle_jump");
+    this.player.setTexture("walker_hop");
 
     playSynthSFX("gameover");
 
-    // Final score percentage calculations
-    // Say target distance is 1000m. Score calculation is percentage-based relative to target
     const targetDistance = 1000;
     const finalScorePct = Math.min(
       100,
-      Math.max(
-        0,
-        Math.round((Math.floor(this.distance) / targetDistance) * 100),
-      ),
+      Math.max(0, Math.round((Math.floor(this.distance) / targetDistance) * 100)),
     );
+
+    this.cameras.main.fadeOut(400, 3, 9, 19);
 
     this.time.delayedCall(1200, () => {
       this.onGameOver({

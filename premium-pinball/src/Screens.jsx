@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { GAME_CONFIG, GOALS, RESULT_TARGET_SCORE, SCORE_LADDER } from './data.js';
+import { GAME_CONFIG, GOALS, RESULT_TARGET_SCORE } from './data.js';
 
 const GAME_TITLE = 'Premium Pinball';
 
@@ -111,7 +111,6 @@ const SCREEN_CSS = `
 @keyframes ppTitleIn { from { opacity: 0; letter-spacing: 0.24em; transform: translateY(10px); } to { opacity: 1; letter-spacing: -0.02em; transform: none; } }
 @keyframes ppFloat   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 @keyframes ppGlow    { 0%,100% { opacity: 0.3; } 50% { opacity: 0.9; } }
-@keyframes ppChip    { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
 @keyframes ppHeroBall {
   0%      { transform: translate(176px, 152px); }
   12%     { transform: translate(176px, 40px); }
@@ -125,22 +124,64 @@ const SCREEN_CSS = `
 }
 @keyframes ppHeroFlipL { 0%,64% { transform: rotate(0deg); } 74% { transform: rotate(-56deg); } 88%,100% { transform: rotate(0deg); } }
 @keyframes ppHeroBumper { 0%,44% { opacity: 0.6; } 52% { opacity: 1; } 70%,100% { opacity: 0.6; } }
-@keyframes ppBeatPlunge { 0%,20% { transform: translateY(0); } 40% { transform: translateY(6px); } 70%,100% { transform: translateY(-26px); } }
-@keyframes ppBeatFlip { 0%,45% { transform: rotate(0deg); } 60% { transform: rotate(-52deg); } 85%,100% { transform: rotate(0deg); } }
-@keyframes ppBeatLamp { 0%,30% { opacity: 0.25; } 45%,100% { opacity: 1; } }
+/* How-to-play demo: one 5.6s loop of a real ball — hold the plunger, release,
+   run the top lanes, pop a goal bumper, then tap to flip it back off the drain.
+   Every track shares the duration so the finger, the rod, the flipper and the
+   ball stay in sync. */
+@keyframes ppHtpBall {
+  0%, 12%  { transform: translate(179px, 210px); opacity: 1; }
+  16%      { transform: translate(179px, 194px); opacity: 1; }
+  27%      { transform: translate(179px, 46px); }
+  33%      { transform: translate(150px, 26px); }
+  38%      { transform: translate(118px, 42px); }
+  44%      { transform: translate(100px, 78px); }
+  50%      { transform: translate(76px, 120px); }
+  58%      { transform: translate(56px, 172px); }
+  64%      { transform: translate(66px, 198px); }
+  70%      { transform: translate(92px, 150px); }
+  84%      { transform: translate(128px, 72px); opacity: 1; }
+  90%      { transform: translate(142px, 50px); opacity: 0; }
+  99%      { transform: translate(179px, 210px); opacity: 0; }
+  100%     { transform: translate(179px, 210px); opacity: 1; }
+}
+@keyframes ppHtpFinger {
+  0%, 46%  { transform: translate(179px, 236px); }
+  58%      { transform: translate(70px, 230px); }
+  62%, 70% { transform: translate(70px, 236px); }
+  88%      { transform: translate(70px, 230px); }
+  100%     { transform: translate(179px, 236px); }
+}
+@keyframes ppHtpPress {
+  0%       { transform: scale(0.45); opacity: 0.9; }
+  10%      { transform: scale(1.7); opacity: 0; }
+  11%, 61% { transform: scale(0.45); opacity: 0; }
+  62%      { transform: scale(0.45); opacity: 0.9; }
+  72%      { transform: scale(1.7); opacity: 0; }
+  100%     { transform: scale(0.45); opacity: 0; }
+}
+@keyframes ppHtpRod { 0% { transform: translateY(0); } 12% { transform: translateY(9px); } 16%, 100% { transform: translateY(-3px); } }
+@keyframes ppHtpFlip { 0%, 60% { transform: rotate(0deg); } 66% { transform: rotate(-56deg); } 80%, 100% { transform: rotate(0deg); } }
+@keyframes ppHtpLamp { 0%, 27% { opacity: 0.2; } 34%, 92% { opacity: 1; } 96%, 100% { opacity: 0.2; } }
+@keyframes ppHtpHit  { 0%, 42% { transform: scale(0.6); opacity: 0; } 46% { transform: scale(1); opacity: 1; } 56%, 100% { transform: scale(1.5); opacity: 0; } }
+@keyframes ppHtpDrain { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.8; } }
 .pp-title  { animation: ppTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .pp-float  { animation: ppFloat 4s ease-in-out infinite; }
 .pp-glow   { animation: ppGlow 2.2s ease-in-out infinite; }
-.pp-chip   { animation: ppChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .pp-hero-ball   { animation: ppHeroBall 5.2s cubic-bezier(0.45,0,0.55,1) infinite; }
 .pp-hero-flip   { animation: ppHeroFlipL 5.2s ease-out infinite; transform-origin: 0 0; }
 .pp-hero-bumper { animation: ppHeroBumper 5.2s ease-in-out infinite; }
-.pp-beat-plunge { animation: ppBeatPlunge 2.4s ease-in-out infinite; }
-.pp-beat-flip   { animation: ppBeatFlip 2.4s ease-out infinite; transform-origin: 0 0; }
-.pp-beat-lamp   { animation: ppBeatLamp 2.4s ease-in-out infinite; }
+.pp-htp-ball   { animation: ppHtpBall 5.6s cubic-bezier(0.45,0,0.55,1) infinite; }
+.pp-htp-finger { animation: ppHtpFinger 5.6s cubic-bezier(0.4,0,0.2,1) infinite; }
+.pp-htp-press  { animation: ppHtpPress 5.6s ease-out infinite; transform-origin: 0 0; }
+.pp-htp-rod    { animation: ppHtpRod 5.6s ease-out infinite; }
+.pp-htp-flip   { animation: ppHtpFlip 5.6s ease-out infinite; transform-origin: 0 0; }
+.pp-htp-lamp   { animation: ppHtpLamp 5.6s ease-in-out infinite; }
+.pp-htp-hit    { animation: ppHtpHit 5.6s ease-out infinite; transform-origin: 0 0; }
+.pp-htp-drain  { animation: ppHtpDrain 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .pp-title, .pp-float, .pp-glow, .pp-chip, .pp-hero-ball, .pp-hero-flip, .pp-hero-bumper,
-  .pp-beat-plunge, .pp-beat-flip, .pp-beat-lamp { animation: none !important; }
+  .pp-title, .pp-float, .pp-glow, .pp-hero-ball, .pp-hero-flip, .pp-hero-bumper,
+  .pp-htp-ball, .pp-htp-finger, .pp-htp-press, .pp-htp-rod, .pp-htp-flip, .pp-htp-lamp,
+  .pp-htp-hit, .pp-htp-drain { animation: none !important; }
 }
 `;
 
@@ -350,25 +391,142 @@ export function HomeScreen({ onStart }) {
 }
 
 /* ─── How to play ────────────────────────────────────────── */
-function Beat({ n, title, copy, children }) {
+/**
+ * The whole tutorial, animated: a mini of the shipping table running one full
+ * ball. A touch dot holds the plunger (the rod compresses), releases, the ball
+ * runs the top lanes and pops the middle goal bumper, then falls at the drain —
+ * the dot moves to the left half, taps, the flipper fires and the ball is saved.
+ * Same shapes, same colours and same input map as PremiumPinballGame.jsx.
+ */
+function DemoTable() {
+  return (
+    <svg width="212" height="265" viewBox="0 0 200 250" aria-hidden="true">
+      <defs>
+        <linearGradient id="ppHtpBed" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0d2a5c" />
+          <stop offset="100%" stopColor="#061229" />
+        </linearGradient>
+        <radialGradient id="ppHtpBall" cx="0.34" cy="0.3" r="0.75">
+          <stop offset="0%" stopColor="#FFFFFF" />
+          <stop offset="45%" stopColor="#D6E5FA" />
+          <stop offset="100%" stopColor="#5E7FA8" />
+        </radialGradient>
+        <clipPath id="ppHtpClip"><rect x="3" y="3" width="194" height="244" rx="22" /></clipPath>
+      </defs>
+
+      <rect x="3" y="3" width="194" height="244" rx="22" fill="url(#ppHtpBed)"
+        stroke="rgba(255,255,255,0.12)" strokeWidth="1.4" />
+
+      <g clipPath="url(#ppHtpClip)">
+        <ellipse className="pp-glow" cx="95" cy="92" rx="82" ry="74" fill="rgba(38,102,196,0.2)" />
+
+        {/* Plunger lane + rod */}
+        <rect x="168" y="20" width="22" height="216" fill="rgba(0,0,0,0.32)" />
+        <line x1="168" y1="46" x2="168" y2="234" stroke="#6E93C6" strokeWidth="2.4" strokeLinecap="round" />
+        <line x1="190" y1="20" x2="190" y2="234" stroke="#6E93C6" strokeWidth="2.4" strokeLinecap="round" />
+        <g className="pp-htp-rod">
+          <rect x="171" y="220" width="16" height="7" rx="3.5" fill={ORANGE} />
+          <rect x="177" y="227" width="4" height="14" rx="2" fill="#6E93C6" />
+        </g>
+
+        {/* Rollover lanes across the top */}
+        {[0, 1, 2].map((i) => (
+          <g key={i}>
+            <line x1={44 + i * 40} y1="26" x2={44 + i * 40} y2="48" stroke="rgba(143,184,232,0.55)" strokeWidth="2" strokeLinecap="round" />
+            <circle className="pp-htp-lamp" cx={64 + i * 40} cy="19" r="3.4" fill={GOLD}
+              style={{ animationDelay: `${i * 0.12}s` }} />
+          </g>
+        ))}
+        <line x1="164" y1="26" x2="164" y2="48" stroke="rgba(143,184,232,0.55)" strokeWidth="2" strokeLinecap="round" />
+
+        {/* Goal bumpers — the same three the canvas paints */}
+        {[{ x: 60, y: 102, r: 13 }, { x: 100, y: 70, r: 15 }, { x: 140, y: 102, r: 13 }].map((b, i) => (
+          <g key={GOALS[i].key}>
+            <circle cx={b.x} cy={b.y} r={b.r + 3.5} fill="none" stroke={GOALS[i].colorLt} strokeWidth="1.5" opacity="0.75" />
+            <circle cx={b.x} cy={b.y} r={b.r} fill={GOALS[i].color} />
+            <circle cx={b.x - b.r * 0.32} cy={b.y - b.r * 0.36} r={b.r * 0.32} fill="rgba(255,255,255,0.5)" />
+          </g>
+        ))}
+        {/* Score pop on the bumper the ball actually hits */}
+        <g transform="translate(100,70)">
+          <g className="pp-htp-hit">
+            <circle cx="0" cy="0" r="22" fill="none" stroke={GOLD_LT} strokeWidth="3" />
+          </g>
+        </g>
+
+        {/* Slingshots */}
+        <path d="M30 148 L30 170 L50 166 Z" fill="#1b4f96" stroke={ORANGE} strokeWidth="1.5" />
+        <path d="M146 148 L146 170 L126 166 Z" fill="#1b4f96" stroke={ORANGE} strokeWidth="1.5" />
+
+        {/* Funnel walls down to the flippers */}
+        <path d="M10 142 L36 186 L52 196" fill="none" stroke="#6E93C6" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M164 142 L140 186 L124 196" fill="none" stroke="#6E93C6" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* Drain mouth between the tips */}
+        <ellipse className="pp-htp-drain" cx="88" cy="234" rx="18" ry="8"
+          fill="rgba(239,68,68,0.2)" stroke={DANGER} strokeWidth="1.4" />
+
+        {/* Flippers — left one fires on the tap */}
+        <g transform="translate(52,196)">
+          <g className="pp-htp-flip">
+            <line x1="0" y1="0" x2="28" y2="16" stroke={ORANGE} strokeWidth="7.5" strokeLinecap="round" />
+          </g>
+        </g>
+        <line x1="124" y1="196" x2="96" y2="212" stroke={ORANGE} strokeWidth="7.5" strokeLinecap="round" />
+
+        {/* The ball */}
+        <g className="pp-htp-ball">
+          <circle cx="0" cy="0" r="6.2" fill="url(#ppHtpBall)" />
+        </g>
+
+        {/* Touch dot: holds the plunger, then taps the left half to flip */}
+        <g className="pp-htp-finger">
+          <g className="pp-htp-press">
+            <circle cx="0" cy="0" r="13" fill="none" stroke="#fff" strokeWidth="2.6" />
+          </g>
+          <circle cx="0" cy="0" r="8" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.3)" strokeWidth="1" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function PlungerGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="7" y1="3" x2="7" y2="21" stroke="#6E93C6" strokeWidth="2" strokeLinecap="round" />
+      <line x1="17" y1="3" x2="17" y2="21" stroke="#6E93C6" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="9" r="3.4" fill="#D6E5FA" />
+      <rect x="8" y="16" width="8" height="4" rx="2" fill={ORANGE} />
+    </svg>
+  );
+}
+
+function FlipGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="4" y1="9" x2="17" y2="17" stroke={ORANGE} strokeWidth="4.5" strokeLinecap="round" />
+      <path d="M6 6 A9 9 0 0 1 19 8" fill="none" stroke={GOLD} strokeWidth="2" strokeLinecap="round" />
+      <path d="M19 4.5 L20 8.6 L16 8.2 Z" fill={GOLD} />
+    </svg>
+  );
+}
+
+/** icon + one short label. The only words allowed on this screen. */
+function Cue({ icon, word }) {
   return (
     <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      padding: '10px 12px',
-      borderRadius: 16,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.12)',
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+      padding: '9px 4px', borderRadius: 13,
+      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
     }}>
-      <div style={{ width: 74, height: 62, flexShrink: 0 }}>{children}</div>
-      <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: ORANGE_LT, textTransform: 'uppercase' }}>
-          Step {n}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.2 }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', lineHeight: 1.35 }}>{copy}</div>
-      </div>
+      {icon}
+      <span style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em',
+        color: 'rgba(255,255,255,0.82)', textAlign: 'center', lineHeight: 1.1,
+      }}>
+        {word}
+      </span>
     </div>
   );
 }
@@ -387,9 +545,9 @@ export function HowToPlayScreen({ onPlay }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 22,
+        padding: 18,
         background: SCREEN_BG,
-        overflowY: 'auto',
+        overflow: 'hidden',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
@@ -398,112 +556,27 @@ export function HowToPlayScreen({ onPlay }) {
         background: 'rgba(11,18,33,0.72)',
         border: '1px solid rgba(255,255,255,0.14)',
         borderRadius: 24,
-        padding: '24px 20px 20px',
+        padding: '18px 16px 16px',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 340,
         boxShadow: '0 14px 40px rgba(0,0,0,0.45)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 25, fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '-0.02em', margin: '0 0 6px 0', color: '#fff',
+          fontSize: 24, fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '-0.02em', margin: '0 0 8px 0', color: '#fff',
         }}>
           How to Play
         </h2>
-        <p style={{ fontSize: 11.5, fontWeight: 800, color: ORANGE_LT, margin: '0 0 16px 0', lineHeight: 1.4 }}>
-          Hold to charge the plunger &middot; Tap LEFT or RIGHT to flip &middot; Hold to keep a flipper up
-        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-          <Beat n="1" title="Charge and launch" copy="Hold anywhere to load the plunger. More power sends the ball further round the top.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <rect x="40" y="4" width="18" height="54" rx="4" fill="rgba(0,0,0,0.3)" />
-              <line x1="40" y1="4" x2="40" y2="58" stroke="#6E93C6" strokeWidth="2.2" strokeLinecap="round" />
-              <line x1="58" y1="4" x2="58" y2="58" stroke="#6E93C6" strokeWidth="2.2" strokeLinecap="round" />
-              <g className="pp-beat-plunge">
-                <circle cx="49" cy="40" r="5.4" fill="#D6E5FA" />
-              </g>
-              <rect x="43" y="50" width="12" height="4.5" rx="2" fill={ORANGE} />
-              <rect x="10" y="14" width="5" height="34" rx="2.5" fill="rgba(255,255,255,0.12)" />
-              <rect x="10" y="30" width="5" height="18" rx="2.5" fill={GOLD} />
-            </svg>
-          </Beat>
+        <DemoTable />
 
-          <Beat n="2" title="Work the goal bumpers" copy="Education, Home and Retirement each pay out. Hit all three on one ball for a bonus.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              {[{ x: 20, y: 34 }, { x: 37, y: 18 }, { x: 54, y: 34 }].map((b, i) => (
-                <g key={i} className="pp-hero-bumper" style={{ animationDelay: `${i * 0.2}s` }}>
-                  <circle cx={b.x} cy={b.y} r="10.5" fill="none" stroke={GOALS[i].colorLt} strokeWidth="1.5" />
-                  <circle cx={b.x} cy={b.y} r="8" fill={GOALS[i].color} />
-                </g>
-              ))}
-              <circle cx="46" cy="50" r="4.6" fill="#D6E5FA" />
-            </svg>
-          </Beat>
-
-          <Beat n="3" title="Save it at the flippers" copy="A ball down the middle is a lapsed premium. Flip it back up and keep the cover live.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              <path d="M4 12 L20 38 L28 44" fill="none" stroke="#6E93C6" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M70 12 L54 38 L46 44" fill="none" stroke="#6E93C6" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-              <g transform="translate(26,44)">
-                <g className="pp-beat-flip">
-                  <line x1="0" y1="0" x2="17" y2="10" stroke={ORANGE} strokeWidth="6" strokeLinecap="round" />
-                </g>
-              </g>
-              <line x1="48" y1="44" x2="31" y2="54" stroke={ORANGE} strokeWidth="6" strokeLinecap="round" />
-              <circle cx="34" cy="26" r="4.6" fill="#D6E5FA" />
-            </svg>
-          </Beat>
-
-          <Beat n="4" title="Light all three lanes" copy="Roll through the top lanes to arm Bonus Secure — everything scores double for 8 seconds.">
-            <svg width="74" height="62" viewBox="0 0 74 62" aria-hidden="true">
-              {[0, 1, 2].map((i) => (
-                <g key={i}>
-                  <line x1={16 + i * 14} y1="16" x2={16 + i * 14} y2="36" stroke="rgba(143,184,232,0.6)" strokeWidth="2" strokeLinecap="round" />
-                  <circle className="pp-beat-lamp" cx={23 + i * 14} cy="10" r="3.6" fill={GOLD}
-                    style={{ animationDelay: `${i * 0.22}s` }} />
-                </g>
-              ))}
-              <line x1="58" y1="16" x2="58" y2="36" stroke="rgba(143,184,232,0.6)" strokeWidth="2" strokeLinecap="round" />
-              <rect x="12" y="44" width="50" height="12" rx="6" fill="rgba(40,167,69,0.25)" stroke={GREEN_LT} strokeWidth="1" />
-              <text x="37" y="52.5" fill={GREEN_LT} fontSize="7" fontWeight="900" textAnchor="middle"
-                fontFamily="'Poppins', sans-serif">BONUS x2</text>
-            </svg>
-          </Beat>
-        </div>
-
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.balls} balls</strong> and{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.sessionSeconds}s</strong> &mdash; whichever runs out first.
-          Reach <strong style={{ color: GREEN_LT }}>{RESULT_TARGET_SCORE.toLocaleString()}</strong> to win.
-          <br />
-          <strong style={{ color: GREEN_LT }}>Cover Note:</strong> lose a ball in its first{' '}
-          <strong style={{ color: '#fff' }}>{GAME_CONFIG.ballSave.seconds}s</strong> and it comes
-          straight back &mdash; once per ball.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginBottom: 16 }}>
-          {SCORE_LADDER.map((row, i) => (
-            <span
-              key={row.key}
-              className="pp-chip"
-              style={{
-                animationDelay: `${140 + i * 80}ms`,
-                fontSize: 10,
-                fontWeight: 900,
-                padding: '4px 9px',
-                borderRadius: 999,
-                color: GOLD_LT,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                letterSpacing: '0.02em',
-              }}
-            >
-              {row.label} {row.value}
-            </span>
-          ))}
+        <div style={{ display: 'flex', gap: 7, margin: '10px 0 12px' }}>
+          <Cue icon={<PlungerGlyph />} word="HOLD TO LAUNCH" />
+          <Cue icon={<FlipGlyph />} word="TAP TO FLIP" />
+          <Cue icon={<DrainIcon size={22} />} word="DON'T DRAIN" />
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

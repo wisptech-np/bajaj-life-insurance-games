@@ -261,3 +261,50 @@ The flooring change shifts every score by up to 6 points; the gate was re-run an
 still passes (disciplined 43.2%, greedy 7.8% at 500 runs; 38.5% / 8.7% at 20k),
 and every table in this file, `data.js`, `README.md` and `index.md` now quotes
 post-fix numbers. `pnpm build` re-verified.
+
+## [2026-07-31] Revamp: email field removed, animated how-to-play, asset sheet
+
+**G1 — email field removed.** `src/LeadCaptureModal.jsx`: deleted `EMAIL_RE`, the
+`email` `useState`, the whole "Email Field" `sl-lead-field` block, the
+`errs.email` validation branch, and both `sessionStorage` touches of
+`lastSubmittedEmail`. Dropped `email` from the `submitToLMS({...})` call and from
+both `onSubmitted({...})` payloads. `api.js` untouched — `submitToLMS` already
+sends `email_id: email || ''`, so the LMS payload shape is unchanged. Name +
+Mobile + T&C unchanged. Grep for `email` outside `src/kit/` and `src/api.js`
+returns zero hits.
+
+**G2 — `HowToPlayScreen` rebuilt as animation-first.** `src/Screens.jsx`:
+- Deleted the `Beat` and `BeatBalloon` components, all four numbered step blocks
+  with their titles and copy, the rounds/session paragraph and the three chips.
+  Dropped the now-unused `VALUE_CEILING` / `VALUE_FLOOR` imports.
+- New 300×210 inline-SVG scene plays two complete rounds on one 6.4 s loop:
+  round 1 the finger presses and holds, the envelope grows and cross-fades blue →
+  orange while a gold value gauge climbs the right edge, the wobble tell shakes
+  it, the finger lifts and a full-size gold coin arcs into the vault, which
+  flashes; round 2 the finger holds past the wobble, the envelope goes red and
+  shakes harder, bursts into an eight-ray star, and the blue Term Shield snaps in
+  and sends a *half-size* coin to the vault. The 50% absorb rule is therefore
+  shown by the coin's size rather than stated.
+- The value gauge is the `10·t^1.6` curve made visible without printing a number,
+  which keeps the screen inside the text budget.
+- All demo transforms are authored around their parent group's origin, so no
+  `transform-box` / `transform-origin` overrides are needed for the SVG scales.
+- Remaining text: the "How to Play" heading, three icon-led labels (`HOLD TO
+  GROW`, `WOBBLE = BANK`, `COVER SAVES HALF`), and the Play button.
+- Container switched from `overflowY: auto` to `overflow: hidden`; measured stack
+  is ~415 px so it fits 360×640 without scrolling. All 12 new keyframe classes
+  are added to the existing `prefers-reduced-motion` kill switch.
+
+**G3 — `wealth-balloon/asset-from-here.md`.** 13 Nano Banana prompts on a
+"paper-craft carnival at golden hour" motif — layered cut-paper collage, torn
+fibre edges, one soft contact shadow per layer, nothing glossy or metallic.
+Covers the fairground background, all three balloon states (calm / warm /
+critical), the paper burst, the Term Shield, the needle drone, the vault, the
+coin, the value gauge, a HUD streak icon and both result-screen illustrations.
+
+**Not changed:** gameplay, balance, `rounds.js`, the burst-threshold draw, the
+wobble tell timing, HUD layout, `ResultsScreen`, `HomeScreen`, canvas artwork,
+`data.js`, `api.js`, `src/kit/`.
+
+**Build:** `pnpm install && pnpm build` — exit 0, `✓ built in 2.15s`
+(`dist/assets/index-B8aCTYwv.js 421.44 kB │ gzip: 139.71 kB`).

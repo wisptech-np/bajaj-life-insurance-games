@@ -84,7 +84,9 @@ export const GAME_CONFIG = {
     innerFrac: 0.34,
     tiltFrac: 0.34,
     // Slab thickness — the darker front face that sells the pseudo-3D read.
-    thicknessPx: 13,
+    // Raised 13 -> 16 with the bigger ball: a 40 px ball sitting on a 13 px lip
+    // read as a marble balanced on a sheet of paper.
+    thicknessPx: 16,
     // Drag sensitivity (CORRECTION: spec 0.55). At 0.55 deg/px a half-turn needs
     // 327 px of drag — essentially the entire play area on a 360 px phone (a
     // ~340 px stage) — so the worst-case alignment meant one edge-to-edge swipe
@@ -107,10 +109,20 @@ export const GAME_CONFIG = {
     // ~29 s median. See README "Balance notes".
     bounceHeightPx: 100,
     bounceSeconds: 0.7,
-    radiusPx: 14,
+    // 14 -> 20. A 28 px ball was a dot on a 360 px phone; 40 px reads as the
+    // shield it is meant to be. Everything the ball has to fit through is
+    // re-tuned with it — see `arcs` below — because its angular width on the
+    // worst-case 360 px screen goes 16.4 deg -> 23.3 deg, a 42% wider target.
+    radiusPx: 20,
     // Orbit radius as a fraction of the tower radius: the ball rides the middle
     // of the platform band, not its outer lip.
     orbitFrac: 0.68,
+    // Late-game descent speed. Bounce speed is scaled by k and gravity by k^2,
+    // which shortens the bounce period to T/k while leaving the apex exactly
+    // where it was: the deeper you get, the less time you have to aim, without
+    // the ball visibly changing weight. k ramps on the same eased depth curve as
+    // the arcs (arcs.rampExp), so the last third is where it bites.
+    lateSpeedup: 1.28,
     // Falls accelerate under this cap so a long fever shaft stays readable.
     terminalVelocityPx: 2300,
     squashSeconds: 0.22,
@@ -118,16 +130,29 @@ export const GAME_CONFIG = {
   },
 
   arcs: {
-    // Per-ring composition, lerped over depth t = ring / rings.
-    gapSpanDeg: [70, 42],
-    crashShare: [0.10, 0.34],
-    minSafeSpanDeg: 55,
+    // Per-ring composition, lerped over an EASED depth t = (ring/rings)^rampExp.
+    // The exponent is the difficulty ramp: at ring 13 the eased t is only 0.16
+    // and at ring 27 it is 0.49, so the first third stays close to the easy end
+    // of every pair below and the squeeze lands in the last third. A linear t
+    // made the tower feel uniformly mean from ring 1.
+    rampExp: 1.7,
+    // The ball is 23.3 deg wide at the worst-case 360 px screen, so the deepest
+    // gap (46) still clears it by 11.3 deg a side — the same drag tolerance the
+    // old 42 deg gap gave the old 16.4 deg ball, held constant across the resize.
+    gapSpanDeg: [80, 46],
+    // Crash coverage: 8% of the ring at the top, 46% at the bottom (was 10/34).
+    crashShare: [0.08, 0.46],
+    // Guaranteed landing run. 55 -> 60 keeps ~18 deg of margin a side under the
+    // wider ball, so the one arc the fall path is allowed to land on is never a
+    // pixel-perfect catch.
+    minSafeSpanDeg: 60,
     // Crash arcs are split into this many pieces, lerped over depth.
-    crashArcs: [1, 3],
-    minCrashSpanDeg: 16,
+    crashArcs: [1, 4],
+    minCrashSpanDeg: 18,
     // Every safe run that is not the guaranteed landing run still gets this much
-    // width, so a ring never contains a 2 deg sliver nobody can read.
-    minSafeSliceDeg: 10,
+    // width, so a ring never contains a 2 deg sliver nobody can read. Scaled
+    // with the ball (10 -> 14) so the between-crash slices stay legible.
+    minSafeSliceDeg: 14,
     // Share of the ring's total safe width reserved for the guaranteed landing
     // run (floored at minSafeSpanDeg).
     landingShare: 0.34,
@@ -139,7 +164,34 @@ export const GAME_CONFIG = {
     fallThroughChance: 0.12,
   },
 
+  /* Over-fall: the ball is not built to free-fall forever.
+     More than `maxRings` rings in ONE uninterrupted fall destroys it and ends
+     the run. From `warnRings` the ball visibly stresses — crackling shell, red
+     shift, danger vignette, rising pass tone, live skip counter — so the death
+     is always the last beat of a telegraph the player watched build.
+
+     The limit and the fever reward are deliberately one ring apart:
+       ring 3 of a fall  -> fever lights (crash immunity, 3 s)
+       ring 4 of a fall  -> last legal ring, stress at maximum
+       ring 5 of a fall  -> destroyed, fever or not.
+     So fever is the payoff for a fall you then have to STOP, and the immunity
+     is explicitly scoped to crash arcs. Cover protects you from the market; it
+     does not protect you from never landing. */
+  fall: {
+    maxRings: 4,
+    warnRings: 3,
+    // Once stressed, the fall is capped at this speed instead of
+    // ball.terminalVelocityPx. It reads as the ball straining against the drop,
+    // and it is what makes the limit fair: 150 px between rings at 700 px/s is
+    // ~0.21 s per ring, so from the first stress cue there is ~0.43 s to steer
+    // onto a safe arc — against a landing run at least 60 deg wide, which is at
+    // most ~43 px of drag away from the gap edge.
+    stressVelocityPx: 700,
+  },
+
   fever: {
+    // Must stay <= fall.maxRings, or the reward would only ever be handed out
+    // on the fall that kills you.
     ringsPerStreak: 3,
     // Smashes allowed per fever. Enforced together with the component's
     // one-fever-per-fall latch: without the latch, spending the fever on a smash
@@ -160,7 +212,10 @@ export const GAME_CONFIG = {
     // relying on the random fallThroughChance rolling three times in a row.
     // Two aligned rings is exactly enough: the gap the player drops through
     // counts as the first ring of the fall, so a 2-ring shaft lands the streak
-    // on 3. A 3-ring shaft donated a fourth free ring for nothing.
+    // on 3. A 3-ring shaft donated a fourth free ring for nothing — and now it
+    // would also plant a free ring of over-fall stress the player never chose.
+    // A planted shaft therefore ends at exactly the fever threshold, one ring
+    // clear of the destroy limit; anything past 3 is the player's own doing.
     chainStartRing: 5,
     chainEveryRings: 9,
     chainLength: 2,
