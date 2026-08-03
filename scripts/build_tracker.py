@@ -85,7 +85,7 @@ def main() -> None:
         status = status_map.get(g["dir"], "In Progress")
         ws.append([
             g["concept"], g.get("reference", ""), g["financialConcept"], g.get("gameName", ""),
-            g["bajajName"], g.get("feedback", ""), "",
+            g["bajajName"], g.get("feedback", ""), g.get("reviewFeedback", ""),
             g["dir"], gtype, status, g.get("port") or "",
         ])
 
