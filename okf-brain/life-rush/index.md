@@ -1,7 +1,7 @@
 ---
 type: project
 title: Life Rush
-description: WarioWare-style microgame rush — twelve one-verb challenges drawn from a pool of fourteen, each answered in a window shrinking from 3.5s to 2.6s, three shield lives, command banners and 600ms breathers between.
+description: WarioWare-style microgame rush — twelve money moments drawn from a pool of fourteen, one of four gestures each, answered in a window shrinking from 3.5s to 2.6s, three shield lives, held together by a persistent frame of progress track, action window and instruction strip.
 resource: file:///c:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/life-rush
 tags:
   - game
@@ -12,6 +12,36 @@ timestamp: 2026-07-29
 ---
 
 # Life Rush
+
+## The loop, in one paragraph
+
+Twelve money moments, one gesture each. Each one names itself on a command
+banner, waits for its cue, then gives you a shrinking window to answer with one
+of four gestures — **TAP, DRAG, SWIPE or HOLD**. Three shields; miss three and
+the run is over; survive all twelve and every shield still held pays 200.
+
+## The persistent frame (2026-08-03)
+
+A rush of tiny scenes is unreadable unless the things that never change are drawn
+in the same place every time. Four elements, always on, drawn AFTER the phase
+overlays so nothing dims them:
+
+| y (stage px) | element |
+|---|---|
+| 8-13 | **progress track** — twelve segments: green cleared, red failed, pulsing orange the one you are on, dim still to come |
+| 18-25 | **action window** — the countdown bar; hatched while the microgame is locked, draining once the cue lands, red under 28% |
+| 31-73 | **HUD row** — Score / Shields (captioned, red at one) / Moment n/12 |
+| 78-110 | **instruction strip** — the verb chip, the ask, and the money moment, for the WHOLE window |
+| 116+ | the 100 x 130 microgame box |
+
+The strip's chip reads **WAIT** in slate until the cue and then flips to the
+orange verb: the cue rule, which fails you outright for touching early, finally
+has a visible statement. The command word and its hint used to be shown for
+1.15 s on the banner and then removed for the entire action window; they now
+never leave the screen. `GRAMMAR` and `MOMENTS` live in `src/data.js` and
+`scripts/balance.mjs` asserts both are complete for all fourteen.
+
+## The microgames
 
 Twelve rapid micro-challenges, each a single verb, each introduced by a one-word
 command banner that slams across the scene — PAY!, SWAT!, PICK!, SHIELD!. The
@@ -32,8 +62,12 @@ each one a financial decision compressed to the two seconds people actually give
 it — and three shield lives standing between the ones you fumble and the run
 ending. That is what cover is.
 
-Each microgame carries its own small argument, and the failure states carry it
-rather than any copy on the screen: SHIELD! is judged at the instant the rain
+Each microgame carries its own small argument. As of 2026-08-03 it is also
+**named**: every microgame has a money moment in `MOMENTS` (data.js) which is
+shown above the command word on the banner, kept under the ask on the
+instruction strip for the whole window, and listed back on the results screen,
+so a run adds up to something the player can describe afterwards. The mechanics
+still carry the argument on their own — SHIELD! is judged at the instant the rain
 lands and only counts if you are still holding the umbrella, so protection has
 to already be in place and still be there; GROW! fails both short of the goal and
 over it, because a plan that overshoots was still not the plan; SPLIT! ends the

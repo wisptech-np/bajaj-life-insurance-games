@@ -219,3 +219,40 @@ artwork, `data.js`, `items.js`, `rules.js`, `layout.js`, `api.js`, `src/kit/`.
 
 **Build:** `pnpm install && pnpm build` — exit 0, `✓ built in 3.29s`
 (`dist/assets/index-D5wt_Lne.js 430.37 kB │ gzip: 142.04 kB`).
+
+---
+
+## 2026-08-03 — "The game is not working" (BajajLife review)
+
+**What the report meant.** Not a crash and not dead input. The bundle builds and
+boots with zero console errors, `scripts/balance.mjs` passed untouched, and a
+scripted pointer drag over the canvas moved the score (0 → 40), so the swipe
+path, `createInput`'s swipe recogniser and `applySwipe` all work. Every DOM
+overlay already carries `pointerEvents: 'none'`, so nothing swallows a gesture.
+
+Driven through headless Chrome at 390x844 the run ended in **11 seconds** with
+`3/3 MISTAKES` and `1 SORTED`. The mistake budget was 3 and a scroll-past
+counted, so a player meeting twelve unfamiliar item types at ~1.9 s per card
+loses on the opening three cards — before a single card has resolved on screen.
+
+**Fix**
+
+- `data.js` / `rules.js` — new `mistakes.graceItems = 3`. The first three cards
+  cannot spend a life. They still flash red, still break the combo and still
+  fire the missort banner, so they teach; they just cannot end the run.
+- `mistakes.allowed` stays at **3**. Raising it to 5 was tried and rejected: it
+  sent the casual bot from the brief's 25–45% band to **83.4%**. The defect was
+  when the budget got spent, not how big it was.
+- `SmartSorterGame.jsx` — a grace mistake appends "warm-up, no life lost" to the
+  banner, so a red flash with the mistake pips untouched does not read as a
+  broken counter.
+
+**Verification**
+
+- `node scripts/balance.mjs` — **GATE: PASS**, all 14 assertions. Casual win
+  rate **41.6%** (band 25–45%), idle bot still dies at **16.4 s** (gate < 20 s),
+  perfect and lazy bots unchanged at 100%.
+- `npx vite build` — passes, 430.49 kB / 142.11 kB gzip.
+- Headless Chrome, 390x844, production bundle, random-swipe bot:
+  run length **11 s → 19 s**, 0 page errors, results screen reached,
+  "Try again" restores the canvas.

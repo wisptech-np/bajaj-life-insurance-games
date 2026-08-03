@@ -581,3 +581,200 @@ they are the gate.
 
 - `pnpm install` — OK.
 - `pnpm build` (vite --mode uat) — **passes**, `✓ built in 2.23s`.
+
+---
+
+# 2026-08-03 — review round 2: "the objective and mechanics are unclear"
+
+Review feedback, verbatim: *redefine the gameplay loop; add onboarding
+instructions and visual guidance; clearly explain how the game relates to life
+insurance or financial planning; make progression, scoring and failure
+conditions obvious.*
+
+## What was actually unclear (diagnosis before any edit)
+
+Nothing in the RULES. The balance gate, the render smoke and the stale-gesture
+probe all still passed untouched, and the complaint is about comprehension, not
+fairness. Five concrete defects, all in presentation:
+
+1. **The instruction vanished exactly when it was needed.** The command word and
+   its one-line hint were drawn on the banner for 1.15 s and then removed for the
+   whole 2.6-3.5 s action window. The player was asked to remember the rules of a
+   game they had seen once, while a clock ran, twelve times in a row.
+2. **The action-window bar was behind the HUD.** `drawCountdown` painted at
+   canvas `y=12`, `x=16..W-32`; `styles.hudTop` painted the score pill, the
+   shield pips and the slot pill at `top: 10` with a ~38 px height. On a 320 px
+   handset the pills cover essentially the whole bar. The one element that tells
+   you you are about to lose a life was occluded on every device. MAJOR 2 of
+   round 1 made the bar *honest*; it was still not *visible*.
+3. **No objective was ever stated.** The intro read "ONE VERB. A FEW SECONDS.
+   TWELVE TIMES." — a description of the format that never says what winning is.
+   `HowToPlayScreen` demonstrated three gestures and likewise never said.
+4. **The cue rule was invisible and lethal.** Touching before the cue fails the
+   microgame outright. The only tell was a hatched "arming" countdown bar — which
+   was behind the pills (defect 2). First-timers lost shields to a rule they
+   could not see and were told "TOO EARLY!" with no explanation.
+5. **The insurance link was only in the props.** A premium card glimpsed for two
+   seconds is not an argument, and the results screen reported three numbers
+   about a blur.
+
+## The loop, redefined (stated, not changed)
+
+> Twelve money moments, one gesture each. Each one names itself, waits for its
+> cue, then gives you a shrinking window to answer. Three shields; miss three and
+> the run is over; survive all twelve and every shield still held pays out.
+
+The rules behind that sentence are the ones that already shipped. The change is
+that the sentence is now *on the screen* — on the intro, on the how-to card, on
+the banner, on the strip, and on the results recap.
+
+## The consistent input grammar
+
+Four gestures, and that is the whole list: **TAP / DRAG / SWIPE / HOLD**
+(`GRAMMAR` in data.js). `topup` is the one compound and is spelled `TAP x2`
+rather than given a fifth glyph, because it is still the tap family. Every
+microgame already declared a `verb`; nothing was ever shown to the player. The
+frame now draws it as the same chip, in the same place, with the same glyph,
+whichever of the fourteen scenes is running.
+
+Enforced by a new gate assertion (`instruction frame`): every microgame must have
+a verb inside the grammar, a `MOMENTS` entry, and a hint of at most 34 chars, and
+`moment + why` must be at most 45 chars so the strip cannot clip on a 320 px
+handset. A fifteenth microgame cannot now ship with a gesture the player was
+never taught.
+
+## The persistent frame
+
+Drawn on every frame of every phase, in fixed positions from `GAME_CONFIG.hud`,
+and drawn **after** the phase overlays so the banner, the breather and the SPEED
+UP card can never dim it:
+
+| y (stage px) | element |
+|---|---|
+| 8-13 | **progress track** — twelve segments: green cleared, red failed, pulsing orange the one you are on, dim still to come |
+| 18-25 | **action window** — the countdown bar, now unobstructed |
+| 31-73 | **HUD row** (DOM) — Score / Shields (captioned; "Last shield" in red at one) / Moment n/12 |
+| 78-110 | **instruction strip** — verb chip + the ask + the money moment |
+| 116+ | the 100 x 130 microgame box |
+
+The strip is the centrepiece. It carries the verb chip (which reads **WAIT** in
+slate and flips to the orange verb the instant the cue lands — the first visible
+statement of the cue rule this game has ever had), the microgame's own ask, and
+its money moment. Text is shrunk to fit once per microgame per width by
+`fitText`; measuring in the render loop would allocate a TextMetrics every frame.
+
+`stageTop` moved from 26 to 116. Measured at all four play-test viewports the
+letterbox scale `k` is unchanged, because the box is width-limited on every one
+of them (320: availH 420 against the 387 needed; 412x700: 552 against 507).
+
+## Insurance mapping, per microgame
+
+`MOMENTS` in data.js. Shown on the banner (above the command word), on the strip
+for the whole window, and listed back on the results screen.
+
+| microgame | moment | why |
+|---|---|---|
+| pay | PREMIUM DAY | Pay on time or cover lapses |
+| pick | THE RIGHT COVER | One risk, one policy |
+| catch | SAVINGS SLIPPING | Catch it before it drops |
+| gift | BONUS DAY | Park it before it is spent |
+| sign | THE PAPERWORK | Cover starts when you sign |
+| swat | SCAM CALL | Refuse it, do not think |
+| shield | RAINY DAY | Cover must be up before it hits |
+| grow | YOUR SIP | Stop at the goal, not past it |
+| topup | TOP UP THE COVER | Bigger life, bigger cover |
+| snooze | IMPULSE BUY | Close the ad, keep the money |
+| stamp | CLAIM APPROVAL | Papers line up, claim clears |
+| split | NEEDS OR WANTS | Every rupee goes to one |
+| lock | LOCK THE PLAN | Hard to touch is the point |
+| wake | DUE BY THE 9th | The due date does not move |
+
+## Onboarding
+
+- **`HowToPlayScreen`** keeps its animation-first demo and gains the objective in
+  words above it ("Twelve money moments, one gesture each. Wait for the orange
+  chip to light, then answer before the bar empties."). The three labels now say
+  what the run IS rather than what it feels like: "Tap swipe drag hold" /
+  "Survive all 12" / "3 misses ends it". The demo's banner now shows the glyph
+  **and the verb word** — the same pairing the in-game chip uses, so the screen
+  that teaches the grammar and the frame that enforces it show the same thing.
+- **Intro (3-2-1)** replaces the format tease with the objective: SURVIVE 12
+  MONEY MOMENTS / MISS 3 AND THE RUN IS OVER / WAIT FOR THE CHIP TO LIGHT UP.
+- **Verdict stamp** takes an optional second line. `early` and `late` now explain
+  themselves ("You moved before the chip lit up" / "The action window ran out").
+  The stamp also moved from `H*0.5` to `H*0.36`: it had been landing on top of
+  the floating score text and both were unreadable.
+- **Failure** is named. "COVER LOST" became **SHIELD LOST** plus a second float
+  saying how many remain, and the shield pips carry a caption that turns red and
+  reads "Last shield" at one.
+
+## Results
+
+New `MomentRecap`: the money moments the player actually faced, in order, ticked
+or crossed, plus a line about the ones that were still coming when the shields
+ran out. The run now adds up to something the player can describe. `statsOf` is
+untouched — the component spreads it and adds a `moments` array, so the
+`{score, cleared, bestStreak, perfects}` contract still holds and the gate is
+unaffected.
+
+## Verification
+
+**Balance gate — before and after are IDENTICAL, which is the point.** No rule,
+window, budget or tolerance was touched; the gate proves it.
+
+| | before | after |
+|---|---|---|
+| honest, 4 blocks | 28.2 / 35.6 / 34.0 / 32.0 -> **32.5%** | 28.2 / 35.6 / 34.0 / 32.0 -> **32.5%** |
+| sharp | 99.6% | 99.6% |
+| perfect | 100.0% | 100.0% |
+| idle / spam / mash | 0.0 / 0.0 / 0.0% | 0.0 / 0.0 / 0.0% |
+| cleared per run (honest) | 7.31 | 7.31 |
+| measured ceiling | 2,985 | 2,985 |
+| worst-case session | 71.0 s | 71.0 s |
+| render smoke | 2,520 calls OK | 2,520 calls OK |
+| stale-gesture guard | 5/5 OK | 5/5 OK |
+| countdown red state | 45.1% | 45.1% |
+| **instruction frame** | *(assertion did not exist)* | **verb + moment + ask on all 14, grammar of 4 gestures OK** |
+
+    GATE: PASS (exit 0)
+
+No assertion was made obsolete by the redesign, so none was removed; one was
+added.
+
+**Build:** `npx vite build` — 542 modules, `dist/assets/index-3sI_2uUw.js`
+477.59 kB / 156.52 kB gzip, built in 10.43 s. Zero errors.
+
+**Play-test:** `node scripts/play-test.mjs life-rush --all-sizes`
+
+    320x568  canvas 298x546  painted 100.0%  ended 12s at "try again"  retry OK
+    390x844  canvas 368x822  painted 100.0%  ended 12s at "try again"  retry OK
+    412x915  canvas 390x893  painted 100.0%  ended 11s at "try again"  retry OK
+    412x700  canvas 390x678  painted 100.0%  ended 12s at "try again"  retry OK
+
+Zero console errors and zero page errors at every size. The 11-12 s runs are the
+random-input bot, which taps from frame one and therefore violates the cue rule
+on every microgame — the same behaviour the gate's `spam` profile measures at
+0.0% win and 0.00 cleared per run. The honest profile holds at 32.5%.
+
+**Screenshots.** The harness shoots ~1.5 s after the retry click, by which point
+the lead modal covers the stage, so the frame was additionally captured mid-play
+at all four viewports. Confirmed legible in every phase at every size: the track,
+the window bar, the pills and the strip are readable at 320 px with the strip's
+longest line intact, WAIT flips to the orange verb chip at the cue, and the
+failure state reads TOO SLOW! / "The action window ran out" / SHIELD LOST /
+"1 LEFT" with the pip caption in red. Two defects were found by looking at those
+shots and fixed: the shield pill overlapped the strip (`stripY` 73 -> 78,
+`stageTop` 110 -> 116) and the verdict stamp collided with the floats (moved to
+`H*0.36`).
+
+## Not fixed
+
+1. **Still no human device pass** (deferred minor 1 from round 1). Headless
+   Chrome at four viewports is not a thumb on glass.
+2. **During BEAT / BREATHER / SPEEDUP the strip still shows the microgame that
+   just finished**, with the chip on WAIT. It reads as "nothing to do right now",
+   which is true, but it is the previous scene's ask rather than a neutral state.
+3. **The 260 ms reaction assumption is unchanged** and the latency curve is still
+   steep (72.8% at 220 ms, 27.6% at 260 ms). Unaffected by this round, but the
+   frame should make a real player faster than the model assumes — worth
+   re-measuring if telemetry ever lands.

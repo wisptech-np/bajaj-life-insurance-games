@@ -18,7 +18,22 @@
    Colour grammar for the junction: BLUE/TEAL/GREEN are the family vehicles you
    are protecting, ORANGE is the risk truck (the thing you cannot control),
    GREEN is a safe crossing, RED is a crash, and the Claim Cushion shield is
-   brand blue — protection is always blue, never red. */
+   brand blue — protection is always blue, never red.
+
+   STATE grammar (2026-08-03). Four states, and each one is signalled by a
+   SHAPE as well as a colour, so the board still reads in greyscale, on a dim
+   phone, or to a colour-blind player:
+
+     GREEN + open corner brackets ......... junction clear, nothing to answer
+     RED + filled triangles / diamond ..... predicted collision, act now
+     BLUE + closed draining arc ........... you are holding this one (protection
+                                            is blue everywhere in this repo)
+     ORANGE + dashed / hazard chevrons .... control you do not have — the risk
+                                            truck, and a driver out of patience
+
+   Red is used for exactly one thing: a collision that is about to happen or has
+   just happened. It is deliberately NOT the "held" colour any more — a held
+   vehicle is the player protecting somebody, which is blue. */
 export const COLORS = {
   brandBlue: '#003DA6',
   brandBlueLt: '#1E6BE0',
@@ -50,6 +65,15 @@ export const COLORS = {
   glassLine: 'rgba(255,255,255,0.12)',
   ink: '#FFFFFF',
   inkDim: 'rgba(255,255,255,0.62)',
+
+  /* Indicator layer. Split out from the base palette because these five are the
+     ONLY colours allowed to carry state, and they must not drift into decoration. */
+  // Motion streak behind a rolling vehicle. Presence/absence of the streak is
+  // the non-colour half of the go/stop read: stopped vehicles have none.
+  trail: 'rgba(214,232,255,1)',
+  // Faint brand shield embossed into the two off-road city blocks.
+  watermark: 'rgba(30,107,224,0.13)',
+  watermarkLine: 'rgba(30,107,224,0.26)',
 };
 
 /* ─── Gameplay configuration ────────────────────────────── */
@@ -305,6 +329,70 @@ export const GAME_CONFIG = {
     bannerSeconds: 1.5,
     // Recovery time for a vehicle's squash after it is tapped.
     squashSeconds: 0.24,
+  },
+
+  /* -- Danger / safety indicators ----------------------------------------
+     The 2026-08-03 review's priority: "the player must be able to read 'safe
+     now' versus 'not safe now' instantly and peripherally, while their
+     attention is on the mover."
+
+     Everything here is drawn AT THE JUNCTION BOX, because that is where the eye
+     already is. Nothing here relies on colour alone:
+
+     - clear      four OPEN corner brackets, thin, perfectly static.
+     - contested  the same four corners become FILLED TRIANGLES pointing into
+                  the box, the outline thickens, and the whole frame pulses.
+                  Shape, stroke weight and motion all change at once.
+     - point      each predicted collision puts a filled DIAMOND on the exact
+                  square metre where the two vehicles will meet. A diamond is
+                  the only rotated-square shape on the board — every vehicle,
+                  block and marking is an axis-aligned rounded rect or a circle.
+     - vehicle    the two vehicles of a predicted pair carry a solid red ring
+                  with a hazard TRIANGLE at twelve o'clock, and only while they
+                  are within `warnRangeLanes` of the box. The old marker was a
+                  thin orange dashed circle drawn on every warned vehicle
+                  anywhere on the runway, which put a ring on five of the seven
+                  vehicles on screen — ambient, and therefore not a signal. */
+  indicator: {
+    // Corner bracket / triangle leg, as a fraction of the lane width. The box is
+    // only two lane widths across, so anything past ~0.3 makes the four corner
+    // triangles meet and the whole box reads as a solid red block that hides the
+    // keep-clear hatch and the vehicles inside it. Measured at 320x568 and
+    // 412x700: 0.46 filled the box, 0.26 leaves the hatch legible.
+    cornerFrac: 0.26,
+    clearWidth: 2,
+    contestWidth: 2.6,
+    // Pulse rate of every contested indicator, in Hz. One rate for all of them
+    // so the whole danger layer beats together and reads as one alarm.
+    pulseHz: 2.1,
+    // Conflict-point diamond half-diagonal, as a fraction of the lane width.
+    diamondFrac: 0.18,
+    // Per-vehicle ring is suppressed beyond this many lane widths from the box.
+    warnRangeLanes: 4.5,
+    // Hazard triangle above the ring, as a fraction of the lane width.
+    triFrac: 0.30,
+    // Motion streak: length as a fraction of vehicle length at full cruise, and
+    // the fraction of cruise below which a vehicle is drawn as stopped.
+    trailLenFrac: 1.05,
+    trailMinSpeed: 0.16,
+    trailAlpha: 0.30,
+  },
+
+  /* -- HUD layout ---------------------------------------------------------
+     Two strips and nothing else. The old HUD stacked three rows down the top of
+     the stage (pills at 10, progress at 62, status chips at 96), and on a
+     320x568 handset the third row landed squarely on the southbound approach
+     lane — a status chip sitting on top of moving traffic. Score/Through/Time
+     and the progress rail are now ONE card at the top; the state chips moved to
+     the bottom-left, which is a city block on every canvas size and therefore
+     never has traffic under it. */
+  layout: {
+    // Inset of the HUD strips from the stage edge.
+    inset: 10,
+    // Gap between the two bottom-left chips.
+    chipGap: 5,
+    // Mute button edge (also its touch target, kept at the 44 px floor).
+    controlSize: 44,
   },
 
   hud: {

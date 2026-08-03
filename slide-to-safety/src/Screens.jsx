@@ -8,9 +8,10 @@ import { perfectScore } from './data.js';
 import { LEVELS, TOTAL_PAR } from './levels.js';
 
 const GAME_TITLE = 'Slide to Safety';
-const TAGLINE = 'One swipe at a time, glide your shield past thin ice and bring it home to the family.';
+const TAGLINE = 'Hold to aim the slide. Let go and it is committed.';
 const PERFECT_SCORE = perfectScore(LEVELS);
 const TOTAL_COINS = LEVELS.reduce((a, lv) => a + lv.coins.length, 0);
+const TOTAL_COVERS = LEVELS.reduce((a, lv) => a + lv.covers.length, 0);
 
 /* Brand palette, inline. These screens are chrome rather than gameplay, so they
    deliberately do not pull the canvas palette in from data.js. */
@@ -27,6 +28,8 @@ const ICE = '#CFE4F7';
 const ICE_LT = '#F2F9FF';
 const ICE_DEEP = '#9BC1E4';
 const CRACK = '#E0785A';
+const COVER = '#8FC2FF';
+const COVER_LT = '#CFE9FF';
 const SCREEN_BG = 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221';
 
 /* ─── Inline icons ─────────────────────────────────────── */
@@ -131,15 +134,24 @@ const SCREEN_CSS = `
 }
 @keyframes ssHeroTrail { 0% { stroke-dashoffset: 300; } 60%,100% { stroke-dashoffset: 0; } }
 @keyframes ssGust { 0% { opacity: 0.25; transform: translateX(-6px); } 50% { opacity: 0.9; } 100% { opacity: 0.25; transform: translateX(6px); } }
-/* How-to-play loop (5.2 s), one cell = 26px: the token is swiped right, glides
-   until the rock stops it (picking up a coin on the way), is then swiped up,
-   crosses thin ice without stopping on it, and lands on the family tile. */
-@keyframes stsGlide { 0%,20% { transform: translate(0,0); } 36%,54% { transform: translate(78px,0); } 70%,100% { transform: translate(78px,-78px); } }
-@keyframes stsTrail { 0%,20% { stroke-dashoffset: 156; } 36%,54% { stroke-dashoffset: 78; } 70%,100% { stroke-dashoffset: 0; } }
-@keyframes stsHand  { 0% { opacity: 0; transform: translate(-16px,28px); } 8%,20% { opacity: 1; transform: translate(0,15px); } 34% { opacity: 1; transform: translate(78px,15px); } 40%,47% { opacity: 0; transform: translate(78px,15px); } 54% { opacity: 1; transform: translate(94px,15px); } 68% { opacity: 1; transform: translate(94px,-63px); } 76%,100% { opacity: 0; transform: translate(94px,-63px); } }
-@keyframes stsCoin  { 0%,28% { opacity: 1; transform: translate(0,0) scale(1); } 34% { opacity: 1; transform: translate(0,-10px) scale(1.3); } 46%,100% { opacity: 0; transform: translate(0,-24px) scale(0.6); } }
-@keyframes stsCrack { 0%,58% { opacity: 0.4; } 66%,100% { opacity: 1; } }
-@keyframes stsWin   { 0%,70% { opacity: 0; transform: scale(0.55); } 78% { opacity: 1; transform: scale(1); } 92%,100% { opacity: 0; transform: scale(1.55); } }
+/* How-to-play loop (5.6 s), one cell = 26px. Three legs, and each leg is played
+   as the game plays it: the thumb goes DOWN and a dashed preview draws itself to
+   the cell the slide will stop in, the thumb LIFTS, and only then does the shield
+   move. Leg 1 runs east into the rock, sweeping a coin. Leg 2 runs north onto the
+   cover point, which catches it and re-freezes the thin ice. Leg 3 finishes on
+   the family tile. */
+@keyframes stsTok  { 0%,20% { transform: translate(0,0); } 30%,50% { transform: translate(78px,0); } 58%,70% { transform: translate(78px,-52px); } 78%,100% { transform: translate(78px,-78px); } }
+@keyframes stsP1   { 0% { opacity: 0; stroke-dashoffset: 78; } 5% { opacity: 1; } 14%,20% { opacity: 1; stroke-dashoffset: 0; } 24%,100% { opacity: 0; stroke-dashoffset: 0; } }
+@keyframes stsP2   { 0%,30% { opacity: 0; stroke-dashoffset: 52; } 35% { opacity: 1; } 44%,50% { opacity: 1; stroke-dashoffset: 0; } 54%,100% { opacity: 0; stroke-dashoffset: 0; } }
+@keyframes stsP3   { 0%,58% { opacity: 0; stroke-dashoffset: 26; } 62% { opacity: 1; } 68%,70% { opacity: 1; stroke-dashoffset: 0; } 74%,100% { opacity: 0; stroke-dashoffset: 0; } }
+@keyframes stsR1   { 0%,4% { opacity: 0; transform: scale(0.6); } 10%,20% { opacity: 1; transform: scale(1); } 24%,100% { opacity: 0; transform: scale(1); } }
+@keyframes stsR2   { 0%,34% { opacity: 0; transform: scale(0.6); } 40%,50% { opacity: 1; transform: scale(1); } 54%,100% { opacity: 0; transform: scale(1); } }
+@keyframes stsR3   { 0%,62% { opacity: 0; transform: scale(0.6); } 66%,70% { opacity: 1; transform: scale(1); } 74%,100% { opacity: 0; transform: scale(1); } }
+@keyframes stsHand { 0% { opacity: 0; transform: translate(0,26px); } 5% { opacity: 1; transform: translate(0,16px); } 15%,20% { opacity: 1; transform: translate(52px,16px); } 24%,32% { opacity: 0; transform: translate(78px,16px); } 36% { opacity: 1; transform: translate(78px,16px); } 45%,50% { opacity: 1; transform: translate(78px,-26px); } 54%,60% { opacity: 0; transform: translate(78px,-38px); } 63% { opacity: 1; transform: translate(78px,-38px); } 68%,70% { opacity: 1; transform: translate(78px,-54px); } 74%,100% { opacity: 0; transform: translate(78px,-54px); } }
+@keyframes stsCoin { 0%,24% { opacity: 1; transform: translate(0,0) scale(1); } 28% { opacity: 1; transform: translate(0,-10px) scale(1.3); } 36%,100% { opacity: 0; transform: translate(0,-24px) scale(0.6); } }
+@keyframes stsCrack{ 0%,20% { opacity: 1; } 30%,55% { opacity: 0.42; } 62%,100% { opacity: 1; } }
+@keyframes stsClaim{ 0%,58% { opacity: 0; } 64%,100% { opacity: 1; } }
+@keyframes stsBank { 0%,56% { opacity: 0; transform: scale(0.4); } 62% { opacity: 1; transform: scale(1); } 74%,100% { opacity: 0; transform: scale(1.9); } }
 .ss-title { animation: ssTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .ss-float { animation: ssFloat 4s ease-in-out infinite; }
 .ss-glow  { animation: ssGlow 2.2s ease-in-out infinite; }
@@ -147,16 +159,22 @@ const SCREEN_CSS = `
 .ss-hero-slide { animation: ssHeroSlide 5s cubic-bezier(0.3,0,0.2,1) infinite; }
 .ss-hero-trail { animation: ssHeroTrail 5s cubic-bezier(0.3,0,0.2,1) infinite; }
 .ss-gust  { animation: ssGust 1.8s ease-in-out infinite; }
-.sts-glide { animation: stsGlide 5.2s cubic-bezier(0.25,0,0.15,1) infinite; }
-.sts-trail { animation: stsTrail 5.2s cubic-bezier(0.25,0,0.15,1) infinite; }
-.sts-hand  { animation: stsHand 5.2s cubic-bezier(0.3,0,0.3,1) infinite; }
-.sts-coin  { animation: stsCoin 5.2s ease-out infinite; }
-.sts-crack { animation: stsCrack 5.2s ease-in-out infinite; }
-.sts-win   { animation: stsWin 5.2s ease-out infinite; }
+.sts-tok   { animation: stsTok 5.6s cubic-bezier(0.3,0,0.12,1) infinite; }
+.sts-p1    { animation: stsP1 5.6s linear infinite; }
+.sts-p2    { animation: stsP2 5.6s linear infinite; }
+.sts-p3    { animation: stsP3 5.6s linear infinite; }
+.sts-r1    { animation: stsR1 5.6s ease-out infinite; }
+.sts-r2    { animation: stsR2 5.6s ease-out infinite; }
+.sts-r3    { animation: stsR3 5.6s ease-out infinite; }
+.sts-hand  { animation: stsHand 5.6s cubic-bezier(0.3,0,0.3,1) infinite; }
+.sts-coin  { animation: stsCoin 5.6s ease-out infinite; }
+.sts-crack { animation: stsCrack 5.6s ease-in-out infinite; }
+.sts-claim { animation: stsClaim 5.6s ease-out infinite; }
+.sts-bank  { animation: stsBank 5.6s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .ss-title, .ss-float, .ss-glow, .ss-chip, .ss-hero-slide, .ss-hero-trail,
-  .ss-gust, .sts-glide, .sts-trail, .sts-hand, .sts-coin, .sts-crack,
-  .sts-win { animation: none !important; }
+  .ss-gust, .sts-tok, .sts-p1, .sts-p2, .sts-p3, .sts-r1, .sts-r2, .sts-r3,
+  .sts-hand, .sts-coin, .sts-crack, .sts-claim, .sts-bank { animation: none !important; }
 }
 `;
 
@@ -275,6 +293,49 @@ function RockTile({ cell, x, y }) {
   );
 }
 
+/** The cover point: an umbrella over a shield, on a raised blue floe. */
+function CoverTile({ cell, x, y, claimed = false, claimClass }) {
+  const cx = x + cell / 2;
+  const cy = y + cell / 2;
+  const R = cell * 0.42;
+  const uw = R * 0.82;
+  const sr = R * 0.4;
+  return (
+    <g>
+      <rect x={cx - R} y={cy - R} width={R * 2} height={R * 2} rx={cell * 0.2}
+        fill="#78B2F8" stroke={COVER_LT} strokeWidth="1.6" />
+      <path
+        d={`M${cx - uw} ${cy - R * 0.06}
+            Q${cx - uw * 0.62} ${cy - R * 0.28} ${cx - uw * 0.34} ${cy - R * 0.06}
+            Q${cx} ${cy - R * 0.3} ${cx + uw * 0.34} ${cy - R * 0.06}
+            Q${cx + uw * 0.62} ${cy - R * 0.28} ${cx + uw} ${cy - R * 0.06}
+            Q${cx + uw * 0.6} ${cy - R * 0.9} ${cx} ${cy - R * 0.94}
+            Q${cx - uw * 0.6} ${cy - R * 0.9} ${cx - uw} ${cy - R * 0.06} Z`}
+        fill={BLUE}
+      />
+      <path d={`M${cx} ${cy - R * 0.9} L${cx} ${cy + R * 0.2}`} stroke="#fff"
+        strokeWidth={cell * 0.035} strokeLinecap="round" />
+      <path
+        d={`M${cx} ${cy + R * 0.16} L${cx + sr * 0.85} ${cy + R * 0.16 + sr * 0.3}
+            Q${cx + sr * 0.7} ${cy + R * 0.16 + sr * 1.25} ${cx} ${cy + R * 0.16 + sr * 1.45}
+            Q${cx - sr * 0.7} ${cy + R * 0.16 + sr * 1.25} ${cx - sr * 0.85} ${cy + R * 0.16 + sr * 0.3} Z`}
+        fill="#fff"
+      />
+      {/* With a claimClass the CSS keyframes own the tick's opacity; without one
+          it is simply on or off. Never left undefined, or an unclaimed tile
+          would render as claimed. */}
+      <g className={claimClass} opacity={claimClass ? undefined : (claimed ? 1 : 0)}>
+        <path
+          d={`M${cx - sr * 0.34} ${cy + R * 0.16 + sr * 0.72}
+              L${cx - sr * 0.06} ${cy + R * 0.16 + sr * 0.98}
+              L${cx + sr * 0.4} ${cy + R * 0.16 + sr * 0.42}`}
+          fill="none" stroke={BLUE} strokeWidth={sr * 0.3} strokeLinecap="round" strokeLinejoin="round"
+        />
+      </g>
+    </g>
+  );
+}
+
 function CrackTile({ cell, x, y, className }) {
   const cx = x + cell / 2;
   const cy = y + cell / 2;
@@ -315,6 +376,7 @@ function HeroBoard() {
       <RockTile cell={HERO_CELL} x={0} y={12} />
       <RockTile cell={HERO_CELL} x={HERO_CELL * 5} y={12 + HERO_CELL * 4} />
       <CrackTile cell={HERO_CELL} x={HERO_CELL * 3} y={12 + HERO_CELL} />
+      <CoverTile cell={HERO_CELL} x={HERO_CELL * 5} y={12 + HERO_CELL} claimed />
       <FamilyTile cell={HERO_CELL} x={HERO_CELL * 5} y={12 + HERO_CELL * 5} />
       <g className="ss-gust">
         {[2, 3, 4].map((r) => (
@@ -346,6 +408,25 @@ function HeroBoard() {
         <ShieldToken s={9} />
       </g>
     </g>
+  );
+}
+
+function FeatureChip({ tint, title, note }) {
+  return (
+    <div className="ss-chip" style={{
+      flex: 1, minWidth: 0, padding: '9px 8px', borderRadius: 14,
+      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+      textAlign: 'center',
+    }}>
+      <div style={{
+        fontSize: 10.5, fontWeight: 900, color: tint, textTransform: 'uppercase',
+        letterSpacing: '0.04em', lineHeight: 1.15,
+      }}>{title}</div>
+      <div style={{
+        fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.55)',
+        marginTop: 4, lineHeight: 1.25,
+      }}>{note}</div>
+    </div>
   );
 }
 
@@ -395,8 +476,8 @@ export function HomeScreen({ onStart }) {
         </p>
       </div>
 
-      <div className="ss-float" style={{ position: 'relative', width: 232, height: 216, zIndex: 1 }}>
-        <svg width="232" height="216" viewBox="-8 0 184 192" style={{ overflow: 'visible' }} aria-hidden="true">
+      <div className="ss-float" style={{ position: 'relative', width: 276, height: 254, zIndex: 1 }}>
+        <svg width="276" height="254" viewBox="-8 0 184 192" style={{ overflow: 'visible' }} aria-hidden="true">
           <defs>
             <radialGradient id="ssWell" cx="0.5" cy="0.5" r="0.7">
               <stop offset="0%" stopColor="rgba(38,102,196,0.4)" />
@@ -408,6 +489,13 @@ export function HomeScreen({ onStart }) {
           </g>
           <HeroBoard />
         </svg>
+      </div>
+
+      {/* Three things the run is about, per the design system's start screen. */}
+      <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 330, zIndex: 2 }}>
+        <FeatureChip tint={ORANGE_LT} title="Hold to aim" note="See the route before you commit" />
+        <FeatureChip tint={COVER} title="Reach cover" note={`${TOTAL_COVERS} safe points bank the board`} />
+        <FeatureChip tint={GREEN_LT} title="Get them home" note={`${LEVELS.length} boards, 120 seconds`} />
       </div>
 
       <motion.div
@@ -480,25 +568,31 @@ function Cue({ label, tint, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
       <div style={{
-        width: 46, height: 46, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: 42, height: 42, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
       }}>
         {children}
       </div>
       <span style={{
-        fontSize: 9.5, fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase',
-        color: tint, lineHeight: 1.2, textAlign: 'center',
+        fontSize: 8.5, fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase',
+        color: tint, lineHeight: 1.15, textAlign: 'center',
       }}>{label}</span>
     </div>
   );
 }
 
 /**
- * One 5.2 s loop of the real puzzle, built from the board's own tiles: a swipe
- * sends the shield token gliding right until the rock stops it — a premium coin
- * is swept up on the way — then a second swipe sends it up across thin ice
- * (crossed, never stopped on) onto the family tile. Cell size, tile art and the
- * orange route trail are the ones the canvas draws.
+ * One 5.6 s loop of the real control scheme, built from the board's own tiles.
+ *
+ * Each leg is played the way the game plays it, and that order is the lesson:
+ * the thumb goes DOWN and a dashed preview draws itself to the exact cell the
+ * slide will stop in, the thumb LIFTS, and only then does the shield move.
+ * Nothing is committed while the hand is on the glass.
+ *
+ * Leg 1 runs east into the rock, sweeping a coin. Leg 2 runs north onto the
+ * cover point, which catches the shield and re-freezes the thin ice behind it.
+ * Leg 3 finishes on the family tile.
+ *
  * CSS transforms only ever touch <g> elements with no transform attribute.
  */
 const TUT_CELL = 26;
@@ -506,44 +600,60 @@ const TUT_X0 = 72;
 const TUT_Y0 = 26;
 const tutC = (col, row) => [TUT_X0 + col * TUT_CELL + TUT_CELL / 2, TUT_Y0 + row * TUT_CELL + TUT_CELL / 2];
 
+function StopRing({ x, y, color, className }) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <g className={className}>
+        <rect x={-11} y={-11} width={22} height={22} rx={5} fill="none" stroke={color} strokeWidth="2.4" />
+      </g>
+    </g>
+  );
+}
+
 function BoardDemo() {
   const [sx, sy] = tutC(0, 3);
   const [coinX, coinY] = tutC(2, 3);
+  const [stopX, stopY] = tutC(3, 3);
+  const [coverX, coverY] = tutC(3, 1);
+  const [homeX, homeY] = tutC(3, 0);
+  const dash = { fill: 'none', stroke: ORANGE_LT, strokeWidth: 2.6, strokeLinecap: 'round' };
   return (
     <div style={{
-      position: 'relative', width: '100%', height: 156,
+      position: 'relative', width: '100%', height: 152,
       background: 'rgba(6,18,41,0.6)', borderRadius: 16,
-      border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 16,
+      border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 14,
     }}>
-      <svg width="100%" height="100%" viewBox="0 0 300 156" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <svg width="100%" height="100%" viewBox="0 0 300 152" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <IceGrid cols={6} rows={4} cell={TUT_CELL} x={TUT_X0} y={TUT_Y0} />
-        <CrackTile cell={TUT_CELL} x={TUT_X0 + TUT_CELL * 3} y={TUT_Y0 + TUT_CELL} className="sts-crack" />
+        <CrackTile cell={TUT_CELL} x={TUT_X0 + TUT_CELL * 2} y={TUT_Y0 + TUT_CELL} className="sts-crack" />
         <RockTile cell={TUT_CELL} x={TUT_X0 + TUT_CELL * 4} y={TUT_Y0 + TUT_CELL * 3} />
         <FamilyTile cell={TUT_CELL} x={TUT_X0 + TUT_CELL * 3} y={TUT_Y0} />
+        <CoverTile cell={TUT_CELL} x={TUT_X0 + TUT_CELL * 3} y={TUT_Y0 + TUT_CELL} claimClass="sts-claim" />
 
-        {/* The route the two swipes carve */}
-        <path
-          className="sts-trail"
-          d={`M${sx} ${sy} H${sx + 78} V${sy - 78}`}
-          fill="none" stroke={ORANGE_LT} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"
-          strokeDasharray="156" opacity="0.7"
-        />
+        {/* The three previews — drawn while the thumb is still down */}
+        <path className="sts-p1" d={`M${sx} ${sy} H${stopX}`} {...dash} strokeDasharray="78" />
+        <path className="sts-p2" d={`M${stopX} ${stopY} V${coverY}`} {...dash} strokeDasharray="52" />
+        <path className="sts-p3" d={`M${coverX} ${coverY} V${homeY}`} {...dash} strokeDasharray="26" />
+
+        <StopRing x={stopX} y={stopY} color={ORANGE_LT} className="sts-r1" />
+        <StopRing x={coverX} y={coverY} color={COVER} className="sts-r2" />
+        <StopRing x={homeX} y={homeY} color={GREEN_LT} className="sts-r3" />
 
         {/* Premium coin swept up en route */}
         <g transform={`translate(${coinX} ${coinY})`}>
           <g className="sts-coin"><CoinToken r={8} /></g>
         </g>
 
-        {/* Arrival flash on the family tile */}
-        <g transform={`translate(${sx + 78} ${sy - 78})`}>
-          <g className="sts-win">
-            <circle cx="0" cy="0" r="15" fill="none" stroke={GREEN_LT} strokeWidth="2.6" />
+        {/* Cover point banking the board */}
+        <g transform={`translate(${coverX} ${coverY})`}>
+          <g className="sts-bank">
+            <circle cx="0" cy="0" r="15" fill="none" stroke={COVER_LT} strokeWidth="2.4" />
           </g>
         </g>
 
         {/* The shield token */}
         <g transform={`translate(${sx} ${sy})`}>
-          <g className="sts-glide"><ShieldToken s={9} /></g>
+          <g className="sts-tok"><ShieldToken s={9} /></g>
         </g>
 
         {/* The real input */}
@@ -552,6 +662,24 @@ function BoardDemo() {
         </g>
       </svg>
     </div>
+  );
+}
+
+function StatePill({ label, bg, ink }) {
+  return (
+    <span style={{
+      fontSize: 8.5, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase',
+      padding: '5px 8px', borderRadius: 7, background: bg, color: ink, lineHeight: 1, whiteSpace: 'nowrap',
+    }}>{label}</span>
+  );
+}
+
+function Caret() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)"
+      strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 5l7 7-7 7" />
+    </svg>
   );
 }
 
@@ -597,12 +725,38 @@ export function HowToPlayScreen({ onPlay }) {
         </h2>
         <BoardDemo />
 
-        <div style={{ display: 'flex', justifyContent: 'space-around', gap: 6, marginBottom: 16 }}>
-          <Cue label="Swipe to glide" tint={ORANGE_LT}>
+        {/* The commitment point, spelled out — the same three states the route
+            dock shows during play. */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 5, marginBottom: 7,
+        }}>
+          <StatePill label="Ready" bg="rgba(255,255,255,0.10)" ink="rgba(255,255,255,0.75)" />
+          <Caret />
+          <StatePill label="Aiming" bg="rgba(255,138,61,0.22)" ink={ORANGE_LT} />
+          <Caret />
+          <StatePill label="Committed" bg={ORANGE_LT} ink="#1A0B02" />
+        </div>
+        <p style={{
+          fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.5)',
+          margin: '0 0 14px', lineHeight: 1.35,
+        }}>
+          Your input still counts until you let go. After that the slide is out of your hands.
+        </p>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4, marginBottom: 14 }}>
+          <Cue label="Hold to aim" tint={ORANGE_LT}>
             <svg width="30" height="30" viewBox="0 0 30 30">
-              <g transform="translate(13,6)"><SwipeHand scale={0.7} /></g>
+              <g transform="translate(13,5)"><SwipeHand scale={0.68} /></g>
               <path d="M4 25 H25" stroke={ORANGE_LT} strokeWidth="2" strokeLinecap="round" strokeDasharray="3 3" />
-              <path d="M21.5 22 L25 25 L21.5 28" fill="none" stroke={ORANGE_LT} strokeWidth="2"
+              <rect x="21" y="21" width="8" height="8" rx="2" fill="none" stroke={ORANGE_LT} strokeWidth="2" />
+            </svg>
+          </Cue>
+          <Cue label="Release to commit" tint="#fff">
+            <svg width="30" height="30" viewBox="0 0 30 30">
+              <g transform="translate(11,2)"><SwipeHand scale={0.6} /></g>
+              <path d="M6 26 H24" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M20 22 L24 26 L20 30" fill="none" stroke="#fff" strokeWidth="2.2"
                 strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Cue>
@@ -611,9 +765,9 @@ export function HowToPlayScreen({ onPlay }) {
               <CrackTile cell={C + 6} x={3} y={3} />
             </svg>
           </Cue>
-          <Cue label="Reach the family" tint={GREEN_LT}>
+          <Cue label="Cover banks it" tint={COVER}>
             <svg width="30" height="30" viewBox="0 0 30 30">
-              <FamilyTile cell={C + 6} x={3} y={3} />
+              <CoverTile cell={C + 8} x={2} y={2} claimed />
             </svg>
           </Cue>
         </div>
@@ -663,6 +817,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   const score = stats?.score || 0;
   const levels = stats?.levels || 0;
   const coins = stats?.coins || 0;
+  const covers = stats?.covers || 0;
   const moves = stats?.moves || 0;
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
@@ -784,9 +939,10 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         </div>
       </div>
 
-      {/* Run stats — the {score, levels, coins, moves} contract */}
-      <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2 }}>
-        <StatTile label="Boards cleared" value={`${levels}/${LEVELS.length}`} accent={GREEN_LT} />
+      {/* Run stats — the {score, levels, coins, covers, moves} contract */}
+      <div style={{ display: 'flex', gap: 6, width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2 }}>
+        <StatTile label="Boards" value={`${levels}/${LEVELS.length}`} accent={GREEN_LT} />
+        <StatTile label="Cover pts" value={`${covers}/${TOTAL_COVERS}`} accent={COVER} />
         <StatTile label="Coins" value={`${coins}/${TOTAL_COINS}`} accent={GOLD} />
         <StatTile label="Moves" value={`${moves}`} accent={BLUE_LT} />
       </div>
@@ -795,7 +951,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         width: '100%', maxWidth: 360, marginBottom: 14, textAlign: 'center',
         fontSize: 10.5, fontWeight: 800, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.04em', zIndex: 2,
       }}>
-        A perfect run clears all {LEVELS.length} boards in {TOTAL_PAR} moves.
+        A perfect run clears all {LEVELS.length} boards in {TOTAL_PAR} moves,
+        reaching every one of the {TOTAL_COVERS} cover points.
       </div>
 
       <button
@@ -824,7 +981,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         textAlign: 'center', marginBottom: 16, zIndex: 2,
       }}>
         <p style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.35, margin: '0 0 16px 0' }}>
-          Real life has thin ice you cannot see. A specialist can map the cover that gets your family home.
+          On the lake, cover means a fall costs you a retry instead of the whole board.
+          Real life has thin ice you cannot see either — a specialist can map the cover that gets your family home.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

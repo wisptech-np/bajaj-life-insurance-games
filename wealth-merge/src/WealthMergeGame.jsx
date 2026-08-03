@@ -18,6 +18,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { COLORS, GAME_CONFIG, TIERS } from './data.js';
+import { buildSprites } from './sprites.js';
 import { BALANCE } from './kit/config.js';
 import { createGameLoop } from './kit/loop.js';
 import { createInput } from './kit/input.js';
@@ -39,275 +40,9 @@ import {
 } from './physics.js';
 
 /* ─── Tier sprites ───────────────────────────────────────────
-   Every token is a layered programmatic sprite: radial-gradient body, bevel
-   crescents, a white emblem silhouette with punched details, and a gloss
-   highlight — no emoji, no image files. Each tier is pre-rendered once per
-   resize into an offscreen canvas at device resolution and blitted, so the
-   hot loop never rebuilds a gradient or a path. */
-
-function drawEmblem(c, tierIdx, r, deep) {
-  c.save();
-  c.fillStyle = 'rgba(255,255,255,0.95)';
-  c.strokeStyle = 'rgba(255,255,255,0.95)';
-  c.lineCap = 'round';
-  c.lineJoin = 'round';
-
-  const emblem = TIERS[tierIdx].emblem;
-
-  if (emblem === 'rupee') {
-    // Stylised rupee mark drawn from strokes (a path, not a font glyph).
-    c.lineWidth = r * 0.16;
-    c.beginPath();
-    c.moveTo(-0.36 * r, -0.44 * r);
-    c.lineTo(0.36 * r, -0.44 * r);
-    c.moveTo(-0.36 * r, -0.16 * r);
-    c.lineTo(0.36 * r, -0.16 * r);
-    c.moveTo(-0.10 * r, -0.44 * r);
-    c.quadraticCurveTo(0.30 * r, -0.44 * r, 0.30 * r, -0.30 * r);
-    c.quadraticCurveTo(0.30 * r, -0.16 * r, -0.10 * r, -0.16 * r);
-    c.moveTo(0.24 * r, -0.16 * r);
-    c.lineTo(-0.20 * r, 0.50 * r);
-    c.stroke();
-  } else if (emblem === 'stack') {
-    // Three stacked coins, separated by deep outlines.
-    c.lineWidth = r * 0.055;
-    for (let i = 0; i < 3; i++) {
-      const y = (0.32 - i * 0.30) * r;
-      c.beginPath();
-      c.ellipse(0, y, 0.5 * r, 0.17 * r, 0, 0, Math.PI * 2);
-      c.fill();
-      c.strokeStyle = deep;
-      c.stroke();
-    }
-    c.fillStyle = deep;
-    c.globalAlpha = 0.55;
-    c.beginPath();
-    c.ellipse(0, -0.28 * r, 0.28 * r, 0.08 * r, 0, 0, Math.PI * 2);
-    c.fill();
-    c.globalAlpha = 1;
-  } else if (emblem === 'ingot') {
-    // Two gold bars, one behind the other.
-    c.globalAlpha = 0.7;
-    c.beginPath();
-    c.moveTo(-0.30 * r, -0.06 * r);
-    c.lineTo(-0.16 * r, -0.36 * r);
-    c.lineTo(0.36 * r, -0.36 * r);
-    c.lineTo(0.50 * r, -0.06 * r);
-    c.closePath();
-    c.fill();
-    c.globalAlpha = 1;
-    c.beginPath();
-    c.moveTo(-0.54 * r, 0.42 * r);
-    c.lineTo(-0.36 * r, 0.02 * r);
-    c.lineTo(0.36 * r, 0.02 * r);
-    c.lineTo(0.54 * r, 0.42 * r);
-    c.closePath();
-    c.fill();
-    c.strokeStyle = deep;
-    c.lineWidth = r * 0.05;
-    c.stroke();
-    c.fillStyle = deep;
-    c.globalAlpha = 0.5;
-    c.fillRect(-0.20 * r, 0.14 * r, 0.4 * r, 0.055 * r);
-    c.globalAlpha = 1;
-  } else if (emblem === 'piggy') {
-    // Piggy silhouette: body, snout, ear, legs; punched slot, eye, nostrils.
-    c.beginPath();
-    c.ellipse(-0.02 * r, 0.04 * r, 0.50 * r, 0.40 * r, 0, 0, Math.PI * 2);
-    c.fill();
-    c.beginPath();
-    c.ellipse(0.50 * r, 0.04 * r, 0.13 * r, 0.11 * r, 0, 0, Math.PI * 2);
-    c.fill();
-    c.beginPath();
-    c.moveTo(0.06 * r, -0.34 * r);
-    c.lineTo(0.26 * r, -0.54 * r);
-    c.lineTo(0.32 * r, -0.26 * r);
-    c.closePath();
-    c.fill();
-    c.fillRect(-0.34 * r, 0.36 * r, 0.14 * r, 0.18 * r);
-    c.fillRect(0.14 * r, 0.36 * r, 0.14 * r, 0.18 * r);
-    c.fillStyle = deep;
-    c.beginPath();
-    c.arc(0.18 * r, -0.08 * r, 0.05 * r, 0, Math.PI * 2);
-    c.fill();
-    c.beginPath();
-    c.arc(0.48 * r, 0.02 * r, 0.022 * r, 0, Math.PI * 2);
-    c.arc(0.52 * r, 0.07 * r, 0.022 * r, 0, Math.PI * 2);
-    c.fill();
-    c.save();
-    c.translate(-0.10 * r, -0.36 * r);
-    c.rotate(-0.18);
-    c.fillRect(-0.14 * r, -0.03 * r, 0.28 * r, 0.06 * r);
-    c.restore();
-  } else if (emblem === 'jar') {
-    // Savings jar with a lid; coins punched inside.
-    c.beginPath();
-    c.moveTo(-0.42 * r, -0.24 * r);
-    c.lineTo(0.42 * r, -0.24 * r);
-    c.lineTo(0.42 * r, 0.44 * r);
-    c.quadraticCurveTo(0.42 * r, 0.58 * r, 0.28 * r, 0.58 * r);
-    c.lineTo(-0.28 * r, 0.58 * r);
-    c.quadraticCurveTo(-0.42 * r, 0.58 * r, -0.42 * r, 0.44 * r);
-    c.closePath();
-    c.fill();
-    c.fillRect(-0.30 * r, -0.40 * r, 0.60 * r, 0.14 * r);
-    c.beginPath();
-    c.moveTo(-0.36 * r, -0.44 * r);
-    c.lineTo(0.36 * r, -0.44 * r);
-    c.lineTo(0.36 * r, -0.54 * r);
-    c.quadraticCurveTo(0.36 * r, -0.60 * r, 0.28 * r, -0.60 * r);
-    c.lineTo(-0.28 * r, -0.60 * r);
-    c.quadraticCurveTo(-0.36 * r, -0.60 * r, -0.36 * r, -0.54 * r);
-    c.closePath();
-    c.fill();
-    c.fillStyle = deep;
-    c.globalAlpha = 0.8;
-    c.beginPath();
-    c.arc(-0.15 * r, 0.30 * r, 0.11 * r, 0, Math.PI * 2);
-    c.fill();
-    c.beginPath();
-    c.arc(0.16 * r, 0.34 * r, 0.11 * r, 0, Math.PI * 2);
-    c.fill();
-    c.beginPath();
-    c.arc(0.01 * r, 0.10 * r, 0.11 * r, 0, Math.PI * 2);
-    c.fill();
-    c.globalAlpha = 1;
-  } else if (emblem === 'shield') {
-    // Protection shield with a punched check.
-    c.beginPath();
-    c.moveTo(0, -0.60 * r);
-    c.lineTo(0.46 * r, -0.44 * r);
-    c.lineTo(0.46 * r, -0.02 * r);
-    c.bezierCurveTo(0.46 * r, 0.30 * r, 0.26 * r, 0.50 * r, 0, 0.62 * r);
-    c.bezierCurveTo(-0.26 * r, 0.50 * r, -0.46 * r, 0.30 * r, -0.46 * r, -0.02 * r);
-    c.lineTo(-0.46 * r, -0.44 * r);
-    c.closePath();
-    c.fill();
-    c.strokeStyle = deep;
-    c.lineWidth = r * 0.13;
-    c.beginPath();
-    c.moveTo(-0.20 * r, 0.0);
-    c.lineTo(-0.04 * r, 0.17 * r);
-    c.lineTo(0.25 * r, -0.19 * r);
-    c.stroke();
-  } else if (emblem === 'home') {
-    // Pitched-roof home with a punched door and window.
-    c.beginPath();
-    c.moveTo(0, -0.62 * r);
-    c.lineTo(0.58 * r, -0.08 * r);
-    c.lineTo(0.42 * r, -0.08 * r);
-    c.lineTo(0.42 * r, 0.50 * r);
-    c.lineTo(-0.42 * r, 0.50 * r);
-    c.lineTo(-0.42 * r, -0.08 * r);
-    c.lineTo(-0.58 * r, -0.08 * r);
-    c.closePath();
-    c.fill();
-    c.fillStyle = deep;
-    c.beginPath();
-    c.moveTo(-0.13 * r, 0.50 * r);
-    c.lineTo(-0.13 * r, 0.20 * r);
-    c.quadraticCurveTo(-0.13 * r, 0.10 * r, 0, 0.10 * r);
-    c.quadraticCurveTo(0.13 * r, 0.10 * r, 0.13 * r, 0.20 * r);
-    c.lineTo(0.13 * r, 0.50 * r);
-    c.closePath();
-    c.fill();
-    c.globalAlpha = 0.7;
-    c.fillRect(0.18 * r, 0.02 * r, 0.16 * r, 0.16 * r);
-    c.globalAlpha = 1;
-  } else {
-    // Vault wheel: outer ring, six spokes, hub, punched bolts.
-    c.lineWidth = r * 0.09;
-    c.beginPath();
-    c.arc(0, 0, 0.60 * r, 0, Math.PI * 2);
-    c.stroke();
-    c.globalAlpha = 0.55;
-    c.lineWidth = r * 0.035;
-    c.beginPath();
-    c.arc(0, 0, 0.76 * r, 0, Math.PI * 2);
-    c.stroke();
-    c.globalAlpha = 1;
-    c.lineWidth = r * 0.085;
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      c.beginPath();
-      c.moveTo(Math.cos(a) * 0.16 * r, Math.sin(a) * 0.16 * r);
-      c.lineTo(Math.cos(a) * 0.55 * r, Math.sin(a) * 0.55 * r);
-      c.stroke();
-    }
-    c.beginPath();
-    c.arc(0, 0, 0.17 * r, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = deep;
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-      c.beginPath();
-      c.arc(Math.cos(a) * 0.60 * r, Math.sin(a) * 0.60 * r, 0.045 * r, 0, Math.PI * 2);
-      c.fill();
-    }
-  }
-  c.restore();
-}
-
-function buildSprites(scale) {
-  const sprites = new Array(TIERS.length);
-  for (let i = 0; i < TIERS.length; i++) {
-    const tier = TIERS[i];
-    const r = tier.radius;
-    const pad = Math.max(3, r * 0.16);
-    const size = Math.ceil((r + pad) * 2 * scale);
-    const cv = document.createElement('canvas');
-    cv.width = size;
-    cv.height = size;
-    const c = cv.getContext('2d');
-    c.setTransform(scale, 0, 0, scale, (r + pad) * scale, (r + pad) * scale);
-
-    // Body: offset radial gradient reads as a lit sphere.
-    const body = c.createRadialGradient(-r * 0.34, -r * 0.40, r * 0.08, 0, 0, r * 1.02);
-    body.addColorStop(0, tier.colorLt);
-    body.addColorStop(0.5, tier.color);
-    body.addColorStop(1, tier.colorDeep);
-    c.fillStyle = body;
-    c.beginPath();
-    c.arc(0, 0, r, 0, Math.PI * 2);
-    c.fill();
-
-    // Bevel crescents: lit top-left, shaded bottom-right.
-    c.lineWidth = r * 0.10;
-    c.strokeStyle = 'rgba(255,255,255,0.38)';
-    c.beginPath();
-    c.arc(0, 0, r * 0.93, Math.PI * 0.85, Math.PI * 1.75);
-    c.stroke();
-    c.strokeStyle = 'rgba(0,0,0,0.28)';
-    c.beginPath();
-    c.arc(0, 0, r * 0.93, Math.PI * 0.05, Math.PI * 0.65);
-    c.stroke();
-
-    // Thin outer rim so tokens separate against each other.
-    c.lineWidth = Math.max(1 / scale, r * 0.035);
-    c.strokeStyle = 'rgba(255,255,255,0.30)';
-    c.beginPath();
-    c.arc(0, 0, r - c.lineWidth / 2, 0, Math.PI * 2);
-    c.stroke();
-
-    drawEmblem(c, i, r, tier.colorDeep);
-
-    // Gloss highlight + sparkle dot.
-    c.save();
-    c.rotate(-0.7);
-    c.fillStyle = 'rgba(255,255,255,0.32)';
-    c.beginPath();
-    c.ellipse(-r * 0.02, -r * 0.52, r * 0.34, r * 0.15, 0, 0, Math.PI * 2);
-    c.fill();
-    c.restore();
-    c.fillStyle = 'rgba(255,255,255,0.5)';
-    c.beginPath();
-    c.arc(r * 0.30, -r * 0.44, r * 0.055, 0, Math.PI * 2);
-    c.fill();
-
-    sprites[i] = { cv, r, pad };
-  }
-  return sprites;
-}
+   Built in src/sprites.js from the per-tier art tokens in data.js. Each tier
+   is pre-rendered once per resize into an offscreen canvas at device
+   resolution and blitted, so the hot loop never rebuilds a gradient. */
 
 /* ─── Backdrop ───────────────────────────────────────────── */
 
@@ -325,7 +60,34 @@ function makeBackdrop(cw, ch, dpr, view, cfg) {
   c.fillStyle = sky;
   c.fillRect(0, 0, cw, ch);
 
-  // Ambient sparkle field.
+  // Two blooms set the vertical temperature gradient of the whole scene: cool
+  // blue at the mouth where empty jar is, warm gold at the floor where the
+  // money piles up. The player's eye is pulled downward, toward value.
+  const cool = c.createRadialGradient(cw * 0.5, ch * 0.16, 10, cw * 0.5, ch * 0.16, cw * 0.85);
+  cool.addColorStop(0, COLORS.bloomCool);
+  cool.addColorStop(1, 'rgba(30,107,224,0)');
+  c.fillStyle = cool;
+  c.fillRect(0, 0, cw, ch);
+  // The warm bloom is centred on the jar FLOOR, not the bottom of the screen —
+  // it has to look like light coming off the pile of money, and a wash across
+  // the whole lower edge only turned the navy muddy.
+  const floorPx = view.oy + cfg.field.floorY * view.k;
+  const wrm = c.createRadialGradient(cw * 0.5, floorPx, 8, cw * 0.5, floorPx, cw * 0.78);
+  wrm.addColorStop(0, COLORS.bloomWarm);
+  wrm.addColorStop(1, 'rgba(176,123,18,0)');
+  c.fillStyle = wrm;
+  c.fillRect(0, 0, cw, ch);
+
+  // Vignette. The playfield is 3:4 and the phone is not, so there is always
+  // letterboxing above and below the jar; darkening the edges turns that dead
+  // band into a frame instead of an unfinished screen.
+  const vig = c.createRadialGradient(cw * 0.5, ch * 0.5, Math.min(cw, ch) * 0.34, cw * 0.5, ch * 0.5, Math.max(cw, ch) * 0.78);
+  vig.addColorStop(0, 'rgba(3,7,18,0)');
+  vig.addColorStop(1, 'rgba(3,7,18,0.62)');
+  c.fillStyle = vig;
+  c.fillRect(0, 0, cw, ch);
+
+  // Ambient mote field.
   c.fillStyle = 'rgba(255,255,255,0.20)';
   for (let i = 0; i < 26; i++) {
     const x = ((i * 137.5) % 360) / 360 * cw;
@@ -341,49 +103,107 @@ function makeBackdrop(cw, ch, dpr, view, cfg) {
   c.translate(view.ox, view.oy);
   c.scale(view.k, view.k);
   const f = cfg.field;
+  const midX = (f.wallLeft + f.wallRight) / 2;
 
   // Soft well behind the jar.
-  const well = c.createRadialGradient(
-    (f.wallLeft + f.wallRight) / 2, (f.jarTopY + f.floorY) / 2, 40,
-    (f.wallLeft + f.wallRight) / 2, (f.jarTopY + f.floorY) / 2, 320,
-  );
+  const well = c.createRadialGradient(midX, (f.jarTopY + f.floorY) / 2, 40, midX, (f.jarTopY + f.floorY) / 2, 320);
   well.addColorStop(0, 'rgba(38,102,196,0.28)');
   well.addColorStop(1, 'rgba(38,102,196,0)');
   c.fillStyle = well;
   c.fillRect(-view.ox / view.k, -view.oy / view.k, cw / view.k, ch / view.k);
 
-  // Glass interior wash.
-  const glass = c.createLinearGradient(0, f.jarTopY, 0, f.floorY);
-  glass.addColorStop(0, 'rgba(120,170,240,0.03)');
-  glass.addColorStop(1, 'rgba(120,170,240,0.09)');
-  c.fillStyle = glass;
-  c.fillRect(f.wallLeft, f.jarTopY, f.wallRight - f.wallLeft, f.floorY - f.jarTopY);
-
-  // Jar walls: solid rails with segment ticks, lips at the mouth.
-  c.fillStyle = COLORS.jarWall;
-  c.fillRect(f.wallLeft - 6, f.jarTopY - 10, 5, f.floorY - f.jarTopY + 14);
-  c.fillRect(f.wallRight + 1, f.jarTopY - 10, 5, f.floorY - f.jarTopY + 14);
-  c.fillStyle = COLORS.jarWallLit;
-  c.fillRect(f.wallLeft - 6, f.jarTopY - 10, 5, 3);
-  c.fillRect(f.wallRight + 1, f.jarTopY - 10, 5, 3);
-  // Mouth lips flare outward.
-  c.fillStyle = COLORS.jarWall;
-  c.fillRect(f.wallLeft - 12, f.jarTopY - 12, 11, 4);
-  c.fillRect(f.wallRight + 1, f.jarTopY - 12, 11, 4);
-  c.fillStyle = 'rgba(190,220,255,0.16)';
-  for (let y = f.jarTopY + 16; y < f.floorY - 10; y += 30) {
-    c.fillRect(f.wallLeft - 5, y, 3, 13);
-    c.fillRect(f.wallRight + 2, y, 3, 13);
+  // Three caustic rings low in the jar, as if light were passing through it.
+  c.strokeStyle = 'rgba(150,200,255,0.07)';
+  for (let i = 0; i < 3; i++) {
+    c.lineWidth = 1.4 - i * 0.3;
+    c.beginPath();
+    c.ellipse(midX, f.floorY - 6, 60 + i * 52, 12 + i * 8, 0, 0, Math.PI * 2);
+    c.stroke();
   }
 
-  // Floor slab.
-  const slab = c.createLinearGradient(0, f.floorY, 0, f.floorY + 14);
-  slab.addColorStop(0, 'rgba(190,220,255,0.5)');
-  slab.addColorStop(1, 'rgba(60,100,170,0.18)');
+  /* --- The jar: a real glass vessel, not two rails -----------------------
+     Rounded lower corners, a thickened base, a rim light down both walls and
+     a meniscus where the wall meets the floor. Drawn as a single path so the
+     silhouette is one object. */
+  const R = 26; // corner radius of the jar's lower corners
+  const oL = f.wallLeft - 7;
+  const oR = f.wallRight + 7;
+  const oB = f.floorY + 9;
+  const jarPath = new Path2D();
+  jarPath.moveTo(oL, f.jarTopY - 14);
+  jarPath.lineTo(oL, oB - R);
+  jarPath.quadraticCurveTo(oL, oB, oL + R, oB);
+  jarPath.lineTo(oR - R, oB);
+  jarPath.quadraticCurveTo(oR, oB, oR, oB - R);
+  jarPath.lineTo(oR, f.jarTopY - 14);
+
+  // Interior tint: nearly clear at the mouth, warmer and denser at the floor.
+  const glass = c.createLinearGradient(0, f.jarTopY, 0, f.floorY);
+  glass.addColorStop(0, 'rgba(120,170,240,0.03)');
+  glass.addColorStop(0.7, 'rgba(120,170,240,0.07)');
+  glass.addColorStop(1, 'rgba(176,123,18,0.10)');
+  c.save();
+  c.fillStyle = glass;
+  c.fill(jarPath);
+  c.restore();
+
+  // Wall body, then the bright inner rim light on top of it.
+  c.strokeStyle = COLORS.jarWall;
+  c.lineWidth = 5;
+  c.stroke(jarPath);
+  c.strokeStyle = COLORS.jarWallLit;
+  c.lineWidth = 1.6;
+  c.stroke(jarPath);
+
+  // Two specular streaks hugging the left wall — the tell that this is glass.
+  // Both fade out at each end (a stroke with a gradient along its own length),
+  // because a flat-alpha line reads as a stray scratch, not a highlight.
+  for (const [dx, w, a, y0, y1] of [
+    [3.5, 3.0, 0.30, f.jarTopY + 18, f.floorY - 90],
+    [8.5, 1.4, 0.16, f.jarTopY + 40, f.floorY - 150],
+  ]) {
+    const spec = c.createLinearGradient(0, y0, 0, y1);
+    spec.addColorStop(0, 'rgba(230,244,255,0)');
+    spec.addColorStop(0.22, `rgba(230,244,255,${a})`);
+    spec.addColorStop(0.7, `rgba(230,244,255,${a * 0.7})`);
+    spec.addColorStop(1, 'rgba(230,244,255,0)');
+    c.strokeStyle = spec;
+    c.lineCap = 'round';
+    c.lineWidth = w;
+    c.beginPath();
+    c.moveTo(f.wallLeft + dx, y0);
+    c.lineTo(f.wallLeft + dx, y1);
+    c.stroke();
+  }
+
+  // Flared mouth lips.
+  c.strokeStyle = COLORS.jarWallLit;
+  c.lineWidth = 4;
+  c.beginPath();
+  c.moveTo(oL - 7, f.jarTopY - 16);
+  c.lineTo(oL + 1, f.jarTopY - 11);
+  c.moveTo(oR + 7, f.jarTopY - 16);
+  c.lineTo(oR - 1, f.jarTopY - 11);
+  c.stroke();
+
+  // Meniscus: the curve where the glass wall meets its own floor.
+  c.strokeStyle = 'rgba(200,228,255,0.28)';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(f.wallLeft, f.floorY - 16);
+  c.quadraticCurveTo(f.wallLeft + 2, f.floorY - 1, f.wallLeft + 18, f.floorY - 1);
+  c.lineTo(f.wallRight - 18, f.floorY - 1);
+  c.quadraticCurveTo(f.wallRight - 2, f.floorY - 1, f.wallRight, f.floorY - 16);
+  c.stroke();
+
+  // Thickened base slab under the floor line.
+  const slab = c.createLinearGradient(0, f.floorY, 0, oB);
+  slab.addColorStop(0, 'rgba(190,220,255,0.42)');
+  slab.addColorStop(1, 'rgba(60,100,170,0.14)');
   c.fillStyle = slab;
-  c.fillRect(f.wallLeft - 6, f.floorY, f.wallRight - f.wallLeft + 12, 8);
-  c.fillStyle = 'rgba(8,18,40,0.55)';
-  c.fillRect(f.wallLeft - 6, f.floorY + 8, f.wallRight - f.wallLeft + 12, 4);
+  c.fillRect(f.wallLeft, f.floorY, f.wallRight - f.wallLeft, 9);
+  c.fillStyle = 'rgba(8,18,40,0.5)';
+  c.fillRect(oL, oB, oR - oL, 4);
 
   return cv;
 }
@@ -411,6 +231,9 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
   const [dangerOn, setDangerOn] = useState(false);
   // -1 idle, 3/2/1 frozen countdown, 0 = GO (live input lock)
   const [reacquire, setReacquire] = useState(-1);
+  /** Highest tier index the player has ever created this run — drives the
+      always-visible wealth-ladder rail, which is the progression display. */
+  const [reached, setReached] = useState(-1);
 
   const winRef = useRef(onWin);
   const loseRef = useRef(onLose);
@@ -434,6 +257,16 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
       shownCount: -1,
       bannerSeq: 0,
       heartClock: 0,
+
+      /* Merge shockwave rings. Fixed pool, never allocated in the hot loop —
+         same discipline as the kit's particle pool. */
+      rings: Array.from({ length: 10 }, () => ({
+        alive: false, x: 0, y: 0, r0: 0, life: 0, maxLife: 1, w: 2, color: '#fff', dbl: false,
+      })),
+      ringCursor: 0,
+
+      /** Highest tier index created so far; -1 before the first merge. */
+      reached: -1,
 
       ended: false,
       effects: null,
@@ -498,11 +331,66 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
     window.addEventListener('orientationchange', fit);
 
     /* --- helpers --------------------------------------------------------- */
-    const showBanner = (kind, title, sub) => {
+    const showBanner = (kind, title, sub, tier) => {
       s.bannerSeq += 1;
-      setBanner({ id: s.bannerSeq, kind, title, sub });
+      setBanner({ id: s.bannerSeq, kind, title, sub, tier });
       clearTimeout(bannerTimerRef.current);
       bannerTimerRef.current = setTimeout(() => setBanner(null), cfg.fx.bannerSeconds * 1000);
+    };
+
+    /** Fire a shockwave ring. Size, thickness and duration all scale with the
+        created tier, so the reward reads bigger the higher up the ladder the
+        merge landed — the same ranking contract as the tokens themselves. */
+    const emitRing = (x, y, tierIdx, colorOverride) => {
+      const R = cfg.fx.ring;
+      const t = TIERS[tierIdx];
+      const ring = s.rings[s.ringCursor];
+      s.ringCursor = (s.ringCursor + 1) % s.rings.length;
+      ring.alive = true;
+      ring.x = x;
+      ring.y = y;
+      ring.r0 = t.radius;
+      ring.maxLife = R.life + R.lifePerTier * tierIdx;
+      ring.life = ring.maxLife;
+      ring.w = R.width + R.widthPerTier * tierIdx;
+      ring.color = colorOverride || t.colorLt;
+      ring.dbl = tierIdx >= R.doubleRingTier;
+    };
+
+    const updateRings = (dt) => {
+      for (let i = 0; i < s.rings.length; i++) {
+        const r = s.rings[i];
+        if (!r.alive) continue;
+        r.life -= dt;
+        if (r.life <= 0) r.alive = false;
+      }
+    };
+
+    const drawRings = () => {
+      const spread = cfg.fx.ring.spread;
+      for (let i = 0; i < s.rings.length; i++) {
+        const r = s.rings[i];
+        if (!r.alive) continue;
+        // Ease-out expansion: fast punch, slow dissolve.
+        const t = 1 - r.life / r.maxLife;
+        const e = 1 - (1 - t) * (1 - t) * (1 - t);
+        const rad = r.r0 * (1 + (spread - 1) * e);
+        ctx.save();
+        ctx.strokeStyle = r.color;
+        ctx.lineWidth = r.w * (1 - e * 0.75);
+        ctx.globalAlpha = (1 - t) * 0.85;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, rad, 0, Math.PI * 2);
+        ctx.stroke();
+        if (r.dbl) {
+          ctx.globalAlpha *= 0.5;
+          ctx.lineWidth *= 0.6;
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, rad * 0.6, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
     };
 
     /* --- run lifecycle --------------------------------------------------- */
@@ -522,6 +410,8 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
       if (world.won) {
         audio.victory();
         haptic('success');
+        emitRing(bx, by, TIERS.length - 1, COLORS.goldLt);
+        emitRing(bx, by, TIERS.length - 1, '#FFFFFF');
         fx.burst({
           x: bx, y: by, count: cfg.fx.winParticles, color: COLORS.gold,
           speed: 340, spread: Math.PI * 2, size: 5, life: 1.1, gravity: 420, drag: 0.93,
@@ -581,35 +471,66 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
         });
       },
 
-      onMerge: (newTier, x, y, points, depth, mult) => {
+      onMerge: (newTier, x, y, points, depth) => {
         const t = TIERS[newTier];
         const big = newTier >= cfg.fx.shakeMinTier;
+        // First time this tier has ever existed in the run: the progression
+        // beat. This is what turns "another merge" into "I climbed a rung".
+        const firstTime = newTier > s.reached;
+        if (firstTime) {
+          s.reached = newTier;
+          setReached(newTier);
+        }
 
         // Pop pitch rises one semitone per chain step, offset by tier.
         audio.combo(t.pitch + depth);
         haptic(big ? 'medium' : 'light');
+
+        // The shockwave: tier-coloured, tier-sized. A gem tier throws its gem
+        // colour instead of its metal, so protection reads blue and the home
+        // reads amber even in the split second the ring is on screen.
+        emitRing(x, y, newTier, t.gem || t.colorLt);
 
         fx.burst({
           x, y, count: big ? cfg.fx.bigMergeParticles : cfg.fx.mergeParticles,
           color: t.colorLt, speed: 150 + newTier * 24, spread: Math.PI * 2,
           size: 2.6 + newTier * 0.3, life: 0.55 + newTier * 0.05, gravity: 320, drag: 0.92,
         });
-        fx.floatText(
-          clamp(x, 40, F.W - 40), Math.max(28, y - t.radius - 10),
-          `+${points}`, t.colorLt, Math.min(24, 13 + depth * 2),
-        );
-        if (depth >= 2) {
-          fx.floatText(
-            clamp(x, 44, F.W - 44), Math.max(20, y - t.radius - 28),
-            `CHAIN x${mult}`, COLORS.goldLt, Math.min(18, 10 + depth),
-          );
+        if (t.gem) {
+          // Second, slower burst in the gem colour for the top of the ladder.
+          fx.burst({
+            x, y, count: Math.round(cfg.fx.mergeParticles * 0.7), color: t.gem,
+            speed: 90 + newTier * 16, spread: Math.PI * 2, size: 3.2,
+            life: 0.8, gravity: 180, drag: 0.9,
+          });
         }
+
+        // The reward NAMES the rung: "+15" teaches nothing, "SIP GROWTH +15"
+        // teaches the ladder while it pays out. The two cheapest tiers get the
+        // bare number — during a cascade they fire several times a second and
+        // the names would just pile into an unreadable stack. The chain
+        // multiplier is deliberately NOT floated: the HUD chain chip already
+        // shows it, and a second float per merge was the clutter.
+        fx.floatText(
+          clamp(x, 52, F.W - 52), Math.max(28, y - t.radius - 10),
+          newTier >= 2 ? `${t.label.toUpperCase()}  +${points}` : `+${points}`,
+          t.gem || t.colorLt, Math.min(21, 11 + newTier + depth),
+        );
+
+        // Screen shake and hit-stop stay reserved for tier-6+ merges.
         if (big) {
-          // Screen shake is reserved for tier-6+ merges.
           fx.addShake(cfg.fx.mergeShake);
           fx.addHitStop(budget.hitStopSeconds);
+        }
+        if (firstTime && newTier >= 2) {
+          // A new rung gets a second white ring and its meaning spelled out,
+          // whether or not it was big enough for the shake.
+          emitRing(x, y, newTier, '#FFFFFF');
+          showBanner('new', t.label, t.sub, newTier);
           audio.powerUp();
-          showBanner('big', `${t.label}!`, `+${points} points`);
+        } else if (big) {
+          audio.powerUp();
+          showBanner('big', t.label, `+${points} points`, newTier);
         }
       },
     };
@@ -617,6 +538,7 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
     /* --- physics --------------------------------------------------------- */
     const update = (dt) => {
       fx.update(dt);
+      updateRings(dt);
       if (fx.isFrozen()) return;
 
       const world = s.world;
@@ -644,17 +566,20 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
 
     /* --- drawing helpers -------------------------------------------------- */
     const drawToken = (world, t) => {
+      const tier = TIERS[t.tier];
       const sp = s.sprites[t.tier];
       const size = (sp.r + sp.pad) * 2;
 
       ctx.save();
       ctx.translate(t.x, t.y);
 
-      // Squash-and-stretch (merge pop) and jelly wobble (landing).
+      // Squash-and-stretch (merge pop) and jelly wobble (landing). The pop
+      // depth scales with tier, so a Retirement Corpus lands with visibly more
+      // weight than a coin stack — motion is one of the ranking channels.
       let sx = 1;
       let sy = 1;
       if (t.squash > 0) {
-        const q = fx.squash(1 - t.squash, 0.24);
+        const q = fx.squash(1 - t.squash, cfg.fx.popSquash + cfg.fx.popSquashPerTier * t.tier);
         sx *= q.sx;
         sy *= q.sy;
       }
@@ -665,17 +590,41 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
       }
       if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
 
-      // The Retirement Corpus glows like the goal it is.
-      if (t.tier === TIERS.length - 1 && s.shadows) {
-        ctx.shadowColor = TIERS[t.tier].glow;
-        ctx.shadowBlur = 22 + Math.sin(s.time * 4) * 8;
-      } else if (t.squash > 0.4 && s.shadows) {
-        ctx.shadowColor = TIERS[t.tier].glow;
-        ctx.shadowBlur = 18 * t.squash;
+      // Glow is a monotone ramp across the ladder: the base metals throw none,
+      // the top of the ladder is a lamp. A merge flashes the glow on top of
+      // whatever the tier already carries.
+      if (s.shadows) {
+        const idle = tier.glowPx > 0
+          ? tier.glowPx * (tier.alive > 0 ? 0.86 + 0.14 * Math.sin(s.time * 3 + t.id) : 1)
+          : 0;
+        const flash = t.squash > 0 ? (14 + tier.glowPx * 0.6) * t.squash : 0;
+        const blur = idle + flash;
+        if (blur > 0.5) {
+          ctx.shadowColor = tier.glow;
+          ctx.shadowBlur = blur;
+        }
       }
 
       ctx.drawImage(sp.cv, -size / 2, -size / 2, size, size);
       ctx.shadowBlur = 0;
+
+      // Orbiting light motes on the top tiers: money that is working, not
+      // money that is sitting. Nothing below tier 6 moves on its own.
+      if (tier.alive > 0) {
+        const orbitR = sp.r * 1.12;
+        for (let i = 0; i < tier.alive; i++) {
+          const a = s.time * cfg.fx.orbitSpeed + (i / tier.alive) * Math.PI * 2 + t.id;
+          const mx = Math.cos(a) * orbitR;
+          const my = Math.sin(a) * orbitR * 0.42;
+          // Behind the token on the far half of the orbit.
+          ctx.globalAlpha = Math.sin(a) < 0 ? 0.35 : 0.95;
+          ctx.fillStyle = tier.gem || COLORS.goldLt;
+          ctx.beginPath();
+          ctx.arc(mx, my, sp.r * 0.055 + 1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
       ctx.restore();
     };
 
@@ -747,29 +696,47 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
       ctx.restore();
     };
 
+    /** A frosted socket the next token drops into, per the art-direction
+        sheet's `wmg-hud-next`: rounded square, luminous rim, concave floor. */
     const drawNextPreview = (world) => {
       const px = F.W - 40;
       const py = 40;
+      const half = 21;
       ctx.save();
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
-      ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(px, py, 24, 0, Math.PI * 2);
+      const rr = 8;
+      ctx.moveTo(px - half + rr, py - half);
+      ctx.arcTo(px + half, py - half, px + half, py + half, rr);
+      ctx.arcTo(px + half, py + half, px - half, py + half, rr);
+      ctx.arcTo(px - half, py + half, px - half, py - half, rr);
+      ctx.arcTo(px - half, py - half, px + half, py - half, rr);
+      ctx.closePath();
+      const well = ctx.createLinearGradient(0, py - half, 0, py + half);
+      well.addColorStop(0, 'rgba(95,168,255,0.05)');
+      well.addColorStop(1, 'rgba(95,168,255,0.16)');
+      ctx.fillStyle = well;
       ctx.fill();
+      ctx.strokeStyle = 'rgba(190,220,255,0.34)';
+      ctx.lineWidth = 1.2;
       ctx.stroke();
 
       const sp = s.sprites[world.nextTier];
       const drawR = 14;
       const scale = drawR / sp.r;
       const size = (sp.r + sp.pad) * 2 * scale;
+      const nt = TIERS[world.nextTier];
+      if (s.shadows && nt.glowPx > 0) {
+        ctx.shadowColor = nt.glow;
+        ctx.shadowBlur = Math.min(10, nt.glowPx);
+      }
       ctx.drawImage(sp.cv, px - size / 2, py - size / 2, size, size);
+      ctx.shadowBlur = 0;
 
       ctx.fillStyle = 'rgba(255,255,255,0.55)';
       ctx.font = `900 7px 'Poppins', system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('NEXT', px, py + 32);
+      ctx.fillText('NEXT', px, py + 30);
       ctx.restore();
     };
 
@@ -788,17 +755,26 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
         ctx.fillRect(F.wallLeft, F.jarTopY, F.wallRight - F.wallLeft, y - F.jarTopY);
       }
 
-      ctx.strokeStyle = active
-        ? COLORS.danger
-        : 'rgba(255,139,139,0.4)';
-      ctx.globalAlpha = active ? 0.55 + pulse * 0.45 : 0.8;
-      ctx.lineWidth = active ? 2.6 : 1.4;
+      // Drawn twice: a wide soft coral halo under a narrow bright core, with
+      // round dash caps, so the line reads as a beam of light suspended in the
+      // jar rather than a painted stroke.
+      ctx.lineCap = 'round';
       ctx.setLineDash([7, 6]);
-      ctx.beginPath();
-      ctx.moveTo(F.wallLeft, y);
-      ctx.lineTo(F.wallRight, y);
-      ctx.stroke();
+      for (const [col, w, al] of [
+        [COLORS.dangerLt, active ? 7 : 4, active ? 0.16 + pulse * 0.18 : 0.10],
+        [active ? COLORS.danger : 'rgba(255,139,139,0.4)', active ? 2.6 : 1.4,
+          active ? 0.55 + pulse * 0.45 : 0.8],
+      ]) {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = w;
+        ctx.globalAlpha = al;
+        ctx.beginPath();
+        ctx.moveTo(F.wallLeft, y);
+        ctx.lineTo(F.wallRight, y);
+        ctx.stroke();
+      }
       ctx.setLineDash([]);
+      ctx.lineCap = 'butt';
       ctx.globalAlpha = 1;
 
       ctx.font = `900 8px 'Poppins', system-ui, sans-serif`;
@@ -840,6 +816,7 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
         if (tokens[i].active) drawToken(world, tokens[i]);
       }
 
+      drawRings();
       drawDangerLine(world);
       drawHeldPiece(world);
       drawNextPreview(world);
@@ -988,6 +965,37 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
           </div>
         </div>
 
+        {/* Wealth ladder rail ----------------------------------------
+            The progression display: eight rungs, dim until the player has
+            created that tier, the newest one lit and ringed. It is the only
+            thing on screen that answers "how far up am I?" without a merge
+            happening, and it teaches the ladder's order before the player has
+            climbed it. */}
+        <div style={styles.ladderWrap} aria-hidden="true">
+          {TIERS.map((t, i) => {
+            const got = i <= reached;
+            const newest = i === reached;
+            return (
+              <span
+                key={t.key}
+                className={newest ? 'wm-rung' : undefined}
+                style={{
+                  width: 6 + i * 1.9,
+                  height: 6 + i * 1.9,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  background: got
+                    ? `radial-gradient(circle at 32% 28%, ${t.colorLt} 0%, ${t.color} 46%, ${t.colorDeep} 100%)`
+                    : 'rgba(255,255,255,0.10)',
+                  border: got ? 'none' : '1px solid rgba(255,255,255,0.16)',
+                  boxSizing: 'border-box',
+                  boxShadow: newest ? `0 0 10px ${t.glow}` : 'none',
+                }}
+              />
+            );
+          })}
+        </div>
+
         {/* Chain chip ------------------------------------------------ */}
         {chain >= 2 && !over && (
           <div style={styles.chainWrap}>
@@ -1006,10 +1014,20 @@ export default function WealthMergeGame({ config, onWin, onLose }) {
           </div>
         )}
 
-        {/* Big-merge banner ------------------------------------------ */}
+        {/* Reward banner ---------------------------------------------
+            Wears the colours of the tier it is announcing, so the reward
+            escalates with the ladder instead of always being the same gold
+            card. A first-ever tier also gets the "NEW TIER" eyebrow. */}
         {banner && (
           <div key={banner.id} style={styles.bannerWrap} className="wm-banner">
-            <div style={styles.banner}>
+            <div style={{
+              ...styles.banner,
+              background: `linear-gradient(180deg, ${TIERS[banner.tier ?? 0].colorLt}, ${TIERS[banner.tier ?? 0].color})`,
+              boxShadow: `0 14px 34px rgba(0,0,0,0.45), 0 0 26px ${TIERS[banner.tier ?? 0].glow}`,
+            }}>
+              {banner.kind === 'new' && (
+                <span style={styles.bannerEyebrow}>New tier unlocked</span>
+              )}
               <span style={styles.bannerTitle}>{banner.title}</span>
               <span style={styles.bannerSub}>{banner.sub}</span>
             </div>
@@ -1095,6 +1113,8 @@ const CSS = `
 @keyframes wmChain { 0% { transform: scale(0.7); } 55% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @keyframes wmDanger { 0%,100% { opacity: 0.75; } 50% { opacity: 1; } }
 @keyframes wmCount { from { opacity: 0; transform: scale(1.55); } 55% { opacity: 1; transform: scale(1); } to { opacity: 0.85; transform: scale(1); } }
+@keyframes wmRung { 0% { transform: scale(0.5); } 60% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.wm-rung   { animation: wmRung 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .wm-count  { animation: wmCount 460ms cubic-bezier(0.22,1,0.36,1) both; }
 .wm-stage  { animation: wmIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .wm-banner { animation: wmBanner 1.5s ease-out both; }
@@ -1102,7 +1122,7 @@ const CSS = `
 .wm-chain  { animation: wmChain 260ms cubic-bezier(0.22,1,0.36,1) both; }
 .wm-danger { animation: wmDanger 0.5s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .wm-stage, .wm-banner, .wm-hint, .wm-chain, .wm-danger, .wm-count {
+  .wm-stage, .wm-banner, .wm-hint, .wm-chain, .wm-danger, .wm-count, .wm-rung {
     animation-duration: 1ms !important; animation-iteration-count: 1 !important;
   }
 }
@@ -1203,13 +1223,29 @@ const styles = {
     background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.greenLt})`,
     transition: 'width 180ms linear',
   },
+  ladderWrap: {
+    position: 'absolute',
+    top: 56,
+    left: 10,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '5px 9px',
+    borderRadius: 999,
+    background: 'rgba(11,18,33,0.44)',
+    border: '1px solid rgba(255,255,255,0.10)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    pointerEvents: 'none',
+    zIndex: 4,
+  },
   chainWrap: {
     position: 'absolute',
-    top: 58,
+    top: 60,
     left: 0,
-    right: 0,
+    right: 10,
     display: 'flex',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     pointerEvents: 'none',
     zIndex: 4,
   },
@@ -1265,6 +1301,13 @@ const styles = {
     border: '1px solid rgba(255,255,255,0.28)',
     boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
     background: 'linear-gradient(180deg, rgba(255,200,69,0.95), rgba(176,123,18,0.95))',
+  },
+  bannerEyebrow: {
+    fontSize: 9,
+    fontWeight: 900,
+    letterSpacing: '0.2em',
+    textTransform: 'uppercase',
+    color: 'rgba(11,18,33,0.62)',
   },
   bannerTitle: { fontSize: 18, fontWeight: 900, color: '#0B1221', letterSpacing: '-0.02em' },
   bannerSub: {

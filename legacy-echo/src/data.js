@@ -14,11 +14,13 @@
 /* ─── Palette ─────────────────────────────────────────────
    Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745, bg #0B1221.
 
-   Colour grammar. ORANGE/gold is the living player and the policy chest.
-   Each echo loop owns one cool hue (cyan, violet, amber, rose) and keeps it
-   everywhere (body, trail, badge, spawn flash). GREEN means "held / open /
-   safe" — plates latch green, doors open green. RED belongs only to the
-   hazard beam and the burned-loop banner: red on screen means danger. */
+   Colour grammar (three colours, three meanings — nothing else):
+     ORANGE / gold = you, right now, and the chest you are moving.
+     COOL TINT     = an echo, a run you already finished.
+     GREEN         = held / open / safe. A pad turns green when a body is on
+                     it and its gate turns green at the same moment.
+   RED appears only when something is wrong: a shut gate you pushed into, or
+   a loop you wasted. */
 export const COLORS = {
   brandBlue: '#003DA6',
   brandBlueLt: '#1E6BE0',
@@ -54,25 +56,37 @@ export const GHOST_TINTS = [
 
 /* ─── Gameplay configuration ──────────────────────────────
    Consumed by the pure module src/rules.js and therefore by gate.mjs.
-   Geometry is a hand-authored 390x780 portrait map:
 
-     x 0..116   left wing (bodies only — always open, holds plates/lever)
-     x 124..266 the spine (the chest route, crossed by the 3 vault doors)
-     x 274..390 right wing (bodies only — plates, lever, coin alcove)
+   ONE RULE, ONE VERB. Carry the gold chest from the bottom to the vault at
+   the top. Two gates block the way; a gate is open only while every one of
+   its green pads has a body standing on it. You control one body, so the
+   only way to hold a pad AND walk through the gate it opens is to be two
+   people — which is what the loop gives you: every finished loop replays as
+   an echo that stands where you stood.
+
+     3 pads total  ->  pad 1 opens gate 1, pads 2+3 open gate 2
+     loop 1 hold pad 1, loop 2 hold pad 2, loop 3 hold pad 3, loop 4 carry
+     (a player who repositions inside a loop wins in 3)
+
+   Geometry, a hand-authored 390x780 portrait map:
+
+     x 0..116   left wing  (bodies only — always open, holds pads)
+     x 124..266 the spine  (the chest route, crossed by the 2 gates)
+     x 274..390 right wing (bodies only)
      y 620..780 open muster zone (spawn + chest, full width)
      y 0..80    the family vault (chest across y=80 wins)
 
    The vertical spine walls run y 0..620; the chest only fits through the
-   three vault doors, while any body slips up the wings for free. */
+   gates, while any body slips up the wings for free. */
 export const GAME_CONFIG = {
-  /* Session structure: 5 loops x 18 s + 1.5 s rewind between = ~97 s. */
+  /* Session structure: 5 loops x 12 s + 1.5 s rewind between = ~67 s. */
   loops: {
     count: 5,
-    seconds: 18,
+    seconds: 12,
     rewindSeconds: 1.5,   // full inter-loop transition
     scrubSeconds: 0.8,    // reverse-playback scrub inside the transition
     introSeconds: 0.9,    // frozen "LOOP 1" beat before the first loop only
-    burnCheckSeconds: 4,  // anti-AFK: idle loops end early here
+    burnCheckSeconds: 3,  // anti-AFK: idle loops end early here
     burnPathPx: 64,       // < this much total path by the check = burned
   },
 
@@ -89,80 +103,46 @@ export const GAME_CONFIG = {
   body: {
     r: 13,
     maxSpeed: 260,        // px/s free
-    carrySpeed: 180,      // px/s while carrying the chest
+    carrySpeed: 190,      // px/s while carrying the chest
     followOmega: 14,      // critically damped drag-follow stiffness
     spawnX: 195,
     spawnY: 700,
   },
 
   /* Ghost state-track recording: fixed 120 Hz sim decimated to 60 Hz.
-     18 s x 60 = 1080 samples x 3 floats (x, y, actionBits) ~ 13 KB/loop. */
+     12 s x 60 = 720 samples x 3 floats (x, y, actionBits) ~ 8.6 KB/loop. */
   record: {
     decimate: 2,          // write every 2nd fixed tick
-    samplesPerLoop: 1080,
+    samplesPerLoop: 720,
   },
 
   ghosts: {
     max: 4,
-    alpha: 0.45,
+    alpha: 0.5,
     cullPathPx: 64,       // ghosts that barely moved are not added/rendered
+    // Fraction of a loop an echo must sit on a pad before the objective
+    // treats that pad as "covered, move on to the next job".
+    coverFraction: 0.3,
   },
 
-  /* Doors cross the spine. A door is open only while ALL its plates are
-     held; k plates need k DISTINCT bodies (two on one plate count once). */
-  doorT: 12,              // door band thickness
+  /* Gates cross the spine. A gate is open only while ALL its pads are held;
+     k pads need k DISTINCT bodies (two on one pad still count as one). */
+  doorT: 12,              // gate band thickness
   doors: [
-    { y: 580, plates: [{ x: 60, y: 540 }] },
-    { y: 390, plates: [{ x: 60, y: 350 }, { x: 330, y: 350 }] },
-    { y: 200, plates: [{ x: 60, y: 160 }, { x: 330, y: 160 }, { x: 60, y: 430 }] },
+    { y: 500, plates: [{ x: 58, y: 560 }] },
+    { y: 250, plates: [{ x: 58, y: 330 }, { x: 332, y: 330 }] },
   ],
   plateR: 40,             // hold radius (visual socket is drawn smaller)
-
-  /* Hazard beam sweeping the vault approach on a fixed loop-clock schedule.
-     Phase comes from the session seed but is identical on every loop. Any
-     body standing in the beam blocks it for everyone beyond it; only the
-     LIVE player is knocked back when caught (echoes absorb it harmlessly). */
-  beam: {
-    y: 140,
-    halfW: 6,             // 12 px wide band
-    onSeconds: 1.2,
-    offSeconds: 1.0,
-    knockbackPx: 52,
-    stunSeconds: 0.8,
-    hitCooldownSeconds: 1.2,
-  },
-
-  /* Twin levers: both must flip within syncWindow of each other (impossible
-     solo — they are ~310 px apart) to open the coin alcove gate for the
-     rest of the loop. A lever flips when a body enters its radius. */
-  levers: [{ x: 40, y: 130 }, { x: 350, y: 130 }],
-  leverR: 26,
-  leverSyncWindow: 0.5,
-  alcoveGate: { y: 95, x0: 274, x1: 390 }, // right-wing gate band (doorT thick)
 
   chest: {
     x: 195,
     y: 660,
-    pickupR: 26,
+    pickupR: 30,
   },
-
-  /* 5 coins: three inside the door-gated spine, two in the lever alcove —
-     all reachable only with echo cooperation. Collected coins stay
-     collected across loops (no farming). */
-  coins: [
-    { x: 195, y: 480 },   // behind door 1
-    { x: 195, y: 290 },   // behind door 2
-    { x: 195, y: 118 },   // behind door 3, past the beam
-    { x: 316, y: 55 },    // lever alcove
-    { x: 360, y: 55 },    // lever alcove
-  ],
-  coinCollectR: 24,
 
   scoring: {
     deliver: 1000,
     unusedLoop: 400,      // x full loops left over after delivery
-    coin: 60,
-    redundancyPerSecond: 5, // penalty for stacked bodies on one plate
   },
 
   /* Anti-pause-scum re-acquire beat (kit auto-pauses on visibilitychange).
@@ -174,17 +154,16 @@ export const GAME_CONFIG = {
   },
 
   hud: {
-    lowTimeSeconds: 5,
-    bannerSeconds: 1.6,
+    lowTimeSeconds: 4,
+    bannerSeconds: 2.0,
   },
 
   fx: {
     doorParticles: 14,
     deliverParticles: 26,
-    coinParticles: 10,
-    plateParticles: 6,
-    leverParticles: 8,
-    beamShake: 7,
+    plateParticles: 8,
+    blockShake: 5,
+    blockCooldownSeconds: 1.1, // throttle the "gate is shut" nudge
     echoFlashSeconds: 1.2,
     endBeatMs: 1400,
     trailSampleEvery: 4,  // ghost trail: every 4th track sample

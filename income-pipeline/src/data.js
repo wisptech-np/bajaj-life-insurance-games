@@ -92,9 +92,9 @@ export const GAME_CONFIG = {
      and they sit under parMax with headroom because par <= scrambleDistance
      always (the generated layout is one witness among possibly cheaper ones). */
   levels: [
-    { id: 1, cols: 4, rows: 4, tanks: 1, timerSeconds: 18, scramble: [4, 7], parMin: 4, parMax: 14 },
-    { id: 2, cols: 5, rows: 5, tanks: 2, timerSeconds: 22, scramble: [5, 9], parMin: 4, parMax: 14 },
-    { id: 3, cols: 6, rows: 6, tanks: 3, timerSeconds: 26, scramble: [7, 11], parMin: 4, parMax: 14 },
+    { id: 1, cols: 4, rows: 4, tanks: 1, timerSeconds: 26, scramble: [4, 7], parMin: 4, parMax: 14 },
+    { id: 2, cols: 5, rows: 5, tanks: 2, timerSeconds: 28, scramble: [5, 9], parMin: 4, parMax: 14 },
+    { id: 3, cols: 6, rows: 6, tanks: 3, timerSeconds: 32, scramble: [7, 11], parMin: 4, parMax: 14 },
   ],
 
   /* -- Generation knobs ---------------------------------------------------
@@ -200,6 +200,17 @@ export const GAME_CONFIG = {
 
 /** Every tank across the three levels: the denominator of a perfect run. */
 export const TOTAL_TANKS = GAME_CONFIG.levels.reduce((sum, l) => sum + l.tanks, 0);
+
+/**
+ * Tanks a run must fund to count as a win.
+ *
+ * Half, not all six. Requiring a perfect run made every realistic session end
+ * on the loss screen — the greedy balance bot only clears all three boards on
+ * ~78% of seeds, and a first-time player clears far fewer. The full six stays
+ * meaningful as RESULT_TARGET_SCORE, which is what the results ring fills
+ * toward, so a perfect run still reads as perfect.
+ */
+export const WIN_TANKS = Math.ceil(TOTAL_TANKS / 2);
 
 /** Score the Results ring treats as a full circle: every tank, zero leaks. */
 export const RESULT_TARGET_SCORE = TOTAL_TANKS * GAME_CONFIG.scoring.tankFilled;

@@ -1,712 +1,742 @@
-// GoalKeeperGame.jsx — penalty-save reaction game.
+// GoalKeeperGame.jsx — Goal Keeper: cover the goal line.
 //
-// You are the keeper. Behind the net hang three family milestone banners; ten
-// penalties are taken at them. Each run-up carries a 400 ms telegraph — the
-// striker leans and plants his foot toward one of six zones — and that
-// telegraph tells the truth on four shots out of five. SWIPE to dive: the
-// direction picks the column, the LENGTH of the swipe picks the height. Get the
-// zone right and get there before the ball and it is a save.
+// You do not dive. You own a SPAN of the goal line — a bar of light whose width
+// is your sum assured — and you steer it with your thumb. A ball inside the span
+// is saved; a ball outside it goes past you into whichever of the family's three
+// goals stands behind that part of the mouth.
 //
-// The catch is time. A dive is not instant: 164 ms to smother the ball at your
-// feet, 340 ms to reach a top corner. The flight shortens from 550 ms to 380 ms
-// across the ten shots (and every fourth is a faster, double-value Risk shot),
-// so late on you can still wait and cover the middle, but a corner has to be
-// read off the run-up — which is exactly when a feint hurts. Three saves in a
-// row earn a Shield glove that absorbs one goal. Six saves wins; five conceded
-// and the win is gone.
+// The span only ever narrows: the term runs down every second, and every claim
+// you pay draws it down further. RENEW puts it back to full and costs a premium,
+// and premiums arrive slowly. The one thing you cannot do is renew once a ball
+// is past the LOCK LINE — you cannot buy cover for a claim that is already in
+// the air. Volleys are deliberately wider than any policy you can hold, so the
+// last decision of a bad wave is always which goal you let through.
 //
-// Structure follows WealthDropGame.jsx and GuardianShelterGame.jsx: one canvas
-// component whose mutable state lives in refs (never React state — a 120 Hz
-// tick must not re-render), module-level pure draw functions, all tunables from
-// data.js, and the kit owning the loop, input, effects, audio and device
-// profiling.
+// This component contains NO rules. src/cover.js owns the wave plan, the span,
+// the decay, the premium economy, the lock and the impact test; src/rules.js
+// owns scoring, the family's funding and the win/lose line. scripts/balance.mjs
+// steps those exact modules at this exact fixed timestep. Everything here is
+// presentation: what the simulation looks and sounds like.
 //
-// The RULES are not in this file. Shot generation, zone geometry, swipe
-// resolution, dive timing, save judgment and scoring live in src/shots.js and
-// src/rules.js — pure modules with no DOM — so scripts/balance.mjs runs exactly
-// what ships. This file decides only what a shot LOOKS like.
+// ART DIRECTION — ONE LIGHT SOURCE. A single floodlight sits high and to the
+// left. Every lit face in this file is the left face, every contact shadow falls
+// down and to the right, and there is no second light, no rim light and no
+// decorative glow. The palette is five hues with one job each (see data.js).
+//
+// Structure follows GuardianShelterGame.jsx: mutable state in refs (never React
+// state — a 120 Hz tick must not re-render), the static stadium pre-rendered
+// once per resize and blitted, pooled visuals, and no allocation in the hot loop.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { COLORS, GAME_CONFIG } from './data.js';
 import {
-  ZONE_COUNT, buildShotPlan, clamp, colOf, diveTravelMs, mulberry32,
-  resolveSwipe, rowOf, zoneCentre,
-} from './shots.js';
-import { createRun, judgeDive, resolveShot, statsOf } from './rules.js';
+  buildWavePlan, createWorld, stepWorld, mulberry32, clamp,
+  flightFraction, cueFraction, phaseIndexAt, beginPause, endPause,
+} from './cover.js';
+import { createRun, applyEvent, finishRun, statsOf } from './rules.js';
 import { BALANCE } from './kit/config.js';
 import { createGameLoop } from './kit/loop.js';
 import { createInput } from './kit/input.js';
-import { createEffects, Easing, damp } from './kit/effects.js';
+import { createEffects, damp } from './kit/effects.js';
 import { createAudio } from './kit/audio.js';
-import { detectTier, effectBudget, fitCanvas, haptic } from './kit/device.js';
+import { detectTier, fitCanvas, haptic } from './kit/device.js';
 
-/* ─── Arena layout ────────────────────────────────────────
-   Everything on screen is derived from the measured canvas, so the pitch is the
-   same pitch on a 320 px phone and a 430 px one. */
+/* ─── Layout ──────────────────────────────────────────────
+   Every position on screen derives from the measured canvas, so the stadium is
+   the same stadium on a 320 px phone and a 430 px one. The vertical rhythm IS
+   the composition: a quiet top margin, the stand, a long empty pitch (the
+   negative space the whole design leans on), the goal line as the single hard
+   horizontal, the net band carrying the family's banners, and the control strip
+   under the thumb. Nothing floats in the middle competing for attention. */
 function buildLayout(W, H) {
-  const postL = W * 0.085;
-  const postR = W * 0.915;
-  const barY = H * 0.235;
-  const lineY = H * 0.545;
-  const goalW = postR - postL;
-  const goalH = lineY - barY;
-  const postW = Math.max(4, goalW * 0.026);
+  const skyBottom = H * 0.058;
+  const standBottom = H * 0.152;
+  const hoardBottom = H * 0.190;
+  const strikerY = H * 0.262;
+  const lineY = H * 0.672;
+  const netBottom = H * 0.856;
+  const stripTop = H * 0.876;
+
+  const mouthL = W * 0.085;
+  const mouthR = W * 0.915;
+  const mouthW = mouthR - mouthL;
 
   return {
     W, H,
-    postL, postR, barY, lineY, goalW, goalH, postW,
-    goalCx: (postL + postR) / 2,
-    goalHalfW: goalW / 2,
-    horizonY: H * 0.30,
-    bannerTop: H * 0.055,
-    bannerH: H * 0.062,
-    bannerGap: H * 0.014,
-    spotX: W / 2,
-    spotY: H * 0.845,
-    runStartX: W * 0.5 - goalW * 0.18,
-    runStartY: H * 0.955,
-    // Perspective: the ball is drawn this size on the spot and shrinks as it
-    // travels away from the camera into the goal.
-    ballNearR: Math.max(7, W * 0.026),
-    ballFarR: Math.max(4.5, W * 0.017),
-    keeperScale: goalH / 150,
+    skyBottom, standBottom, hoardBottom, strikerY, lineY, netBottom, stripTop,
+    mouthL, mouthR, mouthW,
+    postW: Math.max(5, mouthW * 0.028),
+    cx: (mouthL + mouthR) / 2,
+    /** How far the far end of the pitch is pulled in — the touchlines converge
+        on the vanishing point rather than the pitch being a plain rectangle. */
+    pitchInset: W * 0.13,
+    /** Set by the component — depends on cfg.cover.lockFrac. */
+    lockY: 0,
+    ballFarR: Math.max(4, W * 0.016),
+    ballNearR: Math.max(7, W * 0.027),
+    strikerH: Math.max(30, H * 0.056),
   };
 }
 
-/* Scratch reused by the draw path. Every one of these is written immediately
-   before it is read and never escapes, so the render loop allocates nothing.
-   `_zc` belongs to zonePoint alone (no reentrancy); the component owns its own
-   scratch for the striker lean and the cue arc. */
-const _zc = { ax: 0, ay: 0 };
-const DASH_CUE = [3, 9];
-const DASH_PREVIEW = [7, 6];
-const DASH_OFF = [];
+/** Perspective: a point at mouth position u is pulled toward the centre by this
+    much at the far end of the pitch, and sits true on the goal line. */
+const FAR_SHRINK = 0.55;
 
-/** Where a zone's centre sits on screen. */
-function zonePoint(L, zone, out) {
-  const c = zoneCentre(zone, _zc);
-  out.x = L.goalCx + c.ax * L.goalHalfW * 0.78;
-  out.y = L.lineY - (0.16 + c.ay * 0.70) * L.goalH;
-  return out;
+/* ─── Small drawing helpers ─────────────────────────────── */
+function roundRect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+  ctx.lineTo(x + rr, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+  ctx.lineTo(x, y + rr);
+  ctx.quadraticCurveTo(x, y, x + rr, y);
+  ctx.closePath();
 }
 
-/** Where THIS shot is actually placed inside its zone — a deterministic
-    cosmetic offset so ten shots into the same corner are not ten identical
-    animations. Derived from the shot index, never from the run PRNG, so it
-    cannot shift the balance numbers. */
-function shotPoint(L, shot, out) {
-  zonePoint(L, shot.zone, out);
-  const j = ((shot.index * 7919) % 17) / 17 - 0.5;
-  const k = ((shot.index * 104729) % 11) / 11 - 0.5;
-  out.x += j * L.goalW * 0.09;
-  out.y += k * L.goalH * 0.10;
-  return out;
+function label(ctx, text, x, y, size, color, align = 'center', weight = 900) {
+  ctx.font = `${weight} ${size}px 'Poppins', 'Plus Jakarta Sans', system-ui, sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y);
 }
 
-/** Rect of a zone in the goal mouth, for the target grid. */
-function zoneRect(L, zone, out) {
-  const col = colOf(zone);
-  const row = rowOf(zone);
-  const bandY = L.lineY - L.goalH * 0.46;
-  out.x = L.postL + (col / 3) * L.goalW;
-  out.w = L.goalW / 3;
-  out.y = row === 0 ? bandY : L.barY;
-  out.h = row === 0 ? L.lineY - bandY : bandY - L.barY;
-  return out;
-}
+/* ─── The static stadium ──────────────────────────────────
+   Sky, stand, pitch, goal line, posts, net and the strip plate are the same
+   pixels on every frame, so they are rendered once per resize into an offscreen
+   bitmap and blitted. Only the light on moving things, the ball, the span and
+   the type are drawn live. */
+function makeStadiumBitmap(L, dpr) {
+  const c = document.createElement('canvas');
+  c.width = Math.round(L.W * dpr);
+  c.height = Math.round(L.H * dpr);
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-/* ─── Offscreen pre-render ────────────────────────────────
-   The stand, the banners, the turf and the goal frame are static art drawn
-   every frame. Building them once per resize and blitting keeps the hot loop
-   free of path construction and gradient allocation. */
+  /* --- beyond the touchline ----------------------------------------------
+     Everything outside the pitch is one flat dark tone. Painting it first and
+     cutting the pitch out of it is what stops the top corners reading as a
+     mistake where the trapezoid stops short of the screen edge. */
+  g.fillStyle = '#050B18';
+  g.fillRect(0, 0, L.W, L.H);
 
-function offscreen(w, h, dpr) {
-  const cv = document.createElement('canvas');
-  cv.width = Math.max(1, Math.round(w * dpr));
-  cv.height = Math.max(1, Math.round(h * dpr));
-  const c = cv.getContext('2d');
-  c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { cv, c };
-}
-
-function paintBanner(c, x, y, w, h, label, color) {
-  const g = c.createLinearGradient(0, y, 0, y + h);
-  g.addColorStop(0, 'rgba(255,255,255,0.13)');
-  g.addColorStop(1, 'rgba(255,255,255,0.04)');
-  c.fillStyle = g;
-  c.beginPath();
-  c.roundRect(x, y, w, h, 5);
-  c.fill();
-
-  c.strokeStyle = `${color}66`;
-  c.lineWidth = 1.2;
-  c.beginPath();
-  c.roundRect(x, y, w, h, 5);
-  c.stroke();
-
-  // Colour flash along the top edge — the banner's team colour.
-  c.fillStyle = color;
-  c.beginPath();
-  c.roundRect(x + 2, y + 1.5, w - 4, Math.max(2, h * 0.13), 1.5);
-  c.fill();
-
-  const size = Math.max(7, Math.min(h * 0.42, (w / Math.max(8, label.length)) * 1.55));
-  c.font = `900 ${size}px 'Poppins', 'Plus Jakarta Sans', system-ui, sans-serif`;
-  c.textAlign = 'center';
-  c.textBaseline = 'middle';
-  c.fillStyle = 'rgba(0,0,0,0.45)';
-  c.fillText(label, x + w / 2, y + h * 0.62 + 1);
-  c.fillStyle = color;
-  c.fillText(label, x + w / 2, y + h * 0.62);
-}
-
-/** Night sky, floodlit stand, the milestone banners, the turf and its markings. */
-function makeArenaBitmap(L, cfg, dpr, shadows) {
-  const { W, H } = L;
-  const { cv, c } = offscreen(W, H, dpr);
-
-  const sky = c.createLinearGradient(0, 0, 0, L.horizonY);
+  /* --- sky ---------------------------------------------------------------- */
+  const sky = g.createLinearGradient(0, 0, 0, L.hoardBottom);
   sky.addColorStop(0, COLORS.skyTop);
-  sky.addColorStop(0.6, COLORS.skyMid);
+  sky.addColorStop(0.7, COLORS.skyMid);
   sky.addColorStop(1, COLORS.skyLow);
-  c.fillStyle = sky;
-  c.fillRect(0, 0, W, L.horizonY + 1);
+  g.fillStyle = sky;
+  g.fillRect(0, 0, L.W, L.skyBottom);
 
-  // Stand: a dark block speckled with a crowd texture, lit from the floodlights.
-  c.fillStyle = COLORS.standDark;
-  c.fillRect(0, 0, W, L.horizonY);
-  const lit = c.createRadialGradient(W / 2, -H * 0.1, W * 0.1, W / 2, L.horizonY, W * 1.1);
-  lit.addColorStop(0, 'rgba(120,170,240,0.22)');
-  lit.addColorStop(1, 'rgba(120,170,240,0)');
-  c.fillStyle = lit;
-  c.fillRect(0, 0, W, L.horizonY);
+  /* --- the one floodlight, high and to the left ---------------------------
+     A pylon in the top-left corner and the light it throws. This is the only
+     light in the game and the only gradient in the scene that is not turf. */
+  const flood = g.createRadialGradient(
+    L.W * COLORS.floodX, L.H * COLORS.floodY, 0,
+    L.W * COLORS.floodX, L.H * COLORS.floodY, L.H * 0.78,
+  );
+  flood.addColorStop(0, 'rgba(150,195,255,0.30)');
+  flood.addColorStop(0.42, 'rgba(120,170,240,0.10)');
+  flood.addColorStop(1, 'rgba(120,170,240,0)');
+  g.fillStyle = flood;
+  g.fillRect(0, 0, L.W, L.H);
 
-  // Crowd: rows of small dashes. Fixed pseudo-random so it never shimmers.
-  const rows = 7;
-  for (let r = 0; r < rows; r++) {
-    const y = L.horizonY * (0.30 + (r / rows) * 0.62);
-    const step = W / 34;
-    for (let i = 0; i < 34; i++) {
-      const n = (i * 73 + r * 131) % 97;
-      if (n % 3 === 0) continue;
-      c.globalAlpha = 0.08 + (n % 7) * 0.014;
-      c.fillStyle = n % 5 === 0 ? COLORS.orangeLt : '#9FC4F5';
-      c.fillRect(i * step + (r % 2) * step * 0.5, y, step * 0.42, L.horizonY * 0.035);
+  const pylonX = L.W * 0.155;
+  const bankY = L.skyBottom * 0.26;
+  g.fillStyle = '#0B1830';
+  g.fillRect(pylonX - 1.8, bankY, 3.6, L.standBottom - bankY);
+  g.fillRect(pylonX - 19, bankY + 9, 38, 2.6);
+  for (let i = 0; i < 5; i++) {
+    g.fillStyle = i < 3 ? '#DCE9FF' : '#8FB4E4';
+    g.fillRect(pylonX - 17 + i * 7.6, bankY, 5.6, 8);
+  }
+
+  /* --- stand: flat band + a halftone screen standing in for faces --------- */
+  g.fillStyle = COLORS.standDark;
+  g.fillRect(0, L.skyBottom, L.W, L.standBottom - L.skyBottom);
+  const rows = 4;
+  const rowH = (L.standBottom - L.skyBottom) / rows;
+  for (let row = 0; row < rows; row++) {
+    const y = L.skyBottom + row * rowH + rowH * 0.55;
+    const step = 8 + row * 1.5;
+    // Brighter and denser toward the front rows — depth without a gradient.
+    g.globalAlpha = 0.34 + row * 0.16;
+    g.fillStyle = row < 2 ? COLORS.standLight : 'rgba(160,200,255,0.24)';
+    for (let x = (row % 2) * (step / 2); x < L.W; x += step) {
+      g.fillRect(x, y - 1.4, 2.8, 2.8);
     }
   }
-  c.globalAlpha = 1;
+  g.globalAlpha = 1;
 
-  // Family milestone banners hung on the front of the stand.
-  const bw = (W - 20) / cfg.milestones.length;
-  for (let i = 0; i < cfg.milestones.length; i++) {
-    const m = cfg.milestones[i];
-    paintBanner(c, 10 + i * bw + 3, L.bannerTop, bw - 6, L.bannerH, m.label, m.color);
+  /* --- the hoarding: the composition's second hard horizontal -------------
+     A flat brand-blue band with a printed chevron rhythm. It exists to give the
+     top third a floor, so the stand stops reading as dead space. */
+  g.fillStyle = '#08234C';
+  g.fillRect(0, L.standBottom, L.W, L.hoardBottom - L.standBottom);
+  const hb = L.hoardBottom - L.standBottom;
+  g.strokeStyle = 'rgba(0,163,224,0.22)';
+  g.lineWidth = 1.8;
+  g.beginPath();
+  for (let x = -hb; x < L.W + hb; x += hb * 1.5) {
+    g.moveTo(x, L.hoardBottom - 2);
+    g.lineTo(x + hb * 0.5, L.standBottom + 2);
+    g.lineTo(x + hb, L.hoardBottom - 2);
+  }
+  g.stroke();
+  g.fillStyle = 'rgba(244,248,255,0.22)';
+  g.fillRect(0, L.standBottom, L.W, 1.2);
+  g.fillStyle = 'rgba(244,248,255,0.5)';
+  g.fillRect(0, L.hoardBottom - 1.2, L.W, 1.2);
+
+  /* --- pitch: a trapezoid, two flat greens, symmetric mown stripes -------- */
+  const pitchTop = L.hoardBottom;
+  g.save();
+  g.beginPath();
+  g.moveTo(L.pitchInset, pitchTop);
+  g.lineTo(L.W - L.pitchInset, pitchTop);
+  g.lineTo(L.W, L.netBottom);
+  g.lineTo(0, L.netBottom);
+  g.closePath();
+  const turf = g.createLinearGradient(0, pitchTop, 0, L.netBottom);
+  turf.addColorStop(0, COLORS.turfDark);
+  turf.addColorStop(0.55, COLORS.turfMid);
+  turf.addColorStop(1, COLORS.turfLit);
+  g.fillStyle = turf;
+  g.fill();
+  g.clip();
+
+  // Three mown stripes, converging on the same vanishing point as the
+  // touchlines, so the pitch reads as one consistent perspective.
+  g.fillStyle = 'rgba(255,255,255,0.026)';
+  for (let i = -1; i <= 1; i += 2) {
+    const a = 0.16 * i;
+    const b = 0.42 * i;
+    g.beginPath();
+    g.moveTo(L.W * (0.5 + a * 0.55), pitchTop);
+    g.lineTo(L.W * (0.5 + b * 0.55), pitchTop);
+    g.lineTo(L.W * (0.5 + b), L.netBottom);
+    g.lineTo(L.W * (0.5 + a), L.netBottom);
+    g.closePath();
+    g.fill();
+  }
+  g.restore();
+
+  // Touchlines, converging. One stroke each; they carry the perspective.
+  g.strokeStyle = 'rgba(232,246,255,0.20)';
+  g.lineWidth = 1.4;
+  g.beginPath();
+  g.moveTo(L.pitchInset, pitchTop);
+  g.lineTo(0, L.netBottom);
+  g.moveTo(L.W - L.pitchInset, pitchTop);
+  g.lineTo(L.W, L.netBottom);
+  g.stroke();
+
+  /* --- the goal line: the one hard horizontal in the composition ---------- */
+  g.fillStyle = COLORS.turfLine;
+  g.fillRect(0, L.lineY - 1, L.W, 2);
+  g.fillStyle = COLORS.post;
+  g.fillRect(L.mouthL, L.lineY - 1.5, L.mouthW, 3);
+
+  /* --- the net band beyond the line --------------------------------------- */
+  g.fillStyle = 'rgba(4,10,22,0.86)';
+  g.fillRect(0, L.lineY + 1.5, L.W, L.netBottom - L.lineY);
+  g.strokeStyle = COLORS.net;
+  g.lineWidth = 0.8;
+  g.beginPath();
+  for (let x = L.mouthL; x <= L.mouthR + 0.1; x += L.mouthW / 14) {
+    g.moveTo(x, L.lineY + 2);
+    g.lineTo(x, L.netBottom);
+  }
+  for (let y = L.lineY + 8; y < L.netBottom; y += (L.netBottom - L.lineY) / 7) {
+    g.moveTo(L.mouthL, y);
+    g.lineTo(L.mouthR, y);
+  }
+  g.stroke();
+  g.strokeStyle = COLORS.netLit;
+  g.beginPath();
+  g.moveTo(L.mouthL, L.netBottom - 0.5);
+  g.lineTo(L.mouthR, L.netBottom - 0.5);
+  g.stroke();
+
+  /* --- posts: lit face left, shade face right ----------------------------- */
+  for (const px of [L.mouthL, L.mouthR]) {
+    g.fillStyle = COLORS.post;
+    g.fillRect(px - L.postW / 2, L.lineY - 5, L.postW, L.netBottom - L.lineY + 5);
+    g.fillStyle = COLORS.postShade;
+    g.fillRect(px + L.postW * 0.16, L.lineY - 5, L.postW * 0.34, L.netBottom - L.lineY + 5);
   }
 
-  // Turf with mowing stripes that converge slightly toward the horizon.
-  const turf = c.createLinearGradient(0, L.horizonY, 0, H);
-  turf.addColorStop(0, COLORS.turfTop);
-  turf.addColorStop(0.45, COLORS.turfMid);
-  turf.addColorStop(1, COLORS.turfLow);
-  c.fillStyle = turf;
-  c.fillRect(0, L.horizonY, W, H - L.horizonY);
+  /* --- control strip plate ------------------------------------------------ */
+  g.fillStyle = 'rgba(6,13,28,0.95)';
+  g.fillRect(0, L.stripTop - 6, L.W, L.H - L.stripTop + 6);
+  g.fillStyle = 'rgba(244,248,255,0.10)';
+  g.fillRect(0, L.stripTop - 6, L.W, 1);
 
-  c.fillStyle = COLORS.turfStripe;
-  const bands = 7;
-  for (let i = 0; i < bands; i += 2) {
-    const y0 = L.horizonY + ((H - L.horizonY) * i) / bands;
-    const y1 = L.horizonY + ((H - L.horizonY) * (i + 1)) / bands;
-    c.fillRect(0, y0, W, y1 - y0);
-  }
-
-  // Penalty box + six-yard box in perspective, and the spot.
-  c.strokeStyle = COLORS.turfLine;
-  c.lineWidth = 2;
-  c.lineJoin = 'round';
-  const boxTop = L.lineY;
-  const boxBot = H * 0.94;
-  c.beginPath();
-  c.moveTo(0, boxTop);
-  c.lineTo(W, boxTop);
-  c.stroke();
-
-  c.globalAlpha = 0.75;
-  c.beginPath();
-  c.moveTo(-W * 0.30, boxBot);
-  c.lineTo(W * 0.12, boxTop);
-  c.moveTo(W * 1.30, boxBot);
-  c.lineTo(W * 0.88, boxTop);
-  c.moveTo(-W * 0.30, boxBot);
-  c.lineTo(W * 1.30, boxBot);
-  c.stroke();
-
-  const sixTop = L.lineY + (boxBot - L.lineY) * 0.30;
-  c.globalAlpha = 0.55;
-  c.beginPath();
-  c.moveTo(W * 0.02, sixTop);
-  c.lineTo(W * 0.22, L.lineY);
-  c.moveTo(W * 0.98, sixTop);
-  c.lineTo(W * 0.78, L.lineY);
-  c.moveTo(W * 0.02, sixTop);
-  c.lineTo(W * 0.98, sixTop);
-  c.stroke();
-  c.globalAlpha = 1;
-
-  c.fillStyle = COLORS.turfLine;
-  c.beginPath();
-  c.ellipse(L.spotX, L.spotY, 4.5, 2.2, 0, 0, Math.PI * 2);
-  c.fill();
-
-  /* -- The goal ---------------------------------------------------------- */
-  // Net first, so the frame sits on top of it.
-  c.save();
-  c.beginPath();
-  c.rect(L.postL, L.barY, L.goalW, L.goalH);
-  c.clip();
-  c.fillStyle = 'rgba(6,18,41,0.42)';
-  c.fillRect(L.postL, L.barY, L.goalW, L.goalH);
-  c.strokeStyle = COLORS.net;
-  c.lineWidth = 1;
-  c.beginPath();
-  const mesh = Math.max(9, L.goalW / 22);
-  for (let x = L.postL; x <= L.postR + mesh; x += mesh) {
-    c.moveTo(x, L.barY);
-    c.lineTo(x + L.goalW * 0.05, L.lineY);
-  }
-  for (let y = L.barY; y <= L.lineY + mesh; y += mesh * 0.72) {
-    c.moveTo(L.postL, y);
-    c.lineTo(L.postR, y);
-  }
-  c.stroke();
-  c.restore();
-
-  const frame = c.createLinearGradient(0, L.barY, 0, L.lineY);
-  frame.addColorStop(0, COLORS.post);
-  frame.addColorStop(1, COLORS.postShade);
-  if (shadows) {
-    c.shadowColor = 'rgba(200,225,255,0.5)';
-    c.shadowBlur = 10;
-  }
-  c.fillStyle = frame;
-  c.beginPath();
-  c.roundRect(L.postL - L.postW / 2, L.barY - L.postW / 2, L.postW, L.goalH + L.postW / 2, 2);
-  c.roundRect(L.postR - L.postW / 2, L.barY - L.postW / 2, L.postW, L.goalH + L.postW / 2, 2);
-  c.roundRect(L.postL - L.postW / 2, L.barY - L.postW / 2, L.goalW + L.postW, L.postW, 2);
-  c.fill();
-  c.shadowBlur = 0;
-
-  return cv;
+  return c;
 }
 
-/**
- * Gradients are expensive to build and are therefore created ONCE per resize,
- * anchored at the origin. The draw calls translate (and, for the ball, scale)
- * the context instead of rebuilding a gradient at the entity's position, so
- * nothing in the hot loop allocates.
- */
-function buildPaints(ctx, L) {
-  const S = L.keeperScale;
-  const SS = S * 0.92;
+/* ─── Live layers ─────────────────────────────────────────
+   Module-level so they compile once and cannot close over stale state; each
+   takes everything it needs as an argument and allocates nothing. */
 
-  const keeperTorso = ctx.createLinearGradient(0, -56 * S, 0, -26 * S);
-  keeperTorso.addColorStop(0, COLORS.orangeLt);
-  keeperTorso.addColorStop(1, COLORS.keeperKitDeep);
-
-  const strikerTorso = ctx.createLinearGradient(0, -52 * SS, 0, -24 * SS);
-  strikerTorso.addColorStop(0, COLORS.brandBlueLt);
-  strikerTorso.addColorStop(1, COLORS.strikerKitDeep);
-
-  const glove = ctx.createRadialGradient(-2, -2, 1, 0, 0, 8 * S);
-  glove.addColorStop(0, COLORS.gloveLt);
-  glove.addColorStop(1, COLORS.glove);
-
-  // Built at the ball's near-camera radius; drawBall scales the context by
-  // r / ballNearR for the perspective shrink rather than rebuilding it.
-  const r = L.ballNearR;
-  const ball = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
-  ball.addColorStop(0, '#FFFFFF');
-  ball.addColorStop(0.7, COLORS.ball);
-  ball.addColorStop(1, COLORS.ballShade);
-
-  return { keeperTorso, strikerTorso, glove, ball };
-}
-
-/* ─── Entity draw functions (all programmatic — no emoji, no images) ── */
-
-/** The six target zones, drawn faintly while a shot is live. */
-function drawZoneGrid(ctx, L, s, cfg, rect) {
-  ctx.save();
-  for (let z = 0; z < ZONE_COUNT; z++) {
-    zoneRect(L, z, rect);
-    const hot = s.previewZone === z;
-    const cue = s.cueGlow > 0 && s.cueZone === z;
-    ctx.globalAlpha = hot ? 0.30 : cue ? 0.10 + s.cueGlow * 0.28 : 0.055;
-    ctx.fillStyle = hot ? COLORS.orangeLt : cue ? COLORS.gold : '#DCEBFF';
-    ctx.beginPath();
-    ctx.roundRect(rect.x + 2, rect.y + 2, rect.w - 4, rect.h - 4, 4);
-    ctx.fill();
-
-    ctx.globalAlpha = hot ? 0.9 : 0.16;
-    ctx.strokeStyle = hot ? COLORS.orangeLt : 'rgba(220,235,255,0.8)';
-    ctx.lineWidth = hot ? 2 : 1;
-    ctx.beginPath();
-    ctx.roundRect(rect.x + 2, rect.y + 2, rect.w - 4, rect.h - 4, 4);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/**
- * The striker. A programmatic rig: head, torso, two arms, two legs, all built
- * from arcs and rounded strokes. `lean` tilts the whole body about the planted
- * foot — that tilt plus the plant chevron IS the telegraph.
- */
-function drawStriker(ctx, L, paints, x, y, lean, stride, shadows) {
-  const S = L.keeperScale * 0.92;
+/** A striker: chunky flat-poster geometry, readable from its outline alone. */
+function drawStriker(ctx, x, y, h, lean, strike) {
+  const w = h * 0.34;
   ctx.save();
   ctx.translate(x, y);
-
-  // Ground shadow.
-  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.fillStyle = 'rgba(0,0,0,0.34)';
   ctx.beginPath();
-  ctx.ellipse(0, 2, 15 * S, 4.5 * S, 0, 0, Math.PI * 2);
+  ctx.ellipse(w * 0.16, 2, w * 0.72, h * 0.055, 0, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.rotate(lean);
+
+  ctx.strokeStyle = COLORS.dangerDeep;
+  ctx.lineWidth = Math.max(3, w * 0.28);
   ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  // Legs — the trailing one swings with `stride`.
-  const sw = Math.sin(stride) * 12 * S;
-  ctx.strokeStyle = COLORS.strikerKitDeep;
-  ctx.lineWidth = 5 * S;
   ctx.beginPath();
-  ctx.moveTo(0, -26 * S);
-  ctx.lineTo(-3 * S - sw * 0.5, 0);
-  ctx.moveTo(0, -26 * S);
-  ctx.lineTo(4 * S + sw, -2 * S - Math.abs(sw) * 0.25);
+  ctx.moveTo(-w * 0.10, -h * 0.42);
+  ctx.lineTo(-w * 0.42, 0);
+  ctx.moveTo(w * 0.06, -h * 0.42);
+  ctx.lineTo(w * (0.38 + strike * 0.55), -strike * h * 0.20);
   ctx.stroke();
 
-  // Torso.
-  if (shadows) {
-    ctx.shadowColor = 'rgba(30,107,224,0.45)';
-    ctx.shadowBlur = 8;
-  }
-  ctx.fillStyle = paints.strikerTorso;
-  ctx.beginPath();
-  ctx.roundRect(-8 * S, -52 * S, 16 * S, 28 * S, 5 * S);
+  ctx.fillStyle = COLORS.danger;
+  roundRect(ctx, -w * 0.5, -h * 0.86, w, h * 0.46, w * 0.30);
   ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Arms, counter-swinging.
-  ctx.strokeStyle = COLORS.skin;
-  ctx.lineWidth = 3.4 * S;
-  ctx.beginPath();
-  ctx.moveTo(-6 * S, -48 * S);
-  ctx.lineTo(-13 * S + sw * 0.4, -32 * S);
-  ctx.moveTo(6 * S, -48 * S);
-  ctx.lineTo(13 * S - sw * 0.4, -34 * S);
-  ctx.stroke();
-
-  // Head.
-  ctx.fillStyle = COLORS.skin;
-  ctx.beginPath();
-  ctx.arc(0, -60 * S, 7.5 * S, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = COLORS.skinShade;
-  ctx.beginPath();
-  ctx.arc(2.5 * S, -62 * S, 7.5 * S, -0.5, 1.1);
+  ctx.fillStyle = COLORS.dangerDeep;
+  roundRect(ctx, w * 0.12, -h * 0.86, w * 0.38, h * 0.46, w * 0.26);
   ctx.fill();
 
+  ctx.fillStyle = '#E8B98C';
+  ctx.beginPath();
+  ctx.arc(0, -h * 0.955, w * 0.34, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
-/**
- * The plant chevron: which way the striker's standing foot is pointing.
- *
- * `ax` is the cue zone's horizontal aim (-1..1). A centre cue has no side to
- * lean toward, so its chevrons point straight up the pitch instead — otherwise
- * the three centre zones would carry no telegraph at all and the 80% truthful
- * cue would only ever be 80% truthful about two thirds of the goal.
- */
-function drawPlantCue(ctx, x, y, ax, k, shadows) {
-  if (k <= 0) return;
-  const centre = Math.abs(ax) < 0.1;
-  const dir = ax >= 0 ? 1 : -1;
+/** The ball: a flat white disc with printed panels, no sphere rendering. */
+function drawBall(ctx, x, y, r, spin) {
   ctx.save();
-  ctx.translate(x, y + 3);
-  ctx.globalAlpha = 0.25 + k * 0.7;
-  if (shadows) {
-    ctx.shadowColor = 'rgba(255,200,69,0.7)';
-    ctx.shadowBlur = 8 * k;
-  }
-  ctx.strokeStyle = COLORS.gold;
-  ctx.lineWidth = 2.6;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  const len = 15 + k * 13;
-  for (let i = 0; i < 2; i++) {
-    const o = i * 8;
+  ctx.translate(x, y);
+  ctx.fillStyle = COLORS.ball;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.42;
+  ctx.fillStyle = COLORS.ballShade;
+  ctx.beginPath();
+  ctx.arc(r * 0.30, r * 0.30, r * 0.76, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.rotate(spin);
+  ctx.fillStyle = COLORS.ballPanel;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.34, 0, Math.PI * 2);
+  ctx.fill();
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
     ctx.beginPath();
-    if (centre) {
-      ctx.moveTo(-6, -o + 4);
-      ctx.lineTo(0, -o - len * 0.36);
-      ctx.lineTo(6, -o + 4);
-    } else {
-      ctx.moveTo(dir * o - dir * 5, -6);
-      ctx.lineTo(dir * (o + len * 0.42), 0);
-      ctx.lineTo(dir * o - dir * 5, 6);
-    }
-    ctx.stroke();
+    ctx.arc(Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62, r * 0.17, 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.restore();
 }
 
-/**
- * The aim arc: a dotted line from the spotted ball to the zone the striker is
- * shaping to hit. This is the half of the telegraph that carries HEIGHT — the
- * body lean and the plant chevron only say which side. On a feint it is drawn
- * at the wrong zone, which is exactly the lie the player has to price in.
- */
-function drawCueArc(ctx, L, fromX, fromY, toX, toY, k, shadows) {
-  if (k <= 0) return;
-  ctx.save();
-  ctx.globalAlpha = 0.16 + k * 0.5;
-  ctx.strokeStyle = COLORS.goldLt;
-  ctx.lineWidth = 2;
-  ctx.lineCap = 'round';
-  ctx.setLineDash(DASH_CUE);
-  ctx.lineDashOffset = -k * 26;
-  const midX = (fromX + toX) / 2;
-  const midY = (fromY + toY) / 2 - L.goalH * 0.16;
-  ctx.beginPath();
-  ctx.moveTo(fromX, fromY);
-  ctx.quadraticCurveTo(midX, midY, toX, toY);
-  ctx.stroke();
-  ctx.setLineDash(DASH_OFF);
+/** The three family goals hanging in the net, with their funding pips. */
+function drawFamilyGoals(ctx, L, cfg, s) {
+  const n = cfg.goals.length;
+  const bandTop = L.lineY + (L.netBottom - L.lineY) * 0.16;
+  const bandH = (L.netBottom - L.lineY) * 0.54;
+  const slotW = L.mouthW / n;
 
-  if (shadows) {
-    ctx.shadowColor = 'rgba(255,227,138,0.75)';
-    ctx.shadowBlur = 10 * k;
-  }
-  ctx.globalAlpha = 0.2 + k * 0.6;
-  ctx.strokeStyle = COLORS.gold;
-  ctx.lineWidth = 2.2;
-  ctx.beginPath();
-  ctx.arc(toX, toY, 7 + (1 - k) * 9, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
-}
+  for (let i = 0; i < n; i++) {
+    const lives = s.run ? s.run.lives[i] : cfg.livesPerGoal;
+    const shake = s.goalShake[i];
+    const x = L.mouthL + i * slotW + slotW * 0.5 + (shake > 0 ? (Math.random() - 0.5) * 8 * shake : 0);
+    const w = slotW * 0.88;
+    const dead = lives <= 0;
 
-/** The ball: a white sphere with programmatic dark panels and a motion trail. */
-function drawBall(ctx, L, s, shadows) {
-  const b = s.ball;
-  if (!b.live) return;
-
-  if (s.trailCount > 1) {
     ctx.save();
-    ctx.lineCap = 'round';
-    for (let i = 0; i < s.trailCount - 1; i++) {
-      const a = (s.trailHead - i - 1 + s.trailMax * 2) % s.trailMax;
-      const c2 = (s.trailHead - i - 2 + s.trailMax * 2) % s.trailMax;
-      const k = 1 - i / s.trailCount;
-      ctx.globalAlpha = k * 0.4;
-      ctx.strokeStyle = '#DCEBFF';
-      ctx.lineWidth = b.r * 1.1 * k;
-      ctx.beginPath();
-      ctx.moveTo(s.trailX[a], s.trailY[a]);
-      ctx.lineTo(s.trailX[c2], s.trailY[c2]);
-      ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    roundRect(ctx, x - w / 2 + 2, bandTop + 2.5, w, bandH, 4);
+    ctx.fill();
+
+    ctx.fillStyle = dead ? 'rgba(70,14,14,0.92)' : 'rgba(255,255,255,0.055)';
+    roundRect(ctx, x - w / 2, bandTop, w, bandH, 4);
+    ctx.fill();
+    ctx.strokeStyle = dead ? COLORS.danger
+      : s.goalFlash[i] > 0 ? COLORS.dangerLt : 'rgba(255,200,69,0.34)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = dead ? COLORS.dangerDeep : COLORS.gold;
+    ctx.fillRect(x - w / 2 + 3, bandTop + 2.5, w - 6, 2);
+
+    const fs = Math.max(6.4, Math.min(9, w * 0.115));
+    label(ctx, cfg.goals[i].short, x, bandTop + bandH * 0.36, fs, dead ? COLORS.dangerLt : COLORS.goldLt);
+
+    const gap = 2;
+    const pipW = Math.max(3, Math.min(7, (w - 12) / cfg.livesPerGoal - gap));
+    const total = cfg.livesPerGoal * (pipW + gap) - gap;
+    let px = x - total / 2;
+    const py = bandTop + bandH * 0.68;
+    for (let k = 0; k < cfg.livesPerGoal; k++) {
+      ctx.fillStyle = k < lives ? COLORS.gold : 'rgba(255,255,255,0.09)';
+      ctx.fillRect(px, py, pipW, 4.6);
+      px += pipW + gap;
     }
     ctx.restore();
   }
+}
 
+/** The lock line — past this, the policy is whatever it already was. */
+function drawLockLine(ctx, L, s, w) {
+  const heat = Math.max(s.lockFlash, w.locked ? 0.6 : 0);
+  const hot = heat > 0;
   ctx.save();
-  ctx.translate(b.x, b.y);
-  // Squash into the boot, released on the kit's elastic curve. Rotated to the
-  // flight direction so the ball flattens ALONG its travel, not against the
-  // screen axes.
-  if (s.ballSquash > 0) {
-    const q = s.effects.squash(1 - s.ballSquash / s.squashSeconds);
-    const a = Math.atan2(b.y - L.spotY, b.x - L.spotX);
-    ctx.rotate(a);
-    ctx.scale(q.sx, q.sy);
-    ctx.rotate(-a);
-  }
-  // Perspective shrink is a context scale against the cached gradient, not a
-  // rebuilt one. Everything below is therefore drawn at the near-camera radius.
-  const R = L.ballNearR;
-  ctx.scale(b.r / R, b.r / R);
-  if (shadows) {
-    ctx.shadowColor = 'rgba(255,255,255,0.55)';
-    ctx.shadowBlur = 10;
-  }
-  ctx.fillStyle = s.paints.ball;
+  ctx.setLineDash([5, 7]);
+  ctx.lineWidth = hot ? 1.6 : 1;
+  ctx.strokeStyle = hot ? `rgba(239,68,68,${0.30 + 0.55 * heat})` : COLORS.inkFaint;
   ctx.beginPath();
-  ctx.arc(0, 0, R, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  ctx.rotate(b.spin);
-  ctx.fillStyle = COLORS.ballPanel;
-  ctx.globalAlpha = 0.82;
-  ctx.beginPath();
-  ctx.arc(0, 0, R * 0.3, 0, Math.PI * 2);
-  ctx.fill();
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2;
-    ctx.beginPath();
-    ctx.ellipse(Math.cos(a) * R * 0.66, Math.sin(a) * R * 0.66, R * 0.2, R * 0.14, a, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
+  ctx.moveTo(L.mouthL, L.lockY);
+  ctx.lineTo(L.mouthR, L.lockY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  label(ctx, hot ? 'COVER LOCKED' : 'RENEW ABOVE THIS LINE',
+    L.mouthR, L.lockY - 8, hot ? 8.5 : 6.2,
+    hot ? COLORS.dangerLt : 'rgba(244,248,255,0.18)', 'right', hot ? 900 : 800);
   ctx.restore();
 }
 
-/** One glove: cached gradient translated into place, no allocation. */
-function paintGlove(ctx, paints, gx, gy, S, lead, shadows) {
-  ctx.save();
-  ctx.translate(gx, gy);
-  if (shadows && lead) {
-    ctx.shadowColor = 'rgba(255,200,69,0.75)';
-    ctx.shadowBlur = 10;
-  }
-  ctx.fillStyle = paints.glove;
-  ctx.beginPath();
-  ctx.roundRect(-6 * S, -7 * S, 12 * S, 14 * S, 4 * S);
-  ctx.fill();
-  ctx.restore();
-}
+/** THE hero element: the span, and the column of light it throws up the pitch. */
+function drawCoverSpan(ctx, L, cfg, s, w) {
+  const half = s.drawHalf;
+  const centre = s.drawCentre;
 
-/**
- * The keeper. Rest pose is upright on the line; a dive rotates the body toward
- * the target and throws the lead glove at it. `p` is 0..1 through the dive.
- */
-function drawKeeper(ctx, L, s, shadows) {
-  const S = L.keeperScale;
-  const k = s.keeper;
-  ctx.save();
-
-  // Ground shadow stays on the line while the body leaves it.
-  ctx.fillStyle = 'rgba(0,0,0,0.34)';
-  ctx.beginPath();
-  ctx.ellipse(k.x, L.lineY + 2, 17 * S, 5 * S, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.translate(k.x, k.y);
-  ctx.rotate(k.tilt);
-  // Hitting the ground at the end of the dive squashes him, on the same kit
-  // elastic curve the ball uses off the boot.
-  if (s.keeperSquash > 0) {
-    const q = s.effects.squash(1 - s.keeperSquash / s.squashSeconds);
-    ctx.scale(q.sx, q.sy);
-  }
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  // Legs.
-  ctx.strokeStyle = COLORS.keeperKitDeep;
-  ctx.lineWidth = 5.4 * S;
-  const spread = 4 * S + k.reach * 11 * S;
-  ctx.beginPath();
-  ctx.moveTo(0, -28 * S);
-  ctx.lineTo(-spread, 0);
-  ctx.moveTo(0, -28 * S);
-  ctx.lineTo(spread * 0.72, -2 * S);
-  ctx.stroke();
-
-  // Torso in the keeper's orange kit.
-  if (shadows) {
-    ctx.shadowColor = 'rgba(242,101,34,0.55)';
-    ctx.shadowBlur = 10;
-  }
-  ctx.fillStyle = s.paints.keeperTorso;
-  ctx.beginPath();
-  ctx.roundRect(-9.5 * S, -56 * S, 19 * S, 30 * S, 6 * S);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Head.
-  ctx.fillStyle = COLORS.skin;
-  ctx.beginPath();
-  ctx.arc(0, -64 * S, 8 * S, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
-
-  // Arms + gloves are drawn in world space so the lead glove can track the
-  // actual dive target rather than a rotated local offset.
-  ctx.save();
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = COLORS.skin;
-  ctx.lineWidth = 4 * S;
-  const shoulderY = k.y - 50 * S;
-  ctx.beginPath();
-  ctx.moveTo(k.x, shoulderY);
-  ctx.lineTo(k.gx, k.gy);
-  ctx.moveTo(k.x, shoulderY);
-  ctx.lineTo(k.tx, k.ty);
-  ctx.stroke();
-
-  paintGlove(ctx, s.paints, k.gx, k.gy, S, true, shadows);
-  paintGlove(ctx, s.paints, k.tx, k.ty, S, false, shadows);
-
-  // Shield glove: a blue aura around the gloves while one is held.
-  if (s.shieldHeld > 0) {
-    const pulse = 0.5 + 0.5 * Math.sin(s.time * 4.2);
-    ctx.strokeStyle = `rgba(166,208,255,${0.4 + pulse * 0.45})`;
+  if (w.half <= 0) {
+    // A lapsed policy is not a thin bar — it is nothing, and it says so.
+    ctx.save();
+    ctx.setLineDash([3, 5]);
+    ctx.strokeStyle = 'rgba(239,68,68,0.75)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(k.gx, k.gy, 12 * S + pulse * 3, 0, Math.PI * 2);
+    ctx.moveTo(L.mouthL, L.lineY - 4);
+    ctx.lineTo(L.mouthR, L.lineY - 4);
     ctx.stroke();
+    ctx.setLineDash([]);
+    label(ctx, 'POLICY LAPSED', L.cx, L.lineY - 19, 10.5, COLORS.dangerLt);
+    ctx.restore();
+    return;
   }
-  ctx.restore();
-}
 
-/** Live swipe read-out: the drag vector plus the zone it currently resolves to. */
-function drawSwipePreview(ctx, L, s) {
-  // Once the dive is committed the drag no longer means anything — the keeper
-  // is already going. Showing a live line would imply it could still be steered.
-  if (!s.dragging || s.dive) return;
-  ctx.save();
-  ctx.globalAlpha = 0.75;
-  ctx.strokeStyle = COLORS.orangeLt;
-  ctx.lineWidth = 3;
-  ctx.lineCap = 'round';
-  ctx.setLineDash(DASH_PREVIEW);
-  ctx.beginPath();
-  ctx.moveTo(s.dragX0, s.dragY0);
-  ctx.lineTo(s.dragX, s.dragY);
-  ctx.stroke();
-  ctx.setLineDash(DASH_OFF);
+  const x0 = L.mouthL + (centre - half) * L.mouthW;
+  const x1 = L.mouthL + (centre + half) * L.mouthW;
+  const tx0 = L.cx + (x0 - L.cx) * FAR_SHRINK;
+  const tx1 = L.cx + (x1 - L.cx) * FAR_SHRINK;
 
-  ctx.fillStyle = COLORS.orangeLt;
+  // The column: what is covered, fading out at the lock line.
+  const col = ctx.createLinearGradient(0, L.lockY, 0, L.lineY);
+  col.addColorStop(0, 'rgba(0,163,224,0)');
+  col.addColorStop(1, COLORS.coverWash);
+  ctx.fillStyle = col;
   ctx.beginPath();
-  ctx.arc(s.dragX0, s.dragY0, 5, 0, Math.PI * 2);
+  ctx.moveTo(tx0, L.lockY);
+  ctx.lineTo(tx1, L.lockY);
+  ctx.lineTo(x1, L.lineY);
+  ctx.lineTo(x0, L.lineY);
+  ctx.closePath();
   ctx.fill();
+
+  ctx.strokeStyle = 'rgba(123,220,255,0.28)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(tx0, L.lockY);
+  ctx.lineTo(x0, L.lineY);
+  ctx.moveTo(tx1, L.lockY);
+  ctx.lineTo(x1, L.lineY);
+  ctx.stroke();
+
+  // The bar itself, on the line.
+  const h = Math.max(7, L.H * 0.014);
+  const grad = ctx.createLinearGradient(0, L.lineY - h, 0, L.lineY + h * 0.4);
+  grad.addColorStop(0, COLORS.coverLt);
+  grad.addColorStop(0.5, COLORS.cover);
+  grad.addColorStop(1, COLORS.coverDeep);
+  ctx.fillStyle = grad;
+  roundRect(ctx, x0, L.lineY - h, x1 - x0, h + 2, Math.min(3.5, h / 2));
+  ctx.fill();
+
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = s.renewFlash > 0 ? '#FFFFFF' : COLORS.coverLt;
+  ctx.fillRect(x0 + 1, L.lineY - h, (x1 - x0) - 2, 1.4);
   ctx.globalAlpha = 1;
-  ctx.restore();
-}
 
-/** Net ripple where the ball went in. */
-function drawNetHit(ctx, L, s, cfg) {
-  if (s.netFlash <= 0) return;
-  const k = s.netFlash / cfg.fx.netFlashSeconds;
-  ctx.save();
-  ctx.globalAlpha = k * 0.85;
-  ctx.strokeStyle = COLORS.dangerLt;
-  ctx.lineWidth = 2.4;
-  for (let i = 0; i < 3; i++) {
-    ctx.globalAlpha = k * (0.6 - i * 0.16);
+  // End brackets: this is where your sum assured stops.
+  ctx.strokeStyle = COLORS.coverLt;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  ctx.moveTo(x0, L.lineY - h - 5);
+  ctx.lineTo(x0, L.lineY + 3);
+  ctx.moveTo(x0, L.lineY - h - 5);
+  ctx.lineTo(x0 + 5, L.lineY - h - 5);
+  ctx.moveTo(x1, L.lineY - h - 5);
+  ctx.lineTo(x1, L.lineY + 3);
+  ctx.moveTo(x1, L.lineY - h - 5);
+  ctx.lineTo(x1 - 5, L.lineY - h - 5);
+  ctx.stroke();
+
+  if (s.renewFlash > 0) {
+    ctx.globalAlpha = s.renewFlash * 0.45;
+    ctx.strokeStyle = COLORS.coverLt;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(s.netX, s.netY, (10 + i * 12) * (1.4 - k * 0.4), 0, Math.PI * 2);
+    ctx.arc(L.mouthL + centre * L.mouthW, L.lineY - h / 2, 12 + (1 - s.renewFlash) * 44, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.globalAlpha = 1;
   }
-  ctx.restore();
 }
 
-/* ─── Component ──────────────────────────────────────────── */
+/** Three permanent strikers on the edge of the box. */
+function drawStrikers(ctx, L, s, w) {
+  for (let i = 0; i < 3; i++) {
+    const u = 0.18 + i * 0.32;
+    const x = L.cx + ((L.mouthL + u * L.mouthW) - L.cx) * FAR_SHRINK;
+    let lean = 0;
+    let strike = 0;
+    for (let k = 0; k < w.live.length; k++) {
+      const b = w.live[k];
+      if (b.done) continue;
+      if (Math.max(0, Math.min(2, Math.round((b.u - 0.18) / 0.32))) !== i) continue;
+      const fl = flightFraction(b, w.tMs);
+      if (fl <= 0) {
+        const cue = cueFraction(b, w.tMs);
+        lean = -0.22 * cue * (b.u < u ? -1 : 1);
+        strike = Math.max(strike, cue * 0.3);
+      } else if (fl < 0.35) {
+        strike = Math.max(strike, 1 - fl / 0.35);
+      }
+    }
+    drawStriker(ctx, x, L.strikerY, L.strikerH, lean, strike);
+  }
+}
+
+/** Crosshairs during the telegraph, then the ball itself. */
+function drawShots(ctx, L, s, w) {
+  for (let i = 0; i < w.live.length; i++) {
+    const b = w.live[i];
+    if (b.done) continue;
+    const x = L.mouthL + b.u * L.mouthW;
+    const fromX = L.cx + (x - L.cx) * FAR_SHRINK;
+    const fl = flightFraction(b, w.tMs);
+
+    if (fl <= 0) {
+      // Telegraph: a crimson crosshair on the line, tightening over the cue,
+      // and a thin guide back to the boot it will come from. Full information —
+      // the game is never a guess about WHERE, only about whether you can be
+      // there and whether the policy is wide enough when you are.
+      const cue = cueFraction(b, w.tMs);
+      const r = 6 + 10 * (1 - cue);
+      ctx.save();
+      ctx.globalAlpha = 0.25 + 0.75 * cue;
+      ctx.strokeStyle = COLORS.danger;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(x, L.lineY - 5, r, 0, Math.PI * 2);
+      ctx.moveTo(x - r - 5, L.lineY - 5);
+      ctx.lineTo(x - r + 2, L.lineY - 5);
+      ctx.moveTo(x + r - 2, L.lineY - 5);
+      ctx.lineTo(x + r + 5, L.lineY - 5);
+      ctx.stroke();
+      ctx.globalAlpha = 0.14 + 0.22 * cue;
+      ctx.setLineDash([2, 6]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(fromX, L.strikerY);
+      ctx.lineTo(x, L.lineY - 5);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      continue;
+    }
+
+    const bx = fromX + (x - fromX) * fl;
+    const by = L.strikerY + (L.lineY - L.strikerY) * fl;
+    const r = L.ballFarR + (L.ballNearR - L.ballFarR) * fl;
+
+    // Tracer: crimson, because what is arriving is risk.
+    const back = Math.max(0, fl - 0.22);
+    ctx.strokeStyle = 'rgba(239,68,68,0.34)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(fromX + (x - fromX) * back, L.strikerY + (L.lineY - L.strikerY) * back);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+
+    // Turf shadow, offset down-right per the one light.
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.beginPath();
+    ctx.ellipse(bx + r * 0.5, L.lineY - 2, r * 0.9, r * 0.28, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawBall(ctx, bx, by, r, s.spin + b.u * 6);
+  }
+}
+
+/** The control strip: cover meter, premium pips, renew affordance. */
+function drawControlStrip(ctx, L, cfg, s, w) {
+  const top = L.stripTop;
+  const h = L.H - top;
+  const pad = Math.max(10, L.W * 0.042);
+  const frac = clamp(w.half / cfg.cover.maxHalf, 0, 1);
+  const lapsed = w.half <= 0;
+  const low = frac < cfg.hud.lowCoverFrac;
+
+  // One row, three blocks, all sitting on the same baseline: the meter, the
+  // renew state, the premiums. Labels ride above at a single small size. Every
+  // element is at a fixed x, so nothing in the strip ever moves.
+  const labelY = top + h * 0.30;
+  const rowY = top + h * 0.68;
+
+  const pipR = Math.max(3.4, Math.min(5, h * 0.10));
+  const pipGap = pipR * 2.9;
+  const pipsW = (cfg.premium.maxHeld - 1) * pipGap + pipR * 2;
+  const btnW = Math.min(104, Math.max(74, L.W * 0.24));
+  const railW = L.W - pad * 2 - pipsW - btnW - 22;
+  const railX = pad;
+  const railH = Math.max(7, h * 0.16);
+
+  /* --- cover meter --- */
+  label(ctx, 'COVER', railX, labelY, 8, COLORS.inkDim, 'left');
+  label(ctx, lapsed ? 'LAPSED' : `${Math.round(frac * 100)}%`,
+    railX + railW, labelY, 9.5,
+    lapsed ? COLORS.danger : low ? COLORS.gold : COLORS.coverLt, 'right');
+
+  ctx.fillStyle = 'rgba(255,255,255,0.09)';
+  roundRect(ctx, railX, rowY - railH / 2, railW, railH, railH / 2);
+  ctx.fill();
+  if (frac > 0.001) {
+    const gr = ctx.createLinearGradient(railX, 0, railX + railW, 0);
+    gr.addColorStop(0, low ? COLORS.gold : COLORS.cover);
+    gr.addColorStop(1, low ? COLORS.goldLt : COLORS.coverLt);
+    ctx.fillStyle = gr;
+    roundRect(ctx, railX, rowY - railH / 2, Math.max(railH, railW * frac), railH, railH / 2);
+    ctx.fill();
+  }
+  // The properly-insured mark: claim above it and the save pays the bonus.
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.fillRect(railX + railW * cfg.cover.wideFrac, rowY - railH / 2 - 2.5, 1, railH + 5);
+
+  /* --- premiums --- */
+  const rightX = L.W - pad;
+  label(ctx, 'PREMIUMS', rightX, labelY, 8, COLORS.inkDim, 'right');
+  for (let i = 0; i < cfg.premium.maxHeld; i++) {
+    const px = rightX - pipR - i * pipGap;
+    ctx.beginPath();
+    ctx.moveTo(px, rowY - pipR);
+    ctx.lineTo(px + pipR, rowY);
+    ctx.lineTo(px, rowY + pipR);
+    ctx.lineTo(px - pipR, rowY);
+    ctx.closePath();
+    if (i < w.premiums) {
+      ctx.fillStyle = COLORS.cover;
+      ctx.fill();
+      ctx.strokeStyle = COLORS.coverLt;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.10)';
+      ctx.fill();
+    }
+  }
+
+  /* --- renew state --- */
+  const btnX = railX + railW + 11;
+  const btnH = Math.max(22, h * 0.42);
+  const cost = lapsed ? cfg.cover.lapseRestartCost : 1;
+  const pulse = 0.5 + 0.5 * Math.sin(s.time * 6);
+
+  let fill = 'rgba(255,255,255,0.05)';
+  let stroke = 'rgba(255,255,255,0.14)';
+  let text = COLORS.inkFaint;
+  let caption = 'RENEWED';
+  if (w.locked) {
+    stroke = `rgba(239,68,68,${0.45 + 0.45 * pulse})`;
+    text = COLORS.dangerLt;
+    caption = 'LOCKED';
+  } else if (w.premiums >= cost && frac < 0.995) {
+    fill = `rgba(0,163,224,${0.18 + 0.20 * (low ? pulse : 0)})`;
+    stroke = COLORS.cover;
+    text = COLORS.coverLt;
+    caption = lapsed ? `TAP x${cost}` : 'TAP TO RENEW';
+  } else if (w.premiums < cost) {
+    caption = 'NO PREMIUM';
+  }
+  ctx.fillStyle = fill;
+  roundRect(ctx, btnX, rowY - btnH / 2, btnW, btnH, 6);
+  ctx.fill();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  label(ctx, caption, btnX + btnW / 2, rowY, Math.min(8.5, btnW * 0.105), text);
+}
+
+/** Coach marks — the in-game tutorial, one rule at a time, each shown once. */
+function drawCoach(ctx, L, s) {
+  const show = s.coachMove === 1 ? 0 : s.coachLock === 1 ? 2 : s.coachRenew === 1 ? 1 : -1;
+  if (show < 0) return;
+  const copy = COACH[show];
+
+  const y = show === 2 ? L.lockY + 36 : L.lineY - L.H * 0.15;
+  const w = Math.min(L.W - 32, 272);
+  const h = 46;
+  ctx.save();
+  ctx.fillStyle = 'rgba(6,13,28,0.95)';
+  roundRect(ctx, L.cx - w / 2, y - h / 2, w, h, 10);
+  ctx.fill();
+  ctx.strokeStyle = show === 2 ? 'rgba(239,68,68,0.55)' : 'rgba(0,163,224,0.45)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  label(ctx, copy[0], L.cx, y - 9, 11.5, show === 2 ? COLORS.dangerLt : COLORS.coverLt);
+  label(ctx, copy[1], L.cx, y + 10, 8.6, COLORS.inkDim, 'center', 600);
+  ctx.restore();
+
+  // A moving finger under the first mark only — the one gesture needing a demo.
+  if (show === 0) {
+    const t = (s.time % 2) / 2;
+    const fx = L.cx + Math.sin(t * Math.PI * 2) * L.mouthW * 0.28;
+    ctx.save();
+    ctx.globalAlpha = 0.82;
+    ctx.fillStyle = '#F3F7FF';
+    roundRect(ctx, fx - 4.5, L.lineY + L.H * 0.050, 9, 20, 4.5);
+    ctx.fill();
+    ctx.fillStyle = COLORS.ballShade;
+    roundRect(ctx, fx - 9, L.lineY + L.H * 0.063, 18, 15, 7);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+const COACH = [
+  ['DRAG TO MOVE YOUR COVER', 'The bar on the line is your sum assured'],
+  ['TAP TO RENEW', 'Cover runs down every second — top it back up'],
+  ['TOO LATE TO COVER', 'No policy starts once the ball is past the line'],
+];
+
+const PHASE_SUB = [
+  'One shot at a time. Learn the span.',
+  'Two at once — you cannot cover both.',
+  'The term runs down faster now.',
+  'Volleys. Choose which goal you protect.',
+  'Last fifteen. Hold the line.',
+];
+
+/* ─── Component ───────────────────────────────────────────*/
 export default function GoalKeeperGame({ config, onWin, onLose }) {
   const cfg = config || GAME_CONFIG;
 
@@ -714,19 +744,12 @@ export default function GoalKeeperGame({ config, onWin, onLose }) {
   const canvasRef = useRef(null);
   const endTimerRef = useRef(null);
   const bannerTimerRef = useRef(null);
-  const scoreElRef = useRef(null);
-  const barElRef = useRef(null);
 
-  const [timeLeft, setTimeLeft] = useState(cfg.sessionSeconds);
-  const [paused, setPaused] = useState(false);
-  const [muted, setMuted] = useState(false);
+  const [hud, setHud] = useState({ score: 0, timeLeft: cfg.planSeconds, phase: 0 });
   const [banner, setBanner] = useState(null);
-  const [hint, setHint] = useState(true);
-  const [over, setOver] = useState(false);
-  const [hud, setHud] = useState({ shot: 1, saves: 0, conceded: 0, shield: 0, streak: 0, risk: false });
+  const [paused, setPaused] = useState(false);
+  const [reacquire, setReacquire] = useState(-1);
 
-  // Latest callbacks without re-running the setup effect (which would restart
-  // the run every time App re-renders).
   const winRef = useRef(onWin);
   const loseRef = useRef(onLose);
   winRef.current = onWin;
@@ -735,1107 +758,481 @@ export default function GoalKeeperGame({ config, onWin, onLose }) {
   const stateRef = useRef(null);
   if (stateRef.current === null) {
     stateRef.current = {
-      time: 0,
-      W: 400,
-      H: 620,
-      dpr: 1,
-      L: null,
-      paints: null,
-      arenaBmp: null,
-      shadows: true,
-
-      plan: null,
-      run: null,
-      shot: null,
-      dive: null,
-      outcome: null,
-
-      phase: 'kickoff', // kickoff | setup | live | outcome | done
-      phaseT: 0,
-      shotMs: 0,
-
-      score: 0,
-      scoreShown: 0,
-      shownScore: -1,
-      shieldHeld: 0,
-
-      cueZone: -1,
-      cueGlow: 0,
-      previewZone: -1,
+      W: 0, H: 0, dpr: 1, L: null, stadium: null,
+      world: null, run: null,
+      /** The one channel into the simulation. Mutated, never reallocated. */
+      intent: { targetU: null, renew: false },
+      renewQueued: false,
+      pointerDown: false,
       dragging: false,
-      dragX0: 0, dragY0: 0, dragX: 0, dragY: 0,
-
-      ball: { live: false, x: 0, y: 0, r: 8, spin: 0, vx: 0, vy: 0, mode: 'idle' },
-      keeper: { x: 0, y: 0, gx: 0, gy: 0, tx: 0, ty: 0, tilt: 0, reach: 0 },
-      ballSquash: 0,
-      keeperSquash: 0,
-      squashSeconds: 0.2,
-      diveLanded: false,
-
-      trailX: null, trailY: null, trailMax: 0, trailHead: 0, trailCount: 0, trailClock: 0,
-
-      netFlash: 0, netX: 0, netY: 0,
-
+      downX: 0,
+      /** Presentation-only smoothing; the SIMULATION span is the truth. */
+      drawCentre: 0.5,
+      drawHalf: cfg.cover.startHalf,
+      shownScore: 0,
+      spin: 0,
+      time: 0,
+      lockFlash: 0,
+      renewFlash: 0,
+      goalShake: cfg.goals.map(() => 0),
+      goalFlash: cfg.goals.map(() => 0),
+      /** Coach marks: 0 = unseen, 1 = showing, 2 = done. */
+      coachMove: 1,
+      coachRenew: 0,
+      coachLock: 0,
+      coachT: 0,
+      textRow: 0,
       ended: false,
-      won: false,
-      effects: null,
-      audio: null,
+      phaseShown: 0,
     };
   }
 
-  const toggleMute = useCallback(() => {
+  const finish = useCallback((won) => {
     const s = stateRef.current;
-    if (!s.audio) return;
-    s.audio.unlock();
-    const next = s.audio.toggleMute();
-    setMuted(next);
-    if (!next) s.audio.click();
-  }, []);
+    if (s.ended) return;
+    s.ended = true;
+    const stats = statsOf(s.run, cfg);
+    endTimerRef.current = setTimeout(() => {
+      (won ? winRef.current : loseRef.current)?.(stats);
+    }, cfg.pacing.endBeatMs);
+  }, [cfg]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const wrap = wrapRef.current;
     if (!canvas || !wrap) return undefined;
-
+    const ctx = canvas.getContext('2d', { alpha: false });
     const s = stateRef.current;
-    const ctx = canvas.getContext('2d');
-    const tier = detectTier();
-    const budget = effectBudget();
+
+    detectTier();
     const fx = createEffects();
     const audio = createAudio();
 
-    s.effects = fx;
-    s.audio = audio;
-    s.shadows = budget.shadows;
-    s.squashSeconds = cfg.fx.squashSeconds;
-    s.trailMax = Math.max(2, budget.trailPoints || 2);
-    s.trailX = new Float32Array(s.trailMax);
-    s.trailY = new Float32Array(s.trailMax);
+    const rand = mulberry32(((Date.now() & 0x7fffffff) ^ 0x9e3779b1) >>> 0);
+    s.world = createWorld(cfg, buildWavePlan(cfg, rand));
+    s.run = createRun(cfg);
+    s.drawCentre = s.world.centre;
+    s.drawHalf = s.world.half;
 
-    // Seeded once per mount, so a run is reproducible and the same seed drives
-    // the whole shootout — the same contract scripts/balance.mjs relies on.
-    const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
-    s.plan = buildShotPlan(cfg, mulberry32(seed));
-    s.run = createRun();
-
-    // Scratch objects reused by the draw path — no per-frame allocation.
-    const pt = { x: 0, y: 0 };
-    const pt2 = { x: 0, y: 0 };
-    const rect = { x: 0, y: 0, w: 0, h: 0 };
-    const cen = { ax: 0, ay: 0 };
-
-    /* --- canvas sizing --------------------------------------------------- */
+    /* --- canvas sizing ---------------------------------------------------- */
     const fit = () => {
-      // clientWidth/Height, not getBoundingClientRect: the stage has a 1.5 px
-      // border and sizing to the border box would clip the canvas edges.
-      const w = Math.max(280, wrap.clientWidth || 400);
-      const h = Math.max(420, wrap.clientHeight || 620);
-      // ResizeObserver fires on observe() and again for every 1 px of mobile
-      // URL-bar movement; rebuilding the bitmap each time is a visible hitch.
-      if (w === s.W && h === s.H && s.arenaBmp) return;
-
-      const old = s.L;
+      const w = Math.max(280, wrap.clientWidth || 390);
+      const h = Math.max(360, wrap.clientHeight || 620);
+      if (w === s.W && h === s.H && s.stadium) return;
       s.dpr = fitCanvas(canvas, w, h, 2);
       s.W = w;
       s.H = h;
       const L = buildLayout(w, h);
+      L.lockY = L.strikerY + (L.lineY - L.strikerY) * cfg.cover.lockFrac;
       s.L = L;
-      s.arenaBmp = makeArenaBitmap(L, cfg, s.dpr, s.shadows && tier !== 'low');
-      s.paints = buildPaints(ctx, L);
-
-      // Carry live positions across a resize by fraction rather than pixels, so
-      // a URL bar sliding away cannot teleport the ball into another zone.
-      if (old && s.ball.live) {
-        s.ball.x = (s.ball.x / old.W) * w;
-        s.ball.y = (s.ball.y / old.H) * h;
-      }
-      if (!old) restKeeper();
-      else {
-        s.keeper.x = (s.keeper.x / old.W) * w;
-        s.keeper.y = (s.keeper.y / old.H) * h;
-        s.keeper.gx = (s.keeper.gx / old.W) * w;
-        s.keeper.gy = (s.keeper.gy / old.H) * h;
-        s.keeper.tx = (s.keeper.tx / old.W) * w;
-        s.keeper.ty = (s.keeper.ty / old.H) * h;
-      }
+      s.stadium = makeStadiumBitmap(L, s.dpr);
     };
-
-    const restKeeper = () => {
-      const L = s.L;
-      const S = L.keeperScale;
-      const k = s.keeper;
-      k.x = L.goalCx;
-      k.y = L.lineY;
-      k.tilt = 0;
-      k.reach = 0;
-      k.gx = L.goalCx - 15 * S;
-      k.gy = L.lineY - 44 * S;
-      k.tx = L.goalCx + 15 * S;
-      k.ty = L.lineY - 44 * S;
-    };
-
     fit();
 
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
     ro?.observe(wrap);
     window.addEventListener('orientationchange', fit);
 
-    /* --- run lifecycle --------------------------------------------------- */
-    let loop = null;
+    const uToX = (u) => s.L.mouthL + u * s.L.mouthW;
+    const xToU = (x) => clamp((x - s.L.mouthL) / s.L.mouthW, 0, 1);
 
-    const pushHud = () => {
-      const r = s.run;
-      setHud({
-        shot: Math.min(cfg.shotsPerSession, r.shotIndex + 1),
-        saves: r.saves,
-        conceded: r.conceded,
-        shield: r.shield,
-        streak: r.streak,
-        risk: !!(s.shot && s.shot.risk),
-      });
-    };
+    /* --- input ------------------------------------------------------------
+       Two gestures, and only two. DRAG maps the finger's x straight onto the
+       goal mouth (absolute, so there is nothing to learn); TAP renews. The drag
+       threshold is the kit's own tap tolerance, so a renew tap can never also
+       jog the span sideways. */
+    const input = createInput(canvas, {
+      onDown: (p) => {
+        s.pointerDown = true;
+        s.dragging = false;
+        s.downX = p.x;
+        audio.unlock();
+      },
+      onMove: (p) => {
+        if (!s.pointerDown) return;
+        if (!s.dragging && Math.abs(p.x - s.downX) <= BALANCE.input.tapMaxMovePx) return;
+        s.dragging = true;
+        s.intent.targetU = xToU(p.x);
+        if (s.coachMove === 1) s.coachMove = 2;
+      },
+      onUp: () => { s.pointerDown = false; },
+      onTap: () => {
+        s.renewQueued = true;
+        audio.unlock();
+      },
+    });
 
+    /* --- HUD / banners ---------------------------------------------------- */
+    let bannerId = 0;
     const showBanner = (kind, title, sub) => {
-      setBanner({ id: s.run.shotIndex * 4 + (kind === 'save' ? 1 : kind === 'shield' ? 2 : 3), kind, title, sub });
+      bannerId += 1;
+      setBanner({ id: bannerId, kind, title, sub });
       clearTimeout(bannerTimerRef.current);
       bannerTimerRef.current = setTimeout(() => setBanner(null), cfg.fx.bannerSeconds * 1000);
     };
 
-    const endRun = (won, cause) => {
-      if (s.ended) return;
-      s.ended = true;
-      s.won = won;
-      s.phase = 'done';
-      setOver(true);
-
-      const stats = statsOf(s.run);
-      const L = s.L;
-      const bx = clamp(L.goalCx, 40, s.W - 40);
-      const by = clamp(L.lineY - L.goalH * 0.5, 60, s.H - 60);
-
-      // Deliberately NOT loop.setPaused(true): a paused loop skips update(),
-      // which would freeze the victory particles mid-air for the whole beat.
-      if (won) {
-        audio.victory();
-        haptic('success');
-        fx.burst({
-          x: bx, y: by, count: cfg.fx.winParticles, color: COLORS.gold,
-          speed: 330, spread: Math.PI * 2, size: 5, life: 1.1, gravity: 420, drag: 0.93,
-        });
-        fx.burst({
-          x: bx, y: by - 20, count: cfg.fx.winParticles, color: COLORS.greenLt,
-          speed: 240, spread: Math.PI * 2, size: 4, life: 1.2, gravity: 380, drag: 0.94,
-        });
-        fx.floatText(bx, Math.max(36, by - 56), 'GOALS PROTECTED', COLORS.goldLt, 18);
-      } else {
-        audio.failure();
-        haptic('failure');
-        fx.addShake(cfg.fx.goalShake * 1.3);
-        fx.burst({
-          x: bx, y: by, count: cfg.fx.goalParticles, color: COLORS.danger,
-          speed: 250, spread: Math.PI * 2, size: 4, life: 0.85, gravity: 560, drag: 0.9,
-        });
-        fx.floatText(
-          bx, Math.max(32, by - 48),
-          cause === 'timeout' ? 'TIME UP' : 'BEATEN',
-          COLORS.dangerLt, 17,
-        );
-      }
-
-      endTimerRef.current = setTimeout(() => {
-        (won ? winRef.current : loseRef.current)?.(stats);
-      }, cfg.pacing.endBeatMs);
+    let hudScore = -1;
+    let hudTime = -1;
+    let hudPhase = -1;
+    const pushHud = () => {
+      const score = Math.round(s.shownScore);
+      const timeLeft = Math.max(0, Math.ceil(cfg.planSeconds - s.world.tMs / 1000));
+      const phase = phaseIndexAt(s.world.tMs / 1000, cfg);
+      if (score === hudScore && timeLeft === hudTime && phase === hudPhase) return;
+      hudScore = score;
+      hudTime = timeLeft;
+      hudPhase = phase;
+      setHud({ score, timeLeft, phase });
     };
 
-    /* --- shot lifecycle -------------------------------------------------- */
-    const beginShot = () => {
-      s.shot = s.plan[s.run.shotIndex];
-      s.dive = null;
-      s.outcome = null;
-      s.shotMs = 0;
-      s.cueZone = s.shot.cueZone;
-      s.cueGlow = 0;
-      s.previewZone = -1;
-      s.ballSquash = 0;
-      s.keeperSquash = 0;
-      s.diveLanded = false;
-      s.trailHead = 0;
-      s.trailCount = 0;
-      s.trailClock = 0;
-      s.ball.live = true;
-      s.ball.mode = 'placed';
-      s.ball.x = s.L.spotX;
-      s.ball.y = s.L.spotY;
-      s.ball.r = s.L.ballNearR;
-      s.ball.spin = 0;
-      restKeeper();
-      pushHud();
-    };
+    /* --- events ----------------------------------------------------------- */
+    const events = [];
 
-    const resolveNow = () => {
-      const shot = s.shot;
-      const judgement = judgeDive(shot, s.dive, cfg);
-      const out = resolveShot(s.run, shot, judgement, cfg);
-      s.outcome = { ...out, judgement };
-      s.score = s.run.score;
-      s.shieldHeld = s.run.shield;
-
-      const L = s.L;
-      shotPoint(L, shot, pt);
-      const px = clamp(pt.x, 40, s.W - 40);
-      const py = clamp(pt.y - 10, 40, s.H - 60);
-
-      if (out.kind === 'save') {
+    const onImpact = (ev) => {
+      const outcome = applyEvent(s.run, ev, cfg);
+      const x = uToX(ev.u);
+      if (ev.saved) {
+        fx.burst({
+          x, y: s.L.lineY, count: ev.planned ? cfg.fx.plannedParticles : cfg.fx.saveParticles,
+          color: ev.planned ? COLORS.greenLt : COLORS.green,
+          speed: 190, spread: Math.PI * 1.1, angle: -Math.PI / 2, size: 3, life: 0.5, gravity: 520,
+        });
+        // One SHORT text per impact on a ROLLING row, so three scores landing
+        // inside the same 0.85 s never share a baseline. Offsetting by the
+        // ball's slot is not enough: consecutive waves reuse slot 0 and collide.
+        // "Fully covered" is carried by the colour and the bigger burst rather
+        // than by a second line of type.
+        s.textRow = (s.textRow + 1) % 3;
+        fx.floatText(x, s.L.lineY - 24 - s.textRow * 17, `+${outcome.points}`,
+          ev.planned ? COLORS.greenLt : COLORS.inkDim, ev.planned ? 15 : 13);
+        fx.addShake(cfg.fx.saveShake);
         audio.coin();
-        if (out.perfectBonus) audio.powerUp();
-        haptic(shot.risk ? 'success' : 'medium');
-        fx.addShake(cfg.fx.saveShake);
-        fx.burst({
-          x: pt.x, y: pt.y,
-          count: out.perfectBonus ? cfg.fx.perfectParticles : shot.risk ? cfg.fx.riskSaveParticles : cfg.fx.saveParticles,
-          color: shot.risk ? COLORS.gold : COLORS.greenLt,
-          speed: 260, spread: Math.PI * 2, size: 3.6, life: 0.8, gravity: 420, drag: 0.92,
-        });
-        fx.floatText(px, py, `+${out.points}`, shot.risk ? COLORS.goldLt : COLORS.greenLt, shot.risk ? 21 : 18);
-        if (out.streakBonus > 0) {
-          fx.floatText(px, clamp(py - 26, 28, s.H - 60), `STREAK x${s.run.streak}`, COLORS.greenLt, 13);
-          audio.combo(s.run.streak);
-        }
-        if (out.perfectBonus > 0) {
-          fx.floatText(px, clamp(py - 48, 26, s.H - 60), 'PERFECT HANDS +50', COLORS.goldLt, 13);
-        }
-        showBanner('save', shot.risk ? 'RISK SHOT SAVED' : 'SAVED', cfg.zoneNames[shot.zone]);
-        s.ball.mode = 'parried';
-        s.ball.vx = (pt.x < L.goalCx ? -1 : 1) * (150 + Math.random() * 90);
-        s.ball.vy = -210 - Math.random() * 70;
-      } else if (out.kind === 'shield') {
-        audio.powerUp();
-        haptic('success');
-        fx.addShake(cfg.fx.saveShake);
-        fx.burst({
-          x: pt.x, y: pt.y, count: cfg.fx.shieldParticles, color: COLORS.brandBlueLt,
-          speed: 230, spread: Math.PI * 2, size: 3.4, life: 0.9, gravity: 260, drag: 0.92,
-        });
-        fx.floatText(px, py, 'SHIELD GLOVE', COLORS.brandBlueLt, 17);
-        fx.floatText(px, clamp(py - 26, 28, s.H - 60), `+${out.points}`, COLORS.brandBlueLt, 14);
-        showBanner('shield', 'COVER HELD', 'Your Shield glove absorbed it');
-        s.ball.mode = 'parried';
-        s.ball.vx = (pt.x < L.goalCx ? -1 : 1) * 140;
-        s.ball.vy = -180;
-      } else {
-        audio.hit();
-        haptic('failure');
-        fx.addShake(cfg.fx.goalShake);
-        fx.addHitStop(budget.hitStopSeconds > 0 ? cfg.fx.hitStopSeconds : 0);
-        fx.burst({
-          x: pt.x, y: pt.y, count: cfg.fx.goalParticles, color: COLORS.danger,
-          speed: 220, spread: Math.PI * 2, size: 3.4, life: 0.75, gravity: 480, drag: 0.9,
-        });
-        const why = !s.dive ? 'NO DIVE'
-          : judgement.correctZone ? 'TOO LATE'
-            : shot.truthful ? 'WRONG WAY' : 'FEINTED YOU';
-        fx.floatText(px, py, why, COLORS.dangerLt, 16);
-        showBanner('goal', 'GOAL CONCEDED', cfg.zoneNames[shot.zone]);
-        s.netFlash = cfg.fx.netFlashSeconds;
-        s.netX = pt.x;
-        s.netY = pt.y;
-        s.ball.mode = 'netted';
-        s.ball.vx = 0;
-        s.ball.vy = 40;
-      }
-
-      if (out.shieldGranted) {
-        audio.powerUp();
-        fx.floatText(
-          clamp(L.goalCx, 40, s.W - 40), clamp(L.lineY - L.goalH * 0.9, 30, s.H - 60),
-          'SHIELD GLOVE EARNED', COLORS.brandBlueLt, 14,
-        );
-      }
-
-      s.phase = 'outcome';
-      s.phaseT = 0;
-      pushHud();
-    };
-
-    /* --- dive input ------------------------------------------------------
-       The dive is timed from the moment it is FINALISED — `s.shotMs` at
-       pointer-up — with no credit back to when the gesture started. See the
-       long note in data.js `swipe`: crediting the start while resolving the
-       zone at the end is a 100% win exploit (nudge early, then pick the zone
-       off the live ball), and capping the refund does not rescue it. The cost
-       of the swipe's own duration is paid by `dive.graceMs` instead, which
-       moves the deadline uniformly and cannot be deferred into. */
-    const commitDive = (dx, dy) => {
-      if (s.phase !== 'live' || s.dive || s.ended) return;
-      const r = resolveSwipe(dx, dy, cfg);
-      s.dive = { zone: r.zone, perfect: r.perfect, commitMs: s.shotMs, startX: s.keeper.gx, startY: s.keeper.gy };
-      s.previewZone = r.zone;
-      setHint(false);
-      audio.tick();
-      haptic('light');
-      const L = s.L;
-      zonePoint(L, r.zone, pt2);
-      fx.burst({
-        x: L.goalCx, y: L.lineY - L.goalH * 0.28, count: 8,
-        color: COLORS.orangeLt, speed: 130,
-        angle: Math.atan2(pt2.y - L.lineY, pt2.x - L.goalCx), spread: Math.PI * 0.7,
-        size: 2.4, life: 0.34, gravity: 220, drag: 0.9,
-      });
-    };
-
-    /* --- keeper pose ----------------------------------------------------- */
-    const poseKeeper = () => {
-      const L = s.L;
-      const S = L.keeperScale;
-      const k = s.keeper;
-      if (!s.dive) {
-        // Idle bounce on the line — a keeper is never still.
-        const b = Math.sin(s.time * 5.2) * 1.6 * S;
-        k.x = L.goalCx;
-        k.y = L.lineY + b * 0.4;
-        k.tilt = Math.sin(s.time * 2.6) * 0.03;
-        k.reach = 0;
-        k.gx = L.goalCx - (15 + Math.sin(s.time * 5.2) * 1.5) * S;
-        k.gy = L.lineY - 44 * S + b;
-        k.tx = L.goalCx + (15 + Math.sin(s.time * 5.2 + 1) * 1.5) * S;
-        k.ty = L.lineY - 44 * S - b;
+        haptic('light');
         return;
       }
-
-      const travel = diveTravelMs(cfg, s.dive.zone);
-      const p = clamp((s.shotMs - s.dive.commitMs) / travel, 0, 1);
-      // The moment the dive arrives, the keeper hits the ground: squash him
-      // once, on the kit's elastic recovery curve.
-      if (p >= 1 && !s.diveLanded) {
-        s.diveLanded = true;
-        s.keeperSquash = cfg.fx.squashSeconds;
+      const gi = outcome.goal;
+      s.goalShake[gi] = 1;
+      s.goalFlash[gi] = 1;
+      fx.burst({
+        x, y: s.L.lineY + 6, count: cfg.fx.goalParticles, color: COLORS.danger,
+        speed: 210, spread: Math.PI * 1.4, angle: Math.PI / 2, size: 3.4, life: 0.6, gravity: 480,
+      });
+      // No float text on a concession: the pip going out, the banner flashing
+      // and the shake all point at the goal that was hit, which a word floating
+      // over the goal line does not.
+      fx.addShake(cfg.fx.goalShake);
+      fx.addHitStop(cfg.fx.hitStopSeconds);
+      audio.hit();
+      haptic('failure');
+      if (outcome.over) {
+        showBanner('lose', `${cfg.goals[gi].short} GONE`, 'One uninsured goal ends the plan');
+        audio.failure();
+        finish(false);
       }
-      const e = Easing.outCubic(p);
-      zonePoint(L, s.dive.zone, pt2);
-
-      const dirX = pt2.x - L.goalCx;
-      k.reach = e;
-      k.x = L.goalCx + dirX * 0.42 * e;
-      k.y = L.lineY - Math.max(0, (L.lineY - pt2.y) - 46 * S) * 0.55 * e;
-      k.tilt = (dirX > 0 ? 1 : -1) * 1.05 * e * (0.55 + Math.abs(dirX) / (L.goalHalfW + 1) * 0.45);
-
-      // Lead glove flies to the zone; trailing glove stays tucked to the body.
-      k.gx = s.dive.startX + (pt2.x - s.dive.startX) * e;
-      k.gy = s.dive.startY + (pt2.y - s.dive.startY) * e;
-      k.tx = k.x - dirX * 0.10 * e - 6 * S;
-      k.ty = k.y - 40 * S;
     };
 
-    /* --- physics --------------------------------------------------------- */
+    const drain = () => {
+      for (let i = 0; i < events.length; i++) {
+        const ev = events[i];
+        if (ev.type === 'impact') { onImpact(ev); continue; }
+        if (ev.type === 'renew') {
+          applyEvent(s.run, ev, cfg);
+          s.renewFlash = 1;
+          fx.burst({
+            x: uToX(s.world.centre), y: s.L.lineY - 6, count: cfg.fx.renewParticles,
+            color: COLORS.coverLt, speed: 150, spread: Math.PI * 1.6, angle: -Math.PI / 2,
+            size: 2.6, life: 0.45, gravity: 260,
+          });
+          audio.powerUp();
+          haptic('light');
+          if (s.coachRenew === 1) s.coachRenew = 2;
+          continue;
+        }
+        if (ev.type === 'blocked') {
+          applyEvent(s.run, ev, cfg);
+          s.lockFlash = 1;
+          if (s.coachLock === 0) { s.coachLock = 1; s.coachT = 0; }
+          continue;
+        }
+        if (ev.type === 'premium') audio.click();
+      }
+      events.length = 0;
+    };
+
+    /* --- update ----------------------------------------------------------- */
     const update = (dt) => {
-      fx.update(dt);
-      if (fx.isFrozen()) return;
-
       s.time += dt;
-      s.phaseT += dt;
-      s.scoreShown = damp(s.scoreShown, s.score, BALANCE.scoring.counterLerpPerSecond, dt);
-      if (s.netFlash > 0) s.netFlash = Math.max(0, s.netFlash - dt);
-      if (s.ballSquash > 0) s.ballSquash = Math.max(0, s.ballSquash - dt);
-      if (s.keeperSquash > 0) s.keeperSquash = Math.max(0, s.keeperSquash - dt);
+      s.spin += dt * 7;
 
-      const L = s.L;
-      if (!L) return;
+      s.intent.renew = s.renewQueued;
+      s.renewQueued = false;
 
-      const P = cfg.pacing;
-      const ms = s.phaseT * 1000;
+      stepWorld(s.world, cfg, dt, s.intent, events);
+      drain();
+      if (s.ended) return;
 
-      switch (s.phase) {
-        case 'kickoff':
-          // Ball already spotted while the whistle beat plays, so the opening
-          // frame is a penalty about to be taken rather than an empty box.
-          s.ball.live = true;
-          s.ball.mode = 'placed';
-          s.ball.x = L.spotX;
-          s.ball.y = L.spotY;
-          s.ball.r = L.ballNearR;
-          poseKeeper();
-          if (ms >= P.kickoffMs) {
-            s.phase = 'setup';
-            s.phaseT = 0;
-            beginShot();
-          }
-          break;
+      s.drawCentre = damp(s.drawCentre, s.world.centre, 26, dt);
+      s.drawHalf = damp(s.drawHalf, s.world.half, 22, dt);
+      s.shownScore = damp(s.shownScore, s.run.score, BALANCE.scoring.counterLerpPerSecond, dt);
 
-        case 'setup':
-          // Striker walks back from the spot; ball sits on the spot.
-          poseKeeper();
-          if (ms >= P.setUpMs) {
-            s.phase = 'live';
-            s.phaseT = 0;
-            s.shotMs = 0;
-            // Re-anchor a finger that was already down during the walk-back so
-            // the swipe is measured from where it rests now, rather than from
-            // wherever it happened to land seconds earlier.
-            if (s.dragging) {
-              s.dragX0 = s.dragX;
-              s.dragY0 = s.dragY;
-            }
-          }
-          break;
+      s.lockFlash = Math.max(0, s.lockFlash - dt / cfg.fx.lockFlashSeconds);
+      s.renewFlash = Math.max(0, s.renewFlash - dt * 2.4);
+      for (let i = 0; i < s.goalShake.length; i++) {
+        s.goalShake[i] = Math.max(0, s.goalShake[i] - dt * 3.2);
+        s.goalFlash[i] = Math.max(0, s.goalFlash[i] - dt * 1.6);
+      }
 
-        case 'live': {
-          s.shotMs = ms;
-          const shot = s.shot;
+      /* Coach marks. Three, each fired once, each tied to the moment the rule
+         it explains first matters — an instruction nobody needs yet is noise. */
+      s.coachT += dt;
+      if (s.coachMove === 1 && s.world.tMs > cfg.pacing.kickoffMs) s.coachMove = 2;
+      if (s.coachRenew === 0 && s.world.half < cfg.cover.maxHalf * 0.55) {
+        s.coachRenew = 1;
+        s.coachT = 0;
+      }
+      if (s.coachRenew === 1 && s.coachT > 3.4) s.coachRenew = 2;
+      if (s.coachLock === 1 && s.coachT > 2.6) s.coachLock = 2;
 
-          if (s.shotMs < shot.cueMs) {
-            // Run-up: ball on the spot, striker closing on it, tell building.
-            s.cueGlow = clamp(
-              (s.shotMs - shot.cueMs * cfg.shot.cueRampStartFrac) / (shot.cueMs * cfg.shot.cueRampSpanFrac),
-              0, 1,
-            );
-            s.ball.x = L.spotX;
-            s.ball.y = L.spotY;
-            s.ball.r = L.ballNearR;
-          } else {
-            const t = clamp((s.shotMs - shot.cueMs) / shot.flightMs, 0, 1);
-            // Squash the ball against the boot for the first beat of the flight.
-            if (s.ballSquash === 0 && t > 0) s.ballSquash = cfg.fx.squashSeconds;
-            // The telegraph is over the moment the boot connects: fade it out
-            // rather than leaving a lit zone contradicting a feinted ball.
-            s.cueGlow = clamp(1 - t / 0.30, 0, 1);
-            shotPoint(L, shot, pt);
-            const ease = t * t * 0.35 + t * 0.65; // slight acceleration off the boot
-            s.ball.x = L.spotX + (pt.x - L.spotX) * ease;
-            s.ball.y = L.spotY + (pt.y - L.spotY) * ease - Math.sin(Math.PI * t) * L.goalH * 0.10;
-            s.ball.r = L.ballNearR + (L.ballFarR - L.ballNearR) * ease;
-            s.ball.spin += dt * 22;
+      const pi = phaseIndexAt(s.world.tMs / 1000, cfg);
+      if (pi !== s.phaseShown) {
+        s.phaseShown = pi;
+        showBanner('phase', cfg.phases[pi].name, PHASE_SUB[pi] || '');
+      }
 
-            s.trailClock += dt;
-            if (s.trailClock >= 0.016) {
-              s.trailClock = 0;
-              s.trailX[s.trailHead] = s.ball.x;
-              s.trailY[s.trailHead] = s.ball.y;
-              s.trailHead = (s.trailHead + 1) % s.trailMax;
-              if (s.trailCount < s.trailMax) s.trailCount += 1;
-            }
-          }
+      pushHud();
 
-          poseKeeper();
-
-          if (s.shotMs >= shot.arrivalMs) resolveNow();
-          break;
-        }
-
-        case 'outcome': {
-          // Keep the shot clock running so a dive that was launched too late
-          // still finishes on screen — the keeper landing after the ball has
-          // gone past is the clearest possible read of "too late".
-          s.shotMs += dt * 1000;
-          poseKeeper();
-          const b = s.ball;
-          if (b.mode === 'parried') {
-            b.vy += 1500 * dt;
-            b.x += b.vx * dt;
-            b.y += b.vy * dt;
-            b.spin += dt * 14;
-            if (b.y > L.lineY + L.goalH * 0.2) {
-              b.y = L.lineY + L.goalH * 0.2;
-              b.vy *= -0.42;
-              b.vx *= 0.7;
-            }
-          } else if (b.mode === 'netted') {
-            b.y += b.vy * dt;
-            b.vy = damp(b.vy, 0, 4, dt);
-          }
-          if (ms >= P.outcomeMs) {
-            s.phase = 'reset';
-            s.phaseT = 0;
-            s.ball.live = false;
-            s.previewZone = -1;
-          }
-          break;
-        }
-
-        case 'reset': {
-          // Ease the keeper back onto his line instead of snapping him upright
-          // when the next shot is spotted.
-          const S = L.keeperScale;
-          const k = s.keeper;
-          const lam = 9;
-          k.x = damp(k.x, L.goalCx, lam, dt);
-          k.y = damp(k.y, L.lineY, lam, dt);
-          k.tilt = damp(k.tilt, 0, lam, dt);
-          k.reach = damp(k.reach, 0, lam, dt);
-          k.gx = damp(k.gx, L.goalCx - 15 * S, lam, dt);
-          k.gy = damp(k.gy, L.lineY - 44 * S, lam, dt);
-          k.tx = damp(k.tx, L.goalCx + 15 * S, lam, dt);
-          k.ty = damp(k.ty, L.lineY - 44 * S, lam, dt);
-          if (ms >= P.resetMs) {
-            if (s.run.over) {
-              endRun(s.run.won, 'shots');
-            } else {
-              s.phase = 'setup';
-              s.phaseT = 0;
-              beginShot();
-            }
-          }
-          break;
-        }
-
-        default:
-          poseKeeper();
-          break;
+      if (s.world.done && !s.ended) {
+        finishRun(s.run, cfg, s.world.tMs / 1000);
+        showBanner('win', 'FULL TIME', "The family's plan is still standing");
+        audio.victory();
+        fx.burst({
+          x: s.L.cx, y: s.L.lineY - 30, count: 40, color: COLORS.gold,
+          speed: 240, spread: Math.PI * 2, size: 3.2, life: 0.9, gravity: 300,
+        });
+        finish(true);
       }
     };
 
-    /* --- rendering ------------------------------------------------------- */
+    /* --- render ----------------------------------------------------------- */
     const render = () => {
       const L = s.L;
-      if (!L || !s.arenaBmp || !s.paints) return;
-      const { W, H } = s;
-      ctx.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
-      ctx.clearRect(0, 0, W, H);
+      const w = s.world;
+      ctx.fillStyle = COLORS.bgDark;
+      ctx.fillRect(0, 0, L.W, L.H);
 
       fx.beginCamera(ctx);
-      ctx.drawImage(s.arenaBmp, 0, 0, W, H);
-
-      if (s.phase === 'live' || s.phase === 'outcome') {
-        drawZoneGrid(ctx, L, s, cfg, rect);
-      }
-      drawNetHit(ctx, L, s, cfg);
-
-      // Striker: stands off during the whistle beat, walks back during set-up,
-      // runs up during the telegraph, and holds the follow-through after.
-      if (s.phase !== 'done') {
-        const P = cfg.pacing;
-        let sx = L.runStartX;
-        let sy = L.runStartY;
-        let lean = 0;
-        let stride = 0;
-        if (s.phase === 'kickoff') {
-          sx = L.spotX + 16;
-          sy = L.spotY + 12;
-          stride = 0;
-        } else if (s.phase === 'setup') {
-          const t = clamp((s.phaseT * 1000) / P.setUpMs, 0, 1);
-          const e = Easing.inOutCubic(t);
-          sx = L.spotX + 14 + (L.runStartX - L.spotX - 14) * e;
-          sy = L.spotY + 10 + (L.runStartY - L.spotY - 10) * e;
-          stride = s.time * 7;
-        } else if (s.phase === 'live') {
-          const t = clamp(s.shotMs / s.shot.cueMs, 0, 1);
-          const e = Easing.outQuad(t);
-          sx = L.runStartX + (L.spotX - 22 - L.runStartX) * e;
-          sy = L.runStartY + (L.spotY + 6 - L.runStartY) * e;
-          stride = s.time * 26;
-          // The tell: the body leans toward the cue zone as the plant lands.
-          const c = zoneCentre(s.cueZone, cen);
-          lean = -c.ax * 0.30 * s.cueGlow;
-        } else {
-          sx = L.spotX - 22;
-          sy = L.spotY + 6;
-          const c = zoneCentre(s.shot.cueZone, cen);
-          lean = -c.ax * 0.24;
-          stride = 2.2;
-        }
-        drawStriker(ctx, L, s.paints, sx, sy, lean, stride, s.shadows);
-        if (s.phase === 'live' && s.cueGlow > 0 && s.shotMs < s.shot.cueMs) {
-          const c = zoneCentre(s.cueZone, cen);
-          drawPlantCue(ctx, sx, sy, c.ax, s.cueGlow, s.shadows);
-          zonePoint(L, s.cueZone, pt2);
-          drawCueArc(ctx, L, L.spotX, L.spotY, pt2.x, pt2.y, s.cueGlow, s.shadows);
-        }
-      }
-
-      drawKeeper(ctx, L, s, s.shadows);
-      drawBall(ctx, L, s, s.shadows);
-      drawSwipePreview(ctx, L, s);
-
+      ctx.drawImage(s.stadium, 0, 0, L.W, L.H);
+      drawFamilyGoals(ctx, L, cfg, s);
+      drawLockLine(ctx, L, s, w);
+      drawCoverSpan(ctx, L, cfg, s, w);
+      drawStrikers(ctx, L, s, w);
+      drawShots(ctx, L, s, w);
       fx.draw(ctx);
       fx.endCamera(ctx);
 
-      /* --- HUD values written straight to the DOM ----------------------
-         The score counter changes many times a second. Routing it through React
-         state would re-render the tree every frame; textContent costs nothing. */
-      const shown = Math.round(s.scoreShown);
-      if (shown !== s.shownScore) {
-        s.shownScore = shown;
-        if (scoreElRef.current) scoreElRef.current.textContent = shown.toLocaleString();
-        if (barElRef.current) {
-          barElRef.current.style.width = `${clamp((s.run.saves / cfg.savesToWin) * 100, 0, 100)}%`;
-        }
-      }
+      drawControlStrip(ctx, L, cfg, s, w);
+      drawCoach(ctx, L, s);
     };
 
-    /* --- input ----------------------------------------------------------- */
-    const input = createInput(canvas, {
-      // The down point is recorded in EVERY phase. Gating it on 'live' meant a
-      // finger already resting on the glass during the walk-back never became a
-      // drag, so the swipe made as the run-up started registered no dive at all
-      // — a dead zone at exactly the moment a player is getting ready. The
-      // anchor is re-taken when the shot goes live (see the 'setup' -> 'live'
-      // transition), so a pre-placed finger starts its swipe from where it
-      // actually is rather than from wherever it landed seconds earlier.
-      onDown: (p) => {
-        audio.unlock();
-        if (s.ended) return;
-        s.dragging = true;
-        s.dragX0 = p.x;
-        s.dragY0 = p.y;
-        s.dragX = p.x;
-        s.dragY = p.y;
-        // Do NOT clear the highlight if a dive is already committed — a second
-        // touch would otherwise wipe the orange marker showing where the keeper
-        // has gone.
-        if (!s.dive) s.previewZone = -1;
-      },
-      onMove: (p) => {
-        if (!s.dragging) return;
-        s.dragX = p.x;
-        s.dragY = p.y;
-        if (s.phase !== 'live' || s.dive) return;
-        const dx = p.x - s.dragX0;
-        const dy = p.y - s.dragY0;
-        if (Math.hypot(dx, dy) < cfg.swipe.minCommitPx) {
-          s.previewZone = -1;
-          return;
-        }
-        s.previewZone = resolveSwipe(dx, dy, cfg).zone;
-      },
-      onUp: (p) => {
-        if (!s.dragging) return;
-        s.dragging = false;
-        s.dragX = p.x;
-        s.dragY = p.y;
-        if (s.dive) return;
-        if (s.phase !== 'live') {
-          s.previewZone = -1;
-          return;
-        }
-        const dx = p.x - s.dragX0;
-        const dy = p.y - s.dragY0;
-        // Pulled back inside the threshold: the player changed their mind, and
-        // that is a tap, not a dive. The keeper holds his line.
-        if (Math.hypot(dx, dy) < cfg.swipe.minCommitPx) {
-          s.previewZone = -1;
-          return;
-        }
-        commitDive(dx, dy);
-      },
-    });
-
-    /* --- loop ------------------------------------------------------------ */
-    loop = createGameLoop({
+    /* --- loop ------------------------------------------------------------- */
+    const loop = createGameLoop({
       update,
       render,
       stepMode: 'fixed',
       sessionSeconds: cfg.sessionSeconds,
-      shouldTickClock: () => !s.ended,
-      onTick: (remaining) => setTimeLeft(remaining),
-      onExpire: () => endRun(s.run.saves >= cfg.savesToWin, 'timeout'),
-      onPause: (isPaused) => {
-        setPaused(isPaused);
-        audio.setPaused(isPaused);
+      onExpire: () => {
+        // Backstop only: the wave plan runs out ~6 s before this can fire.
+        if (s.ended) return;
+        finishRun(s.run, cfg, cfg.planSeconds);
+        finish(!s.run.lives.some((l) => l <= 0));
+      },
+      /* Auto-pause (visibilitychange) drives the anti pause-scum rule in
+         cover.js: leaving freezes the world outright, and coming back holds it
+         behind a visible 3-2-1 before live input resumes. Without it a reaction
+         game can be scrubbed one frame at a time from the tab switcher. */
+      onPause: (isPausedNow) => {
+        setPaused(isPausedNow);
+        audio.setPaused(isPausedNow);
+        if (s.ended || !s.world) return;
+        s.pointerDown = false;
+        s.dragging = false;
+        if (isPausedNow) beginPause(s.world);
+        else endPause(s.world, cfg);
       },
     });
     loop.start();
+
+    // Mirror the re-acquire countdown into the DOM overlay.
+    const countTimer = setInterval(() => {
+      const w = s.world;
+      if (!w) return;
+      const count = w.freezeLeft > 0
+        ? Math.max(1, Math.ceil(w.freezeLeft / (cfg.hud.reacquireFreezeSeconds / 3)))
+        : (w.inputLockLeft > 0 ? 0 : -1);
+      setReacquire((prev) => (prev === count ? prev : count));
+    }, 100);
 
     return () => {
       loop.stop();
       input.destroy();
       ro?.disconnect();
       window.removeEventListener('orientationchange', fit);
+      clearInterval(countTimer);
       clearTimeout(endTimerRef.current);
       clearTimeout(bannerTimerRef.current);
       fx.reset();
-      audio.destroy();
-      s.effects = null;
-      s.audio = null;
     };
-    // Runs once per mount. App remounts the component (key={gameKey}) to replay.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [cfg, finish]);
 
-  const lowTime = timeLeft <= cfg.hud.lowTimeSeconds;
+  const lowTime = hud.timeLeft <= cfg.hud.lowTimeSeconds;
 
   return (
-    <div style={styles.root}>
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+    <div style={ST.root}>
+      <style dangerouslySetInnerHTML={{ __html: GAME_CSS }} />
 
-      <div ref={wrapRef} style={styles.stage} className="gk-stage">
-        <canvas ref={canvasRef} style={styles.canvas} />
-
-        {/* HUD ------------------------------------------------------- */}
-        <div style={styles.hudTop}>
-          <div style={styles.pill}>
-            <span style={styles.pillLabel}>Score</span>
-            <span ref={scoreElRef} style={styles.pillValue}>0</span>
-          </div>
-          <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Time</span>
-            <span style={{
-              ...styles.pillValue,
-              color: lowTime ? COLORS.orangeLt : '#fff',
-              animation: lowTime ? 'gkPulse 0.9s ease-in-out infinite' : 'none',
-            }}>
-              {timeLeft}s
-            </span>
+      <div style={ST.hud}>
+        <div style={ST.hudBlock}>
+          <div style={ST.hudLabel}>SCORE</div>
+          <div style={ST.hudValue}>{hud.score.toLocaleString()}</div>
+        </div>
+        <div style={ST.phaseChip}>{cfg.phases[hud.phase].name}</div>
+        <div style={{ ...ST.hudBlock, alignItems: 'flex-end' }}>
+          <div style={ST.hudLabel}>FULL TIME</div>
+          <div style={{ ...ST.hudValue, color: lowTime ? COLORS.danger : COLORS.ink }}>
+            {Math.floor(hud.timeLeft / 60)}:{String(hud.timeLeft % 60).padStart(2, '0')}
           </div>
         </div>
+      </div>
 
-        <div style={styles.progressWrap}>
-          <div style={styles.progressPill}>
-            <span style={styles.progressText}>
-              Penalty <strong>{hud.shot}</strong>/{cfg.shotsPerSession}
-              <span style={{ opacity: 0.5 }}> · </span>
-              Saves <strong style={{ color: COLORS.greenLt }}>{hud.saves}</strong>/{cfg.savesToWin}
-            </span>
-            <div style={styles.track}>
-              <div ref={barElRef} style={styles.trackFill} />
-            </div>
-            <div style={styles.dots}>
-              {Array.from({ length: cfg.concededToLose }).map((_, i) => (
-                <span
-                  key={i}
-                  style={{
-                    ...styles.dot,
-                    background: i < hud.conceded ? COLORS.danger : 'rgba(255,255,255,0.18)',
-                    boxShadow: i < hud.conceded ? `0 0 6px ${COLORS.danger}` : 'none',
-                  }}
-                />
-              ))}
-              <span style={styles.dotsLabel}>goals against</span>
-            </div>
-          </div>
-        </div>
+      <div ref={wrapRef} style={ST.stage}>
+        <canvas ref={canvasRef} style={ST.canvas} />
 
-        {/* Status chips --------------------------------------------- */}
-        <div style={styles.statusWrap}>
-          {hud.risk && !over && (
-            <div className="gk-risk" style={{ ...styles.status, borderColor: 'rgba(255,200,69,0.6)' }}>
-              <span style={{ color: COLORS.goldLt }}>Risk shot · double</span>
-            </div>
-          )}
-          {hud.streak >= 2 && (
-            <div className="gk-streak" style={{ ...styles.status, borderColor: 'rgba(74,222,128,0.55)' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill={COLORS.greenLt} aria-hidden="true">
-                <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" />
-              </svg>
-              <span style={{ color: COLORS.greenLt }}>Streak x{hud.streak}</span>
-            </div>
-          )}
-          {hud.shield > 0 && (
-            <div style={{ ...styles.status, borderColor: 'rgba(166,208,255,0.6)' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A6D0FF"
-                strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
-              </svg>
-              <span style={{ color: '#A6D0FF' }}>Shield glove</span>
-            </div>
-          )}
-        </div>
-
-        {/* Outcome banner -------------------------------------------- */}
         {banner && (
-          <div key={banner.id} style={styles.bannerWrap} className="gk-banner">
+          <div key={banner.id} style={ST.bannerWrap} className="gk-banner">
             <div style={{
-              ...styles.banner,
-              background: banner.kind === 'goal'
-                ? 'linear-gradient(180deg, rgba(239,68,68,0.95), rgba(120,18,18,0.95))'
-                : banner.kind === 'shield'
-                  ? 'linear-gradient(180deg, rgba(30,107,224,0.95), rgba(0,45,120,0.95))'
-                  : 'linear-gradient(180deg, rgba(40,167,69,0.95), rgba(14,88,38,0.95))',
-            }}>
-              <span style={styles.bannerTitle}>{banner.title}</span>
-              <span style={styles.bannerSub}>{banner.sub}</span>
+              ...ST.banner,
+              borderColor: banner.kind === 'lose' ? 'rgba(239,68,68,0.55)'
+                : banner.kind === 'win' ? 'rgba(255,200,69,0.55)' : 'rgba(0,163,224,0.45)',
+            }}
+            >
+              <div style={{
+                ...ST.bannerTitle,
+                color: banner.kind === 'lose' ? COLORS.dangerLt
+                  : banner.kind === 'win' ? COLORS.gold : COLORS.coverLt,
+              }}
+              >
+                {banner.title}
+              </div>
+              <div style={ST.bannerSub}>{banner.sub}</div>
             </div>
           </div>
         )}
 
-        {/* First-run hint -------------------------------------------- */}
-        {hint && !over && (
-          <div style={styles.hintWrap} className="gk-hint">
-            <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>Swipe</strong> to dive · direction picks the side,{' '}
-              <strong style={{ color: COLORS.orangeLt }}>length</strong> picks the height
-            </div>
+        {reacquire >= 0 && (
+          <div style={ST.veil}>
+            <div style={ST.veilCount}>{reacquire === 0 ? 'GO' : reacquire}</div>
+            <div style={ST.veilText}>RE-ACQUIRING THE LINE</div>
           </div>
         )}
 
-        {/* Auto-pause veil ------------------------------------------- */}
-        {paused && !over && (
-          <div style={styles.pauseVeil}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-              <rect x="6" y="4" width="4" height="16" rx="1.5" />
-              <rect x="14" y="4" width="4" height="16" rx="1.5" />
-            </svg>
-            <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Paused</div>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
-              Your timer is safe. Come back and keep the goals out.
-            </div>
+        {paused && reacquire < 0 && (
+          <div style={ST.veil}>
+            <div style={ST.veilText}>PAUSED</div>
           </div>
         )}
-
-        {/* Mute ------------------------------------------------------- */}
-        <button
-          type="button"
-          onClick={toggleMute}
-          aria-label={muted ? 'Unmute' : 'Mute'}
-          style={styles.muteBtn}
-        >
-          {muted ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-              <line x1="2" y1="2" x2="22" y2="22" />
-              <path d="M11 5 6 9H2v6h4l5 4z" />
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-              <path d="M11 5 6 9H2v6h4l5 4z" />
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-            </svg>
-          )}
-        </button>
       </div>
     </div>
   );
 }
 
-/* ─── Styles ─────────────────────────────────────────────── */
-const CSS = `
-@keyframes gkIn { from { opacity: 0; transform: scale(0.965) translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes gkPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
-@keyframes gkBanner {
-  0%   { opacity: 0; transform: translateY(16px) scale(0.86); }
-  18%  { opacity: 1; transform: translateY(0) scale(1.07); }
-  30%  { transform: translateY(0) scale(1); }
+/* ─── Styles ──────────────────────────────────────────────
+   Type scale, and there are only three steps in it: 8.5px/900 for HUD labels,
+   19px/800 tabular for HUD numbers, 15px/900 for a banner title. One family. */
+const GAME_CSS = `
+@keyframes gkBannerIn {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.96); }
+  12%  { opacity: 1; transform: translateY(0) scale(1); }
   80%  { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-14px) scale(0.96); }
+  100% { opacity: 0; transform: translateY(-8px) scale(0.98); }
 }
-@keyframes gkHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
-@keyframes gkStreak { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-@keyframes gkRisk { 0%,100% { box-shadow: 0 0 0 0 rgba(255,200,69,0); } 50% { box-shadow: 0 0 12px 2px rgba(255,200,69,0.45); } }
-.gk-stage { animation: gkIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
-.gk-banner { animation: gkBanner 1.4s ease-out both; }
-.gk-hint { animation: gkHint 1.6s ease-in-out infinite; }
-.gk-streak { animation: gkStreak 0.9s ease-in-out infinite; }
-.gk-risk { animation: gkRisk 1.1s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .gk-stage, .gk-banner, .gk-hint, .gk-streak, .gk-risk { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
-}
+.gk-banner { animation: gkBannerIn 1.5s ease-out both; }
 `;
 
-const glass = {
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  backdropFilter: 'blur(12px)',
-  WebkitBackdropFilter: 'blur(12px)',
-};
-
-const styles = {
+const ST = {
   root: {
     position: 'relative',
     width: '100%',
     height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
     maxWidth: 430,
     margin: '0 auto',
-    display: 'flex',
-    padding: 10,
-    boxSizing: 'border-box',
   },
-  stage: {
-    position: 'relative',
-    flex: 1,
-    minHeight: 420,
-    borderRadius: 20,
-    overflow: 'hidden',
-    background: COLORS.bgDark,
-    border: '1.5px solid rgba(255,255,255,0.1)',
-    boxShadow: '0 20px 44px rgba(0,0,0,0.55)',
-    touchAction: 'none',
-  },
-  canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
-  hudTop: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
+  hud: {
+    flex: '0 0 auto',
     display: 'flex',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    padding: '8px 16px 6px',
     gap: 10,
-    pointerEvents: 'none',
-    zIndex: 4,
   },
-  pill: {
-    ...glass,
-    display: 'flex',
-    flexDirection: 'column',
-    borderRadius: 12,
-    padding: '5px 12px',
-    minWidth: 78,
-  },
-  pillLabel: {
-    fontSize: 8,
-    fontWeight: 800,
+  hudBlock: { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 60 },
+  hudLabel: {
+    fontSize: 8.5,
+    fontWeight: 900,
     letterSpacing: '0.16em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(244,248,255,0.45)',
   },
-  pillValue: {
+  hudValue: {
     fontSize: 19,
-    fontWeight: 900,
-    color: '#fff',
-    lineHeight: 1.15,
-    fontVariantNumeric: 'tabular-nums',
-    display: 'inline-block',
-  },
-  progressWrap: {
-    position: 'absolute',
-    top: 62,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-    zIndex: 4,
-  },
-  progressPill: { ...glass, borderRadius: 12, padding: '6px 14px 7px', minWidth: 200, textAlign: 'center' },
-  progressText: {
-    fontSize: 12,
     fontWeight: 800,
-    color: '#fff',
-    letterSpacing: '0.02em',
+    color: COLORS.ink,
+    lineHeight: 1,
     fontVariantNumeric: 'tabular-nums',
   },
-  track: {
-    marginTop: 5,
-    height: 5,
-    borderRadius: 3,
-    background: 'rgba(255,255,255,0.14)',
-    overflow: 'hidden',
-  },
-  trackFill: {
-    height: '100%',
-    width: '0%',
-    borderRadius: 3,
-    background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.greenLt})`,
-    transition: 'width 220ms ease-out',
-  },
-  dots: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    marginTop: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    display: 'inline-block',
-    transition: 'background 240ms ease, box-shadow 240ms ease',
-  },
-  dotsLabel: {
-    marginLeft: 4,
-    fontSize: 8,
-    fontWeight: 800,
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.42)',
-  },
-  statusWrap: {
-    position: 'absolute',
-    top: 146,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    pointerEvents: 'none',
-    zIndex: 4,
-  },
-  status: {
-    ...glass,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 999,
-    padding: '4px 10px',
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-  },
-  bannerWrap: {
-    position: 'absolute',
-    top: '36%',
-    left: 0,
-    right: 0,
-    display: 'flex',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-    zIndex: 6,
-  },
-  banner: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 2,
-    padding: '11px 24px',
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.28)',
-    boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
-  },
-  bannerTitle: { fontSize: 19, fontWeight: 900, color: '#fff', letterSpacing: '-0.01em' },
-  bannerSub: {
+  phaseChip: {
     fontSize: 9,
     fontWeight: 900,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.82)',
+    letterSpacing: '0.14em',
+    color: COLORS.coverLt,
+    padding: '5px 11px',
+    borderRadius: 999,
+    background: 'rgba(0,163,224,0.12)',
+    border: '1px solid rgba(0,163,224,0.32)',
+    whiteSpace: 'nowrap',
   },
-  hintWrap: {
+  stage: { position: 'relative', flex: 1, minHeight: 0, width: '100%' },
+  canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
+  bannerWrap: {
     position: 'absolute',
-    bottom: 66,
-    left: 12,
-    right: 12,
+    left: 0,
+    right: 0,
+    top: '25%',
     display: 'flex',
     justifyContent: 'center',
     pointerEvents: 'none',
-    zIndex: 5,
   },
-  hint: {
-    ...glass,
-    borderRadius: 999,
-    padding: '9px 16px',
-    fontSize: 11.5,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.92)',
+  banner: {
+    background: 'rgba(6,13,28,0.9)',
+    border: '1px solid rgba(0,163,224,0.45)',
+    borderRadius: 12,
+    padding: '10px 18px',
     textAlign: 'center',
-    lineHeight: 1.35,
+    WebkitBackdropFilter: 'blur(8px)',
+    backdropFilter: 'blur(8px)',
   },
-  pauseVeil: {
+  bannerTitle: { fontSize: 15, fontWeight: 900, letterSpacing: '0.10em' },
+  bannerSub: { fontSize: 10, fontWeight: 600, color: 'rgba(244,248,255,0.62)', marginTop: 3 },
+  veil: {
     position: 'absolute',
     inset: 0,
+    background: 'rgba(4,10,22,0.86)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    background: 'rgba(11,18,33,0.84)',
-    backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)',
-    zIndex: 8,
   },
-  muteBtn: {
-    position: 'absolute',
-    right: 10,
-    bottom: 10,
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    background: 'rgba(11,18,33,0.6)',
-    border: '1px solid rgba(255,255,255,0.16)',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    zIndex: 9,
-  },
+  veilCount: { fontSize: 54, fontWeight: 900, color: COLORS.coverLt, lineHeight: 1 },
+  veilText: { fontSize: 11, fontWeight: 800, color: 'rgba(244,248,255,0.7)', letterSpacing: '0.14em' },
 };

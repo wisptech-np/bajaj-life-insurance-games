@@ -1,147 +1,150 @@
 ---
 type: project
 title: Wealth Balloon
-description: Press-your-luck inflate where a wealth balloon grows on 10 x t^1.6 against a hidden burst threshold, an honest-but-noisy wobble is the only warning, one Term Shield absorbs the first burst at 50%, and needle drones from round 4 tax the fattest balloons.
+description: Goal-funding triage under a rate-limited income, with forecast shocks and a fixed-premium cover decision. Three goals inflate toward visible targets and deadlines; income funds only some of them; shocks are announced four seconds ahead with the exact money they will take, and one tap buys cover for a fixed 28. Nothing is hidden and nothing is random except which goal a shock lands on and how hard.
 resource: file:///c:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/wealth-balloon
 tags:
   - game
-  - press-your-luck
-  - timing
-  - arcade
-timestamp: 2026-07-29
+  - resource-management
+  - triage
+  - decision-under-time-pressure
+timestamp: 2026-08-03
 ---
 
 # Wealth Balloon
 
-One-thumb press-your-luck. HOLD to inflate the wealth balloon; the counter above
-it climbs on `10 x t^1.6`, so the next second of holding is always worth more
-than the last one was. Each round the balloon carries a hidden burst threshold
-drawn uniform between 2.2 s and 4.6 s. At 70% of it (give or take 0.35 s) the
-balloon starts to wobble and shifts blue to orange to red — the only information
-you get. RELEASE to bank what is shown. Six rounds or a 120-second cap; win by
-banking 500.
+**Concept replaced on 2026-08-03.** This was a press-your-luck inflate game —
+hold a balloon, a hidden threshold decides when it pops, let go before it does.
+The review found the format did not carry meaningful value, and it was right:
+see `log.md` for the argument and the measurement that settled it. What ships now
+is a goal-funding triage game that reuses nothing of the old mechanic except the
+balloon as an object and the directory name.
+
+Three life goals inflate side by side. Each shows its funding **target** as a
+dashed ring, its **deadline** as a bar, and what it holds right now as a number.
+HOLD a balloon to pour income into it; slide the thumb to switch. Income refills
+at 24/s and drains at 76/s, so you can never fund all three and every second is a
+choice about which one. Shocks are **forecast four seconds ahead** on a named
+goal, with the exact money they will take at that goal's present value printed on
+the badge. One tap buys cover for a **fixed premium of 28**, which absorbs one
+shock in full and then is spent. Ninety seconds, win at 1000.
 
 ## Financial hook
 
-Knowing when to stop, and what cover can honestly promise.
+**Insure what you cannot afford to lose, not what is merely likely.**
 
-- **The curve is the temptation.** `t^1.6` means the balloon is permanently
-  offering a better deal than the one already on the table. That is exactly how
-  an un-hedged position feels on the way up, and it is why people hold too long.
-- **The warning is real, early, and imprecise.** The tell starts at 70% of the
-  threshold and can never arrive after the burst — the game measures that
-  invariant over every simulated round (average lead 1.02 s). But the ±0.35 s of
-  noise means backing the threshold out of the wobble only narrows it to a
-  one-second window. Real risk warnings behave the same way; you still have to
-  decide.
-- **Consistency beats nerve, and it is measured.** A bot that lets go the moment
-  it sees the wobble wins 38.5% of runs. A bot that reads the same wobble and
-  pushes to 95% of what it implies banks 1.63x more per surviving round and wins
-  8.7%, because a burst costs the round AND the compounding streak.
-- **Cover rescues the money, not the momentum.** The Term Shield banks half of
-  whatever the balloon was holding — about 0.9 of an average banked round. It
-  does not restore the streak and it does not raise the ceiling. It stops one bad
-  moment being a total loss, which is the honest claim a term plan can make.
-- **The drones are the difficulty, and they lean on greed.** The lane is not
-  outside a sensible balloon: the envelope reaches it at 2.044 s and a
-  disciplined release (median 2.38 s) covers it 69% of the time, so everyone is
-  exposed — removing the drones moves a disciplined run from 38.5% to 61.8%.
-  Greed adds exposure on top: 94% of greedy releases cover the lane, and
-  conditional on reaching a release a greedy balloon pops 10.5% of the time
-  against 6.0% for a disciplined one.
+- **The premium is fixed and the exposure is not.** A shock takes 28–72% of
+  whatever that goal is holding *now*, so the same 28 rupees of premium is
+  obviously right against a balloon holding 180 (saves 99) and obviously wrong
+  against one holding 30 (saves 16). The player does that comparison in their
+  head, from two numbers already on screen, several times a session. That is the
+  underwriting decision itself rather than a metaphor for it.
+- **Cover costs twice.** The drain is three times the refill, so a player who
+  funds flat out has no reserve and cannot buy a premium at all. Buying cover
+  costs the 28 *and* the second of funding given up to have 28 in hand. Measured:
+  a bot that funds without ever holding income back is uninsurable by
+  construction. This is the sharpest true thing the game says about household
+  finance.
+- **You cannot fund everything, and spreading is worse than choosing.** Income
+  over a session is ~2,300 against ~2,600 of goals. The `spread` bot — which
+  funds all three equally and covers optimally — averages **107** against the
+  skilled bot's **1,212**. Fair-sounding allocation funds nothing.
+- **Judgement beats both extremes.** `never-cover` averages 606, `always-cover`
+  944, `skilled` 1,212. Going bare costs 606; blanket cover recovers 338 of it;
+  choosing which shocks to cover recovers the remaining 268.
 
 ## Rules
 
 | element | rule |
 |---|---|
-| value | `10 x t^1.6` — 35 at 2.2 s, 71 at 3.4 s, 115 at 4.6 s |
-| burst threshold | `U(2.2 s, 4.6 s)` per round, never shown |
-| the tell | wobble + hue shift starting at `0.7 x threshold ± 0.35 s` |
-| bank | release before the threshold with no drone touching the envelope |
-| burst | round worth nothing, compounding streak resets |
-| Term Shield | one per game, absorbs the first burst and banks 50% of the at-burst value |
-| compounding | `+18 x (streak - 1)` per consecutive banked round, capped at 5 steps |
-| needle drones | rounds 4/5/6 (1/1/2 drones); release into one and it pops regardless |
-| win | 500 banked across 6 rounds inside 120 s |
+| goals | 3 at once, each with a visible target and deadline |
+| funding | HOLD to move income in at 76/s; slide to switch; release to stop |
+| income | starts 80, refills 24/s, caps 170 |
+| target | `140 + 12 x n`, ±16% jitter |
+| window | 19.5 s ±10%; opening deadlines staggered 5.5 s apart |
+| funded | value ≥ target at the deadline → score += target |
+| missed | short at the deadline → −40 (never below zero), goal replaced |
+| shocks | forecast 4 s ahead; severity `U(28%, 72%)` of the goal's current value |
+| cover | fixed premium 28, 10 s term, absorbs one shock then spent; lapses unused |
+| ramp | shock gap shrinks 6.5 s → 4.0 s across the session; targets grow |
+| win | 1000 inside 90 s |
 
-Stats contract: `{score, rounds, bursts, bestRound}`.
+Stats contract: `{score, goals, missed, bestGoal}`.
 
 ## Shape of the build
 
-- `src/rounds.js` — the whole rule set as a pure module: the value curve, the
-  radius curve, `drawRound` (threshold, tell onset, drone lanes), `needleX` /
-  `needleHitAt`, `resolveRelease`, the run accumulator with the Term Shield and
-  the compounding bonus, and `runStats`. No React, no canvas, no DOM, no browser
-  API. `scripts/balance.mjs` imports it directly, so the shipped game and the
-  measured game are literally the same module. Every spatial quantity is in FIELD
-  UNITS — fractions of the canvas width — so the drone geometry is identical on a
-  320 px handset and a 430 px one.
-- `src/data.js` — `GAME_CONFIG`, `COLORS` and `SKIN`. Every tunable plus the
-  measured balance table and the reasoning behind each corrected constant.
+- `src/goals.js` — the whole rule set as a pure module: `createSim`, `step`,
+  `buyCover`, plus the two judgement helpers `coverIsWorthIt` / `bestFeed` /
+  `shouldSaveForCover` that the coach overlay AND the balance bots both call, so
+  the advice the tutorial gives is provably the advice that wins. No React, no
+  canvas, no DOM, no browser API. `scripts/balance.mjs` imports it directly.
+- `src/data.js` — `GAME_CONFIG`, `COLORS`, `SKIN`. Every tunable and the
+  reasoning behind it.
 - `src/WealthBalloonGame.jsx` — the canvas component. Mutable state in refs, HUD
   written through `textContent` refs, `fx.update(dt)` then `fx.isFrozen()`
-  early-return, full teardown on unmount, no allocation in the hot loop.
-- `src/Screens.jsx` — Home (the game as inline SVG: a balloon inflating past its
-  tell, the counter climbing, a drone crossing the lane), How to Play (4-beat
-  CSS-animated SVG), Results (banked ring against the target, rounds/bursts/best
-  tiles, Book a Slot / Retry / Home).
+  early-return, full teardown on unmount, one event array reused per tick so the
+  hot loop allocates nothing.
+- `src/Screens.jsx` — Home (three goals, one forecast, cover snapping in), How to
+  Play (7 s animated loop of the whole decision), Results.
 - `src/kit/` — byte-identical copy of `shared/game-kit`, never edited in place.
-- `scripts/balance.mjs` — the balance gate; not part of the bundle.
+- `scripts/balance.mjs` — the skill gate; not part of the bundle.
 
 ## Rendering
 
 Programmatic canvas only; no emoji sprites, no image files.
 
-- The balloon is a 40-segment polar path traced in UNIT space and scaled to the
-  live radius, with a squared-off taper toward the neck so it reads as a balloon
-  rather than a circle. Two counter-rotating sine harmonics give it the wobble,
-  amplitude driven entirely by tell intensity.
-- The hue shift is three unit-space radial gradients (calm / warm / hot) built
-  once per resize and cross-faded with `globalAlpha`. Rebuilding a gradient at
-  the live radius would be one allocation per frame in the hottest loop; this is
-  none.
-- Drones are drawn from primitives: two blurred rotor ellipses, a rounded steel
-  body, a blinking warning eye that goes solid while it is actually overlapping,
-  and the spike itself. Their lane is a dashed line so the pass can be timed.
-- The sky, its stars, the skyline and the launch pad are pre-rendered to one
-  offscreen bitmap per resize and blitted.
+- Balloons are a 32-segment polar path traced in unit space and scaled to the
+  live radius, with a shoulder/neck taper, a specular highlight and a knot. Radius
+  maps `value / target`, so the dashed target ring IS the finish line.
+- Fill colour is information, not decoration: blue = reachable, green = at or
+  past target, red = cannot be finished in the time left. A player reads which of
+  three balloons still deserves income at a glance.
+- Cover is a blue arc ring whose sweep is the term remaining. The shock badge is
+  a red pill carrying the rupee loss, the severity and a live countdown, with a
+  small blue caret beneath it when the loss beats the premium.
+- Sky, stars and skyline are pre-rendered to one offscreen bitmap per resize.
 
 ## Colour grammar
 
-Blue is a young, safe balloon and everything protective — the Term Shield, the
-banked total. Orange is heat: the honest tell, the moment the balloon starts
-telling you it has had enough. Red is the burst and the drones. Gold is banked
-wealth. Green is reserved for progress toward the target, so green always means
-"you are winning" and never means a hazard.
+BLUE is cover and everything protective. GOLD is money — income, funded goals,
+the banked score. GREEN means "this goal is going to make it". ORANGE is urgency
+and never damage: a deadline closing in. RED is damage only: a forecast shock and
+the money it takes.
+
+## Tutorial
+
+Three coach prompts inside the live game, each cleared by doing the thing rather
+than by a timer: *hold a balloon to fund it* → *fill past the dashed ring before
+its timer ends* → on the first forecast, *is the red number bigger than 28?*. The
+How to Play screen plays the same three beats first as a 7-second animated loop.
+
+## Anti-pause-scum
+
+Returning from a background pause holds the session clock for a 3-second
+re-acquire countdown. Without it, backgrounding the tab is a free pause button in
+a game whose entire point is deciding under a clock.
 
 ## Balance
 
-`node scripts/balance.mjs` — seeded runs per bot over the shipped
-`src/rounds.js`. Exits non-zero unless the disciplined bot lands in 30–50% and
-the greedy bot stays under 15%. Figures below are 20,000 runs at seed
-`0xba110032`; the 500-run gate is the same numbers with a ±4 pp window.
+`node scripts/balance.mjs` — 6,000 seeded runs per bot over the shipped
+`src/goals.js`, seed `0xba110032`. Exits non-zero unless all eight gates hold.
 
-| bot | strategy | win% | mean | p25 | p75 | bursts |
-|---|---|---|---|---|---|---|
-| disciplined | lets go on the tell, σ = 0.3 s reaction | **38.5%** | 454 | 398 | 521 | 0.4 |
-| greedy | reads the tell, holds to 95% of what it implies | **8.7%** | 298 | 202 | 376 | 2.5 |
-| blind-70 | fixed 2.38 s, never looks | 21.1% | 376 | 284 | 494 | 0.9 |
-| blind-95 | fixed 3.23 s, never looks | 4.8% | 254 | 163 | 322 | 3.0 |
-| ceiling | holds to the tell's provably safe bound, dodges drones | 77.1% | 546 | 507 | 604 | 0.2 |
+| bot | win% | mean | p25 | p50 | p75 | funded | premiums | lost |
+|---|---|---|---|---|---|---|---|---|
+| skilled | **87.5%** | 1212 | 1052 | 1257 | 1343 | 7.6 | 225 | 57 |
+| casual | **31.9%** | 845 | 651 | 819 | 1041 | 6.1 | 177 | 116 |
+| random | **0.0%** | 30 | 0 | 0 | 0 | 1.7 | 14 | 678 |
+| idle | **0.0%** | 0 | 0 | 0 | 0 | 0.0 | 0 | 0 |
+| spread | 0.0% | 107 | 85 | 106 | 131 | 3.0 | 289 | 110 |
+| never-cover | 10.0% | 606 | 385 | 597 | 818 | 4.9 | 0 | 559 |
+| always-cover | 44.0% | 944 | 799 | 975 | 1058 | 6.6 | 433 | 0 |
 
-At 500 runs the default seed gives disciplined 43.2% / greedy 7.8%; across five
-other seeds, 34.8–41.6% and 7.2–11.2%. The sim also asserts two invariants over
-every simulated round — the tell always precedes the burst, and the worst-case
-held time in a run (24.3 s) leaves ample slack inside the 120 s session.
-
-One structural correction was needed to make the spec's own two gates
-satisfiable at the same time (the compounding bonus, and the win line moving from
-320 to 500 — both gates hold only for a line in [481, 514]). Counterfactual flags
-on the sim — `--bonus 0`, `--shield-keeps-streak`, `--no-drones` — reproduce every
-rejected alternative against the same shipped rules. The derivation is in
-`log.md`.
+Skill gap skilled − random = **87.5 pp**. Robust across seeds: skilled
+87.0–88.0%, casual 30.3–32.4%, random 0.0% at seeds 1 / 7 / 12345 / 999983 /
+424242 (2,000 runs each).
 
 ## Ports and commands
 
 Dev server on **5059**. `pnpm dev`, `pnpm build` (uat), `pnpm build:preprod`,
-`pnpm build:prod`, `pnpm preview`, `node scripts/balance.mjs [--runs N] [--seed S] [--sweep]`.
+`pnpm build:prod`, `pnpm preview`,
+`node scripts/balance.mjs [--runs N] [--seed S] [--sweep]`.

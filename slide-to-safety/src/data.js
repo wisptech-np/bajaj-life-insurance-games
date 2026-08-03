@@ -60,6 +60,12 @@ export const COLORS = {
   wind: 'rgba(166,208,255,0.55)',
   windCore: 'rgba(255,255,255,0.85)',
 
+  // Cover point (the safe zone). Ice-blue so it never competes with the green
+  // family tile — one is the destination, the other is shelter on the way.
+  cover: '#8FC2FF',
+  coverLt: '#CFE9FF',
+  coverDeep: '#1E5FBF',
+
   ink: '#FFFFFF',
   inkDim: 'rgba(255,255,255,0.62)',
   glass: 'rgba(255,255,255,0.05)',
@@ -80,6 +86,8 @@ export const GAME_CONFIG = {
   scoring: {
     /** Per premium coin picked up. */
     coin: 25,
+    /** First time each cover point on a board is reached. Not restocked by a retry. */
+    coverBonus: 60,
     /** Flat award for finishing a level. */
     levelComplete: 100,
     /** Finished in par moves or fewer. */
@@ -99,6 +107,16 @@ export const GAME_CONFIG = {
   timing: {
     slideCellsPerSecond: 13,
     slideMinSeconds: 0.16,
+    /* Fraction of a glide spent coming up to speed. Above zero the shield is
+       shoved rather than lerped — and its mid-glide speed is 1/(1 - launch/2)
+       times the average, which is the regime a per-frame collision test tunnels
+       in. src/slide.js glideEase() is the curve; scripts/balance.mjs sweeps it. */
+    glideLaunch: 0.22,
+    /* The impact: how far the shield rebounds BACK off whatever stopped it
+       before the spring settles it, in cells. Presentation only — the committed
+       cell is always res.stop. */
+    impactRecoilCells: 0.13,
+    impactRecoilSeconds: 0.22,
     /** A swipe into a wall: the token thuds and stays put. No move is counted. */
     bonkSeconds: 0.22,
     /** Fall animation: the ice gives way and the token drops through. */
@@ -125,6 +143,15 @@ export const GAME_CONFIG = {
     reactionMin: 0.15,
   },
 
+  /* -- Controls -------------------------------------------------------------
+     Press opens the aim, drag arms a direction, release commits. The deadzone is
+     how far the thumb has to travel before a direction is armed at all — small
+     enough that a flick still reads as a flick, large enough that a tap never
+     commits a move by accident. */
+  controls: {
+    aimDeadzonePx: 14,
+  },
+
   hud: {
     lowTimeSeconds: 20,
   },
@@ -139,6 +166,15 @@ export const GAME_CONFIG = {
     winParticles: 40,
     loseParticles: 24,
     bonkShake: 3.5,
+    /** The shield slamming into a rock or the shore. */
+    impactShake: 4.5,
+    impactParticles: 14,
+    /** Reaching a cover point, and the frost sweeping back over each fracture. */
+    coverParticles: 24,
+    coverFlashSeconds: 0.8,
+    refreezeSeconds: 0.65,
+    /** How long the commit ring stays on the shield after the thumb lifts. */
+    lockSeconds: 0.34,
     hitStopSeconds: 0.05,
     /** Seconds a tile stays lit after the token crosses it. */
     tileFlashSeconds: 0.34,
@@ -148,8 +184,8 @@ export const GAME_CONFIG = {
 
 /**
  * Best possible score, used by the Results ring as "a full circle".
- * Every coin + every level at par. Derived, never hand-typed, so it cannot
- * drift from the level table.
+ * Every coin, every cover point and every level at par. Derived, never
+ * hand-typed, so it cannot drift from the level table.
  */
 export function perfectScore(levels) {
   const s = GAME_CONFIG.scoring;
@@ -157,6 +193,7 @@ export function perfectScore(levels) {
   for (const lv of levels) {
     total += s.levelComplete + s.parBonus;
     total += lv.coins.length * s.coin;
+    total += lv.covers.length * s.coverBonus;
   }
   return total;
 }

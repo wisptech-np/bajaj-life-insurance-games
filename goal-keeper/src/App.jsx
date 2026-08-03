@@ -9,9 +9,11 @@ import ThankYouScreen from './ThankYouScreen.jsx';
 import { LEAD_NO_KEY } from './api.js';
 import { GAME_CONFIG } from './data.js';
 
+/* One light source, high and to the LEFT — the same floodlight the canvas is
+   lit by, so the screens either side of the match are the same stadium. */
 const THEME = {
-  homeBg: 'radial-gradient(ellipse at 50% 28%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221',
-  gameBg: 'linear-gradient(180deg, #0B1221 0%, #0A1E42 55%, #061229 100%)',
+  homeBg: 'radial-gradient(ellipse at 22% 6%, rgba(70,135,215,0.30), rgba(9,15,28,0.98) 62%), #070F22',
+  gameBg: 'linear-gradient(180deg, #070F22 0%, #0A1A38 55%, #060E1F 100%)',
 };
 
 export default function App() {
@@ -69,7 +71,7 @@ export default function App() {
       maxWidth: 430,
       margin: '0 auto',
       overflow: 'hidden',
-      background: 'linear-gradient(180deg, #0B1221 0%, #0A1E42 55%, #061229 100%)',
+      background: THEME.gameBg,
     }}>
       {screen === 'home' && (
         <HomeScreen onStart={showHowToPlay} theme={THEME} />

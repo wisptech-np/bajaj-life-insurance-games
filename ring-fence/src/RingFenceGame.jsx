@@ -16,7 +16,7 @@
 // same module headless.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { COLORS, GAME_CONFIG } from './data.js';
+import { ART, COLORS, GAME_CONFIG } from './data.js';
 import { createGameLoop } from './kit/loop.js';
 import { createInput } from './kit/input.js';
 import { createEffects, damp } from './kit/effects.js';
@@ -81,88 +81,171 @@ function offscreen(w, h, k) {
   return { cv, c };
 }
 
+/** The plot sheet: measured graph rule on vellum, lit unevenly from beneath. */
 function makeBackdrop(k) {
+  const S = ART.sheet;
   const { cv, c } = offscreen(FW, FH, k);
   const g = c.createLinearGradient(0, 0, 0, FH);
-  g.addColorStop(0, '#0A1730');
-  g.addColorStop(0.5, '#0B1221');
-  g.addColorStop(1, '#060D1C');
+  g.addColorStop(0, S.top);
+  g.addColorStop(0.55, S.base);
+  g.addColorStop(1, S.bottom);
   c.fillStyle = g;
   c.fillRect(0, 0, FW, FH);
 
-  // Faint survey grid over the open field — the ground being fought for.
-  c.strokeStyle = 'rgba(127,192,255,0.045)';
-  c.lineWidth = 1;
-  for (let x = CELL * 6; x < FW; x += CELL * 6) {
-    c.beginPath();
-    c.moveTo(x, 0);
-    c.lineTo(x, FH);
-    c.stroke();
-  }
-  for (let y = CELL * 6; y < FH; y += CELL * 6) {
-    c.beginPath();
-    c.moveTo(0, y);
-    c.lineTo(FW, y);
-    c.stroke();
-  }
-
-  const well = c.createRadialGradient(FW / 2, FH * 0.42, 60, FW / 2, FH * 0.42, FH * 0.75);
-  well.addColorStop(0, 'rgba(30,80,170,0.14)');
-  well.addColorStop(1, 'rgba(0,0,0,0)');
-  c.fillStyle = well;
+  // The light box under the sheet — brighter low-centre, so the field has a
+  // reading direction instead of sitting flat.
+  const lb = c.createRadialGradient(FW / 2, FH * 0.66, 30, FW / 2, FH * 0.6, FH * 0.66);
+  lb.addColorStop(0, S.lightbox);
+  lb.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = lb;
   c.fillRect(0, 0, FW, FH);
 
-  const vig = c.createRadialGradient(FW / 2, FH / 2, FH * 0.3, FW / 2, FH / 2, FH * 0.72);
+  // Graph rule. Two weights: every 2 cells, heavier every 10 — that ratio is
+  // what makes a grid read as *measured* rather than as wallpaper.
+  const minor = CELL * S.minorEvery;
+  const major = CELL * S.majorEvery;
+  c.lineWidth = 1;
+  for (let pass = 0; pass < 2; pass++) {
+    const step = pass ? major : minor;
+    c.strokeStyle = pass ? S.major : S.minor;
+    c.beginPath();
+    for (let x = step; x < FW; x += step) {
+      if (!pass && x % major === 0) continue;
+      c.moveTo(x + 0.5, 0);
+      c.lineTo(x + 0.5, FH);
+    }
+    for (let y = step; y < FH; y += step) {
+      if (!pass && y % major === 0) continue;
+      c.moveTo(0, y + 0.5);
+      c.lineTo(FW, y + 0.5);
+    }
+    c.stroke();
+  }
+
+  // Registration crosses — the one piece of "this is a survey document" detail.
+  const m = S.regInset;
+  c.strokeStyle = S.reg;
+  c.lineWidth = 1.1;
+  c.beginPath();
+  for (const [rx, ry] of [[m, m], [FW - m, m], [m, FH - m], [FW - m, FH - m]]) {
+    c.moveTo(rx - 5, ry);
+    c.lineTo(rx + 5, ry);
+    c.moveTo(rx, ry - 5);
+    c.lineTo(rx, ry + 5);
+  }
+  c.stroke();
+
+  const vig = c.createRadialGradient(FW / 2, FH / 2, FH * 0.34, FW / 2, FH / 2, FH * 0.74);
   vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(2,5,12,0.5)');
+  vig.addColorStop(1, S.vignette);
   c.fillStyle = vig;
   c.fillRect(0, 0, FW, FH);
   return cv;
 }
 
-/** Repaint the whole claimed layer from the grid + rebuild the edge glow. */
+/** One p x p tile carrying a single 45° hatch line; tiles into infinite hatch. */
+function makeHatchTile() {
+  const p = ART.claim.hatchPx;
+  const cv = document.createElement('canvas');
+  cv.width = p;
+  cv.height = p;
+  const c = cv.getContext('2d');
+  c.strokeStyle = ART.claim.hatch;
+  c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(0, p);
+  c.lineTo(p, 0);
+  c.moveTo(-1, 1);
+  c.lineTo(1, -1);
+  c.moveTo(p - 1, p + 1);
+  c.lineTo(p + 1, p - 1);
+  c.stroke();
+  return cv;
+}
+
+/** Repaint the claimed layer (wash + ownership hatch) and the surveyed edge. */
 function repaintTerritory(s, world) {
   const tc = s.terrCtx;
   const ec = s.edgeCtx;
+  const C = ART.claim;
+  const W = ART.wall;
   tc.clearRect(0, 0, FW, FH);
   ec.clearRect(0, 0, FW, FH);
   const { cols, rows } = world;
   const g = world.grid;
-  tc.fillStyle = '#12336F';
+
+  tc.fillStyle = C.wash;
   for (let y = 0; y < rows; y++) {
     const row = y * cols;
     for (let x = 0; x < cols; x++) {
       if (g[row + x] === CLAIMED) tc.fillRect(x * CELL, y * CELL, CELL + 0.5, CELL + 0.5);
     }
   }
-  // Glassy shading, clipped to the claimed cells just painted.
+  // Ownership hatch + depth shading, both clipped to the ground just claimed.
   tc.globalCompositeOperation = 'source-atop';
+  if (s.hatch) {
+    tc.fillStyle = s.hatch;
+    tc.fillRect(0, 0, FW, FH);
+  }
   const sheen = tc.createLinearGradient(0, 0, FW, FH);
-  sheen.addColorStop(0, 'rgba(30,107,224,0.42)');
-  sheen.addColorStop(0.5, 'rgba(0,61,166,0.16)');
-  sheen.addColorStop(1, 'rgba(9,20,48,0.5)');
+  sheen.addColorStop(0, C.sheenTop);
+  sheen.addColorStop(0.5, C.sheenMid);
+  sheen.addColorStop(1, C.sheenBottom);
   tc.fillStyle = sheen;
   tc.fillRect(0, 0, FW, FH);
   tc.globalCompositeOperation = 'source-over';
 
-  // Boundary cells — the living wall.
-  ec.fillStyle = COLORS.wall;
-  if (s.shadows) {
-    ec.shadowColor = 'rgba(88,160,255,0.9)';
-    ec.shadowBlur = 7;
-  }
+  // The boundary, drawn the way a surveyor would: a muted band of held ground,
+  // one crisp line along the edge that faces open ground, and dimension ticks
+  // stepping along it. Structure, not bloom — the band carries no shadow.
+  const line = new Path2D();
+  const ticks = new Path2D();
+  ec.fillStyle = W.band;
   for (let y = 0; y < rows; y++) {
     const row = y * cols;
     for (let x = 0; x < cols; x++) {
       if (g[row + x] !== CLAIMED) continue;
-      const open =
-        (x > 0 && g[row + x - 1] !== CLAIMED) ||
-        (x < cols - 1 && g[row + x + 1] !== CLAIMED) ||
-        (y > 0 && g[row + x - cols] !== CLAIMED) ||
-        (y < rows - 1 && g[row + x + cols] !== CLAIMED);
-      if (open) ec.fillRect(x * CELL, y * CELL, CELL, CELL);
+      const l = x > 0 && g[row + x - 1] !== CLAIMED;
+      const r = x < cols - 1 && g[row + x + 1] !== CLAIMED;
+      const u = y > 0 && g[row + x - cols] !== CLAIMED;
+      const d = y < rows - 1 && g[row + x + cols] !== CLAIMED;
+      if (!(l || r || u || d)) continue;
+      const px = x * CELL;
+      const py = y * CELL;
+      ec.fillRect(px, py, CELL, CELL);
+      const tick = (x + y) % W.tickEvery === 0;
+      if (l) {
+        line.moveTo(px, py);
+        line.lineTo(px, py + CELL);
+        if (tick) { ticks.moveTo(px + 1, py + CELL / 2); ticks.lineTo(px + 1 + W.tickLen, py + CELL / 2); }
+      }
+      if (r) {
+        line.moveTo(px + CELL, py);
+        line.lineTo(px + CELL, py + CELL);
+        if (tick) { ticks.moveTo(px + CELL - 1, py + CELL / 2); ticks.lineTo(px + CELL - 1 - W.tickLen, py + CELL / 2); }
+      }
+      if (u) {
+        line.moveTo(px, py);
+        line.lineTo(px + CELL, py);
+        if (tick) { ticks.moveTo(px + CELL / 2, py + 1); ticks.lineTo(px + CELL / 2, py + 1 + W.tickLen); }
+      }
+      if (d) {
+        line.moveTo(px, py + CELL);
+        line.lineTo(px + CELL, py + CELL);
+        if (tick) { ticks.moveTo(px + CELL / 2, py + CELL - 1); ticks.lineTo(px + CELL / 2, py + CELL - 1 - W.tickLen); }
+      }
     }
   }
+  ec.strokeStyle = W.tick;
+  ec.lineWidth = 1;
+  ec.stroke(ticks);
+  if (s.shadows) {
+    ec.shadowColor = 'rgba(88,160,255,0.75)';
+    ec.shadowBlur = W.glow;
+  }
+  ec.strokeStyle = W.line;
+  ec.lineWidth = W.lineW;
+  ec.stroke(line);
   ec.shadowBlur = 0;
 }
 
@@ -196,18 +279,22 @@ function drawOrb(ctx, s, orb, r, time, idx) {
 export default function RingFenceGame({ config, onWin, onLose }) {
   const cfg = config || CFG;
 
+  const rootRef = useRef(null);
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const endTimerRef = useRef(null);
   const bannerTimerRef = useRef(null);
+  const flashTimerRef = useRef(null);
   const scoreElRef = useRef(null);
   const pctElRef = useRef(null);
+  const railElRef = useRef(null);
   const hintRef = useRef(true);
 
   const [timeLeft, setTimeLeft] = useState(cfg.sessionSeconds);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
   const [banner, setBanner] = useState(null);
+  const [flash, setFlash] = useState(null); // { id, kind } — perimeter feedback
   const [hint, setHint] = useState(true);
   const [over, setOver] = useState(false);
   const [lives, setLives] = useState(cfg.lives);
@@ -233,6 +320,8 @@ export default function RingFenceGame({ config, onWin, onLose }) {
       edgeCtx: null,
       edgeCv: null,
       orbPaint: null,
+      hatch: null,
+      flashSeq: 0,
 
       wave: null, // { cells, dists, order, ptr, r, ox, oy, big }
       burn: { pts: new Float32Array(CFG.grid.cols * CFG.grid.rows * 2), len: 0, t: 0, x: 0, y: 0 },
@@ -284,12 +373,23 @@ export default function RingFenceGame({ config, onWin, onLose }) {
     const world = s.world;
 
     /* --- canvas sizing --------------------------------------------------- */
+    // The stage is sized to the field plus one HUD band, so the board never
+    // letterboxes: no dead strip under the field, and the HUD reads as real
+    // chrome above the plot rather than as pills floating in a gap.
     const fit = () => {
-      const w = Math.max(240, wrap.clientWidth || 390);
-      const h = Math.max(360, wrap.clientHeight || 640);
-      const scale = Math.min(w / FW, h / FH);
+      const root = rootRef.current;
+      const w = Math.max(240, (root?.clientWidth || 390) - ROOT_PAD * 2);
+      const h = Math.max(360, (root?.clientHeight || 640) - ROOT_PAD * 2);
+      const compact = h < ART.hud.compactUnder;
+      const band = compact ? ART.hud.bandSmall : ART.hud.band;
+      const scale = Math.min(w / FW, (h - band) / FH);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const k = scale * dpr;
+      wrap.style.width = `${Math.round(FW * scale)}px`;
+      wrap.style.height = `${Math.round(FH * scale + band)}px`;
+      wrap.style.setProperty('--rf-band', `${band}px`);
+      wrap.style.setProperty('--rf-hero', `${compact ? ART.type.heroSmall : ART.type.hero}px`);
+      wrap.style.setProperty('--rf-value', `${compact ? ART.type.valueSmall : ART.type.value}px`);
       if (k === s.k && s.backdrop) return;
       s.k = k;
       s.viewScale = scale;
@@ -299,6 +399,7 @@ export default function RingFenceGame({ config, onWin, onLose }) {
       canvas.style.height = `${FH * scale}px`;
 
       s.backdrop = makeBackdrop(k);
+      s.hatch = ctx.createPattern(makeHatchTile(), 'repeat');
       const t = offscreen(FW, FH, k);
       s.terrCv = t.cv;
       s.terrCtx = t.c;
@@ -331,8 +432,10 @@ export default function RingFenceGame({ config, onWin, onLose }) {
     };
     fit();
 
+    // Observe the ROOT, not the stage — fit() writes the stage's size, and
+    // observing what you resize is how you get a ResizeObserver loop.
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
-    ro?.observe(wrap);
+    if (rootRef.current) ro?.observe(rootRef.current);
     window.addEventListener('orientationchange', fit);
 
     /* --- helpers --------------------------------------------------------- */
@@ -341,6 +444,15 @@ export default function RingFenceGame({ config, onWin, onLose }) {
       setBanner({ id: s.bannerSeq, kind, title, sub });
       clearTimeout(bannerTimerRef.current);
       bannerTimerRef.current = setTimeout(() => setBanner(null), cfg.fx.bannerSeconds * 1000);
+    };
+
+    // A single pulse of the board's own perimeter. The whole game is about a
+    // boundary holding or failing, so the boundary is what reacts.
+    const showFlash = (kind) => {
+      s.flashSeq += 1;
+      setFlash({ id: s.flashSeq, kind });
+      clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setFlash(null), 620);
     };
 
     const cellXY = (idx) => [
@@ -388,7 +500,7 @@ export default function RingFenceGame({ config, onWin, onLose }) {
         if (s.wave) {
           const ow = s.wave;
           const tc = s.terrCtx;
-          tc.fillStyle = '#1E5CC0';
+          tc.fillStyle = ART.claim.washFresh;
           for (let i = ow.ptr; i < ow.order.length; i++) {
             const idx = ow.cells[ow.order[i]];
             tc.fillRect((idx % world.cols) * CELL, Math.floor(idx / world.cols) * CELL, CELL + 0.5, CELL + 0.5);
@@ -416,6 +528,7 @@ export default function RingFenceGame({ config, onWin, onLose }) {
         if (big) {
           s.slowMo = cfg.fx.slowMoSeconds;
           fx.addShake(Math.min(9, 2.5 + res.pct * 0.2));
+          showFlash('claim');
           showBanner('secure', `${Math.round(res.pct)}% SECURED`, res.mult > 1 ? `x${res.mult} bold-cut bonus` : 'ground claimed');
         }
       },
@@ -439,6 +552,7 @@ export default function RingFenceGame({ config, onWin, onLose }) {
         fx.burst({ x, y, count: cfg.fx.hitParticles, color: COLORS.orangeBright, speed: 280, spread: Math.PI * 2, size: 3.4, life: 0.7, gravity: 460, drag: 0.9 });
         fx.burst({ x, y, count: 8, color: COLORS.dangerLt, speed: 180, spread: Math.PI * 2, size: 2.6, life: 0.5, gravity: 380, drag: 0.9 });
         fx.floatText(clamp(x, 52, FW - 52), clamp(y - 22, 28, FH - 30), cause === 'fuse' ? 'FUSE CAUGHT YOU' : 'TRAIL BURST', COLORS.dangerLt, 15);
+        showFlash('hit');
         showBanner('hit', 'Shield lost', `${livesLeft} ${livesLeft === 1 ? 'shield' : 'shields'} left`);
       },
 
@@ -478,15 +592,16 @@ export default function RingFenceGame({ config, onWin, onLose }) {
       w.r += cfg.fx.wavePxPerSecond * dt;
       const maxCellDist = w.r / CELL;
       const tc = s.terrCtx;
-      tc.fillStyle = '#1E5CC0';
+      tc.fillStyle = ART.claim.washFresh;
       let drawn = 0;
       while (w.ptr < w.order.length && w.dists[w.order[w.ptr]] <= maxCellDist) {
         const idx = w.cells[w.order[w.ptr]];
         const x = (idx % world.cols) * CELL;
         const y = Math.floor(idx / world.cols) * CELL;
         tc.fillRect(x, y, CELL + 0.5, CELL + 0.5);
-        // Particle crest, sampled along the frontier.
-        if ((w.ptr & 7) === 0) {
+        // Particle crest, sampled sparsely along the frontier — a big seal used
+        // to throw a confetti cloud, which read cheap and cost frames.
+        if ((w.ptr & 15) === 0) {
           fx.burst({
             x: x + CELL / 2, y: y + CELL / 2, count: cfg.fx.waveCrestParticles,
             color: (w.ptr & 15) === 0 ? '#9CC8FF' : COLORS.blueLt,
@@ -578,25 +693,34 @@ export default function RingFenceGame({ config, onWin, onLose }) {
         }
         ctx.stroke();
       }
-      if (s.shadows) {
-        ctx.shadowColor = frantic ? 'rgba(255,90,60,0.95)' : 'rgba(255,138,61,0.8)';
-        ctx.shadowBlur = 6 + pulse * 8;
-      }
-      ctx.strokeStyle = frantic ? COLORS.dangerLt : COLORS.orangeBright;
-      ctx.globalAlpha = 0.55 + pulse * 0.45;
-      ctx.lineWidth = 3.4 + pulse * 1.2;
-      ctx.beginPath();
+      // The live cut is drawn as a *provisional* construction line — long dashes
+      // travelling toward the head — so at a glance it can never be mistaken for
+      // the solid boundary it is trying to become.
+      const live = new Path2D();
       const from = Math.max(0, fuseAt);
       for (let i = from; i < len; i++) {
         const idx = world.trail[i];
         const x = ((idx % world.cols) + 0.5) * CELL;
         const y = (Math.floor(idx / world.cols) + 0.5) * CELL;
-        if (i === from) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+        if (i === from) live.moveTo(x, y);
+        else live.lineTo(x, y);
       }
-      // Connect to the guardian itself.
-      ctx.lineTo(playerX(world, cfg), playerY(world, cfg));
-      ctx.stroke();
+      live.lineTo(playerX(world, cfg), playerY(world, cfg)); // reach the guardian
+      ctx.strokeStyle = frantic ? COLORS.dangerLt : COLORS.orangeBright;
+      // A faint continuous core keeps the whole run of the cut legible.
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = ART.cut.core;
+      ctx.stroke(live);
+      if (s.shadows) {
+        ctx.shadowColor = frantic ? 'rgba(255,90,60,0.9)' : 'rgba(255,138,61,0.72)';
+        ctx.shadowBlur = 5 + pulse * 6;
+      }
+      ctx.globalAlpha = 0.62 + pulse * 0.38;
+      ctx.lineWidth = ART.cut.width + pulse * 0.9;
+      ctx.setLineDash(ART.cut.dash);
+      ctx.lineDashOffset = -s.time * ART.cut.travel;
+      ctx.stroke(live);
+      ctx.setLineDash([]);
       // Fuse spark head.
       if (fuseAt >= 0) {
         const idx = fuseCellOf(world);
@@ -637,69 +761,118 @@ export default function RingFenceGame({ config, onWin, onLose }) {
       ctx.restore();
     };
 
+    // The guardian is a surveyor's station marker: a seated shield with four
+    // cardinal ticks. The dark seat is what lifts it off the boundary band it
+    // rides — before, a blue marker on a blue wall simply vanished.
     const drawPlayer = () => {
       const p = world.player;
-      const x = playerX(world, cfg);
-      const y = playerY(world, cfg);
       const cutting = p.mode === 'cut';
       const flicker = p.invuln > 0 ? 0.35 + 0.65 * Math.abs(Math.sin(s.time * 16)) : 1;
+      const accent = cutting ? COLORS.orangeBright : COLORS.blueLt;
+      const spawn = Math.min(1, s.time * 2.4);
+      const sc = ART.player.scale * (0.62 + 0.38 * spawn);
+      const seat = sc * 1.3;
+      // Cosmetic only: nudge the marker in far enough that riding the outer
+      // frame never clips it against the canvas edge. Collision still reads the
+      // true position from rules.js.
+      const x = clamp(playerX(world, cfg), seat, FW - seat);
+      const y = clamp(playerY(world, cfg), seat, FH - seat);
       ctx.save();
       ctx.translate(x, y);
       ctx.globalAlpha = flicker;
-      const spawn = Math.min(1, s.time * 2.4);
-      const sc = 8 * (0.6 + 0.4 * spawn);
+
+      ctx.fillStyle = ART.player.seat;
+      ctx.beginPath();
+      ctx.arc(0, 0, seat, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = accent;
+      ctx.globalAlpha = flicker * 0.5;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, seat, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = flicker;
+
       if (s.shadows) {
-        ctx.shadowColor = cutting ? 'rgba(255,138,61,0.95)' : 'rgba(127,192,255,0.9)';
-        ctx.shadowBlur = 12 + Math.sin(s.time * 5) * 3;
+        ctx.shadowColor = cutting ? 'rgba(255,138,61,0.85)' : 'rgba(127,192,255,0.8)';
+        ctx.shadowBlur = 10;
       }
       ctx.scale(sc, sc);
       ctx.fillStyle = cutting ? s.bodyCut : s.bodySafe;
       ctx.fill(SHIELD);
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = 0.14;
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 0.13;
       ctx.stroke(SHIELD);
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      // Four cardinal ticks — the station's bearing marks.
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 0.16;
+      ctx.lineCap = 'round';
+      const t0 = 1.12;
+      const t1 = t0 + ART.player.tickLen;
       ctx.beginPath();
-      ctx.arc(0, 0.02, 0.34, 0, Math.PI * 2);
+      ctx.moveTo(0, -t0); ctx.lineTo(0, -t1);
+      ctx.moveTo(0, t0); ctx.lineTo(0, t1);
+      ctx.moveTo(-t0, 0); ctx.lineTo(-t1, 0);
+      ctx.moveTo(t0, 0); ctx.lineTo(t1, 0);
+      ctx.stroke();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(0, 0.02, 0.32, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     };
 
+    // An exclusion-zone marker, not an object: dashed construction circles plus
+    // a gold arc counting the telegraph down.
     const drawThirdWarning = () => {
       if (world.thirdState !== 'warning') return;
       const kk = 1 - world.thirdTimer / cfg.orbs.third.warningSeconds;
       const x = world.thirdX;
       const y = world.thirdY;
+      const r = cfg.orbs.radius + 9;
       ctx.save();
-      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(s.time * 12);
+      ctx.setLineDash([6, 5]);
+      ctx.lineDashOffset = -s.time * 22;
+      ctx.globalAlpha = 0.45 + 0.35 * Math.sin(s.time * 10);
       ctx.strokeStyle = COLORS.dangerLt;
-      ctx.lineWidth = 2.4;
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
-      ctx.arc(x, y, cfg.orbs.radius + 8, 0, Math.PI * 2);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.moveTo(x + r * 0.7, y);
+      ctx.arc(x, y, r * 0.7, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.setLineDash([]);
       ctx.globalAlpha = 1;
-      ctx.strokeStyle = COLORS.danger;
-      ctx.lineWidth = 3.2;
+      ctx.strokeStyle = COLORS.gold;
+      ctx.lineWidth = 2.6;
       ctx.beginPath();
-      ctx.arc(x, y, cfg.orbs.radius + 8, -Math.PI / 2, -Math.PI / 2 + kk * Math.PI * 2);
+      ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + kk * Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     };
 
+    // The seal sweep: two thin arcs chasing the flood front, the way a survey
+    // sweep reads. One fat glowing ring was the cheapest thing on the field.
     const drawWaveCrest = () => {
       const w = s.wave;
       if (!w) return;
       ctx.save();
-      ctx.globalAlpha = 0.5;
-      ctx.strokeStyle = '#BFE0FF';
+      ctx.strokeStyle = COLORS.blueLt;
       if (s.shadows) {
-        ctx.shadowColor = 'rgba(127,192,255,0.9)';
-        ctx.shadowBlur = 16;
+        ctx.shadowColor = 'rgba(127,192,255,0.85)';
+        ctx.shadowBlur = 10;
       }
-      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.72;
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.arc(w.ox, w.oy, w.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(w.ox, w.oy, Math.max(0, w.r - 9), 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     };
@@ -712,7 +885,8 @@ export default function RingFenceGame({ config, onWin, onLose }) {
       fx.beginCamera(ctx);
       ctx.drawImage(s.backdrop, 0, 0, FW, FH);
       ctx.drawImage(s.terrCv, 0, 0, FW, FH);
-      ctx.globalAlpha = 0.55 + 0.35 * Math.sin(s.time * 2.6);
+      // The boundary breathes barely at all. It is structure; structure holds.
+      ctx.globalAlpha = 1 - ART.wall.breathe + ART.wall.breathe * Math.sin(s.time * 2.2);
       ctx.drawImage(s.edgeCv, 0, 0, FW, FH);
       ctx.globalAlpha = 1;
 
@@ -741,6 +915,10 @@ export default function RingFenceGame({ config, onWin, onLose }) {
       if (pctInt !== s.shownPct) {
         s.shownPct = pctInt;
         if (pctElRef.current) pctElRef.current.textContent = `${(pctInt / 10).toFixed(1)}%`;
+        // The rail is the goal made visible: 100% of the rail == the win line.
+        if (railElRef.current) {
+          railElRef.current.style.width = `${Math.min(100, (pctInt / 10 / cfg.winPct) * 100)}%`;
+        }
       }
       const sec = Math.max(0, Math.ceil(cfg.sessionSeconds - world.time));
       if (sec !== s.shownSecond) {
@@ -850,6 +1028,7 @@ export default function RingFenceGame({ config, onWin, onLose }) {
       window.removeEventListener('orientationchange', fit);
       clearTimeout(endTimerRef.current);
       clearTimeout(bannerTimerRef.current);
+      clearTimeout(flashTimerRef.current);
       fx.reset();
       audio.destroy();
       s.effects = null;
@@ -868,80 +1047,102 @@ export default function RingFenceGame({ config, onWin, onLose }) {
   const lowTime = timeLeft <= cfg.hud.lowTimeSeconds;
 
   return (
-    <div style={styles.root}>
+    <div ref={rootRef} style={styles.root}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
       <div ref={wrapRef} style={styles.stage} className="rf-stage">
-        <canvas ref={canvasRef} style={styles.canvas} />
+        {/* HUD chrome band — sits above the plot, never over it -------- */}
+        <div style={styles.hudBand}>
+          <div style={styles.hudRow}>
+            <div style={styles.hudSide}>
+              <span style={styles.hudLabel}>Score</span>
+              <span ref={scoreElRef} style={styles.hudValue}>0</span>
+            </div>
 
-        {/* HUD ------------------------------------------------------- */}
-        <div style={styles.hudTop}>
-          <div style={styles.pill}>
-            <span style={styles.pillLabel}>Score</span>
-            <span ref={scoreElRef} style={styles.pillValue}>0</span>
+            <div style={styles.hudCentre}>
+              <span ref={pctElRef} style={styles.hudHero}>0.0%</span>
+              <span style={styles.hudCaption}>secured</span>
+            </div>
+
+            <div style={{ ...styles.hudSide, alignItems: 'flex-end' }}>
+              <span style={styles.hudLabel}>Time</span>
+              <span style={{
+                ...styles.hudValue,
+                color: lowTime ? COLORS.orangeBright : '#fff',
+                animation: lowTime ? 'rfPulse 0.9s ease-in-out infinite' : 'none',
+              }}>
+                {timeLeft}s
+              </span>
+            </div>
           </div>
 
-          <div style={styles.pctWrap}>
-            <span ref={pctElRef} style={styles.pctBig}>0.0%</span>
-            <span style={styles.pctSub}>secure {cfg.winPct}% to win</span>
+          {/* Goal rail: the win line made visible, with a gold target tick */}
+          <div style={styles.railRow}>
             <div style={styles.livesRow}>
               {Array.from({ length: cfg.lives }).map((_, i) => (
                 <span
                   key={i}
-                  className={i < lives ? 'rf-pip' : undefined}
                   style={{
                     ...styles.pip,
-                    background: i < lives ? 'linear-gradient(180deg, #7FC0FF, #1E6BE0)' : 'rgba(255,255,255,0.1)',
-                    boxShadow: i < lives ? '0 0 8px rgba(30,107,224,0.7)' : 'none',
-                    opacity: i < lives ? 1 : 0.4,
+                    borderColor: i < lives ? 'rgba(127,192,255,0.9)' : 'rgba(255,255,255,0.22)',
+                    background: i < lives ? 'rgba(127,192,255,0.2)' : 'transparent',
                   }}
                 >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                    stroke={i < lives ? '#fff' : 'rgba(255,255,255,0.5)'}
-                    strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+                    stroke={i < lives ? COLORS.blueLt : 'rgba(255,255,255,0.28)'}
+                    strokeWidth={i < lives ? 3 : 2}
+                    strokeDasharray={i < lives ? undefined : '4 4'}
+                    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
                   </svg>
                 </span>
               ))}
             </div>
-          </div>
-
-          <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Time</span>
-            <span style={{
-              ...styles.pillValue,
-              color: lowTime ? COLORS.orangeBright : '#fff',
-              animation: lowTime ? 'rfPulse 0.9s ease-in-out infinite' : 'none',
-            }}>
-              {timeLeft}s
-            </span>
+            <div style={styles.rail}>
+              <div ref={railElRef} style={styles.railFill} />
+              <span style={styles.railTarget} />
+            </div>
+            <span style={styles.railGoal}>{cfg.winPct}%</span>
           </div>
         </div>
+
+        <div style={styles.field}>
+          <canvas ref={canvasRef} style={styles.canvas} />
+        </div>
+
+        {/* Perimeter feedback — the boundary itself reacts ------------- */}
+        {flash && (
+          <div
+            key={flash.id}
+            className={flash.kind === 'hit' ? 'rf-flash-hit' : 'rf-flash-claim'}
+            style={styles.flashRing}
+          />
+        )}
+        {lowTime && !over && <div style={styles.lowTimeEdge} className="rf-lowtime" />}
 
         {campPct > 0 && !over && (
           <div style={styles.campWrap}>
             <div className="rf-camp" style={styles.campChip}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={COLORS.orangeBright}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={COLORS.orangeBright}
                 strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
                 <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
               </svg>
-              <span style={{ color: COLORS.orangeBright }}>Risks +{campPct}% — claim ground!</span>
+              <span style={{ color: COLORS.orangeBright }}>Risks +{campPct}%</span>
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>claim ground</span>
             </div>
           </div>
         )}
 
-        {/* Outcome banner -------------------------------------------- */}
+        {/* Outcome banner: a measured plate with a coloured rule, not candy */}
         {banner && (
           <div key={banner.id} style={styles.bannerWrap} className="rf-banner">
             <div style={{
               ...styles.banner,
-              background: banner.kind === 'hit'
-                ? 'linear-gradient(180deg, rgba(239,68,68,0.95), rgba(120,18,18,0.95))'
-                : banner.kind === 'warn'
-                  ? 'linear-gradient(180deg, rgba(242,101,34,0.95), rgba(140,55,8,0.95))'
-                  : 'linear-gradient(180deg, rgba(40,167,69,0.95), rgba(10,90,40,0.95))',
+              borderLeft: `3px solid ${BANNER_ACCENT[banner.kind] || COLORS.blueLt}`,
             }}>
-              <span style={styles.bannerTitle}>{banner.title}</span>
+              <span style={{ ...styles.bannerTitle, color: BANNER_ACCENT[banner.kind] || '#fff' }}>
+                {banner.title}
+              </span>
               <span style={styles.bannerSub}>{banner.sub}</span>
             </div>
           </div>
@@ -951,9 +1152,13 @@ export default function RingFenceGame({ config, onWin, onLose }) {
         {hint && !over && (
           <div style={styles.hintWrap} className="rf-hint">
             <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeBright }}>Swipe / drag</strong> to steer ·{' '}
-              leave the wall to <strong style={{ color: COLORS.blueLt }}>cut</strong>, return to{' '}
-              <strong style={{ color: COLORS.greenLt }}>seal</strong>
+              <span style={styles.hintLine}>
+                <strong style={{ color: COLORS.orangeBright }}>Drag</strong> to steer the guardian
+              </span>
+              <span style={styles.hintLine}>
+                Leave the wall to <strong style={{ color: COLORS.orangeBright }}>cut</strong> ·
+                {' '}return to <strong style={{ color: COLORS.blueLt }}>claim</strong>
+              </span>
             </div>
           </div>
         )}
@@ -962,7 +1167,11 @@ export default function RingFenceGame({ config, onWin, onLose }) {
             3-2-1 runs, then GO covers the brief live input lock. */}
         {reacquire >= 0 && !paused && !over && (
           <div style={styles.reacquireVeil}>
-            <div key={reacquire} className="rf-count" style={styles.reacquireCount}>
+            <div
+              key={reacquire}
+              className="rf-count"
+              style={{ ...styles.reacquireCount, fontSize: reacquire > 0 ? 54 : 32, letterSpacing: reacquire > 0 ? '-0.04em' : '0.06em' }}
+            >
               {reacquire > 0 ? reacquire : 'GO'}
             </div>
             <div style={styles.reacquireLabel}>
@@ -1010,28 +1219,48 @@ export default function RingFenceGame({ config, onWin, onLose }) {
 }
 
 /* ─── Styles ─────────────────────────────────────────────── */
+const ROOT_PAD = 10;
+
+const BANNER_ACCENT = {
+  hit: COLORS.dangerLt,
+  warn: COLORS.orangeBright,
+  secure: COLORS.blueLt,
+};
+
 const CSS = `
 @keyframes rfIn { from { opacity: 0; transform: scale(0.965) translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes rfPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
 @keyframes rfBanner {
-  0%   { opacity: 0; transform: translateY(16px) scale(0.86); }
-  18%  { opacity: 1; transform: translateY(0) scale(1.06); }
-  30%  { transform: translateY(0) scale(1); }
-  80%  { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-14px) scale(0.96); }
+  0%   { opacity: 0; transform: translateY(10px); }
+  14%  { opacity: 1; transform: translateY(0); }
+  82%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
 }
-@keyframes rfHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
-@keyframes rfCamp { 0%,100% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
-@keyframes rfPip { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes rfHint { 0%,100% { opacity: 0.68; } 50% { opacity: 1; } }
+@keyframes rfCamp { 0%,100% { opacity: 0.72; } 50% { opacity: 1; } }
 @keyframes rfCount { from { opacity: 0; transform: scale(1.55); } 55% { opacity: 1; transform: scale(1); } to { opacity: 0.85; transform: scale(1); } }
-.rf-count  { animation: rfCount 460ms cubic-bezier(0.22,1,0.36,1) both; }
-.rf-stage  { animation: rfIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
-.rf-banner { animation: rfBanner 1.5s ease-out both; }
-.rf-hint   { animation: rfHint 1.6s ease-in-out infinite; }
-.rf-camp   { animation: rfCamp 1.1s ease-in-out infinite; }
-.rf-pip    { animation: rfPip 2.4s ease-in-out infinite; }
+@keyframes rfFlashClaim {
+  from { opacity: 0; box-shadow: inset 0 0 0 1px rgba(127,192,255,0.9), inset 0 0 34px rgba(30,107,224,0.55); }
+  25%  { opacity: 1; }
+  to   { opacity: 0; box-shadow: inset 0 0 0 1px rgba(127,192,255,0), inset 0 0 60px rgba(30,107,224,0); }
+}
+@keyframes rfFlashHit {
+  from { opacity: 0; box-shadow: inset 0 0 0 2px rgba(239,68,68,0.95), inset 0 0 40px rgba(239,68,68,0.5); }
+  18%  { opacity: 1; }
+  to   { opacity: 0; box-shadow: inset 0 0 0 2px rgba(239,68,68,0), inset 0 0 70px rgba(239,68,68,0); }
+}
+@keyframes rfLowTime { 0%,100% { opacity: 0.35; } 50% { opacity: 0.85; } }
+.rf-count      { animation: rfCount 460ms cubic-bezier(0.22,1,0.36,1) both; }
+.rf-stage      { animation: rfIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
+.rf-banner     { animation: rfBanner 1.5s cubic-bezier(0.22,1,0.36,1) both; }
+.rf-hint       { animation: rfHint 2.2s ease-in-out infinite; }
+.rf-camp       { animation: rfCamp 1.4s ease-in-out infinite; }
+.rf-flash-claim{ animation: rfFlashClaim 620ms ease-out both; }
+.rf-flash-hit  { animation: rfFlashHit 620ms ease-out both; }
+.rf-lowtime    { animation: rfLowTime 0.9s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .rf-stage, .rf-banner, .rf-hint, .rf-camp, .rf-pip, .rf-count {
+  .rf-stage, .rf-banner, .rf-hint, .rf-camp, .rf-count,
+  .rf-flash-claim, .rf-flash-hit, .rf-lowtime {
     animation-duration: 1ms !important; animation-iteration-count: 1 !important;
   }
 }
@@ -1052,97 +1281,130 @@ const styles = {
     maxWidth: 430,
     margin: '0 auto',
     display: 'flex',
-    padding: 10,
-    boxSizing: 'border-box',
-  },
-  stage: {
-    position: 'relative',
-    flex: 1,
-    minHeight: 420,
-    borderRadius: 20,
-    overflow: 'hidden',
-    background: COLORS.bgDark,
-    border: '1.5px solid rgba(255,255,255,0.1)',
-    boxShadow: '0 20px 44px rgba(0,0,0,0.55)',
-    touchAction: 'none',
-    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: ROOT_PAD,
+    boxSizing: 'border-box',
   },
-  canvas: { display: 'block', touchAction: 'none' },
-  hudTop: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
+  // fit() writes width/height; the board is exactly field + HUD band, so no
+  // letterbox strip is ever left over.
+  stage: {
+    position: 'relative',
+    borderRadius: 18,
+    overflow: 'hidden',
+    background: ART.sheet.bottom,
+    border: '1px solid rgba(127,192,255,0.16)',
+    boxShadow: '0 24px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07)',
+    touchAction: 'none',
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8,
+    flexDirection: 'column',
+  },
+  hudBand: {
+    height: 'var(--rf-band, 62px)',
+    flex: '0 0 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 5,
+    padding: '4px 12px',
+    background: 'linear-gradient(180deg, rgba(11,25,48,0.96), rgba(7,17,37,0.92))',
+    borderBottom: '1px solid rgba(127,192,255,0.16)',
     pointerEvents: 'none',
     zIndex: 4,
   },
-  pill: {
-    ...glass,
-    display: 'flex',
-    flexDirection: 'column',
-    borderRadius: 12,
-    padding: '5px 11px',
-    minWidth: 72,
-  },
-  pillLabel: {
-    fontSize: 8,
+  hudRow: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },
+  hudSide: { display: 'flex', flexDirection: 'column', minWidth: 62 },
+  hudLabel: {
+    fontSize: ART.type.label,
     fontWeight: 800,
-    letterSpacing: '0.16em',
+    letterSpacing: '0.2em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.45)',
+    lineHeight: 1.4,
   },
-  pillValue: {
-    fontSize: 18,
+  hudValue: {
+    fontSize: `var(--rf-value, ${ART.type.value}px)`,
     fontWeight: 900,
     color: '#fff',
-    lineHeight: 1.15,
+    lineHeight: 1,
     fontVariantNumeric: 'tabular-nums',
     display: 'inline-block',
   },
-  pctWrap: {
-    ...glass,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    borderRadius: 14,
-    padding: '5px 16px 7px',
-    minWidth: 118,
-  },
-  pctBig: {
-    fontSize: 24,
+  hudCentre: { display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 },
+  hudHero: {
+    fontSize: `var(--rf-hero, ${ART.type.hero}px)`,
     fontWeight: 900,
     color: '#fff',
-    lineHeight: 1.05,
-    letterSpacing: '-0.02em',
+    lineHeight: 1,
+    letterSpacing: '-0.035em',
     fontVariantNumeric: 'tabular-nums',
-    textShadow: '0 0 14px rgba(127,192,255,0.5)',
   },
-  pctSub: {
-    fontSize: 8,
+  hudCaption: {
+    fontSize: ART.type.caption,
     fontWeight: 800,
-    letterSpacing: '0.12em',
+    letterSpacing: '0.22em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(127,192,255,0.7)',
+    lineHeight: 1,
+    marginTop: 3,
   },
-  livesRow: { display: 'flex', gap: 4, marginTop: 4 },
+  railRow: { display: 'flex', alignItems: 'center', gap: 8 },
+  rail: {
+    position: 'relative',
+    flex: 1,
+    height: ART.hud.rail,
+    borderRadius: ART.hud.rail,
+    background: 'rgba(255,255,255,0.1)',
+    overflow: 'visible',
+  },
+  railFill: {
+    width: '0%',
+    height: '100%',
+    borderRadius: ART.hud.rail,
+    background: `linear-gradient(90deg, ${COLORS.blue}, ${COLORS.blueLt})`,
+    boxShadow: '0 0 8px rgba(127,192,255,0.55)',
+  },
+  railTarget: {
+    position: 'absolute',
+    right: -1,
+    top: -3,
+    width: 2,
+    height: ART.hud.rail + 6,
+    borderRadius: 1,
+    background: COLORS.gold,
+  },
+  railGoal: {
+    fontSize: ART.type.caption,
+    fontWeight: 900,
+    letterSpacing: '0.1em',
+    color: COLORS.gold,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  field: { position: 'relative', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  canvas: { display: 'block', touchAction: 'none' },
+  livesRow: { display: 'flex', gap: 3 },
   pip: {
-    width: 18,
-    height: 18,
-    borderRadius: 7,
+    width: 13,
+    height: 13,
+    borderRadius: 4,
+    border: '1px solid',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'background 260ms ease, opacity 260ms ease, box-shadow 260ms ease',
+    transition: 'background 260ms ease, border-color 260ms ease',
+  },
+  flashRing: { position: 'absolute', inset: 0, borderRadius: 18, pointerEvents: 'none', zIndex: 7 },
+  lowTimeEdge: {
+    position: 'absolute',
+    inset: 0,
+    borderRadius: 18,
+    boxShadow: 'inset 0 0 46px rgba(239,68,68,0.4)',
+    pointerEvents: 'none',
+    zIndex: 3,
   },
   campWrap: {
     position: 'absolute',
-    top: 86,
+    top: 'calc(var(--rf-band, 62px) + 10px)',
     left: 10,
     right: 10,
     display: 'flex',
@@ -1150,22 +1412,24 @@ const styles = {
     pointerEvents: 'none',
     zIndex: 4,
   },
+  // A pressure warning, not an alarm: it must be noticed without owning the
+  // screen, so it stays a hairline chip on the sheet's own dark.
   campChip: {
-    ...glass,
     display: 'flex',
     alignItems: 'center',
     gap: 5,
-    borderRadius: 999,
-    padding: '4px 11px',
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: '0.08em',
+    borderRadius: 3,
+    padding: '4px 10px',
+    fontSize: 9,
+    fontWeight: 800,
+    letterSpacing: '0.13em',
     textTransform: 'uppercase',
-    borderColor: 'rgba(255,138,61,0.5)',
+    background: 'rgba(6,15,33,0.82)',
+    border: '1px solid rgba(255,138,61,0.35)',
   },
   bannerWrap: {
     position: 'absolute',
-    top: '34%',
+    top: '36%',
     left: 0,
     right: 0,
     display: 'flex',
@@ -1176,24 +1440,26 @@ const styles = {
   banner: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    gap: 2,
-    padding: '10px 22px',
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.28)',
-    boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
+    gap: 3,
+    padding: '10px 18px 10px 15px',
+    borderRadius: 4,
+    background: 'rgba(6,15,33,0.93)',
+    border: '1px solid rgba(255,255,255,0.14)',
+    boxShadow: '0 18px 40px rgba(0,0,0,0.55)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
   },
-  bannerTitle: { fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' },
+  bannerTitle: { fontSize: ART.type.bannerTitle, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.1 },
   bannerSub: {
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: '0.14em',
+    fontSize: ART.type.bannerSub,
+    fontWeight: 800,
+    letterSpacing: '0.16em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(255,255,255,0.62)',
   },
   hintWrap: {
     position: 'absolute',
-    bottom: 64,
+    bottom: 58,
     left: 12,
     right: 12,
     display: 'flex',
@@ -1203,13 +1469,19 @@ const styles = {
   },
   hint: {
     ...glass,
-    borderRadius: 999,
-    padding: '9px 16px',
-    fontSize: 12,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.92)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 2,
+    borderRadius: 10,
+    padding: '8px 16px',
+    fontSize: ART.type.hint,
+    fontWeight: 600,
+    color: 'rgba(255,255,255,0.86)',
     textAlign: 'center',
+    lineHeight: 1.35,
   },
+  hintLine: { whiteSpace: 'nowrap' },
   reacquireVeil: {
     position: 'absolute',
     inset: 0,
@@ -1217,27 +1489,35 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
     // Deliberately light: the player must SEE the field to re-acquire it.
-    background: 'rgba(11,18,33,0.42)',
+    background: 'rgba(5,14,31,0.44)',
     pointerEvents: 'none',
     zIndex: 8,
   },
   reacquireCount: {
-    fontSize: 68,
+    width: 108,
+    height: 108,
+    borderRadius: '50%',
+    border: `1.5px solid ${COLORS.blueLt}`,
+    boxShadow: '0 0 0 8px rgba(11,25,48,0.5), 0 0 30px rgba(30,107,224,0.4)',
+    background: 'rgba(6,15,33,0.72)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 54,
     fontWeight: 900,
     color: '#fff',
     lineHeight: 1,
     letterSpacing: '-0.04em',
-    textShadow: '0 4px 24px rgba(0,0,0,0.7)',
     fontVariantNumeric: 'tabular-nums',
   },
   reacquireLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: 900,
-    letterSpacing: '0.2em',
+    letterSpacing: '0.24em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(127,192,255,0.85)',
+    marginTop: 12,
   },
   pauseVeil: {
     position: 'absolute',
@@ -1252,16 +1532,17 @@ const styles = {
     WebkitBackdropFilter: 'blur(8px)',
     zIndex: 8,
   },
+  // Quiet by design: a utility control should never out-rank the field.
   muteBtn: {
     position: 'absolute',
-    right: 10,
-    bottom: 10,
+    right: 8,
+    bottom: 8,
     width: 44,
     height: 44,
-    borderRadius: 14,
-    background: 'rgba(11,18,33,0.6)',
-    border: '1px solid rgba(255,255,255,0.16)',
-    color: '#fff',
+    borderRadius: 12,
+    background: 'rgba(5,14,31,0.55)',
+    border: '1px solid rgba(127,192,255,0.18)',
+    color: 'rgba(255,255,255,0.55)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

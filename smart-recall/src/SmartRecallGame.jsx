@@ -271,10 +271,14 @@ function offscreen(w, h, dpr) {
 /**
  * One tile face.
  *
- * Resting: the goal's hue held back into the board's deep blue, so nine tiles
- * read as one object rather than nine competing ones. Lit: the same tile at
- * full saturation with its glow baked in — `pad` exists so the shadow has room
- * and is not clipped at the bitmap edge.
+ * Resting: the goal's own hue, OPAQUE, at `colorRest` — see the note in data.js
+ * for why this cannot be an alpha wash. Lit: the same hue at full chroma with
+ * its glow baked in — `pad` exists so the shadow has room and is not clipped at
+ * the bitmap edge.
+ *
+ * Both states end in a scrim-backed label plate. That plate is the reason one
+ * label colour is legible on a lime tile and on a navy one alike; without it
+ * the light goals fail AA and the dark ones are over-contrasted.
  */
 function makeTileBitmap(goal, size, pad, dpr, lit, shadows) {
   const total = size + pad * 2;
@@ -285,7 +289,7 @@ function makeTileBitmap(goal, size, pad, dpr, lit, shadows) {
 
   if (lit && shadows) {
     c.shadowColor = goal.color;
-    c.shadowBlur = size * 0.3;
+    c.shadowBlur = size * 0.42;
   }
 
   const g = c.createLinearGradient(0, 0, 0, size);
@@ -294,9 +298,9 @@ function makeTileBitmap(goal, size, pad, dpr, lit, shadows) {
     g.addColorStop(0.5, goal.color);
     g.addColorStop(1, goal.colorDeep);
   } else {
-    g.addColorStop(0, 'rgba(255,255,255,0.10)');
-    g.addColorStop(0.42, `${goal.colorDeep}D9`);
-    g.addColorStop(1, 'rgba(6,18,41,0.92)');
+    g.addColorStop(0, goal.colorRest);
+    g.addColorStop(0.55, goal.colorRest);
+    g.addColorStop(1, goal.colorDeep);
   }
   c.fillStyle = g;
   c.beginPath();
@@ -305,31 +309,46 @@ function makeTileBitmap(goal, size, pad, dpr, lit, shadows) {
   c.shadowBlur = 0;
 
   // Glass rim: a bright top edge and a dark bottom one, which is what makes a
-  // flat rounded rect read as a physical key rather than a coloured square.
-  c.strokeStyle = lit ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.16)';
-  c.lineWidth = 1.4;
+  // flat rounded rect read as a physical key rather than a coloured square. It
+  // is also the tile's boundary against the board, so it carries the 3:1 the
+  // fill alone does not have to.
+  c.strokeStyle = lit ? COLORS.tileRimLit : COLORS.tileRim;
+  c.lineWidth = lit ? 2 : 1.6;
   c.beginPath();
-  c.roundRect(0.7, 0.7, size - 1.4, size - 1.4, r - 0.7);
+  c.roundRect(0.8, 0.8, size - 1.6, size - 1.6, r - 0.8);
   c.stroke();
 
   const sheen = c.createLinearGradient(0, 0, 0, size * 0.52);
-  sheen.addColorStop(0, `rgba(255,255,255,${lit ? 0.32 : 0.12})`);
+  sheen.addColorStop(0, `rgba(255,255,255,${lit ? 0.38 : 0.20})`);
   sheen.addColorStop(1, 'rgba(255,255,255,0)');
   c.fillStyle = sheen;
   c.beginPath();
   c.roundRect(1.5, 1.5, size - 3, size * 0.5, [r - 1, r - 1, r * 0.6, r * 0.6]);
   c.fill();
 
+  // Label plate: a bottom-up scrim clipped to the tile. Fixes label contrast on
+  // all nine hues at once rather than hand-tuning nine label colours.
+  c.save();
+  c.beginPath();
+  c.roundRect(0, 0, size, size, r);
+  c.clip();
+  const scrim = c.createLinearGradient(0, size * 0.56, 0, size);
+  scrim.addColorStop(0, 'rgba(4,10,22,0)');
+  scrim.addColorStop(1, COLORS.tileScrim);
+  c.fillStyle = scrim;
+  c.fillRect(0, size * 0.56, size, size * 0.44);
+  c.restore();
+
   // Icon.
   const iconS = size * 0.215;
   c.save();
-  c.translate(size / 2, size * 0.42);
+  c.translate(size / 2, size * 0.4);
   drawIcon(
     c,
     goal.icon,
     iconS,
     lit ? '#FFFFFF' : goal.colorLt,
-    lit ? goal.color : 'rgba(9,20,42,0.95)',
+    lit ? goal.color : goal.colorDeep,
   );
   c.restore();
 
@@ -338,8 +357,8 @@ function makeTileBitmap(goal, size, pad, dpr, lit, shadows) {
   c.font = `900 ${labelSize}px 'Poppins', 'Plus Jakarta Sans', system-ui, sans-serif`;
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.fillStyle = lit ? 'rgba(255,255,255,0.96)' : 'rgba(255,255,255,0.52)';
-  c.fillText(goal.label.toUpperCase(), size / 2, size * 0.8);
+  c.fillStyle = lit ? '#FFFFFF' : COLORS.labelInk;
+  c.fillText(goal.label.toUpperCase(), size / 2, size * 0.82);
 
   return cv;
 }
@@ -361,18 +380,18 @@ function makeBoardBitmap(s, dpr) {
     g.x + g.side / 2, g.y + g.side / 2, g.side * 0.1,
     g.x + g.side / 2, g.y + g.side / 2, g.side * 0.95,
   );
-  well.addColorStop(0, 'rgba(38,102,196,0.30)');
-  well.addColorStop(1, 'rgba(38,102,196,0)');
+  well.addColorStop(0, COLORS.boardWell);
+  well.addColorStop(1, 'rgba(64,150,255,0)');
   c.fillStyle = well;
   c.fillRect(0, 0, W, H);
 
-  // The board plate the nine tiles sit in.
-  const m = g.gap * 0.9;
-  c.fillStyle = 'rgba(255,255,255,0.035)';
-  c.strokeStyle = 'rgba(255,255,255,0.09)';
-  c.lineWidth = 1.2;
+  // The board plate the nine tiles sit in. Its edge is tinted rather than plain
+  // white so the stage reads as one lit object under the tiles.
+  c.fillStyle = COLORS.platePaint;
+  c.strokeStyle = COLORS.plateEdge;
+  c.lineWidth = 1.6;
   c.beginPath();
-  c.roundRect(g.x - m, g.y - m, g.side + m * 2, g.side + m * 2, g.tile * 0.28);
+  c.roundRect(g.plateX, g.plateY, g.plateW, g.plateH, g.plateR);
   c.fill();
   c.stroke();
 
@@ -385,15 +404,21 @@ function buildPaints(ctx, tile) {
   // letting the goal's silhouette read through it — the player has to remember
   // WHICH goal was the detour, not just that one of them was.
   const risk = ctx.createLinearGradient(0, -tile / 2, 0, tile / 2);
-  risk.addColorStop(0, 'rgba(255,139,139,0.72)');
-  risk.addColorStop(0.45, 'rgba(239,68,68,0.80)');
-  risk.addColorStop(1, 'rgba(127,29,29,0.86)');
+  risk.addColorStop(0, 'rgba(255,120,110,0.80)');
+  risk.addColorStop(0.45, 'rgba(255,59,48,0.88)');
+  risk.addColorStop(1, 'rgba(138,15,15,0.92)');
+
+  // Correct-tap confirmation wash. Green is the second half of the signal; the
+  // tick drawn on top of it is the first, so the state survives colour blindness.
+  const good = ctx.createLinearGradient(0, -tile / 2, 0, tile / 2);
+  good.addColorStop(0, 'rgba(140,255,190,0.30)');
+  good.addColorStop(1, 'rgba(40,167,69,0.10)');
 
   const veil = ctx.createLinearGradient(0, 0, 0, 96);
-  veil.addColorStop(0, 'rgba(6,16,34,0.72)');
-  veil.addColorStop(1, 'rgba(6,16,34,0)');
+  veil.addColorStop(0, 'rgba(5,15,40,0.78)');
+  veil.addColorStop(1, 'rgba(5,15,40,0)');
 
-  return { risk, veil };
+  return { risk, good, veil };
 }
 
 /* ─── Component ──────────────────────────────────────────── */
@@ -456,6 +481,12 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
       pressAmt: new Float32Array(TILE_COUNT),
       shakeAmt: new Float32Array(TILE_COUNT),
       riskAmt: new Float32Array(TILE_COUNT),
+      // Confirmed-correct tap. Separate from litAmt (playback also lights a
+      // tile) and from pressAmt (a wrong tap is still a press), because this is
+      // the one that draws the tick.
+      okAmt: new Float32Array(TILE_COUNT),
+      // Round-cleared flash on the board plate. Scalar, one at a time.
+      clearAmt: 0,
 
       score: 0,
       scoreShown: 0,
@@ -545,14 +576,22 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
         cy[i] = y + row * (tile + gap) + tile / 2;
       }
 
-      // Perimeter of the idle ring's rounded rect, for the dash countdown.
-      const m = gap * 1.5;
+      // The board plate, exactly as makeBoardBitmap paints it. The idle
+      // countdown and the round-cleared ring both trace THIS rect: they used to
+      // sit on a wider one (gap * 1.5) that is off the side of a 320 px stage,
+      // so the countdown showed up as a stray line across the board rather than
+      // as a ring closing in on it.
+      const m = gap * 0.9;
       const rw = side + m * 2;
       const rh = side + m * 2;
-      const rr = tile * 0.3;
+      const rr = tile * 0.28;
       const perimeter = 2 * (rw + rh) - 8 * rr + TAU * rr;
 
-      return { x, y, side, tile, gap, cx, cy, ringX: x - m, ringY: y - m, ringW: rw, ringH: rh, ringR: rr, perimeter, dotY: y + side + gap * 1.9 };
+      return {
+        x, y, side, tile, gap, cx, cy,
+        plateX: x - m, plateY: y - m, plateW: rw, plateH: rh, plateR: rr,
+        perimeter, dotY: y + side + gap * 1.9,
+      };
     };
 
     const fit = () => {
@@ -680,6 +719,7 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
       s.score += bonus;
       s.roundsCleared += 1;
       s.bestLen = s.seq.len;
+      s.clearAmt = 1;
 
       const g = s.grid;
       const bx = g.x + g.side / 2;
@@ -687,7 +727,9 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
       audio.powerUp();
       haptic('success');
       fx.burst({ x: bx, y: by, count: cfg.fx.roundClearParticles, color: COLORS.greenLt, speed: 250, spread: TAU, size: 3.6, life: 0.9, gravity: 320, drag: 0.92 });
-      fx.floatText(bx, clamp(by - g.side * 0.3, 36, s.H - 40), `+${bonus}`, s.roundSlips === 0 ? COLORS.goldLt : COLORS.greenLt, 20);
+      // Above the plate, not across the top row of tiles — same reason as the
+      // per-step +score.
+      fx.floatText(bx, clamp(g.plateY - 14, 36, s.H - 40), `+${bonus}`, s.roundSlips === 0 ? COLORS.goldLt : COLORS.greenLt, 20);
 
       if (s.round >= totalRounds) {
         endRun(true, 'cleared');
@@ -751,15 +793,23 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
       if (res.ok) {
         s.marks[idx] = 1;
         s.litAmt[i] = 1;
+        s.okAmt[i] = 1;
         const gain = stepScore(cfg, s.round);
         s.score += gain;
         audio.combo(GOALS[i].pitch);
         haptic('light');
         burstAt(i, cfg.fx.correctParticles, GOALS[i].colorLt, 205, 3.1, 0.62);
+        // Gold, not the tile's own light tint. The tint used to be drawn over a
+        // tile of very nearly that colour, so on a bright goal the +score was
+        // invisible; gold is the design system's value accent and it reads on
+        // all nine hues and on the board.
+        // Starts just ABOVE the tile, not on it: the kit fades floating text
+        // linearly, and a half-faded gold number printed over a full-chroma tile
+        // is unreadable. On the board behind it, it is not.
         fx.floatText(
           clamp(s.grid.cx[i], 40, s.W - 40),
-          clamp(s.grid.cy[i] - s.grid.tile * 0.34, 34, s.H - 40),
-          `+${gain}`, GOALS[i].colorLt, 15,
+          clamp(s.grid.cy[i] - s.grid.tile * 0.62, 34, s.H - 40),
+          `+${gain}`, COLORS.goldLt, 16,
         );
         if (res.roundDone) completeRound();
       } else {
@@ -783,12 +833,15 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
       const pressK = dt / cfg.fx.pressSeconds;
       const shakeK = dt / cfg.fx.tileShakeSeconds;
       const riskK = dt / Math.max(0.12, s.litSeconds * 1.25);
+      const okK = dt / cfg.fx.okSeconds;
       for (let i = 0; i < TILE_COUNT; i++) {
         if (s.litAmt[i] > 0) s.litAmt[i] = Math.max(0, s.litAmt[i] - litK);
         if (s.pressAmt[i] > 0) s.pressAmt[i] = Math.max(0, s.pressAmt[i] - pressK);
         if (s.shakeAmt[i] > 0) s.shakeAmt[i] = Math.max(0, s.shakeAmt[i] - shakeK);
         if (s.riskAmt[i] > 0) s.riskAmt[i] = Math.max(0, s.riskAmt[i] - riskK);
+        if (s.okAmt[i] > 0) s.okAmt[i] = Math.max(0, s.okAmt[i] - okK);
       }
+      if (s.clearAmt > 0) s.clearAmt = Math.max(0, s.clearAmt - dt / cfg.fx.clearFlashSeconds);
 
       if (s.ended) return;
       s.phaseT += dt;
@@ -912,6 +965,7 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
       const press = s.pressAmt[i];
       const shake = s.shakeAmt[i];
       const risk = s.riskAmt[i];
+      const ok = s.okAmt[i];
       const t = g.tile;
       const size = s.bmpSize + s.bmpPad * 2;
       const half = size / 2;
@@ -937,6 +991,57 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
         ctx.globalAlpha = 1;
       }
 
+      // Confirmed correct: a green wash, a white outer ring and a TICK. The tick
+      // is the part that does not depend on hue — it is what tells a colour-blind
+      // player the tap landed, and it is drawn over the risk wash below because
+      // the two states can never be true at once.
+      if (ok > 0) {
+        const r = t * 0.22;
+        // Held solid for the first half of its life, then faded. A straight
+        // linear fade from 1 meant the tick was already translucent in the frame
+        // the thumb lifts on, which is the only frame the player looks at.
+        const a = Math.min(1, ok * 2.2);
+        const pop = 1 + (1 - ok) * 0.05;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = s.paints.good;
+        ctx.beginPath();
+        ctx.roundRect(-t / 2, -t / 2, t, t, r);
+        ctx.fill();
+
+        ctx.strokeStyle = COLORS.greenLt;
+        ctx.lineWidth = t * 0.06;
+        ctx.beginPath();
+        ctx.roundRect((-t / 2 - 3) * pop, (-t / 2 - 3) * pop, (t + 6) * pop, (t + 6) * pop, r + 3);
+        ctx.stroke();
+
+        // The tick, as a corner badge rather than a stamp across the middle.
+        // Centred it sat straight on top of the goal's silhouette and the two
+        // read as one smudge; in the corner both stay legible, and it does not
+        // collide with the risk circle-slash, which owns the centre.
+        const bx = t * 0.30;
+        const by = -t * 0.30;
+        const br = t * 0.17;
+        ctx.fillStyle = COLORS.green;
+        ctx.beginPath();
+        ctx.arc(bx, by, br, 0, TAU);
+        ctx.fill();
+        // The white collar, not the green fill, is what separates this badge
+        // from the tile under it — on Savings the green disc and the tile are
+        // the same hue family (1.13:1), and the collar is 3.55:1 there.
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = br * 0.24;
+        ctx.stroke();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = br * 0.34;
+        ctx.beginPath();
+        ctx.moveTo(bx - br * 0.46, by + br * 0.02);
+        ctx.lineTo(bx - br * 0.12, by + br * 0.38);
+        ctx.lineTo(bx + br * 0.5, by - br * 0.4);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
       if (risk > 0) {
         const r = t * 0.22;
         ctx.globalAlpha = risk;
@@ -945,8 +1050,8 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
         ctx.roundRect(-t / 2, -t / 2, t, t, r);
         ctx.fill();
 
-        ctx.strokeStyle = 'rgba(255,255,255,0.96)';
-        ctx.lineWidth = t * 0.075;
+        ctx.strokeStyle = 'rgba(255,255,255,0.98)';
+        ctx.lineWidth = t * 0.085;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.arc(0, 0, t * 0.27, 0, TAU);
@@ -956,13 +1061,35 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
         ctx.lineTo(t * 0.19, t * 0.19);
         ctx.stroke();
 
-        ctx.strokeStyle = COLORS.dangerLt;
-        ctx.lineWidth = t * 0.045;
+        ctx.strokeStyle = COLORS.danger;
+        ctx.lineWidth = t * 0.055;
         ctx.beginPath();
         ctx.roundRect(-t / 2 - 3, -t / 2 - 3, t + 6, t + 6, r + 3);
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
+      ctx.restore();
+    };
+
+    /**
+     * Round cleared: the board plate itself rings green.
+     *
+     * Traced on the plate outline rather than grown outward from it — the plate
+     * is already almost the full width of the stage, so anything that expands
+     * past it just runs off both edges and reads as two stray horizontal lines
+     * instead of a ring.
+     */
+    const drawClearRing = () => {
+      if (s.clearAmt <= 0) return;
+      const g = s.grid;
+      const a = s.clearAmt;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, a * 1.6);
+      ctx.strokeStyle = COLORS.greenLt;
+      ctx.lineWidth = 3 + 3 * a;
+      ctx.beginPath();
+      ctx.roundRect(g.plateX, g.plateY, g.plateW, g.plateH, g.plateR);
+      ctx.stroke();
       ctx.restore();
     };
 
@@ -984,7 +1111,7 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
       DASH[1] = g.perimeter;
       ctx.setLineDash(DASH);
       ctx.beginPath();
-      ctx.roundRect(g.ringX, g.ringY, g.ringW, g.ringH, g.ringR);
+      ctx.roundRect(g.plateX, g.plateY, g.plateW, g.plateH, g.plateR);
       ctx.stroke();
       ctx.setLineDash(DASH_NONE);
       ctx.restore();
@@ -997,24 +1124,44 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
       const g = s.grid;
       const n = s.seq.expected.length;
       const gap = Math.min(g.tile * 0.19, (g.side - 8) / Math.max(1, n));
-      const r = Math.min(5.2, gap * 0.32);
+      const r = Math.min(6, gap * 0.36);
       const x0 = g.x + g.side / 2 - ((n - 1) * gap) / 2;
 
       ctx.save();
+      ctx.lineCap = 'round';
       for (let k = 0; k < n; k++) {
         const mark = s.marks[k];
         const current = k === s.recall.index && s.phase === 'recall';
-        const pulse = current ? 1 + 0.3 * Math.abs(Math.sin(s.time * 5.2)) : 1;
+        const pulse = current ? 1 + 0.34 * Math.abs(Math.sin(s.time * 5.2)) : 1;
+        const x = x0 + k * gap;
+        if (mark === 2) {
+          // Slipped steps are an X, not a red dot. Shape carries the state so
+          // the rail is still readable without colour.
+          ctx.strokeStyle = COLORS.danger;
+          ctx.lineWidth = r * 0.7;
+          ctx.beginPath();
+          ctx.moveTo(x - r, g.dotY - r);
+          ctx.lineTo(x + r, g.dotY + r);
+          ctx.moveTo(x + r, g.dotY - r);
+          ctx.lineTo(x - r, g.dotY + r);
+          ctx.stroke();
+          continue;
+        }
         ctx.beginPath();
-        ctx.arc(x0 + k * gap, g.dotY, r * pulse, 0, TAU);
+        ctx.arc(x, g.dotY, r * pulse, 0, TAU);
         if (mark === 1) {
           ctx.fillStyle = COLORS.greenLt;
           ctx.fill();
-        } else if (mark === 2) {
-          ctx.fillStyle = COLORS.danger;
+        } else if (current) {
+          // The step being asked for: a filled orange dot inside a white ring,
+          // so "you are here" survives at a glance and in greyscale.
+          ctx.fillStyle = COLORS.orangeLt;
           ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
         } else {
-          ctx.fillStyle = current ? 'rgba(255,138,61,0.95)' : 'rgba(255,255,255,0.22)';
+          ctx.fillStyle = COLORS.stepPending;
           ctx.fill();
         }
       }
@@ -1031,6 +1178,7 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
       fx.beginCamera(ctx);
       ctx.drawImage(s.boardBmp, 0, 0, W, H);
       for (let i = 0; i < TILE_COUNT; i++) drawTile(i);
+      drawClearRing();
       drawIdleRing();
       drawProgress();
       fx.draw(ctx);
@@ -1141,15 +1289,20 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
             </div>
             <div style={styles.shieldRow}>
               {shields.map((alive, i) => (
-                <svg key={i} width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"
-                  style={{ opacity: alive ? 1 : 0.25, transition: 'opacity 220ms ease' }}>
+                <svg key={i} width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"
+                  style={{ opacity: alive ? 1 : 0.45, transition: 'opacity 220ms ease' }}>
+                  {/* A spent shield is not just dimmer — it is struck through, so
+                      slips remaining reads without relying on green vs red. */}
                   <path
                     d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z"
-                    fill={alive ? 'rgba(74,222,128,0.28)' : 'rgba(239,68,68,0.18)'}
-                    stroke={alive ? COLORS.greenLt : COLORS.dangerLt}
+                    fill={alive ? 'rgba(91,240,141,0.42)' : 'rgba(255,59,48,0.30)'}
+                    stroke={alive ? COLORS.greenLt : COLORS.danger}
                     strokeWidth="2"
                     strokeLinejoin="round"
                   />
+                  {!alive && (
+                    <path d="M5 5l14 14" stroke={COLORS.dangerLt} strokeWidth="2.6" strokeLinecap="round" />
+                  )}
                 </svg>
               ))}
             </div>
@@ -1184,9 +1337,15 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
               className={pace === 2 ? 'sr-pace sr-pace-crit' : 'sr-pace'}
               style={{
                 ...styles.pace,
+                // Same rule as bannerTone: fill dark enough for white at 4.5:1,
+                // vivid hue on the border and the glow.
                 background: pace === 2
-                  ? 'linear-gradient(180deg, rgba(239,68,68,0.95), rgba(120,18,18,0.95))'
-                  : 'linear-gradient(180deg, rgba(255,138,61,0.95), rgba(176,66,10,0.95))',
+                  ? 'linear-gradient(180deg, #D8352B, #6E0A0A)'
+                  : 'linear-gradient(180deg, #B85A10, #7A2E00)',
+                borderColor: pace === 2 ? COLORS.dangerLt : COLORS.orangeLt,
+                boxShadow: pace === 2
+                  ? '0 8px 22px rgba(255,59,48,0.5)'
+                  : '0 8px 22px rgba(255,154,82,0.45)',
               }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff"
@@ -1244,21 +1403,28 @@ export default function SmartRecallGame({ config, onWin, onLose }) {
 /* Reused so setLineDash never allocates in the draw path. */
 const DASH_NONE = [];
 
+/* Phase banners. Each phase owns a saturated tone rather than the near-identical
+   washes these used to be, so "watch" / "your turn" / "slip" / "cleared" are told
+   apart before the words are read.
+   The FILL is the darkest tone of each hue that still carries white body text at
+   >= 4.5:1 (measured, see the log); the vivid end of the hue goes on the BORDER
+   and the glow instead, which is not a text background and so can be as loud as
+   it likes. That is how the chips got brighter without losing AA. */
 function bannerTone(kind) {
   switch (kind) {
     case 'watch':
-      return { background: 'linear-gradient(180deg, rgba(30,107,224,0.95), rgba(0,45,120,0.95))', borderColor: 'rgba(166,208,255,0.45)' };
+      return { background: 'linear-gradient(180deg, #2A70E8, #052C74)', borderColor: '#7FB2FF', boxShadow: '0 10px 26px rgba(42,112,232,0.45)' };
     case 'recall':
-      return { background: 'linear-gradient(180deg, rgba(255,138,61,0.95), rgba(176,66,10,0.95))', borderColor: 'rgba(255,205,170,0.5)' };
+      return { background: 'linear-gradient(180deg, #B85A10, #7A2E00)', borderColor: COLORS.orangeLt, boxShadow: '0 10px 26px rgba(255,154,82,0.42)' };
     case 'slip':
-      return { background: 'linear-gradient(180deg, rgba(239,68,68,0.95), rgba(120,18,18,0.95))', borderColor: 'rgba(255,180,180,0.5)' };
+      return { background: 'linear-gradient(180deg, #D8352B, #6E0A0A)', borderColor: COLORS.dangerLt, boxShadow: '0 10px 26px rgba(255,59,48,0.45)' };
     case 'clear':
     case 'win':
-      return { background: 'linear-gradient(180deg, rgba(74,222,128,0.95), rgba(18,94,50,0.95))', borderColor: 'rgba(190,255,215,0.5)' };
+      return { background: 'linear-gradient(180deg, #16874A, #054F26)', borderColor: COLORS.greenLt, boxShadow: '0 10px 26px rgba(91,240,141,0.42)' };
     case 'lose':
-      return { background: 'linear-gradient(180deg, rgba(239,68,68,0.95), rgba(90,12,12,0.96))', borderColor: 'rgba(255,180,180,0.5)' };
+      return { background: 'linear-gradient(180deg, #C9140C, #520606)', borderColor: COLORS.dangerLt, boxShadow: '0 10px 26px rgba(255,59,48,0.45)' };
     default:
-      return { background: 'linear-gradient(180deg, rgba(11,34,72,0.95), rgba(6,18,41,0.95))', borderColor: 'rgba(255,255,255,0.28)' };
+      return { background: 'linear-gradient(180deg, #1B4FA8, #071A3C)', borderColor: 'rgba(255,255,255,0.5)' };
   }
 }
 
@@ -1286,8 +1452,8 @@ const CSS = `
 `;
 
 const glass = {
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: COLORS.glass,
+  border: `1px solid ${COLORS.glassLine}`,
   backdropFilter: 'blur(12px)',
   WebkitBackdropFilter: 'blur(12px)',
 };
@@ -1336,11 +1502,12 @@ const styles = {
     minWidth: 66,
   },
   pillLabel: {
-    fontSize: 8,
+    fontSize: 8.5,
     fontWeight: 800,
     letterSpacing: '0.16em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
+    // Was 0.55 white, which is under AA at this size on the HUD glass.
+    color: COLORS.inkDim,
   },
   pillValue: {
     fontSize: 18,
@@ -1359,12 +1526,13 @@ const styles = {
     textTransform: 'uppercase',
     fontVariantNumeric: 'tabular-nums',
   },
-  track: { marginTop: 4, height: 4, borderRadius: 3, background: 'rgba(255,255,255,0.16)', overflow: 'hidden' },
+  track: { marginTop: 4, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.24)', overflow: 'hidden' },
   trackFill: {
     height: '100%',
     width: '0%',
     borderRadius: 3,
     background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.greenLt})`,
+    boxShadow: `0 0 8px ${COLORS.greenLt}`,
     transition: 'width 260ms ease',
   },
   shieldRow: { display: 'flex', gap: 4 },
@@ -1385,7 +1553,7 @@ const styles = {
     gap: 1,
     padding: '7px 20px 8px',
     borderRadius: 14,
-    border: '1px solid rgba(255,255,255,0.28)',
+    border: '1.5px solid rgba(255,255,255,0.28)',
     boxShadow: '0 12px 28px rgba(0,0,0,0.42)',
     maxWidth: 300,
     textAlign: 'center',
@@ -1396,7 +1564,7 @@ const styles = {
     fontWeight: 800,
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.82)',
+    color: 'rgba(255,255,255,0.95)',
   },
   paceWrap: {
     position: 'absolute',

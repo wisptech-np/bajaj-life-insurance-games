@@ -13,7 +13,9 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { COLORS, GAME_CONFIG, MILESTONE_LIST, RESULT_TARGET_SCORE } from './data.js';
+import {
+  COLORS, GAME_CONFIG, MILESTONE_LIST, RESULT_TARGET_SCORE, TOTAL_CORPUS, formatCorpus, formatMult,
+} from './data.js';
 
 const GAME_TITLE = 'Milestone Hopper';
 
@@ -409,7 +411,7 @@ export function HomeScreen({ onStart }) {
             fontSize: 9.5, fontWeight: 900, letterSpacing: '0.2em',
             textTransform: 'uppercase', color: COLORS.goldLt,
           }}>
-            {MILESTONE_LIST.length} gates
+            {MILESTONE_LIST.length} goals &middot; {formatCorpus(TOTAL_CORPUS)} cover
           </span>
         </div>
         <h1 className="mh-title" style={{
@@ -685,7 +687,7 @@ export function HowToPlayScreen({ onPlay }) {
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <DemoLabel
             icon={<FingerGlyph size={19} color={COLORS.orangeLt} />}
-            text="Tap to hop"
+            text="Tap side to steer"
           />
           <DemoLabel
             icon={(
@@ -697,7 +699,7 @@ export function HowToPlayScreen({ onPlay }) {
           />
           <DemoLabel
             icon={<ChevronMark size={19} color={COLORS.goldLt} />}
-            text="Reach gates"
+            text="Bank goals"
           />
         </div>
 
@@ -749,6 +751,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   const rows = stats?.rows || 0;
   const coins = stats?.coins || 0;
   const milestonesHit = stats?.milestones || 0;
+  const corpus = stats?.corpus || 0;
+  const multiplier = stats?.multiplier || 1;
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
@@ -778,7 +782,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   async function handleShare() {
     const rawShareUrl = buildShareUrl() || window.location.href;
     const shareUrl = await shortenUrl(rawShareUrl);
-    const shareMessage = `Hi,\nI crossed ${rows} of ${GAME_CONFIG.totalRows} rows and scored ${score} points in the ${GAME_TITLE} challenge.\nEvery life milestone needs cover to reach. Take your run here: ${shareUrl}`.trim();
+    const shareMessage = `Hi,\nI secured ${formatCorpus(corpus)} of goal cover across ${milestonesHit} of ${MILESTONE_LIST.length} life milestones and scored ${score} points in the ${GAME_TITLE} challenge.\nEvery life milestone needs cover to reach. Take your run here: ${shareUrl}`.trim();
 
     if (navigator.share) {
       try {
@@ -867,14 +871,54 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         </div>
       </div>
 
+      {/* Corpus secured — the run's headline financial outcome, and the thing
+          the whole progression system was built to produce. */}
+      <div style={{
+        width: '100%', maxWidth: 360, marginBottom: 10, zIndex: 2,
+        borderRadius: 16, padding: '11px 14px 12px',
+        background: 'linear-gradient(180deg, rgba(58,42,6,0.72), rgba(20,14,2,0.78))',
+        border: '1px solid rgba(255,200,69,0.4)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{
+            fontSize: 8.5, fontWeight: 900, letterSpacing: '0.16em',
+            textTransform: 'uppercase', color: 'rgba(255,227,138,0.66)',
+          }}>
+            Goal cover secured
+          </span>
+          <span style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,227,138,0.5)' }}>
+            of {formatCorpus(TOTAL_CORPUS)}
+          </span>
+        </div>
+        <div style={{
+          fontSize: 26, fontWeight: 900, color: COLORS.goldLt, lineHeight: 1.15,
+          fontVariantNumeric: 'tabular-nums', marginTop: 2,
+        }}>
+          {formatCorpus(corpus)}
+        </div>
+        <div style={{
+          height: 4, borderRadius: 3, marginTop: 8,
+          background: 'rgba(255,255,255,0.12)', overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%', borderRadius: 3,
+            width: `${Math.min(100, (corpus / TOTAL_CORPUS) * 100)}%`,
+            background: `linear-gradient(90deg, ${COLORS.gold}, ${COLORS.greenLt})`,
+            transition: 'width 1.1s ease-out',
+          }} />
+        </div>
+      </div>
+
       {/* Run stats */}
       <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 12, zIndex: 2 }}>
         <StatTile label="Rows" value={`${rows}/${GAME_CONFIG.totalRows}`} accent={COLORS.brandBlueLt} />
-        <StatTile label="Coins" value={coins} accent={COLORS.gold} />
+        <StatTile label="SIP coins" value={coins} accent={COLORS.gold} />
         <StatTile label="Gates" value={`${milestonesHit}/${MILESTONE_LIST.length}`} accent={COLORS.green} />
+        <StatTile label="Earnings" value={`×${formatMult(multiplier)}`} accent={COLORS.orangeLt} />
       </div>
 
-      {/* Milestone gate chips */}
+      {/* Milestone gate chips — each carries the corpus it banks, so an unreached
+          gate reads as money still on the table rather than a greyed-out label. */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6,
         width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2,
@@ -892,7 +936,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
                 gap: 4,
                 fontSize: 10.5,
                 fontWeight: 800,
-                padding: '5px 11px 5px 7px',
+                padding: '5px 5px 5px 7px',
                 borderRadius: 999,
                 color: hit ? '#fff' : 'rgba(255,255,255,0.4)',
                 background: hit ? 'rgba(40,167,69,0.85)' : 'rgba(255,255,255,0.05)',
@@ -901,6 +945,13 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             >
               <ChevronMark size={11} color={hit ? '#fff' : 'rgba(255,255,255,0.32)'} opacity={0.5} />
               {ms.label}
+              <span style={{
+                fontSize: 9.5, fontWeight: 900, borderRadius: 999, padding: '2px 6px',
+                background: hit ? 'rgba(255,255,255,0.22)' : 'rgba(255,200,69,0.1)',
+                color: hit ? '#fff' : 'rgba(255,227,138,0.55)',
+              }}>
+                {ms.corpusLabel}
+              </span>
             </span>
           );
         })}

@@ -11,13 +11,23 @@
 //   S   start        Where the shield token spawns (plain ice underneath).
 //   F   family       The goal tile, and it is STICKY: any slide whose path
 //                    crosses it stops on it and finishes the level.
+//   P   cover point  The insurance-themed SAFE ZONE, and also STICKY: the cover
+//                    catches the shield, so it creates a stop where the open ice
+//                    had none. Resting on one does three things, all mechanical:
+//                      1. BANKS the run — it becomes the respawn cell, so the
+//                         next fall costs a retry instead of the whole board;
+//                      2. RESTORES the ice — every fracture the player has
+//                         deepened on this board re-freezes, which re-opens
+//                         corridors already spent;
+//                      3. SCORES `scoring.coverBonus`, once per board (a retry
+//                         does not restock it).
 //   C   coin         Ice + a premium coin. Collected by passing over OR stopping
 //                    on it, once per level (a retry does not restock it).
 //   X   crack        Thin ice. Crossing INTACT thin ice at speed is safe exactly
 //                    once and deepens the crack. Crossing an already-deepened
 //                    crack — or STOPPING on any crack — breaks it: the token
-//                    falls through, the level restarts, and one of the three
-//                    retries is spent.
+//                    falls through, the level restarts at the last cover point
+//                    reached (or the start tile), and one retry is spent.
 //   ^   gust up      Wind cell. Shoves a HORIZONTAL slide one cell up.
 //   v   gust down    Wind cell. Shoves a HORIZONTAL slide one cell down.
 //   <   gust left    Wind cell. Shoves a VERTICAL slide one cell left.
@@ -43,6 +53,7 @@ export const GRID_ROWS = 9;
 export const TILE_ICE = 0;
 export const TILE_ROCK = 1;
 export const TILE_GOAL = 2;
+export const TILE_COVER = 3;
 
 /** Push vector for each gust glyph. */
 const GUST = {
@@ -58,14 +69,32 @@ const GUST = {
  * `par` is the optimal move count and is NOT hand-authored guesswork: it is
  * asserted equal to the BFS optimum by scripts/balance.mjs, which fails the
  * build gate on any mismatch. Difficulty is carried by the shape of the board
- * (turns, thin ice on the tempting wrong swipe, a gust that moves the line),
- * never by hidden rules.
+ * (turns, thin ice on the tempting wrong swipe, a gust that moves the line, a
+ * cover point that catches a glide the open ice would have let run), never by
+ * hidden rules.
+ *
+ * ─── DIFFICULTY RAMP (gated, see balance.mjs gate 6) ────────────────────────
+ *
+ *   board            new mechanic     par   hazards   what it asks for
+ *   1 First Steps    —  (the verb)     6      0       aim, read the stop, go
+ *   2 Thin Ice       thin ice          8      8       cross at speed, never rest
+ *   3 Crosswind      gust lane         9     13       plan around a deflection
+ *   4 Cover Point    cover point      11     10       spend moves to bank safety
+ *   5 Bring Them...  — (all three)    13     15       everything, twice as long
+ *
+ * Three rules the ramp obeys, all asserted rather than asserted-to:
+ *   * par strictly increases board to board;
+ *   * no board introduces two new mechanics at once, and the last board carries
+ *     every mechanic;
+ *   * board 1 has no hazards at all, and the final board has the most.
+ * The measured skilled-bot fall rate per board is printed with them, so the
+ * ramp is evidenced behaviourally and not only by counting furniture.
  */
 export const LEVEL_DEFS = [
   {
     id: 'first-steps',
     name: 'First Steps',
-    subtitle: 'Swipe. The shield glides until something stops it.',
+    subtitle: 'Hold to aim, let go to commit. The shield glides until something stops it.',
     par: 6,
     // Teaching board: no thin ice, no wind. Four rocks turn the lake into a
     // staircase, and all four coins sit on the optimal line, so a player who
@@ -125,17 +154,22 @@ export const LEVEL_DEFS = [
     ],
   },
   {
-    id: 'cold-snap',
-    name: 'Cold Snap',
-    subtitle: 'No wind here. Just a long route and thin ice.',
-    par: 10,
-    // Pure route planning: ten moves that cross the whole lake twice over ice
-    // that is more fracture than floe. Six of the ten legs cross thin ice at
-    // speed, so the board is a rolling record of where you have already been —
-    // any route that doubles back over its own crossings goes through.
+    id: 'cover-point',
+    name: 'Cover Point',
+    subtitle: 'The cover point catches you, re-freezes the ice and banks the board.',
+    par: 11,
+    // The safe zone arrives, on a long two-crossing route over ice that is more
+    // fracture than floe. The cover point at (2,1) sits mid-lake on the northern
+    // leg: it CATCHES a slide the open ice would have let run to the shore, which
+    // is why flattening it to plain ice drops the optimum from 11 back to 10 —
+    // the board is measurably built around it (balance.mjs gate 5).
+    //
+    // What the player gets for the move it costs: every fracture already
+    // deepened re-freezes, so the southern crossings can be re-used, and a fall
+    // after it restarts here instead of at (0,7) on the far shore.
     map: [
       '. . . . X . X',
-      'X . . . . . .',
+      'X . P . . . .',
       'C . . . . . #',
       '. # . X C . .',
       '. X C . . # X',
@@ -148,21 +182,25 @@ export const LEVEL_DEFS = [
   {
     id: 'bring-them-home',
     name: 'Bring Them Home',
-    subtitle: 'Thin ice and a gust between you and the family.',
-    par: 12,
-    // The finale. A crosswind along the bottom shore plus eleven fractures.
+    subtitle: 'Thin ice, a gust, and two cover points between you and the family.',
+    par: 13,
+    // The finale: everything at once. A crosswind along the bottom shore, eleven
+    // fractures, and two cover points — (4,3) mid-lake and (1,7) on the south
+    // shore — one on each half of the route, so the board can be banked halfway
+    // and the ice spent on the first half restored for the second.
+    //
     // scripts/balance.mjs measures the family tile as UNREACHABLE with the gust
-    // cells flattened to plain ice, so the wind is not decoration: the optimal
-    // line rides it twice, on moves 4 and 9.
+    // cells flattened, and the optimum as 12 rather than 13 with the cover points
+    // flattened. Neither mechanic is decoration.
     map: [
       'X . X . X . X',
       '. # . . . F #',
       '# . X C . . .',
-      '. . . # . . .',
+      '. . . # P . .',
       'X C . . . . #',
       '. . . C . X S',
       '. . C X C # X',
-      '. . . . . . #',
+      '. P . . . . #',
       'X < < < < X #',
     ],
   },
@@ -178,14 +216,16 @@ export function parseLevel(def, index = 0) {
   const cols = GRID_COLS;
   const n = cols * rows;
   const tiles = new Uint8Array(n);
-  // -1 = none, otherwise an index into coins / cracks / winds.
+  // -1 = none, otherwise an index into coins / cracks / winds / covers.
   const coinAt = new Int16Array(n).fill(-1);
   const crackAt = new Int16Array(n).fill(-1);
   const windAt = new Int16Array(n).fill(-1);
+  const coverAt = new Int16Array(n).fill(-1);
 
   const coins = [];
   const cracks = [];
   const winds = [];
+  const covers = [];
   let start = null;
   let goal = null;
 
@@ -211,6 +251,11 @@ export function parseLevel(def, index = 0) {
           if (goal) throw new Error(`level ${def.id}: more than one family tile`);
           tiles[k] = TILE_GOAL;
           goal = { c, r };
+          break;
+        case 'P':
+          tiles[k] = TILE_COVER;
+          coverAt[k] = covers.length;
+          covers.push({ c, r });
           break;
         case 'C':
           coinAt[k] = coins.length;
@@ -248,9 +293,11 @@ export function parseLevel(def, index = 0) {
     coinAt,
     crackAt,
     windAt,
+    coverAt,
     coins,
     cracks,
     winds,
+    covers,
     start,
     goal,
   };

@@ -320,15 +320,95 @@ export const GAME_CONFIG = {
     floatSeconds: 0.9,
   },
 
+  /* ─── The persistent frame ──────────────────────────────
+     A rush of tiny scenes is unreadable unless the things that never change are
+     drawn in the same place every time. Four elements, always on, in this order
+     down the top of the stage:
+
+       progress track   twelve segments: cleared, failed, now, still to come
+       action window    the bar that drains — the only thing that can kill you
+       HUD row          score · shields · which moment (DOM, over the canvas)
+       instruction      the verb chip and the ask, for the WHOLE window
+
+     Every y here is stage-local CSS pixels. `stageTop` is where the 100 x 130
+     microgame box starts, so moving the frame moves the props with it. */
   hud: {
     /** Countdown bar turns red under this fraction of the action window. */
     lowFrac: 0.28,
+
+    trackY: 8,
+    trackH: 5,
+    barY: 18,
+    barH: 7,
+    /** The DOM pill row (LifeRushGame styles.hudTop). */
+    pillsY: 31,
+    stripY: 78,
+    stripH: 32,
+    stageTop: 116,
+    stageBottom: 10,
+    /** Side margin shared by the track, the bar and the strip. */
+    inset: 16,
   },
 
-  /* Copy shown on the results/how-to screens. */
+  /* Copy shown on the results/how-to screens and on the stage itself. */
   theme: {
     tagline: 'Life comes at you fast — pay, protect, pick and plan in seconds.',
+    /** The objective, said out loud on the intro and the how-to screen. */
+    goal: 'SURVIVE 12 MONEY MOMENTS',
+    fail: 'MISS 3 AND THE RUN IS OVER',
+    cue: 'WAIT FOR THE CHIP TO LIGHT UP',
   },
+};
+
+/**
+ * THE INPUT GRAMMAR — four gestures, and that is the whole list.
+ *
+ * The content varies every few seconds; the way you answer must not. Every
+ * microgame declares one `verb` and the frame draws it as the same chip, in the
+ * same place, with the same glyph, whatever is on screen. `TAP x2` is the one
+ * compound and it is still the TAP family, which is why it is spelled that way
+ * rather than given a fifth glyph.
+ *
+ * `scripts/balance.mjs` asserts every microgame's verb is a key here, so a new
+ * microgame cannot ship with a gesture the player was never taught.
+ */
+export const GRAMMAR = {
+  tap: { chip: 'TAP', glyph: 'tap' },
+  drag: { chip: 'DRAG', glyph: 'drag' },
+  swipe: { chip: 'SWIPE', glyph: 'swipe' },
+  hold: { chip: 'HOLD', glyph: 'hold' },
+  'double tap': { chip: 'TAP x2', glyph: 'tap' },
+};
+
+/**
+ * THE INSURANCE MAPPING — what each microgame is actually about.
+ *
+ * The props already carry it (a premium card, a scam call, an umbrella in the
+ * rain) but a prop glimpsed for two seconds is not an argument. Every microgame
+ * therefore names its money moment on the banner, keeps it under the ask for the
+ * whole window, and is listed back on the results screen, so a run adds up to
+ * something the player can describe afterwards.
+ *
+ * `moment` + `why` together are capped at 45 characters, because the pair is
+ * drawn as one line on the instruction strip and the strip is 185 px wide on a
+ * 320 px handset even after the text is shrunk to its floor. The gate asserts
+ * the cap, so a longer line cannot ship and quietly clip.
+ */
+export const MOMENTS = {
+  pay: { moment: 'PREMIUM DAY', why: 'Pay on time or cover lapses' },
+  pick: { moment: 'THE RIGHT COVER', why: 'One risk, one policy' },
+  catch: { moment: 'SAVINGS SLIPPING', why: 'Catch it before it drops' },
+  gift: { moment: 'BONUS DAY', why: 'Park it before it is spent' },
+  sign: { moment: 'THE PAPERWORK', why: 'Cover starts when you sign' },
+  swat: { moment: 'SCAM CALL', why: 'Refuse it, do not think' },
+  shield: { moment: 'RAINY DAY', why: 'Cover must be up before it hits' },
+  grow: { moment: 'YOUR SIP', why: 'Stop at the goal, not past it' },
+  topup: { moment: 'TOP UP THE COVER', why: 'Bigger life, bigger cover' },
+  snooze: { moment: 'IMPULSE BUY', why: 'Close the ad, keep the money' },
+  stamp: { moment: 'CLAIM APPROVAL', why: 'Papers line up, claim clears' },
+  split: { moment: 'NEEDS OR WANTS', why: 'Every rupee goes to one' },
+  lock: { moment: 'LOCK THE PLAN', why: 'Hard to touch is the point' },
+  wake: { moment: 'DUE BY THE 9th', why: 'The due date does not move' },
 };
 
 /**

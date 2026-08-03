@@ -103,6 +103,55 @@ function paintBlock(c, x, y, w, h, seed) {
   }
 }
 
+/**
+ * Brand shield embossed into a city block.
+ *
+ * The insurance theme has to be visible without getting in the way of the game,
+ * so it is baked into the STATIC road bitmap on the two off-road quadrants —
+ * vehicles only ever travel on the cross, so this is the one part of the board
+ * that can never have traffic on it. It costs nothing per frame and it is kept
+ * far enough below the asphalt's contrast that it reads as an emboss rather
+ * than as a thing you could tap.
+ *
+ * The theme's real carrier is the mechanic, not this: every vehicle the player
+ * holds gets a brand-blue ring, because holding one is the protective act.
+ */
+function paintShieldMark(c, x, y, w, h) {
+  const size = Math.min(w, h) * 0.52;
+  if (size < 26) return;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const s = size / 24;
+  c.save();
+  c.translate(cx, cy);
+  c.scale(s, s);
+  c.translate(-12, -12);
+  c.beginPath();
+  c.moveTo(12, 2);
+  c.lineTo(4, 5);
+  c.lineTo(4, 11);
+  c.bezierCurveTo(4, 16, 7.5, 20, 12, 22);
+  c.bezierCurveTo(16.5, 20, 20, 16, 20, 11);
+  c.lineTo(20, 5);
+  c.closePath();
+  c.fillStyle = COLORS.watermark;
+  c.fill();
+  c.strokeStyle = COLORS.watermarkLine;
+  c.lineWidth = 1.4 / s;
+  c.stroke();
+  // Tick inside the shield — the same mark the Claim Cushion chip carries.
+  c.beginPath();
+  c.moveTo(8.4, 11.6);
+  c.lineTo(11, 14.4);
+  c.lineTo(15.8, 8.6);
+  c.strokeStyle = COLORS.watermarkLine;
+  c.lineWidth = 2.2 / s;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  c.stroke();
+  c.restore();
+}
+
 /** Backdrop, both roads, kerbs, lane markings, zebras and the box hatching. */
 function makeRoadBitmap(J, cfg, dpr, detail) {
   const { W, H, x0, x1, y0, y1, laneW } = J;
@@ -122,6 +171,10 @@ function makeRoadBitmap(J, cfg, dpr, detail) {
     paintBlock(c, gap, y1 + gap, x0 - gap * 2, H - y1 - gap * 2, 0x9f31);
     paintBlock(c, x1 + gap, y1 + gap, W - x1 - gap * 2, H - y1 - gap * 2, 0x77b5);
   }
+  // Brand shield on the two quadrants the HUD does not sit over: top-right, and
+  // bottom-right. The bottom-LEFT block carries the status chips.
+  paintShieldMark(c, x1 + gap, gap, W - x1 - gap * 2, y0 - gap * 2);
+  paintShieldMark(c, x1 + gap, y1 + gap, W - x1 - gap * 2, H - y1 - gap * 2);
 
   // Roads.
   const road = c.createLinearGradient(x0, 0, x1, 0);
@@ -389,24 +442,123 @@ function drawTruck(ctx, v, t, k, time, shadows) {
   lamps(ctx, L, Wd, k, shadows);
 }
 
-/** Held marker: a red stop ring plus the patience meter draining around it. */
+/**
+ * Held marker: a CLOSED arc gauge showing what is left of this driver's
+ * patience, in brand blue.
+ *
+ * Blue, not red. Red now means exactly one thing on this board — a collision
+ * that is about to happen — and a vehicle the player has stopped is the
+ * opposite of that: it is the protective act, and protection is blue everywhere
+ * in this repo (see the state grammar in data.js). The non-colour half of the
+ * signal is that this is the only CLOSED, DRAINING ring in the game, and that a
+ * held vehicle has no motion streaks behind it.
+ */
 function drawHoldRing(ctx, radius, patience, warn, shadows) {
   ctx.save();
   if (shadows) {
-    ctx.shadowColor = 'rgba(239,68,68,0.6)';
+    ctx.shadowColor = warn ? 'rgba(255,138,61,0.65)' : COLORS.brandBlueGlow;
     ctx.shadowBlur = 10;
   }
-  ctx.strokeStyle = warn ? COLORS.orangeLt : 'rgba(255,139,139,0.9)';
-  ctx.lineWidth = 2.4;
+  ctx.strokeStyle = warn ? COLORS.orangeLt : COLORS.brandBlueLt;
+  ctx.lineWidth = 2.8;
   ctx.beginPath();
   ctx.arc(0, 0, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * patience);
   ctx.stroke();
   ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.20)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.arc(0, 0, radius, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Danger marker on a vehicle in a predicted collision: a solid red ring with a
+ * hazard TRIANGLE at twelve o'clock. Drawn in screen space (before the vehicle
+ * is rotated onto its approach) so the triangle always points up, whichever way
+ * the vehicle is facing.
+ */
+function drawDangerRing(ctx, radius, tri, beat, shadows) {
+  ctx.save();
+  ctx.globalAlpha = 0.55 + beat * 0.45;
+  if (shadows) {
+    ctx.shadowColor = 'rgba(239,68,68,0.75)';
+    ctx.shadowBlur = 8 + beat * 8;
+  }
+  ctx.strokeStyle = COLORS.danger;
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  const top = -radius - tri * 0.28;
+  ctx.beginPath();
+  ctx.moveTo(0, top - tri * 0.92);
+  ctx.lineTo(tri * 0.58, top);
+  ctx.lineTo(-tri * 0.58, top);
+  ctx.closePath();
+  ctx.fillStyle = COLORS.danger;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * The junction's own status frame — the peripheral "safe now / not safe now"
+ * read, drawn on the thing the player is already looking at.
+ *
+ * Clear: four OPEN corner brackets, thin, and completely still.
+ * Contested: the same four corners are FILLED TRIANGLES pointing into the box,
+ * the outline thickens to a full rectangle, and the frame pulses.
+ *
+ * Shape, stroke weight and motion all change together, so this survives
+ * greyscale, colour-blindness and a dim screen — the colour is the fourth cue,
+ * not the only one.
+ */
+function drawJunctionFrame(ctx, J, ind, contested, beat, shadows) {
+  const leg = J.laneW * ind.cornerFrac;
+  const corners = [
+    [J.x0, J.y0, 1, 1], [J.x1, J.y0, -1, 1],
+    [J.x0, J.y1, 1, -1], [J.x1, J.y1, -1, -1],
+  ];
+  ctx.save();
+  if (contested) {
+    ctx.globalAlpha = 0.45 + beat * 0.45;
+    ctx.strokeStyle = COLORS.danger;
+    ctx.lineWidth = ind.contestWidth;
+    if (shadows) {
+      ctx.shadowColor = 'rgba(239,68,68,0.6)';
+      ctx.shadowBlur = 4 + beat * 7;
+    }
+    ctx.strokeRect(J.x0, J.y0, J.x1 - J.x0, J.y1 - J.y0);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.7 + beat * 0.3;
+    ctx.fillStyle = COLORS.danger;
+    for (const [x, y, sx, sy] of corners) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + sx * leg, y);
+      ctx.lineTo(x, y + sy * leg);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else {
+    ctx.globalAlpha = 0.92;
+    ctx.strokeStyle = COLORS.greenLt;
+    ctx.lineWidth = ind.clearWidth;
+    ctx.lineCap = 'square';
+    ctx.beginPath();
+    for (const [x, y, sx, sy] of corners) {
+      ctx.moveTo(x + sx * leg, y);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x, y + sy * leg);
+    }
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -440,6 +592,8 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
   const scoreElRef = useRef(null);
   const crossElRef = useRef(null);
   const barElRef = useRef(null);
+  const statusElRef = useRef(null);
+  const statusTextRef = useRef(null);
 
   const [timeLeft, setTimeLeft] = useState(cfg.sessionSeconds);
   const [paused, setPaused] = useState(false);
@@ -448,7 +602,6 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
   const [hint, setHint] = useState(true);
   const [over, setOver] = useState(false);
   const [cushions, setCushions] = useState(cfg.claimCushions);
-  const [holding, setHolding] = useState(0);
 
   const winRef = useRef(onWin);
   const loseRef = useRef(onLose);
@@ -470,7 +623,7 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
       shownScore: -1,
       shownCrossed: -1,
       shownCushions: -1,
-      shownHolding: -1,
+      shownContested: null,
 
       // Predicted-conflict scan. Rescanned a few times a second, not per frame:
       // it is a hint, and an O(n^2) prediction sweep does not belong at 120 Hz.
@@ -768,21 +921,36 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
         }
       }
 
-      // Contested conflict points.
+      /* --- danger / safety layer ---------------------------------------
+         One beat drives every contested indicator, so the whole danger layer
+         alarms together rather than shimmering out of phase. Under reduced
+         motion it is pinned high instead of pulsing: the state still reads, it
+         just does not move. */
+      const ind = cfg.indicator;
+      const still = fx.reducedMotion;
+      const beat = still ? 0.85 : 0.5 + 0.5 * Math.sin(time * ind.pulseHz * Math.PI * 2);
+      const contested = s.conflictCount > 0;
+
+      drawJunctionFrame(ctx, J, ind, contested, beat, s.shadows);
+
+      // A filled DIAMOND on the exact spot each predicted pair will meet. The
+      // only rotated square on a board of axis-aligned rects and circles.
+      const dr = J.laneW * ind.diamondFrac;
       for (let i = 0; i < s.conflictCount; i++) {
         const e = s.conflicts[i];
         const v = e.a.axis === 'v' ? e.a : e.b;
         const h = e.a.axis === 'v' ? e.b : e.a;
-        const pulse = 0.5 + 0.5 * Math.sin(time * 7 + i);
+        const r = dr * (0.85 + beat * 0.3);
         ctx.save();
-        ctx.globalAlpha = 0.35 + pulse * 0.4;
-        ctx.strokeStyle = COLORS.orangeLt;
-        ctx.lineWidth = 1.6;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.arc(v.lane, h.lane, J.laneW * (0.34 + pulse * 0.1), 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        ctx.translate(v.lane, h.lane);
+        ctx.rotate(Math.PI / 4);
+        ctx.globalAlpha = 0.4 + beat * 0.4;
+        ctx.fillStyle = COLORS.danger;
+        ctx.fillRect(-r, -r, r * 2, r * 2);
+        ctx.globalAlpha = 0.5 + beat * 0.35;
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-r, -r, r * 2, r * 2);
         ctx.restore();
       }
 
@@ -796,15 +964,16 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
         ctx.save();
         ctx.translate(v.x, v.y);
 
-        if (v.warn && !v.held) {
-          const pulse = 0.5 + 0.5 * Math.sin(time * 7);
-          ctx.save();
-          ctx.strokeStyle = `rgba(255,138,61,${0.35 + pulse * 0.45})`;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(0, 0, Math.max(v.halfX, v.halfY) + 5 + pulse * 2, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
+        // Danger ring, but only on the stretch of road where the player can
+        // still do something about it. Warning every vehicle in a predicted
+        // pair anywhere on its runway put a ring on five of the seven vehicles
+        // on screen, which is ambient rather than a signal.
+        if (v.warn && !v.held
+          && v.sign * (J.near[v.dir] - v.along) < J.laneW * ind.warnRangeLanes) {
+          drawDangerRing(
+            ctx, Math.max(v.halfX, v.halfY) + 6 + beat * 2,
+            J.laneW * ind.triFrac, beat, s.shadows,
+          );
         }
 
         if (v.held) {
@@ -826,6 +995,28 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
         }
 
         ctx.rotate(ANGLE[v.dir]);
+
+        // Motion streaks. This is the movement feedback the review asked for
+        // and it is also the non-colour half of the go/stop read: a rolling
+        // vehicle trails two tapered wheel streaks whose length tracks its
+        // actual speed, and a stopped one has none at all. Flat rects at two
+        // alphas rather than a gradient, because the hot loop allocates nothing.
+        const sp = v.speed / v.cruise;
+        if (sp > ind.trailMinSpeed) {
+          const tl = v.len * ind.trailLenFrac * sp;
+          const th = Math.max(1.2, v.wid * 0.15);
+          const oy = v.wid * 0.29;
+          const back = -v.len / 2;
+          ctx.fillStyle = COLORS.trail;
+          ctx.globalAlpha = ind.trailAlpha * sp;
+          ctx.fillRect(back - tl * 0.55, -oy - th / 2, tl * 0.55, th);
+          ctx.fillRect(back - tl * 0.55, oy - th / 2, tl * 0.55, th);
+          ctx.globalAlpha = ind.trailAlpha * sp * 0.4;
+          ctx.fillRect(back - tl, -oy - th / 2, tl * 0.45, th);
+          ctx.fillRect(back - tl, oy - th / 2, tl * 0.45, th);
+          ctx.globalAlpha = 1;
+        }
+
         if (v.squash > 0) {
           const q = fx.squash(1 - v.squash);
           ctx.scale(q.sy, q.sx);
@@ -871,11 +1062,21 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
         s.shownCushions = s.world.cushions;
         setCushions(s.world.cushions);
       }
-      let held = 0;
-      for (const v of s.world.vehicles) if (v.held) held += 1;
-      if (held !== s.shownHolding) {
-        s.shownHolding = held;
-        setHolding(held);
+      // Junction status chip. Driven through a data attribute rather than React
+      // state: the scan runs ~8 times a second and re-rendering the tree that
+      // often to flip one word is not worth a frame of anybody's budget. CSS
+      // owns the colour, the glyph swap and the alarm pulse off `data-state`.
+      if (contested !== s.shownContested) {
+        s.shownContested = contested;
+        const el = statusElRef.current;
+        if (el) {
+          el.dataset.state = contested ? 'hot' : 'clear';
+          el.setAttribute('aria-label',
+            contested ? 'Junction contested — collision predicted' : 'Junction clear');
+        }
+        if (statusTextRef.current) {
+          statusTextRef.current.textContent = contested ? 'Conflict' : 'Clear';
+        }
       }
     };
 
@@ -895,8 +1096,10 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
           v.squash = 1;
           audio.click();
           haptic('light');
+          // Blue, matching the hold ring: stopping a vehicle is the protective
+          // act, and protection is blue everywhere in this repo.
           fx.burst({
-            x: px, y: py, count: 8, color: COLORS.dangerLt,
+            x: px, y: py, count: 8, color: COLORS.brandBlueLt,
             speed: 90, spread: Math.PI * 2, size: 2, life: 0.3, gravity: 40, drag: 0.88,
           });
         } else if (result === 'release') {
@@ -965,60 +1168,74 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
       <div ref={wrapRef} style={styles.stage} className="sc-stage">
         <canvas ref={canvasRef} style={styles.canvas} />
 
-        {/* HUD ------------------------------------------------------- */}
+        {/* HUD — one control strip at the top ------------------------
+            Score / Through / Time and the progress rail are a single card, so
+            the top of the stage has ONE horizontal boundary instead of three
+            stacked floating rows. Everything below it is play area. */}
         <div style={styles.hudTop}>
-          <div style={styles.pill}>
-            <span style={styles.pillLabel}>Through</span>
-            <span ref={crossElRef} style={styles.pillValue}>0/{cfg.targetCrossed}</span>
-          </div>
-          <div style={{ ...styles.pill, alignItems: 'center', minWidth: 64 }}>
-            <span style={styles.pillLabel}>Score</span>
-            <span ref={scoreElRef} style={styles.pillValue}>0</span>
-          </div>
-          <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Time</span>
-            <span style={{
-              ...styles.pillValue,
-              color: lowTime ? COLORS.orangeLt : '#fff',
-              animation: lowTime ? 'scPulse 0.9s ease-in-out infinite' : 'none',
-            }}>
-              {timeLeft}s
-            </span>
-          </div>
-        </div>
-
-        <div style={styles.progressWrap}>
-          <div style={styles.progressPill}>
-            <div style={styles.track}>
-              <div ref={barElRef} style={styles.trackFill} />
+          <div style={styles.hudRow}>
+            <div style={styles.stat}>
+              <span style={styles.statLabel}>Through</span>
+              <span ref={crossElRef} style={styles.statValue}>0/{cfg.targetCrossed}</span>
+            </div>
+            <div style={{ ...styles.stat, alignItems: 'center' }}>
+              <span style={styles.statLabel}>Score</span>
+              <span ref={scoreElRef} style={styles.statValueSm}>0</span>
+            </div>
+            <div style={{ ...styles.stat, alignItems: 'flex-end' }}>
+              <span style={styles.statLabel}>Time</span>
+              <span style={{
+                ...styles.statValue,
+                color: lowTime ? COLORS.orangeLt : '#fff',
+                animation: lowTime ? 'scPulse 0.9s ease-in-out infinite' : 'none',
+              }}>
+                {timeLeft}s
+              </span>
             </div>
           </div>
+          <div style={styles.track}>
+            <div ref={barElRef} style={styles.trackFill} />
+          </div>
         </div>
 
-        {/* Claim Cushion + hold indicators ---------------------------- */}
-        <div style={styles.statusWrap}>
+        {/* State chips — bottom-left, which is a city block at every canvas
+            size and therefore never has traffic under it. The old row sat at
+            y=96 and landed on the southbound approach lane. */}
+        <div style={styles.hudBottom}>
+          <div
+            ref={statusElRef}
+            className="sc-status"
+            data-state="clear"
+            role="status"
+            aria-label="Junction clear"
+            style={styles.chip}
+          >
+            <svg className="sc-i-clear" width="11" height="11" viewBox="0 0 24 24"
+              fill="currentColor" aria-hidden="true">
+              <circle cx="12" cy="12" r="8" />
+            </svg>
+            <svg className="sc-i-hot" width="12" height="11" viewBox="0 0 24 24"
+              fill="currentColor" aria-hidden="true">
+              <path d="M12 3 23 21H1L12 3z" />
+            </svg>
+            <span ref={statusTextRef}>Clear</span>
+          </div>
+
           <div
             className={cushions > 0 ? 'sc-cushion' : undefined}
             style={{
-              ...styles.status,
-              borderColor: cushions > 0 ? 'rgba(30,107,224,0.6)' : 'rgba(255,255,255,0.14)',
-              opacity: cushions > 0 ? 1 : 0.45,
+              ...styles.chip,
+              borderColor: cushions > 0 ? 'rgba(30,107,224,0.65)' : 'rgba(255,255,255,0.16)',
+              color: cushions > 0 ? COLORS.brandBlueLt : 'rgba(255,255,255,0.55)',
             }}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-              stroke={cushions > 0 ? COLORS.brandBlueLt : 'rgba(255,255,255,0.5)'}
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
+              {cushions > 0 && <path d="m8.6 11.8 2.4 2.4 4.6-5" />}
             </svg>
-            <span style={{ color: cushions > 0 ? COLORS.brandBlueLt : 'rgba(255,255,255,0.5)' }}>
-              {cushions > 0 ? 'Claim Cushion' : 'Cushion spent'}
-            </span>
+            <span>{cushions > 0 ? 'Cover 1' : 'No cover'}</span>
           </div>
-          {holding > 0 && (
-            <div style={{ ...styles.status, borderColor: 'rgba(255,139,139,0.55)' }}>
-              <span style={{ color: COLORS.dangerLt }}>{holding} held</span>
-            </div>
-          )}
         </div>
 
         {/* Outcome banner -------------------------------------------- */}
@@ -1040,9 +1257,10 @@ export default function SafeCrossingGame({ config, onWin, onLose }) {
         {hint && !over && (
           <div style={styles.hintWrap} className="sc-hint">
             <div style={styles.hint}>
-              <strong style={{ color: COLORS.dangerLt }}>Tap</strong> a vehicle to hold it ·{' '}
-              <strong style={{ color: COLORS.greenLt }}>Tap again</strong> to send it ·{' '}
-              <strong style={{ color: COLORS.orangeLt }}>orange trucks never stop</strong>
+              <strong style={{ color: COLORS.brandBlueLt }}>Tap</strong> to hold ·{' '}
+              <strong style={{ color: COLORS.greenLt }}>tap again</strong> to send
+              <br />
+              <strong style={{ color: COLORS.dangerLt }}>▲ red</strong> = crash coming
             </div>
           </div>
         )}
@@ -1098,12 +1316,27 @@ const CSS = `
 }
 @keyframes scHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
 @keyframes scShield { 0%,100% { box-shadow: 0 0 0 0 rgba(30,107,224,0); } 50% { box-shadow: 0 0 12px 0 rgba(30,107,224,0.55); } }
+@keyframes scAlarm { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } 50% { box-shadow: 0 0 14px 0 rgba(239,68,68,0.75); } }
 .sc-stage { animation: scIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .sc-banner { animation: scBanner 1.5s ease-out both; }
 .sc-hint { animation: scHint 1.6s ease-in-out infinite; }
 .sc-cushion { animation: scShield 2.4s ease-in-out infinite; }
+
+/* Junction status chip. The word is the strongest non-colour signal there is,
+   and the glyph swaps circle -> triangle with it, so the state survives a
+   greyscale screenshot. Driven off data-state so the render loop can flip it
+   without a React re-render. */
+.sc-status[data-state="clear"] { border-color: rgba(74,222,128,0.6); color: #4ADE80; }
+.sc-status[data-state="hot"]   { border-color: rgba(239,68,68,0.85); color: #FF8B8B; animation: scAlarm 0.75s ease-in-out infinite; }
+.sc-status .sc-i-hot   { display: none; }
+.sc-status[data-state="hot"] .sc-i-clear { display: none; }
+.sc-status[data-state="hot"] .sc-i-hot   { display: inline; }
+
 @media (prefers-reduced-motion: reduce) {
   .sc-stage, .sc-banner, .sc-hint, .sc-cushion { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+  /* The alarm keeps its lit state rather than its motion: colour, border and
+     glyph still say "contested", it just stops flashing. */
+  .sc-status[data-state="hot"] { animation: none; box-shadow: 0 0 14px 0 rgba(239,68,68,0.6); }
 }
 `;
 
@@ -1114,6 +1347,8 @@ const glass = {
   WebkitBackdropFilter: 'blur(12px)',
 };
 
+const L = GAME_CONFIG.layout;
+
 const styles = {
   root: {
     position: 'relative',
@@ -1122,7 +1357,13 @@ const styles = {
     maxWidth: 430,
     margin: '0 auto',
     display: 'flex',
-    padding: 10,
+    // Safe-area insets on the STAGE rather than on each HUD strip: everything
+    // the player reads lives inside the stage, so insetting it once keeps a
+    // notch or a home indicator off all of it. Known gap across this repo.
+    paddingTop: `max(${L.inset}px, env(safe-area-inset-top))`,
+    paddingBottom: `max(${L.inset}px, env(safe-area-inset-bottom))`,
+    paddingLeft: `max(${L.inset}px, env(safe-area-inset-left))`,
+    paddingRight: `max(${L.inset}px, env(safe-area-inset-right))`,
     boxSizing: 'border-box',
   },
   stage: {
@@ -1138,54 +1379,53 @@ const styles = {
   },
   canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
   hudTop: {
+    ...glass,
     position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
+    top: L.inset,
+    left: L.inset,
+    right: L.inset,
     display: 'flex',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     gap: 6,
+    borderRadius: 14,
+    padding: '6px 12px 8px',
     pointerEvents: 'none',
     zIndex: 4,
   },
-  pill: {
-    ...glass,
-    display: 'flex',
-    flexDirection: 'column',
-    borderRadius: 12,
-    padding: '5px 10px',
-    minWidth: 70,
-  },
-  pillLabel: {
-    fontSize: 8,
+  hudRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 },
+  stat: { display: 'flex', flexDirection: 'column', minWidth: 58 },
+  statLabel: {
+    fontSize: 9,
     fontWeight: 800,
-    letterSpacing: '0.16em',
+    letterSpacing: '0.14em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
+    // 0.68 white on the dark glass clears 4.5:1; the old 8px/0.55 did not read
+    // at all on a dim screen.
+    color: 'rgba(255,255,255,0.68)',
+    lineHeight: 1.3,
   },
-  pillValue: {
-    fontSize: 18,
+  // Through and Time are the two numbers a decision is made against, so they
+  // are the largest. Score is a reward readout and sits a step down.
+  statValue: {
+    fontSize: 20,
     fontWeight: 900,
     color: '#fff',
-    lineHeight: 1.15,
+    lineHeight: 1.1,
     fontVariantNumeric: 'tabular-nums',
     display: 'inline-block',
   },
-  progressWrap: {
-    position: 'absolute',
-    top: 62,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-    zIndex: 4,
+  statValueSm: {
+    fontSize: 16,
+    fontWeight: 800,
+    color: 'rgba(255,255,255,0.9)',
+    lineHeight: 1.35,
+    fontVariantNumeric: 'tabular-nums',
+    display: 'inline-block',
   },
-  progressPill: { ...glass, borderRadius: 12, padding: '6px 12px', width: '100%', maxWidth: 250 },
   track: {
     height: 5,
     borderRadius: 3,
-    background: 'rgba(255,255,255,0.14)',
+    background: 'rgba(255,255,255,0.16)',
     overflow: 'hidden',
   },
   trackFill: {
@@ -1195,29 +1435,31 @@ const styles = {
     background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.greenLt})`,
     transition: 'width 220ms ease-out',
   },
-  statusWrap: {
+  hudBottom: {
     position: 'absolute',
-    top: 96,
-    left: 10,
-    right: 10,
+    left: L.inset,
+    bottom: L.inset,
     display: 'flex',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: L.chipGap,
     pointerEvents: 'none',
     zIndex: 4,
   },
-  status: {
+  chip: {
     ...glass,
     display: 'flex',
     alignItems: 'center',
     gap: 5,
     borderRadius: 999,
-    padding: '4px 10px',
-    fontSize: 10,
+    // Sized so the widest label ("Cover used") stays under ~95 px and therefore
+    // clears the southbound lane, which starts at x=115 on a 320 px handset.
+    padding: '3px 9px',
+    fontSize: 9.5,
     fontWeight: 900,
-    letterSpacing: '0.08em',
+    letterSpacing: '0.06em',
     textTransform: 'uppercase',
+    whiteSpace: 'nowrap',
   },
   bannerWrap: {
     position: 'absolute',
@@ -1244,7 +1486,8 @@ const styles = {
   bannerSub: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.85)' },
   hintWrap: {
     position: 'absolute',
-    bottom: 66,
+    // Clears the two bottom-left chips (2 x ~21 px + gap) and the mute button.
+    bottom: L.inset + 56,
     left: 12,
     right: 12,
     display: 'flex',
@@ -1277,10 +1520,10 @@ const styles = {
   },
   muteBtn: {
     position: 'absolute',
-    right: 10,
-    bottom: 10,
-    width: 44,
-    height: 44,
+    right: L.inset,
+    bottom: L.inset,
+    width: L.controlSize,
+    height: L.controlSize,
     borderRadius: 14,
     background: 'rgba(11,18,33,0.6)',
     border: '1px solid rgba(255,255,255,0.16)',

@@ -41,8 +41,8 @@ export const GAME_CONFIG = {
     speed: 105,                 // px/s hold-to-walk
     radius: 10,                 // collision radius
     stopDistance: 6,            // arrive threshold at the finger point
-    walkArmSeconds: 0.12,       // hold this long (or move 8px) before walking starts — keeps taps from stepping
-    walkArmMovePx: 8,
+    // No tap-vs-hold arming any more: touching the maze always walks, and the
+    // radar has its own button. One gesture, one meaning.
     followerCount: 2,
     followerSpacing: 12,        // px between bodies on the breadcrumb trail
     followerRadius: 8,
@@ -127,6 +127,14 @@ export const GAME_CONFIG = {
     footstepStrength: 0.28,     // footsteps breathe the world within ...
     footstepRadius: 34,         // ... this of your feet
     footstepHold: 0.2,
+    // MEMORY MAP: once a wavefront has swept a chunk it never returns to pure
+    // black — it settles to strength * memoryFloor and stays. The darkness now
+    // governs how far AHEAD you can plan, not whether you can see at all.
+    // (Wiped on pause, exactly like every other reveal — see beginPause.)
+    memoryFloor: 0.30,
+    entityMemory: 0.36,         // same idea for static landmarks (pools, orbs,
+                                // checkpoints, shelter). Living things get NO
+                                // memory: a stale ghost of a lurker is a lie.
   },
 
   // ---- HUD / feel -----------------------------------------------------------
@@ -135,6 +143,11 @@ export const GAME_CONFIG = {
     reacquireFreezeSeconds: 1.5, // resume 3-2-1 (>= 1.2s required), clock held
     reacquireLockSeconds: 0.25,  // live input lock right after the count
     bannerSeconds: 1.7,
+    openingPingSeconds: 1.1,     // the game fires the first ping for you
+    coachSeconds: 9,             // a coach step gives up and moves on after this
+    labelSeconds: 3.2,           // first-encounter signal label dwell
+    legendSeconds: 6,            // legend card auto-dismiss
+    lureMarkSeconds: 3.4,        // "they are walking to here" marker at a heard ping
   },
   fx: {
     footstepRingPx: 28,
@@ -142,6 +155,10 @@ export const GAME_CONFIG = {
     heartLossShake: 8,
     shriekFlashSeconds: 0.55,
     vignetteSeconds: 0.7,
+    vignetteEdge: 0.58,         // was 0.82 — the memory map has to survive it
+    goodFlashSeconds: 0.5,      // green edge wash on a correct decision
+    hazThrobHz: 1.5,            // risk pools breathe: shape AND rhythm, not colour
+    exitBeaconSeconds: 2.0,     // the shelter rings for you once you have found it
     dustMotes: 150,
     moteLitSeconds: 0.55,
     endBeatMs: 950,

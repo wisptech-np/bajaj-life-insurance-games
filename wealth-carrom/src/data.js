@@ -66,7 +66,19 @@ export const COLORS = {
    exactly what the balance table measured. */
 export const GAME_CONFIG = {
   sessionSeconds: 120,
-  strikesPerSession: 8,
+
+  /* -- The match ----------------------------------------------------------
+     Two sides striking at ONE shared rosette. You go first. Pocket a coin or
+     the Queen without fouling and you keep the strike (classic carrom
+     continuation), otherwise it passes.
+
+     `strikesPerSide` is a backstop, not the shape of the session: the match
+     almost always ends on the target. The clock is the real cap. */
+  match: {
+    playerName: 'You',
+    opponentName: 'The Market',
+    strikesPerSide: 12,
+  },
 
   /* -- Board geometry -----------------------------------------------------
      The board is a square inscribed in whatever canvas the stage measures, with
@@ -74,20 +86,30 @@ export const GAME_CONFIG = {
      is a fraction of the PLAY side (the felt inside the frame), never a pixel
      count, so a 360 px handset and a 430 px one play the same board. */
   board: {
-    sideMarginFrac: 0.02,
+    sideMarginFrac: 0.012,
     // Vertical room reserved for HUD chrome above / the power meter below.
     //
-    // The top reserve is 0.23 rather than something tighter because the HUD is
-    // two rows (~100 px) and the board's TOP POCKETS sit within a few pixels of
-    // the felt's top corners. At 0.155 the progress pill covered both of them on
-    // a 360x640 handset — you could not see the hole you were shooting at. The
-    // fraction is set so the board always starts below the HUD on the shortest
-    // supported canvas; on a tall one the square is width-limited anyway, so
-    // this costs nothing there.
-    topReserveFrac: 0.23,
-    bottomReserveFrac: 0.125,
+    // A MINIMUM PIXEL height plus a small fraction, not a pure fraction. The HUD
+    // is a fixed stack — two scoreboard panels and a turn chip, ~100 px — so
+    // reserving a share of the canvas over-reserves badly on a tall phone: at
+    // the old 0.23 a 390x844 handset gave the HUD 189 px for 100 px of content
+    // and took the difference out of the board. The floor keeps the top pockets
+    // clear of the scoreboard on the shortest supported canvas, which is what
+    // the fraction was really for, without taxing the tall one.
+    topReserveMinPx: 104,
+    topReserveFrac: 0.10,
+    bottomReserveMinPx: 50,
+    bottomReserveFrac: 0.055,
     // Where the square sits in whatever vertical room is left over (0 = top).
-    verticalBiasFrac: 0.42,
+    //
+    // A square board in a portrait stage always leaves slack, and the slack has
+    // a job at BOTH ends. Above: the scoreboard, the piece legend and the turn
+    // chip, about 140 px. Below: the pull. The striker rests roughly 48 px above
+    // the bottom rail and a full-power flick pulls `maxPullFrac` x the play side
+    // — around 150 px — straight back off the board, so a layout with no room
+    // under the board makes maximum power physically unreachable with a thumb.
+    // 0.45 leaves the chrome its band above and gives the gesture the rest.
+    verticalBiasFrac: 0.45,
     // Frame thickness, x board side.
     frameFrac: 0.052,
     discRadiusFrac: 0.052,
@@ -97,8 +119,15 @@ export const GAME_CONFIG = {
     // scripts/balance.mjs.
     pocketRadiusDiscs: 2.10,
     // Pocket centre pulled in from the felt corner along the diagonal,
-    // x pocket radius, so the hole reads as cut into the corner.
-    pocketInsetFrac: 0.16,
+    // x pocket radius.
+    //
+    // Raised from 0.16 for legibility. At 0.16 the pocket centre sat almost
+    // exactly on the felt corner, so the clip to the playfield threw away about
+    // four fifths of the mouth and what was left read as a dark smudge in the
+    // corner rather than as a hole you could aim at. At 0.55 most of the circle
+    // is on the felt, the rim closes, and the target is obvious. It also moves
+    // the capture point, so the balance table was re-measured after the change.
+    pocketInsetFrac: 0.55,
     // Baseline height above the near rail, x play side, and how far its ends
     // are inset from the side rails.
     baselineFrac: 0.135,
@@ -210,13 +239,104 @@ export const GAME_CONFIG = {
     coinPoints: 100,
     queenPoints: 500,
     riskPenalty: 150,
+    // First side to this many coin-equivalent takes the match.
+    //
+    // Six of the nine, not five. Five ends too early — measured at 29 s of
+    // match against a 120 s session, and only 5.5 strikes at the top rung, so
+    // half the sessions were over before the board had really been broken. Six
+    // measures 38 s and 8 strikes, and it separates the difficulty rungs
+    // better too (skilled beats normal 68.9% at six against 57.5% at five,
+    // where normal and hard had collapsed to within 8 points of each other).
+    //
+    // Unlike five, six is NOT guaranteed to be reached: 5-4 empties the board
+    // with neither side at the line. That is handled rather than avoided — the
+    // match is then decided on points by the tiebreak ladder in rules.js, and
+    // the gate measures how often it happens (about 4% of matches, cause
+    // 'cleared') and asserts that draws stay under 2%.
     targetCoins: 6,
     queenCoinEquivalent: 2,
   },
 
   fouls: {
-    // Pocketing a risk disc, or pocketing your own striker.
+    // Pocketing a risk disc, or pocketing your own striker. Reaching `max`
+    // forfeits the match to the other side.
     max: 3,
+  },
+
+  /* -- The opponent -------------------------------------------------------
+     "The Market" — an AI that generates ghost-ball candidate shots, simulates
+     each one headlessly with the SHIPPED physics, ranks the outcomes with the
+     scoring numbers above and picks by skill. See src/bot.js for the algorithm;
+     everything it can be tuned by is here.
+
+     The three levels below are what the balance gate measures. Difficulty is
+     the difference between four things, and only one of them is aim:
+       rollouts      how many candidate shots actually get simulated — a bot
+                     that only looks at six shots misses the good one;
+       pickFrom      it takes a shot at random from the top N of what it ranked,
+                     so a weak bot chooses the wrong shot, not just a badly
+                     aimed one;
+       aim/powerSigma  its hands;
+       foulBlindness   probability it prices a shot with the foul penalty set to
+                     zero, so it pots its own striker like a real novice does. */
+  bot: {
+    defaultLevel: 'normal',
+
+    // Rollout budget. `simStep` is coarser than the render loop's 1/120 because
+    // stepWorld sizes its substep count from dt — a bigger dt takes more
+    // substeps and traces the same path — so this halves the tick overhead
+    // without changing the trajectory. `simSeconds` caps a rollout; the
+    // measured worst real settle is ~3.1 s.
+    simStep: 1 / 60,
+    simSeconds: 3.6,
+
+    // Ghost-ball candidate generation.
+    placements: 7,
+    maxCandidates: 30,
+    minCutCos: 0.30,
+    clearance: 0.96,
+    cutCost: 2.6,
+    coinMargin: 1.3,
+
+    // Ranking weights, in the same units as `scoring` above.
+    // A queen potted alone is worth this fraction of her full value, because
+    // she still has to be covered next strike to pay anything at all.
+    queenPendingFactor: 0.45,
+    foulCost: 220,
+    keepTurnBonus: 130,
+    approachWeight: 0.55,
+    winBonus: 4000,
+
+    // Presentation beats charged to the clock on a bot turn (seconds).
+    thinkSeconds: 0.65,
+    aimSeconds: 0.5,
+
+    levels: {
+      easy: {
+        label: 'Cautious',
+        rollouts: 5,
+        pickFrom: 3,
+        aimSigmaDeg: 7.5,
+        powerSigma: 0.22,
+        foulBlindness: 0.5,
+      },
+      normal: {
+        label: 'Balanced',
+        rollouts: 12,
+        pickFrom: 2,
+        aimSigmaDeg: 4.0,
+        powerSigma: 0.12,
+        foulBlindness: 0.18,
+      },
+      hard: {
+        label: 'Aggressive',
+        rollouts: 26,
+        pickFrom: 1,
+        aimSigmaDeg: 1.8,
+        powerSigma: 0.06,
+        foulBlindness: 0.04,
+      },
+    },
   },
 
   fx: {
@@ -247,9 +367,9 @@ export const GAME_CONFIG = {
 
 /** Pieces on the board at break, as the screens want to list them. */
 export const PIECE_LEGEND = [
-  { key: 'gold', label: 'Wealth coin', value: `+${GAME_CONFIG.scoring.coinPoints}`, count: 9 },
-  { key: 'queen', label: 'Queen of Protection', value: `+${GAME_CONFIG.scoring.queenPoints}`, count: 1 },
-  { key: 'risk', label: 'Risk disc', value: `-${GAME_CONFIG.scoring.riskPenalty}`, count: 2 },
+  { key: 'gold', label: 'Wealth coin', short: 'Coin', value: `+${GAME_CONFIG.scoring.coinPoints}`, count: 9 },
+  { key: 'queen', label: 'Queen of Protection', short: 'Queen', value: `+${GAME_CONFIG.scoring.queenPoints}`, count: 1 },
+  { key: 'risk', label: 'Risk disc', short: 'Risk', value: `-${GAME_CONFIG.scoring.riskPenalty}`, count: 2 },
 ];
 
 /** Coins-equivalent the Results ring treats as a full circle: the win line. */

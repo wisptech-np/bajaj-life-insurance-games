@@ -1,9 +1,9 @@
 {
   "generated": "2026-07-09",
-  "revised": "2026-07-28",
+  "revised": "2026-08-03",
   "standard": "okf-brain/GAME_STANDARD.md",
   "goldStandard": "guardian-shelter",
-  "note": "Scope reduced to BajajLife-approved games only. Games dropped by feedback (Compound Quest, Shield Spin) and all concepts without explicit BajajLife sign-off were removed from the repository. The former gold standard life-goals-bubble-shooter was removed; its patterns are captured in okf-brain/GAME_STANDARD.md and mirrored in the surviving games.",
+  "note": "Scope reduced to BajajLife-approved games only. Games dropped by feedback (Compound Quest, Shield Spin) and all concepts without explicit BajajLife sign-off were removed from the repository. The former gold standard life-goals-bubble-shooter was removed; its patterns are captured in okf-brain/GAME_STANDARD.md and mirrored in the surviving games. 2026-08-03 review: Dual Cover, Goal Juggler, Ripple Shield and Time Shield were dropped and their directories deleted.",
   "newGames": [
     {
       "dir": "guardian-shelter",
@@ -139,17 +139,6 @@
       "brief": "Plinko: tap/drag to choose drop position at top, release a gold premium coin that bounces down through rows of glowing pegs (circle physics, restitution, slight randomness) into buckets at the bottom labelled with goal multipliers (Retirement x5, Home x3, Education x2, Savings x1, and 2 red Risk x0 buckets that flash). 10 coins per session (or 90s cap). Occasional blue shield peg: touching it shields the coin so a Risk bucket pays x1 instead of x0 - insurance smooths volatility. Running total with animated counter; combo streak for consecutive scoring buckets. Win = total payout above a tuned target. Peg hit sparkles, bucket win confetti bursts, coin trail."
     },
     {
-      "dir": "ripple-shield",
-      "bajajName": "Ripple Shield",
-      "gameName": "Chain Reaction",
-      "concept": "One-tap chain reaction",
-      "reference": null,
-      "financialConcept": "One policy protects many - the ripple effect of family coverage",
-      "feedback": "Approved - new original concept",
-      "port": 5046,
-      "brief": "Chain-reaction: 40-60 drifting orbs float on screen - most are blue family orbs, some green virus orbs that must NOT be caught. One tap per wave creates an expanding shield ripple; any family orb it touches becomes a new expanding ripple (chain), viruses touched shrink the ripple. Each wave has a protect target; 5 waves in 2 minutes with rising orb speed. Win = clear all 5 wave targets. Score = orbs protected x40 + chain-depth bonus + wave-clear x200. Translucent expanding rings, orb glow, slow-motion on mega-chain (15+), count-up ticker of protected members."
-    },
-    {
       "dir": "steady-tower",
       "bajajName": "Steady Tower",
       "gameName": "Jenga De-Risk",
@@ -208,12 +197,12 @@
       "dir": "goal-keeper",
       "bajajName": "Goal Keeper",
       "gameName": "Goal Keeper",
-      "concept": "Penalty-save reaction (swipe-to-dive zones)",
+      "concept": "Steer a decaying cover span; renew before the event locks",
       "reference": "Original concept",
-      "financialConcept": "Cover standing between risk and the family's goals - every save is cover doing its job",
-      "feedback": "Approved - new original concept",
+      "financialConcept": "Cover is bought in advance, lapses if unrenewed, and never stretches over everything at once",
+      "feedback": "Rebuilt 2026-08-03 - BajajLife review found the original concept and execution incorrect",
       "port": 5057,
-      "brief": "Penalty shootout from the keeper's side: 10 shots defending family milestone banners. The striker's 400ms run-up cue is truthful 80% of the time (20% feints); during ball flight (550ms shrinking to 380ms by shot 10) SWIPE toward one of 6 zones (3 columns x 2 heights, magnitude picks height) to dive. Every 4th shot is a double-value Risk shot; 3 consecutive saves earn a one-goal Shield glove auto-save. Win at 6+ saves of 10, lose at 5 conceded. Balance gate models honest human latency (grace + swipe allowance + device lag) and includes a look-ahead canary so reaction-exploit strategies stay unprofitable."
+      "brief": "The goal mouth is the interval [0,1] and the player owns a cover span whose HALF-WIDTH IS THE SUM ASSURED. Drag to steer it (slew-limited 0.72 mouth/sec); shots arrive at telegraphed points you do not choose. The term decays every second and every claim paid draws it down; the only way back is TAP to RENEW, which costs scarce premium and is LOCKED once a ball passes 55% of its flight. Full span covers 44% of the mouth while volleys spread to 48%, so which of the three family goals goes uncovered is the player's call. 78s, 5 announced phases. Measured: perfect positioning while never renewing wins 0.0%, the same positioning with renewals wins 99.3% - the 99-point gap is the whole economy. Reaction sweep 150-560ms is deliberately flat, so cover management separates players, not reflexes."
     },
     {
       "dir": "wealth-carrom",
@@ -230,12 +219,12 @@
       "dir": "wealth-balloon",
       "bajajName": "Wealth Balloon",
       "gameName": "Wealth Balloon",
-      "concept": "Press-your-luck inflate (hold to grow, release to bank)",
+      "concept": "Goal-funding triage with forecast shocks and a fixed-premium cover decision",
       "reference": "Original concept",
-      "financialConcept": "Grow wealth as far as you dare - a Term Shield absorbs the one burst you never saw coming",
-      "feedback": "Approved - new original concept",
+      "financialConcept": "A fixed premium against a proportional loss - cover is worth buying on the big position, not the small one",
+      "feedback": "Mechanic replaced 2026-08-03 - BajajLife review found press-your-luck provided no meaningful value; the old gate measured a zero-information bot at 55% of the skilled score",
       "port": 5059,
-      "brief": "6 rounds of press-your-luck: HOLD to inflate the wealth balloon - banked value climbs superlinearly (10 x t^1.6) toward a hidden burst threshold (uniform 2.2-4.6s) with an honest-but-noisy wobble/hue tell from 70% of threshold. RELEASE to bank; burst loses the round value. One auto-applied Term Shield absorbs the first burst and banks half its value. Needle drones drift across from round 4 - releasing while one overlaps the balloon pops it regardless. Compounding streak bonus rewards disciplined banking (sim-proven: greed loses, discipline wins); win on total banked >= 500 across 6 rounds."
+      "brief": "Three life goals inflate side by side, each showing its target, deadline and current value. HOLD a balloon to pour income in, slide to switch. Income refills 24/s and drains 76/s, so all three can never be funded. Shocks are FORECAST 4s ahead on a named goal with the exact money they will take printed on the badge; one tap buys cover for a fixed 28. Nothing is hidden - no threshold, no coin flip. Because the premium is fixed and the exposure is a percentage of the position, the same 28 is obviously right against a balloon holding 180 and obviously wrong against one holding 30. Because drain is 3x refill, funding flat out means never affording a premium. 90s, win at 1000. Skill gap 87.5pp (skilled 87.5% / casual 31.9% / random 0.0%)."
     },
     {
       "dir": "income-pipeline",
@@ -285,12 +274,12 @@
       "dir": "perfect-premium",
       "bajajName": "Perfect Premium",
       "gameName": "Perfect Premium",
-      "concept": "Stop-the-marker precision timing",
+      "concept": "Rate-limited cover-level management against partially-hidden incoming claims",
       "reference": "Original concept",
-      "financialConcept": "Pay every premium right on time from 25 to 60 - discipline today is a pension tomorrow",
-      "feedback": "Approved - new original concept",
+      "financialConcept": "Under-insuring is cheap until the event arrives; over-insuring is safe but spends money the goals needed",
+      "feedback": "Rebuilt 2026-08-03 - BajajLife review found the experience did not feel like a game",
       "port": 5064,
-      "brief": "A life timeline from age 25 to 60 in 12 stages, each a premium due date (Age 28 - first job raise, Age 35 - home loan, ...). A marker sweeps the bar; TAP to lock it. Green zone = premium paid, gold center sliver = PERFECT (x2 and +1 combo, up to x4); missing consumes one of 3 grace periods and repeats the stage. Sweep speed +7% and green width 24% -> 9% per stage, zone position re-randomised, every 4th stage bends the bar into an arc. Occasional narrow gold top-up zone banks +150 without advancing. Win: clear all 12 stages to retirement fireworks; lose on 3 misses or the 100s clock."
+      "brief": "A cover line the player drags; claims scroll toward a NOW line publishing only their size BAND (routine 10-24%, major 30-56%, critical 55-88%), with the actual size revealed 0.72s out. Cover raises at 0.52/s and drops at 1.30/s, so 0.72s buys enough to fix a routine misread but not to rescue a critical one off the floor: you commit from the band, then shave on the reveal. Under-cover drains family security on a super-linear curve (gap^1.6), over-cover drains the budget meter, and either at zero ends the run - two opposed lose conditions. Gold goal tokens ride low, so only a player who is not over-insuring can reach them. 8 chapters, ages 25-60, ~96s. Skilled scores 13.5x random, asserted as a hard gate condition."
     },
     {
       "dir": "steady-wings",
@@ -324,17 +313,6 @@
       "feedback": "Approved - new original concept",
       "port": 5067,
       "brief": "A 3x3 grid of premium vector goal tiles (Health, Home, Education, Retirement, Travel, Family, Savings, Wedding, Emergency), each with its own synth pitch so sequences play as melodies. The family's plan lights up tiles in order (length 3 -> 9 across 7 rounds, playback speeding 460 -> 300ms); reproduce it by tapping. From round 4 one step is a red risk flash that must be SKIPPED during recall. Wrong tile or 5s idle = a slip; 3 slips = the plan is forgotten. Ordered recall only - no card flipping, no pair matching. Win: complete round 7 inside 110s."
-    },
-    {
-      "dir": "goal-juggler",
-      "bajajName": "Goal Juggler",
-      "gameName": "Goal Juggler",
-      "concept": "Tap-to-bounce juggling keep-ups (multi-body physics)",
-      "reference": "Original concept",
-      "financialConcept": "Real life means keeping every goal in the air at once - cover is what catches the one you miss",
-      "feedback": "Approved - new original concept",
-      "port": 5068,
-      "brief": "Keep-ups: glowing goal orbs (Education, Home, Health, Retirement - distinct silhouettes) fall under gravity in a walled playfield. TAP an orb to knock it upward; tap offset steers it. Orb count grows 1 -> 4 (at 15/35/60s); a floor hit shatters the orb (1 of 3 covers lost, respawns in 2s); from 40s a telegraphed risk gust pushes orbs sideways. Bounces pay x live-orb count, all-4-airborne streaks pay +200. Corner-cradling and tap-spam are neutralised by design (loiter nudge, impulse decay) and adversarially gated. Win: survive the 80s run under 3 drops with score >= 1500."
     },
     {
       "dir": "life-rush",
@@ -414,17 +392,6 @@
       "brief": "5 loops x 18s on one hand-authored vault map: each finished loop replays as a live echo (max 4, hue-shifted, badge) whose recorded positions still hold pressure plates, block hazard beams and sync twin levers. Doors need 1/2/3 distinct bodies simultaneously; the final run carries the policy chest through doors your ghosts hold open. Ghost replay is a 60Hz state track (Float32Array of x,y,actionBits - pure playback, divergence-proof); world events keyed to a single master loop clock + session seed so every loop is bit-identical. Win: chest delivered before loop 5 ends. Score = 1000 delivery + 400 x unused loops + 60/coin - plate-redundancy penalty. AFK loops burn early at 4s. Gate-proven: expert plan wins in 4 loops on 5 seeds, idle bot never wins, replay timelines byte-identical, pause freezes the one clock."
     },
     {
-      "dir": "time-shield",
-      "bajajName": "Time Shield",
-      "gameName": "Time Shield",
-      "concept": "Time moves only when you move (SUPERHOT rule)",
-      "reference": null,
-      "financialConcept": "Good cover buys you time to think - slow life down and pick your path",
-      "feedback": "Proposed 2026-07-30 - pending BajajLife sign-off",
-      "port": 5076,
-      "brief": "World simulation speed proportional to the guardian's own motion: timeScale = 0.06 + 0.94 x (v/860)^0.85 with EMA-smoothed character speed and critically damped finger-follow - hold still and bullet lattices hang in the air, move and they fly. 5 stacked zones bottom-to-top under a 105s REAL-TIME clock plus a rising fog wall (studying is free, the run is spending). Volleys 620 px/s with 500ms real-time telegraphs, laser fans zone 3+, sweep walls zone 4+. 2 hits = lose. Score: 300/zone + near-miss 25 (only while timeScale > 0.3) + style bonus for moving boldly + time remaining. Audio LPF and playback rate bound directly to timeScale. Gate-proven: competent bot 8/8 seeds, freeze-camper always loses, jitter bot earns floor timeScale (0.061) while honest movement earns 0.465."
-    },
-    {
       "dir": "ring-fence",
       "bajajName": "Ring-Fence",
       "gameName": "Ring-Fence",
@@ -445,17 +412,6 @@
       "feedback": "Proposed 2026-07-30 - pending BajajLife sign-off",
       "port": 5078,
       "brief": "Pitch-black maze: hidden geometry is never rendered at any alpha - a tapped sonar pulse (460 px/s ring, 1.6s cooldown) lights only wavefront-intersected wall segments for ~1.7s (walls white, hazards red, exit gold). Noise has a price: a lurker within 320px of a pulse stalks the pulse ORIGIN, so reposition after pinging. Escort 2 family followers through a ~2600px maze (3 gate checkpoints, corridors narrowing 72/56/48px) in 100s with 3 hearts. Fairness invariant enforced in code: nothing hits you unrevealed - lurkers self-ring inside 250px, cruise slower than you, and shriek 500ms before every lunge. Score = hearts + time + hidden orbs + quiet bonus (<=18 pulses). Pause blacks out all revealed geometry instantly (no pause-scouting), 3-2-1 re-acquire on resume. Gate: bot completes with hearts to spare; 10k random walks show every heart loss was telegraphed; pulse-spam scores worse than quiet play."
-    },
-    {
-      "dir": "dual-cover",
-      "bajajName": "Dual Cover",
-      "gameName": "Dual Cover",
-      "concept": "Duet-style twin-orbit dodger (one input, two coupled avatars)",
-      "reference": null,
-      "financialConcept": "Protection and growth are two sides of one plan - steer them together; losing either loses the future",
-      "feedback": "Proposed 2026-07-30 - pending BajajLife sign-off",
-      "port": 5079,
-      "brief": "Blue Protection and orange Growth orbs locked 180 degrees apart on a ring; hold left/right screen halves to rotate (780 deg/s^2 accel, 330 deg/s cap, 80ms release decay - surgical stops). ~30 obstacles descend over 90s (walls, center bars, staggered gates, previewing spinners, held-diagonal squeezes; descent 330 to 470 px/s) and BOTH orbs must survive; 3 shields, 4th hit loses. Every hit leaves a paint splat in the dead orb's color on the obstacle as it scrolls away - death is legible history. Generator enforces a reachability constraint (required rotation x 1.6 safety <= approach time, never >170 degrees between consecutive obstacles) and the gate re-proves it on 12 seeds: optimal bot survives all with 0 hits, idle bot always dies. Resume rewinds obstacles 250ms behind a 3-2-1 countdown. Score = passes x combo + near-misses + phase bonuses + no-hit finish."
     }
   ],
   "revamps": [

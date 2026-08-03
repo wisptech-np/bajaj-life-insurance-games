@@ -90,6 +90,62 @@ Two hard technical rules, because the game post-processes these files at runtime
 - **Negative:** text, watermark, human faces, features, windows with light, smoke from chimney,
   realistic photo, gloss, perspective, emoji, heavy drop shadow
 
+### tile-cover-point — the insurance-themed safe zone, the tile that banks the board
+- **Size:** 256×256 px, transparent PNG, deliver two states (unclaimed, claimed)
+- **Prompt:** Create a matched pair of polished mobile-game tile assets for a top-down ice-sliding
+  puzzle, showing a small shelter built from layered papercraft standing proud on the ice. The base
+  is a square platform of cool blue card `#78B2F8` with softly rounded corners, one ply thick so a
+  pale cut edge shows all round, and a narrow border ply in `#CFE9FF` glued just inside its
+  perimeter. Standing on it, seen slightly front-on the way a pop-up book stands a shape upright: a
+  small scalloped umbrella canopy die-cut from deep blue card `#003DA6`, its three scallops each a
+  separate cut, on a slim white paper mast; sheltering under the mast, a small white die-cut shield
+  with its own visible edge. State one, unclaimed: the border ply is warm gold `#FFC845` and the
+  shield is blank. State two, claimed: the border ply is pale blue `#CFE9FF` and a single blue
+  `#003DA6` check mark, die-cut as its own free shape, is glued onto the shield. Matte cotton card
+  throughout, tight contact shadows, no gloss. Orthographic top-down. Transparent background,
+  centred with padding.
+- **Negative:** text, watermark, rain, raindrops, storm, umbrella handle curve, metal ribs, gloss,
+  glow, gradient fill, perspective, realistic photo, emoji, heavy drop shadow
+
+### overlay-route-preview — the dashed route drawn while the thumb is still down
+- **Size:** 512×512 px, transparent PNG, deliver the four stop markers as a matched set
+- **Prompt:** Create a polished mobile-game overlay asset for a top-down ice-sliding puzzle: an
+  L-shaped route of short evenly spaced dashes, each dash a separate die-cut sliver of warm orange
+  card `#FF8A3D` with rounded ends and a visible cut edge, laid down like stitching, the corner
+  mitred cleanly. At the far end, deliver four alternative end markers cut from card in the same
+  weight, each a rounded square outline ring sized to one tile: (1) orange `#FF8A3D` with a short
+  straight bar across its far side, standing for a slide stopped by rock; (2) plain orange, standing
+  for a slide that runs to the shore; (3) pale blue `#CFE9FF`, standing for a slide caught by cover;
+  (4) red `#EF4444` with a die-cut X laid across it, standing for a slide that ends in the water.
+  Matte, flat, no glow, no gradient, no taper. Orthographic top-down. Transparent background.
+- **Negative:** text, watermark, arrows with fletching, glow, neon, gradient, motion blur, taper,
+  realistic photo, emoji, drop shadow
+
+### scene-sky-aurora — the night band above the lake
+- **Size:** 1080×720 px, opaque PNG, horizontally tileable
+- **Prompt:** Create a polished mobile-game background band of a winter night sky made from layered
+  card stock, to sit above a top-down ice-sliding board. Three broad horizontal plies of very dark
+  blue paper — `#06101F` at the top through `#0A1B33` to `#0D2748` at the bottom — each cut edge a
+  barely-lighter hairline. Laid over them, three long torn ribbons of translucent vellum in soft
+  green `#4ADE80`, cyan `#00A3E0` and violet `#967EFF` at low opacity, their long edges deckled
+  rather than cut, waving gently across the frame and fading to nothing at both ends. A sparse
+  scatter of tiny punched white paper dots for stars, denser toward the top. Along the very bottom,
+  a silhouette treeline of small fir triangles die-cut from near-black `#050E1A` card, standing in a
+  row of slightly varied heights. Completely matte, no glow, no bloom, no lens flare.
+- **Negative:** text, watermark, moon, sun, clouds, glow, bloom, lens flare, realistic photo,
+  aurora photograph, gradients that look airbrushed, emoji, buildings
+
+### scene-near-shore — the snow drift the route dock sits on
+- **Size:** 1080×420 px, opaque PNG, horizontally tileable
+- **Prompt:** Create a polished mobile-game foreground band of a snowy near shore made from layered
+  card stock, to sit below a top-down ice-sliding board. Three overlapping drifts, each a single ply
+  of paper with a gently undulating deckle-torn top edge and a crisp pale hairline along that edge —
+  the furthest in cool grey-blue `#96C0EC`, the middle in `#CEE7FF`, the nearest in near-white
+  `#ECF8FF` — each casting a shallow two-pixel shadow onto the one behind. No footprints, no
+  objects, no texture beyond the paper's own tooth. Completely matte. Orthographic, flat on.
+- **Negative:** text, watermark, footprints, trees, fences, figures, sparkle, glitter, gloss,
+  realistic snow photo, perspective, emoji, heavy drop shadow
+
 ### token-shield — the player's shield token, the piece you move
 - **Size:** 256×256 px, transparent PNG
 - **Prompt:** Create a polished mobile-game asset of a shield-shaped game token built from layered
@@ -193,8 +249,12 @@ Two hard technical rules, because the game post-processes these files at runtime
 | Prompt id | Replaces |
 |---|---|
 | `game-background` | `src/assets/bg.png / canvas backdrop` |
+| `scene-sky-aurora` | `paintSky()` in `src/SlideToSafetyGame.jsx` |
+| `scene-near-shore` | `paintShore()` in `src/SlideToSafetyGame.jsx` |
 | `player-hero` | `src/assets/hero.png / player rendering` |
 | `hazard-object` | `src/assets/hazard.png / risk rendering` |
+| `tile-cover-point` | `drawCover()` in `src/SlideToSafetyGame.jsx` |
+| `overlay-route-preview` | `drawRoute()` / `drawRouteMarks()` |
 | `ui-hud-icons` | `HUD headers & badges` |
 | `results-screen-art` | `Screens.jsx Results Screen` |
 

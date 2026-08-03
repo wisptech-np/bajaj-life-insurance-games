@@ -24,6 +24,74 @@ export const COLORS = {
   wall: '#3B8DD4',
 };
 
+// ---- Art direction ---------------------------------------------------------
+// Ring-Fence is drawn as a surveyor's plot on a backlit drafting table (see
+// asset-from-here.md): hard draughting linework, measured graph rule, 45°
+// ownership hatching, dimension ticks, dashed provisional construction lines.
+// Restraint is the point — structure carries the premium read, not bloom.
+// Every colour and constant the canvas or the HUD paints with lives here.
+export const ART = {
+  // The sheet the field is drawn on.
+  sheet: {
+    top: '#0A1930',
+    base: '#050E1F',
+    bottom: '#04091A',
+    minor: 'rgba(127,192,255,0.045)',   // 2-cell graph rule
+    major: 'rgba(127,192,255,0.10)',    // every fifth rule, so it reads measured
+    minorEvery: 2,                      // in cells
+    majorEvery: 10,
+    lightbox: 'rgba(28,84,178,0.17)',   // uneven glow from the light box beneath
+    vignette: 'rgba(2,5,12,0.55)',
+    reg: 'rgba(127,192,255,0.22)',      // corner registration crosses
+    regInset: 30,
+  },
+
+  // Claimed ground — an ownership wash under a 45° hatch.
+  claim: {
+    wash: '#0D2A5C',
+    washFresh: '#1D57B4',               // what the colour wave lays down first
+    hatch: 'rgba(140,195,255,0.11)',
+    hatchPx: 11,                        // hatch tile edge, logical px
+    sheenTop: 'rgba(46,120,224,0.34)',
+    sheenMid: 'rgba(0,61,166,0.14)',
+    sheenBottom: 'rgba(7,17,42,0.52)',
+  },
+
+  // The surveyed boundary the guardian rides.
+  wall: {
+    band: 'rgba(44,112,182,0.5)',
+    line: '#7FC0FF',
+    lineW: 1.5,
+    glow: 5,                            // px; 0 disables on low tier
+    tick: 'rgba(127,192,255,0.42)',
+    tickEvery: 8,                       // cells between dimension ticks
+    tickLen: 3.5,
+    breathe: 0.07,                      // boundary breathes ±7%, not ±35%
+  },
+
+  // The unfinished cut: provisional, therefore dashed.
+  cut: { dash: [10, 6], travel: 46, width: 3.2, core: 1.2 },
+
+  // The guardian station marker.
+  player: { scale: 9, seat: 'rgba(4,10,24,0.72)', tickLen: 0.55 },
+
+  // HUD type scale (px). One hero, two peers, everything else subordinate.
+  // hero/value shrink on short handsets; fit() publishes them as CSS vars so a
+  // resize never has to round-trip through React.
+  type: {
+    label: 9, caption: 8.5, bannerTitle: 18, bannerSub: 9.5, hint: 11,
+    value: 20, hero: 30,
+    valueSmall: 17, heroSmall: 25,
+  },
+
+  // HUD chrome band above the field. Must clear hero + caption + rail row.
+  hud: { band: 70, bandSmall: 64, compactUnder: 620, rail: 3 },
+
+  // The screen furniture (home / how-to / results) sits on the same sheet as
+  // the field, at half weight — material, not wallpaper.
+  screen: { minor: 'rgba(127,192,255,0.028)', major: 'rgba(127,192,255,0.055)' },
+};
+
 export const GAME_CONFIG = {
   // ---- Session ------------------------------------------------------------
   sessionSeconds: 90,

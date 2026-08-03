@@ -472,7 +472,9 @@ export function HowToPlayScreen({ onPlay }) {
               borderRadius: '50%',
               flexShrink: 0,
               background: `radial-gradient(circle at 32% 28%, ${t.colorLt} 0%, ${t.color} 45%, ${t.colorDeep} 100%)`,
-              boxShadow: i === TIERS.length - 1 ? `0 0 12px ${t.glow}` : 'none',
+              // The glow ramp from data.js, so the teaching screen shows the
+              // same "further up = throws more light" rule the tokens obey.
+              boxShadow: t.glowPx > 0 ? `0 0 ${Math.round(t.glowPx * 0.5)}px ${t.glow}` : 'none',
             }} />
           ))}
         </div>
@@ -686,7 +688,9 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
         justifyContent: 'center',
       }}>
         {[
-          { label: 'Best Tier', value: bestTier.label },
+          // The best tier keeps its own colour here, so the rung the player
+          // reached is the one thing on the results screen that is not white.
+          { label: 'Best Tier', value: bestTier.label, color: bestTier.colorLt, glow: bestTier.glow },
           { label: 'Merges', value: stats?.merges ?? 0 },
           { label: 'Top Chain', value: `x${stats?.maxChain ?? 0}` },
         ].map((it) => (
@@ -699,7 +703,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
             textAlign: 'center',
           }}>
             <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase' }}>{it.label}</div>
-            <div style={{ fontSize: 13, fontWeight: 900, color: '#fff', marginTop: 2 }}>{it.value}</div>
+            <div style={{
+              fontSize: 13, fontWeight: 900, marginTop: 2,
+              color: it.color || '#fff',
+              textShadow: it.glow ? `0 0 12px ${it.glow}` : 'none',
+            }}>{it.value}</div>
           </div>
         ))}
       </div>

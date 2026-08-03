@@ -2,6 +2,14 @@
 
 Paste each prompt into Nano Banana as-is. One asset per prompt.
 
+> **Obsolete since 2026-08-03 — do not generate.** The comprehension revamp
+> deleted the hazard beam, the twin levers and the bonus coins from the game,
+> so `beam-hazard`, `lever-twin` and `coin-bonus` below have nothing left to
+> skin. Everything else still maps to a live object. Two prompts are now worth
+> adding when this sheet is next revised: the **pad-to-gate wire** (the dashed
+> link that lights green when a pad is held) and the **locked chest** state
+> (the chest before the echoes have opened the road).
+
 ## Art direction lock (read once, applies to every prompt below)
 
 Legacy Echo is one of the Bajaj Life Insurance interactive game suite titles. The art must adhere strictly to Bajaj Life brand aesthetics, high readability, and clean mobile performance.

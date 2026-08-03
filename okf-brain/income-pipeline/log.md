@@ -257,3 +257,43 @@ discarded before the numbers above were reachable:
 
 - `pnpm install` — OK.
 - `pnpm build` (vite --mode uat) — **passes**, `✓ built in 4.22s`.
+
+---
+
+## 2026-08-03 — "The game is not functioning" (BajajLife review)
+
+**What the report meant.** Not a crash. The production bundle builds clean, boots
+clean and renders with zero console errors; `scripts/balance.mjs` passed
+untouched. Driven through a real headless Chrome at 390x844, the run ended in
+**18 seconds**: level 1's payday clock is 18 s, a first-time player routes
+nothing in that time, and `finishLevel()` treated a dry board as an instant
+`endRun(false, 'dry')`. The player never saw boards 2 and 3, and the results
+screen read `0 ROUTED · 0/6 TANKS`. That is what "not functioning" was
+describing.
+
+**Fixes**
+
+1. `IncomePipelineGame.jsx` — a dry board now costs the level, not the run. It
+   shows a `dry` banner and falls through to the level beat like any other
+   result. `advance()` is the only thing that ends a session.
+2. `data.js` — level timers 18/22/26 s → **26/28/32 s**. Total 86 s still sits
+   inside the 120 s session clock with room for the flow animations.
+3. `data.js` — new `WIN_TANKS = ceil(TOTAL_TANKS / 2)` = 3. The win condition was
+   all six tanks, which even the greedy balance bot only reaches on ~78% of
+   seeds; every realistic human session ended on the loss screen. Six stays as
+   `RESULT_TARGET_SCORE`, so a perfect run still reads as perfect.
+4. `buildGeometry()` — the 70 px cell ceiling left a 4x4 board floating in the
+   middle of a tall handset. Cap raised to 92 and the side gutters re-derived
+   from the furniture they hold (`stub + half the valve body + margin` on the
+   left, `tankW + margin` on the right) — a width-fraction gutter alone let the
+   salary valve and the last tank run off the canvas once the board grew.
+
+**Verification**
+
+- `node scripts/balance.mjs` — **GATE PASSED**. Greedy bot 78.7% → **82.3%**,
+  inside the 70–95% band; random bot 0.0%; par unchanged at min 4 / max 11.
+- `npx vite build` — passes, 425.77 kB / 142.03 kB gzip.
+- Headless Chrome, 390x844, production bundle, random-input bot:
+  run length **18 s → 91 s** (all three levels), 0 page errors, results screen
+  reached, "Try again" restores the canvas.
+- Screenshot check: salary valve and EDU tank both fully inside the canvas.

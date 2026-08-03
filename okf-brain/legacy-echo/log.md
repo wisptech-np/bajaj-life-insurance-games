@@ -211,3 +211,223 @@ gesture and suspended on pause. Full teardown on unmount.
 
 - `pnpm install` — OK.
 - `pnpm build` (vite --mode uat) — **passes**, `✓ built in 3.37s`.
+
+## 2026-08-03 — comprehension revamp (client review: "the purpose of the game is difficult to understand")
+
+### What was confusing, and why
+
+Played cold at 390x844, the first frame of the play screen showed: a corridor
+with three gates; six green discs labelled 1/2/3/3/2/3 scattered through both
+wings; two lever housings; five spinning coins; a red hazard beam; a chest in
+a dashed circle at the bottom; chips reading "0/1 BODY", "0/2 BODIES",
+"0/3 BODIES"; and a hint reading "Drag to move · stand on plates — your echo
+will replay this run". Nothing on that screen said what the player was trying
+to achieve. The destination ("FAMILY VAULT") was 9 px of grey text at the top
+with no visible relationship to the chest at the bottom, and the word "BODIES"
+is meaningless before you have seen an echo.
+
+The root cause was not the wording. It was that a time-loop co-op mechanic —
+the hardest thing in the game to explain — was competing for the player's
+attention with **four other unrelated mechanics**, each with its own rules,
+its own vocabulary and its own HUD real estate: a hazard beam with a duty
+cycle, knockback, stun and a shield-your-past-self rule; a twin-lever sync
+gate with a 0.5 s window; a five-coin economy with anti-farm persistence; and
+an invisible stacked-plate score penalty. The one idea worth understanding was
+the smallest thing on screen.
+
+### What was simplified or removed
+
+Deleted outright, from `data.js`, `rules.js`, the component and the gate:
+
+- **The hazard beam** — schedule, seeded phase, block-for-everyone rule,
+  knockback, stun, hit cooldown, screen shake, beam paint and pre-warn draw.
+- **The twin levers + sync window + coin alcove gate** — an entire second
+  mechanic with its own gate and its own reward.
+- **All five coins** — collection, persistence, particles, floating score,
+  the HUD coin chip and the coin score term.
+- **Gate 3** (the 3-pad door) — the ramp is now 1 pad then 2 pads.
+- **The stacked-plate redundancy penalty** — an invisible, unexplained,
+  never-communicated score leak.
+- `mulberry32` and the session-seeded world, now that nothing is random.
+- The `stunned` body paint, `drawCoin`, and the lever/alcove render passes.
+
+Retuned: loops 18 s → **12 s** (a helper loop was 17 s of standing still),
+track 1080 → 720 samples, carry speed 180 → 190 px/s, burn check 4 s → 3 s,
+session ~97 s → **~67 s**. Score is now only `1000 delivery + 400 x unused
+loops` (max 1800 on a loop-3 delivery).
+
+Two traps found while play-testing and closed:
+
+1. **The chest could be scooped on loop 1**, after which the player was
+   committed to the spine, jammed against a gate they had no way to open, and
+   could do nothing for the rest of the loop. The chest is now locked (dim,
+   slashed, un-pickable) until the echoes cover every pad for the current
+   loop — `world.chestReady`, computed once per loop boundary.
+2. **Loop 1 burned at 3 s** if the player was still reading. Loop 1 is now
+   exempt from the anti-AFK check; loops 2-5 still burn, so an idle session
+   still ends at 0 with no echoes. This made an existing gate assertion
+   obsolete and it was updated (see below).
+
+### The tutorial: showing, not telling
+
+No instruction screen was added. The teaching is four things that run inside
+the first thirty seconds of real play:
+
+1. **A permanent goal line.** "GET THE CHEST TO THE VAULT" is pinned to the
+   top of the stage at all times. Six words, never moves, always true.
+2. **A live objective, in the rules module.** `objectiveOf(cfg, world)` is a
+   pure read of the world returning `{kind, text, x, y}` — the one next thing
+   to do and the one place to go. It is rendered twice simultaneously: as a
+   sentence in an orange chip under the HUD, and as a pulsing ring with a
+   bouncing chevron drawn on the canvas over the exact object. A player who
+   reads nothing still always has an arrow. Its four states are the whole
+   game: *stand on a green pad → stay here, your echo will repeat this → grab
+   the gold chest → carry it to the vault*. Because it is a rule and not
+   decoration it is gated headless (see verification).
+3. **The field explains itself.** Every pad is drawn physically wired to the
+   gate it opens (dashed line, pad → wall → gate band), labelled "OPENS GATE
+   n", and the wire lights animated green the moment the pad is held. Gate
+   chips read "GATE 1 · NEEDS 1 PAD" / "GATE 2 · 1 OF 2 PADS" / "GATE 1 ·
+   OPEN" instead of "0/2 BODIES". A gold dotted road runs up the spine from
+   the chest to the vault mouth, so start and finish are legible in one
+   glance.
+4. **Two one-shot banners that narrate what just happened**, fired on the
+   frame the player watched it: on the first gate opening, "GATE OPEN / it
+   stays open only while a pad is held"; on the first time an echo takes a pad
+   over, "THAT IS YOUR LAST RUN / it holds the pad so you can walk through".
+   Neither interrupts play; both fire once per session.
+
+`HowToPlayScreen` gained exactly one sentence of prose ("Get the gold chest up
+to the vault. Gates open only while someone stands on a green pad — so your
+last loop comes back to stand on it for you.") and lost nothing else.
+
+**Bug found while screenshotting it:** the animated SVG demo added on
+2026-07-31 had never actually worked. A CSS `transform` keyframe *replaces* an
+element's SVG `transform` attribute rather than composing with it, so the
+guardian, the chest and the finger were all animating about the viewBox origin
+and sitting off-frame — the demo box showed only static scenery. Fixed by
+nesting each animated `<g>` inside an outer `<g>` that carries the placement.
+Verified by screenshot.
+
+### Correct / incorrect feedback
+
+- **Correct — pad held:** latch synth, haptic, green particle burst, the pad
+  disc and its ring go green, the wire to its gate lights and animates, a
+  "HELD" (or "ECHO HOLDS IT") float, and the gate slides open with its own
+  burst and a "GATE OPEN" float. The gate chip flips to green "OPEN".
+- **Correct — delivery:** unchanged (26+16 particle bursts, fanfare, floating
+  "LEGACY DELIVERED").
+- **Incorrect — walking into a shut gate:** this was previously *silent*, the
+  move simply did not happen. `bodyBlocked` now records which shut gate
+  refused the move, `stepWorld` fires `onGateBlocked(d, held, need)` on a
+  1.1 s cooldown, and the gate flares solid red for ~0.5 s with a screen
+  shake, a hit sound, a failure haptic, a red chip, and a float reading
+  "HOLD ITS PAD FIRST" or "NEEDS 2 PADS — 1 HELD".
+- **Incorrect — releasing a pad:** "RELEASED" float in red plus "GATE SHUT" on
+  the gate, so cause and effect are visible in one beat.
+- **Incorrect — wasted loop:** copy changed from "LOOP BURNED / barely moved,
+  this echo is lost" to "LOOP WASTED / you barely moved — no echo from that
+  loop", and the duplicate banner was removed (the rewind card already says
+  it).
+- **Carrying:** the wings are genuinely solid while carrying, which was
+  previously invisible; they are now dimmed with a scrim so the rule is seen
+  rather than discovered.
+
+Layout: the playfield is now letterboxed *below* the HUD band (114 px top,
+14 px bottom) instead of full-bleed behind it. The two things a player must
+see — the vault at y=0 and the chest at y=660 — sit at the extreme ends of the
+map, so on a 320x568 handset the goal bar was landing directly on the
+destination. Costs some scale, buys a field where nothing is ever hidden.
+
+### Verification
+
+**`node gate.mjs` — ALL GATES PASS (8/8).** Before/after, since the numbers
+moved:
+
+| Gate | Before | After |
+|---|---|---|
+| expert solvability | wins in **4** loops, 5 seeds | reposition plan wins in **3**, 5 seeds |
+| casual solvability | wins within **5** loops | one-pad-per-loop wins in **4** |
+| scoring | score=**1577**, coins=3, doors=3, redundant=0.6 s | score=**1400**, loops=4, gates=2, echoes=3 |
+| anti-AFK | **5/5** loops burn at 4 s, score 0 | **4/4** loops (2-5) burn at 3 s, score 0 |
+| ghost track | **1080** samples (13 KB) | **720** samples (8 KB) |
+| replay determinism | 243 timeline entries identical | 148 timeline entries identical |
+| objective never stale | *did not exist* | kinds seen 0,1,2,3 ending on 3 |
+| anti-pause-scum | frozen/clockHeld/inputRefused/inputBack all true | unchanged, all true |
+
+Two assertions were deliberately changed because simplification made them
+obsolete, both annotated in `gate.mjs`:
+
+1. **anti-AFK** now asserts `burnedLoops === count - 1` rather than
+   `=== count`, because loop 1 is exempt by design. The property the gate
+   exists to hold — an idle session cannot win and scores 0 with no echoes —
+   is unchanged and still asserted.
+2. **The five-seed sweep** in the solvability gates no longer varies anything,
+   because the hazard beam was the only seeded element. It is kept as a cheap
+   proof that nothing has quietly reintroduced a dependence on the seed, and
+   the file says so.
+
+One assertion was **added**: the objective must, at every tick of a real
+winning session, have non-empty text, point inside the field, only say "grab
+the chest" when the echoes genuinely cover every pad, only say "stay here"
+when the player really is on a pad, visit all four states, and end on "carry
+it to the vault". This assertion caught a real staleness bug during
+development — at the start of the carry loop the echoes have not walked to
+their pads yet, so a live "is a ghost on it right now" test told the player to
+go and stand on a pad their own past self was already walking towards. Fixed
+by precomputing `plateGhostCovered` once per loop from the recorded tracks
+(`ghosts.coverFraction = 0.3`) instead of reading the live per-tick flag.
+
+**`cd legacy-echo && npx vite build` — passes.** 525 modules transformed;
+`dist/index.html` 0.85 kB (gzip 0.46), `assets/index-v4scUYR6.css` 33.00 kB
+(gzip 6.77), `assets/index-CfHlmgYK.js` 431.11 kB (gzip 142.53); built in
+5.15 s.
+
+**`node scripts/play-test.mjs legacy-echo --all-sizes` — ok at all four
+viewports**, zero console or page errors:
+
+```
+=== legacy-echo @ iPhone SE   320x568 — ok ===  canvas 298x546, painted 100.0%, ended after 68s, retry ok
+=== legacy-echo @ iPhone 12   390x844 — ok ===  canvas 368x822, painted 100.0%, ended after 67s, retry ok
+=== legacy-echo @ Pixel 7     412x915 — ok ===  canvas 390x893, painted 100.0%, ended after 67s, retry ok
+=== legacy-echo @ chrome open 412x700 — ok ===  canvas 390x678, painted 100.0%, ended after 68s, retry ok
+```
+
+Session length 97 s → 67 s, inside the 60-120 s standard with margin. The
+random-input bot survives the full session at every size and reaches the
+results screen and the retry path.
+
+**Screenshots read manually**, at 320x568 and 390x844, on the home screen, the
+how-to-play screen, the first play frame, mid-loop-1 with a pad held, the
+rewind, and loop 2 with an echo running. Applying the cold-read test to the
+first play frame: the screen states "GET THE CHEST TO THE VAULT", shows a
+dimmed slashed chest at the bottom joined by a gold dotted road to a gold
+"FAMILY VAULT" threshold at the top, an orange dot labelled "Drag the orange
+dot", a pulsing ring and arrow on a green pad labelled "OPENS GATE 1" wired to
+a gate chip reading "GATE 1 · NEEDS 1 PAD", and an objective chip reading
+"Stand on a green pad". The objective is statable from that single frame.
+
+### Not fixed, and why
+
+- **The wings and the spine meet only through the muster zone at the bottom.**
+  A player who drives up the spine and then drags straight sideways towards a
+  pad will press against the spine wall and stay there until they drag
+  downward, because the damped follow has no path-finding. This is
+  pre-existing geometry, is never what the objective arrow tells you to do,
+  and self-corrects the moment the finger moves; the fix is a pathfinder,
+  which is not worth it here. Noted rather than papered over.
+- `src/kit/input.js` remains single-pointer (kit-inherited): a resting second
+  finger swallows input. The kit is immutable and shared; documented
+  repo-wide.
+- `asset-from-here.md` prompts `beam-hazard`, `lever-twin` and `coin-bonus`
+  now have no object to skin. The sheet was annotated at the top rather than
+  restructured, and names the two prompts worth adding when it is next
+  revised (the pad-to-gate wire, and the locked chest state).
+
+### Untouched
+
+`src/kit/` and `shared/game-kit/` (never edited), the screen flow, LMS
+integration, `api.js`, `LeadCaptureModal.jsx` (still Name + Mobile only, no
+email), `SlotBookingModal.jsx`, `ThankYouScreen.jsx`, `playCount`, the
+compliance disclaimer, and every file outside `legacy-echo/` and
+`okf-brain/legacy-echo/`.

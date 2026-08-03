@@ -1,77 +1,87 @@
 # Legacy Echo
 
-Time-loop past-self co-op for Bajaj Life. Five 18-second loops over one
-hand-authored vault map: every loop you play a single glowing guardian, and
+**Get the gold chest to the vault at the top. The gates in the way stay open
+only while somebody stands on their green pads — and the only somebody you
+have is the loop you already played.**
+
+Time-loop past-self co-op for Bajaj Life. Five 12-second loops over one
+hand-authored vault map: every loop you drag a single glowing guardian, and
 when the loop ends the world hard-resets — but your finished run replays as a
-live **echo** that still presses plates, blocks the hazard beam and flips
-levers. Build a relay across time, then carry the **policy chest** through all
-three vault doors into the family vault before loop 5 expires.
+live **echo** that keeps standing where you stood. Three pads, two gates, one
+chest.
 
 ## Financial hook
 
 *Your past contributions keep working for you — every premium your past self
 paid is a hand protecting the family today.* The mechanic is the message: the
-run you invest now is literally the helper that holds the door open for the
+run you invest now is literally the helper that holds the gate open for the
 future you.
 
 ## How it plays
 
-- **Drag to move.** Critically damped follow, max 260 px/s (180 px/s while
+- **Drag to move.** Critically damped follow, max 260 px/s (190 px/s while
   carrying the chest). Portrait 390x780 logical playfield.
-- **5 loops x 18 s** with a 1.5 s rewind scrub between loops (~97 s session).
-- **Vault doors** cross the central spine and open only while ALL their
-  plates are held — door 1 needs 1 body, door 2 needs 2, door 3 needs 3
-  distinct bodies at once (two bodies stacked on one plate count once, and
-  stacked seconds cost score). Bodies reach the plates through the free side
-  wings; the chest only fits through the doors.
-- **Echoes replay your previous runs** from a recorded state track. One echo
-  can do two jobs in one loop — hold a plate early, then walk to another
-  plate for the finale. That reposition is the core skill.
-- **Hazard beam** sweeps the vault approach on a fixed loop-clock schedule
-  (session-seeded phase, identical every loop). Any body standing in it
-  blocks it for everyone beyond; only the live player is knocked back and
-  stunned when caught.
-- **Twin levers** ~310 px apart must both flip within 0.5 s of each other —
-  impossible solo — to open the coin alcove.
-- **5 coins** sit behind doors and the lever gate, reachable only with echo
-  cooperation. Coins persist once collected (no farming).
-- **Anti-AFK:** a loop with under 64 px of movement ends early at 4 s and is
-  burned — it never joins the cast.
+- **5 loops x 12 s** with a 1.5 s rewind scrub between loops (~67 s session).
+- **Gates** cross the central spine and open only while ALL their pads are
+  held — gate 1 needs 1 body, gate 2 needs 2 distinct bodies at once. Bodies
+  reach the pads through the free side wings; the chest only fits through the
+  gates. Each pad is drawn physically wired to the gate it opens.
+- **Echoes replay your previous runs** from a recorded state track. One pad
+  per loop then carry wins in 4; repositioning inside a loop (hold gate 1's
+  pad early, walk to gate 2's late) wins in 3.
+- **The chest is locked** until your echoes cover every pad for the current
+  loop, so it is impossible to scoop it and jam against a gate you have no
+  way to open.
+- **Anti-AFK:** from loop 2 on, a loop with under 64 px of movement ends
+  early at 3 s and is burned — it never joins the cast. Loop 1 is exempt so a
+  first-timer reading the screen is not punished.
 - **Anti-pause-scum:** backgrounding auto-pauses; resume freezes the world
   and the single master loop clock behind a visible 3-2-1 re-acquire count
   (1.5 s) with input dead until it ends, so pausing never buys planning time
   and ghosts can never desync (one clock, shared by everything).
 
+## Teaching the mechanic (2026-08-03 review fix)
+
+The objective is computed by the rules module (`objectiveOf`), not written in
+prose, and is shown two ways at once: a sentence in the HUD and a pulsing ring
+with an arrow over the exact thing to touch. It walks a player through all
+four states — *stand on a green pad → stay here, your echo will repeat this →
+grab the gold chest → carry it to the vault* — and `gate.mjs` asserts it is
+never stale. Two one-shot banners narrate what the player has just watched
+happen (a gate opening, an echo taking the pad over); there is no instruction
+screen to sit through.
+
 ## Scoring
 
 - Delivery: **1000**
-- Unused full loops after delivery: **+400 each**
-- Coins: **+60 each** (5 placed)
-- Plate redundancy: **-5 per stacked second**, final score floored at 0
+- Unused full loops after delivery: **+400 each** (best possible 1800, on a
+  loop-3 delivery — the fastest the map allows)
 
 WIN: chest crosses the vault threshold before loop 5 ends. LOSE: loop 5
-expires without delivery. Results receive `{score, loopsUsed, coins}` plus
-doors opened and burned loops.
+expires without delivery. Results receive `{score, loopsUsed, echoes,
+doorsOpened, burnedLoops}`.
 
 ## Ghost tech (the load-bearing bit)
 
 Fixed 1/120 s simulation; recording is a **state track**, not an input log —
 every 2nd tick (60 Hz) the player's `(x, y, actionBits)` is written into a
-preallocated Float32Array (1080 samples per loop, ~13 KB). Replay is pure
-array playback indexed by the same loop-tick counter, and all interactions
-(plates, levers, beam blocking) are evaluated per tick from replayed
-positions. World events key off the loop clock plus a session `mulberry32`
-seed, so the world is bit-identical on every loop.
+preallocated Float32Array (720 samples per loop, ~8.6 KB). Replay is pure
+array playback indexed by the same loop-tick counter, and pads are evaluated
+per tick from replayed positions, identically for the live player and every
+echo. With the hazard beam removed the simulation has no random element at
+all, so the world is bit-identical on every loop by construction.
 
 ## Verification
 
 `gate.mjs` runs the shipped pure rules module (`src/rules.js`) headless:
 
-- solvable: an expert waypoint plan wins in 4 loops and a casual plan (two
-  simple repositions) wins in 5, across five session seeds;
-- an idle/AFK bot never wins (all five loops burn at 4 s, score 0);
+- solvable: a reposition plan wins in 3 loops and the one-pad-per-loop plan a
+  first-timer following the arrow actually finds wins in 4, on five seeds;
+- an idle/AFK bot never wins (loops 2-5 burn at 3 s, score 0);
 - ghost replay determinism: the same track replayed twice produces
   bit-identical interaction timelines;
+- the objective always names a real, actionable next step and walks the
+  player through all four of them;
 - the pause freeze provably holds the loop clock and refuses input.
 
 ## Commands

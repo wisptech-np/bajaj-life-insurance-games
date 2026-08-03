@@ -28,7 +28,7 @@ This audit establishes the baseline visual state of every game, identifies low-q
 | 8 | `portfolio-fit` | New | React 18 + Vite | Canvas 2D | Moderate (Flat CSS blocks) | 6.5 / 10 |
 | 9 | `spiral-sprint` | New | React 18 + Vite | Canvas 2D | Low (Basic canvas circles & arcs) | 5.0 / 10 |
 | 10 | `wealth-drop` | New | React 18 + Vite | Canvas 2D | Low-Moderate (Simple pin graphics) | 5.5 / 10 |
-| 11 | `ripple-shield` | New | React 18 + Vite | Canvas 2D | Low (Canvas gradient circles) | 5.0 / 10 |
+| 11 | ~~`ripple-shield`~~ (dropped 2026-08-03) | New | React 18 + Vite | Canvas 2D | Low (Canvas gradient circles) | 5.0 / 10 |
 | 12 | `steady-tower` | New | React 18 + Vite | Canvas 2D | Low-Moderate (Flat rectangular blocks) | 5.5 / 10 |
 | 13 | `goal-orbit` | New | React 18 + Vite | Canvas 2D | Low (Canvas orbital rings & dots) | 5.0 / 10 |
 | 14 | `risk-strike` | New | React 18 + Vite | Canvas 2D | Low-Moderate (Basic ball & pin shapes) | 5.5 / 10 |
@@ -254,7 +254,7 @@ This audit establishes the baseline visual state of every game, identifies low-q
 
 ---
 
-### 11. Ripple Shield (`ripple-shield`)
+### 11. Ripple Shield (`ripple-shield`) — DROPPED 2026-08-03, game deleted
 * **Concept:** One-tap chain reaction showing family protection ripple effects.
 * **1. Existing Visual Style:** Canvas background with expanding wave circles popping floating risk dots and expanding family safety bubbles.
 * **2. Low-Quality / Inconsistent Assets:**

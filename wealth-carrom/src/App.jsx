@@ -23,6 +23,10 @@ export default function App() {
   const [showSlotModal, setShowSlotModal] = useState(false);
   const [triggeredByBookSlot, setTriggeredByBookSlot] = useState(false);
   const [bookedDetails, setBookedDetails] = useState(null);
+  // Which rung of GAME_CONFIG.bot.levels The Market plays at. Chosen on the
+  // how-to-play screen and held across retries so "try again" means the same
+  // opponent, not a quietly different one.
+  const [difficulty, setDifficulty] = useState(GAME_CONFIG.bot.defaultLevel);
 
   const showHowToPlay = useCallback(() => {
     setScreen('howtoplay');
@@ -76,7 +80,11 @@ export default function App() {
       )}
 
       {screen === 'howtoplay' && (
-        <HowToPlayScreen onPlay={startGame} />
+        <HowToPlayScreen
+          onPlay={startGame}
+          difficulty={difficulty}
+          onDifficulty={setDifficulty}
+        />
       )}
 
       {screen === 'game' && (
@@ -91,6 +99,7 @@ export default function App() {
             <WealthCarromGame
               key={gameKey}
               config={GAME_CONFIG}
+              difficulty={difficulty}
               onWin={handleWin}
               onLose={handleLose}
             />

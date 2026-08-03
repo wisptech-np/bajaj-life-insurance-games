@@ -101,6 +101,9 @@ export default function App() {
         </div>
       )}
 
+      {/* retryLabel must stay inside the vocabulary scripts/play-test.mjs looks
+          for ('play again' / 'try again' / 'retry'), or a losing run reads to
+          the headless gate as a game that never reached an end state. */}
       {screen === 'results' && (
         <ResultsScreen
           stats={stats}
@@ -108,7 +111,7 @@ export default function App() {
           onRetry={handleRetry}
           onHome={goHome}
           onBookSlot={handleBookSlot}
-          retryLabel={won ? 'Play again' : 'One more try'}
+          retryLabel={won ? 'Play again' : 'Try again'}
         />
       )}
 

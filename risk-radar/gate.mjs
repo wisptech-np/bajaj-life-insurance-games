@@ -11,12 +11,16 @@
 //   (c) a pulse-spam bot (taps at every cooldown) attracts the lurkers enough
 //       that it scores worse than a quiet bot;
 //   (d) the pulse reveal timing: chunks light exactly when the wavefront
-//       crosses them, hold 1.0s at full strength, and fade out over 0.7s —
-//       and nothing is lit before any pulse (darkness yields nothing).
+//       crosses them, hold 1.0s at full strength, and fade over 0.7s down to
+//       the MEMORY FLOOR (2026-08-03: was "to zero" — the readability revamp
+//       gave swept geometry a permanent dim trace so the darkness governs how
+//       far ahead you can plan, not whether you can see; the assertion moved
+//       with it). Nothing is lit before any pulse, and nothing beyond the max
+//       radius ever lights — both unchanged.
 
 import { GAME_CONFIG } from './src/data.js';
 import {
-  buildWorld, stepWorld, setWalkTarget, clearWalkTarget, emitPulse,
+  buildWorld, stepWorld, setWalkTarget, clearWalkTarget, emitPulse, beginPause,
   pointAtArc, nearestArc, statsOf, chunkAlpha, mulberry32,
   L_PATROL, L_AGGRO, L_INVESTIGATE, L_SHRIEK, L_LUNGE, L_RETREAT,
 } from './src/rules.js';
@@ -445,6 +449,45 @@ console.log('Risk Radar gate — shipped data.js + rules.js\n');
     'the noise keeps them hunting the spammer');
 }
 
+/* ─── (c2) the noise economy is reported, not just simulated ─────────────
+   The 2026-08-03 revamp shows the player "N lurkers heard that ping" and marks
+   the spot they are walking to. That feedback is only honest if onHeard fires
+   exactly once per lurker per pulse and matches aggroEntries. */
+
+{
+  const world = buildWorld(cfg, cfg.sessionSeed, { trackReveals: false });
+  const dt = 1 / 60;
+  // Park the player right on top of a lurker's patrol band so a ping is heard.
+  const tmp = { x: 0, y: 0, nx: 0, ny: 0, hw: 0 };
+  pointAtArc(world, cfg.maze.lurkers[0].lo, tmp);
+  world.px = tmp.x;
+  world.py = tmp.y;
+  world.playerS = cfg.maze.lurkers[0].lo;
+
+  let heard = 0;
+  const ev = { onHeard: () => { heard += 1; } };
+  emitPulse(world, cfg, ev);
+  const before = world.aggroEntries;
+  for (let t = 0; t < cfg.pulse.maxRadius / cfg.pulse.speed + 0.5; t += dt) stepWorld(world, cfg, dt, ev);
+
+  report(heard >= 1 && heard === world.aggroEntries - before,
+    '(c2) onHeard fires once per lurker that overhears a ping',
+    `heard=${heard}, aggroEntries delta=${world.aggroEntries - before}`);
+
+  // And a ping fired out of earshot must report nothing — otherwise the
+  // "clear ping" praise would be a lie.
+  const quiet = buildWorld(cfg, cfg.sessionSeed, { trackReveals: false });
+  let quietHeard = 0;
+  emitPulse(quiet, cfg, { onHeard: () => { quietHeard += 1; } });
+  for (let t = 0; t < cfg.pulse.maxRadius / cfg.pulse.speed + 0.5; t += dt) {
+    stepWorld(quiet, cfg, dt, { onHeard: () => { quietHeard += 1; } });
+  }
+  report(quietHeard === 0,
+    '(c2) a ping fired out of earshot reports nobody heard it',
+    `start position is ${Math.round(Math.hypot(quiet.lurkers[0].x - quiet.px, quiet.lurkers[0].y - quiet.py))}px ` +
+    `from the nearest lurker (hear radius ${cfg.noise.hearRadius})`);
+}
+
 /* ─── idle canary: darkness alone never kills ───────────────────────────── */
 
 {
@@ -507,7 +550,13 @@ console.log('Risk Radar gate — shipped data.js + rules.js\n');
   const alphaAt = (at) => chunkAlpha(world, cfgStill, near, at);
   const holdOk = litAt > 0 && alphaAt(lastLitAt + holdSecs - 0.05) > 0.99;
   const midFade = litAt > 0 ? alphaAt(lastLitAt + holdSecs + fadeSecs * 0.5) : 0;
-  const fadedOk = litAt > 0 && alphaAt(lastLitAt + holdSecs + fadeSecs + 0.02) === 0;
+  // Settles to the memory floor, not to zero — see the header note.
+  const memFloor = cfgStill.reveal.memoryFloor;
+  const settled = litAt > 0 ? alphaAt(lastLitAt + holdSecs + fadeSecs + 0.02) : -1;
+  const fadedOk = Math.abs(settled - memFloor) < 1e-6;
+  // ... and the memory floor is dim enough that a swept corridor is a hint,
+  // not a lit room. Anything above ~0.35 would make the darkness decorative.
+  const memSaneOk = memFloor > 0.05 && memFloor <= 0.35;
 
   report(litAt >= 0 && Math.abs(litAt - tCross) < 0.05,
     '(d) chunk lights when the wavefront crosses it',
@@ -516,9 +565,19 @@ console.log('Risk Radar gate — shipped data.js + rules.js\n');
     '(d) farther chunks light later (expanding ring, not a floodlight)',
     `320px chunk at ${farLitAt.toFixed(3)}s`);
   report(holdOk, '(d) reveal holds at alpha 1.0 for 1.0s');
-  report(midFade > 0.2 && midFade < 0.8 && fadedOk,
-    '(d) then fades to black over 0.7s', `alpha mid-fade ${Number(midFade).toFixed(2)}`);
+  report(midFade > 0.2 && midFade < 0.9 && fadedOk && memSaneOk,
+    '(d) then fades over 0.7s to the memory floor (not to black)',
+    `alpha mid-fade ${Number(midFade).toFixed(2)}, settles at ${settled.toFixed(3)} (floor ${memFloor})`);
   report(!beyondLit, '(d) nothing beyond the 400px max radius ever lights');
+
+  // The memory map must not survive a pause — that would hand back exactly the
+  // map-study advantage beginPause exists to destroy.
+  beginPause(world);
+  let anyLitAfterPause = false;
+  for (let i = 0; i < world.chunkCount; i++) {
+    if (chunkAlpha(world, cfgStill, i, world.time) > 0) anyLitAfterPause = true;
+  }
+  report(!anyLitAfterPause, '(d) pausing wipes the memory map too (no pause-scum)');
 }
 
 /* ─── verdict ───────────────────────────────────────────────────────────── */

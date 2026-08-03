@@ -160,8 +160,21 @@ export const GAME_CONFIG = {
     targetScore: 1200,
   },
 
-  /** Missort or scroll-past = 1 mistake. This many ends the run. */
-  mistakes: { allowed: 3 },
+  /* -- Mistake budget -----------------------------------------------------
+     Missort or scroll-past = 1 mistake; this many ends the run.
+
+     Three lives is the right endgame pressure and is left alone — raising it to
+     five sent the casual bot's win rate from the brief's 25-45% band to 83%.
+     The defect was never the budget, it was WHEN the budget got spent: a
+     first-time player meets twelve unfamiliar item types at 1.9 s per card,
+     misreads the opening two or three, and the run is over inside fifteen
+     seconds without a single card having resolved on screen. That is what "the
+     game is not working" was describing.
+
+     So the first `graceItems` cards cannot cost a life. They still flash red
+     and still break the combo, so they teach; they just do not end the run
+     before the player has seen the game work once. */
+  mistakes: { allowed: 3, graceItems: 3 },
 
   /* -- Layout -------------------------------------------------------------
      Fractions of the measured canvas, with pixel clamps so the belt stays

@@ -145,3 +145,134 @@ big-cut stamp and both result-screen pieces.
 | `pnpm install` | pass |
 | `pnpm build` | pass — `✓ built in 3.72s`, 426.77 kB / 142.06 kB gzip |
 | `node gate.mjs` | **PASS** — strip bot 6/6 seeds ≥70% in time, idle bot 0/3, camper bot 0/3, seal correctness over 106 seals across 20 runs |
+
+---
+
+## 2026-08-03 — art direction pass (review defect: "visual design is average and lacks polish")
+
+**Defect.** The review is right and the screenshots said why. Three things were
+wrong, in order of damage:
+
+1. **The board had a hole in it.** The stage was `flex: 1` and the canvas was
+   letterboxed inside it, so on a 390x844 handset ~128 px of empty dark sat
+   under the field with the mute button floating in it, the HUD pills floated in
+   the strip *above* the field, and the first-run hint (positioned `bottom: 64`
+   of the stage, not the field) landed on top of the guardian's start position
+   and wrapped into two colliding lines. Three disconnected zones, no object.
+2. **The field had no material.** A near-black rectangle with a 4.5%-alpha grid
+   and a flat, saturated 12 px electric-blue frame whose alpha swung 0.55 -> 0.90
+   every 2.4 s. Generic arcade neon, and the only strong element on screen was
+   the border. `asset-from-here.md` had already specified the opposite
+   direction — a surveyor's plot on a backlit drafting table — and the shipped
+   renderer ignored it entirely.
+3. **No hierarchy and no goal.** Three glass pills of near-equal weight, 8 px
+   labels, three identical blue shield blobs, and the win condition expressed
+   only as the words "secure 70% to win". Nothing showed how close you were.
+
+**Art direction.** Commit to the sheet the asset sheet already specifies:
+**hard draughting linework on a backlit surveyor's plot** — measured graph rule
+at two weights, 45 degree ownership hatch over a wash for claimed ground, a
+surveyed boundary with dimension ticks instead of a neon bar, and a dashed
+*provisional* construction line for the live cut. Restraint is the mechanism:
+structure and spacing carry the premium read, so glow, particle counts and pulse
+amplitudes all came **down**, not up.
+
+**Play area.**
+- `makeBackdrop()` rewritten: vertical sheet gradient, an uneven light-box glow
+  rising from lower centre (the field now has a reading direction), a graph rule
+  at every 2 cells with every 5th at double weight, four corner registration
+  crosses, gentler vignette.
+- `repaintTerritory()` rewritten. Claimed ground is a wash plus a tiling 45
+  degree hatch (`makeHatchTile()` -> one 11 px `createPattern`, built once per
+  resize) clipped `source-atop` to the claimed cells, then depth shading. The
+  boundary is now three things instead of one: a muted band, a crisp 1.5 px
+  `#7FC0FF` line stroked **only on the cell edges that face open ground**, and
+  dimension ticks every 8 cells stepping along it. Path2D, built in the same
+  neighbour loop that already ran, so the cost is unchanged and it only runs on
+  seal/resize.
+- Boundary breathe cut from +/-35% alpha to +/-7% (`ART.wall.breathe`).
+  Structure holds; it does not throb.
+- Guardian is now a seated station marker: a dark seat disc that lifts it off
+  the band it rides (a blue marker on a blue wall was genuinely invisible), the
+  shield, four cardinal bearing ticks that turn orange while cutting, a white
+  centre point. Draw position is clamped by the seat radius so riding the outer
+  frame never clips it against the canvas edge — cosmetic only, collision still
+  reads the true `playerX/playerY`.
+- Live cut is dashed with a travelling dash offset plus a faint continuous core,
+  so it can never be misread as the solid boundary it is trying to become.
+- Third-orb telegraph is now a dashed exclusion-zone marker with a gold
+  countdown arc. Seal crest is two thin chasing arcs instead of one fat glowing
+  ring. Wave crest particles sampled every 16th cell instead of every 8th — a
+  big seal was throwing a confetti cloud.
+
+**Layout.** `fit()` now measures the **root** (never the stage — observing what
+you resize is how you get a ResizeObserver loop) and writes the stage's own
+width/height as `field + one HUD band`. There is no letterbox strip left over at
+any size; the HUD is real chrome above the plot instead of pills in a gap.
+
+**Typography / hierarchy.** One hero, two peers, everything else subordinate.
+Hero `%` 30 px/900 (25 px on short handsets), Score and Time 20/17 px tabular,
+labels 9 px/800 at 0.2 em. Under them, a **full-width goal rail**: the fill is
+`pct / winPct`, so 100% of the rail is the win line, with a gold target tick and
+a gold `70%` cap. That is the piece that was missing — the goal is now visible,
+not stated. Shields demoted to 13 px pips on the rail row, held = solid outline,
+lost = dashed ghost (the two states `asset-from-here.md` specifies). Hero/value
+sizes ship as CSS custom properties written by `fit()`, so a resize never
+round-trips through React.
+
+**Feedback states.**
+- New: the board's own perimeter flashes on a big seal (blue) and on a hit
+  (red). The whole game is a boundary holding or failing, so the boundary is
+  what reacts.
+- New: below 10 s a red inset edge glow joins the pulsing clock — the field
+  itself tells you, not just the number.
+- Banner restyled from a saturated candy gradient to a measured dark plate with
+  a coloured left rule and the title in the accent colour.
+- Camp chip demoted from a full-width orange alarm to a hairline chip.
+- Re-acquire count now sits in a ringed disc.
+- Hint rewritten as two short non-wrapping lines.
+
+**Screens.** All three now sit on the same plot sheet as the field (same graph
+rule at half weight), which is what makes them read as one object with the game.
+Home: viewport-relative rhythm (`clamp`/`vh`) — the fixed 26 px gaps overflowed
+320x568, clipping both the eyebrow and the CTA — plus a 3-cell brief
+(70% / 90 s / 3 shields) filling what was dead space, and a hero plot that is
+now hatched, ticked and squared instead of a rounded cartoon card. How-to-play:
+its demo field gained the hatch, the dimension ticks and the graph rule, and its
+trail is dashed, so it teaches what the real field looks like; cue labels no
+longer wrap. Results: an outcome mark (approval stamp / broken perimeter with a
+struck cross, both from the asset sheet) is the new hero, the outcome line
+leads, the score dial lost 3 px of stroke and gained graduation ticks so it
+reads as an instrument, and `Secured` leads the stat row.
+
+**Tokens.** Every colour and constant added lives in `data.js` under `ART`
+(`sheet`, `claim`, `wall`, `cut`, `player`, `type`, `hud`, `screen`). Nothing
+art-related is hard-coded in the component.
+
+**Not changed.** `rules.js` is byte-identical — no grid, orb, seal, fuse or
+scoring behaviour was touched. Screen flow, LMS wiring, capture mechanic and
+compliance copy unchanged. `src/kit/` untouched. Lead form remains Name +
+Mobile. Zero new binary assets — the hatch, the sheet and the outcome marks are
+all drawn.
+
+**Verification**
+
+| Gate | Result |
+| --- | --- |
+| `npx vite build` (before) | pass — 426.77 kB / **142.06 kB gzip**, CSS 6.87 kB gzip |
+| `npx vite build` (after) | pass — 438.13 kB / **145.16 kB gzip** (+3.10 kB, +2.2%), CSS 6.87 kB gzip unchanged |
+| `node gate.mjs` | **PASS** — strip bot 6/6 seeds >=70% in time (16.5-38.7 s), idle bot 0/3, camper bot 0/3, 106 seals across 20 runs with zero orb-containment errors |
+| `node scripts/play-test.mjs ring-fence --all-sizes` | **ok at 4/4** — no console or page errors at any size; canvas mounted and painted 100.0% of sampled pixels at 320x568 (269x484), 390x844 (370x666), 412x915 (392x706), 412x700 (339x610); random-input bot survived 90-91 s at every size; results screen and retry path work, canvas returns after retry |
+
+Screenshots were read at every size before and after, and iterated against
+twice: the first pass shipped a HUD band too short for its own content (the hero
+`%` clipped at 320x568, fixed by sizing the band to hero + caption + rail and
+publishing compact type sizes as CSS vars), and the second shipped a home screen
+that overflowed 568 px (fixed with viewport-relative rhythm).
+
+**Known trade-off.** Giving the HUD a real band costs field height where the old
+layout had none to spare: at 412x700 the canvas goes 377x678 -> 339x610 (-10%).
+That is the price of removing the dead strip and taking the HUD off the play
+surface, and it is the right trade — but if a reviewer wants the larger field
+back on short-and-wide viewports, lower `ART.hud.compactUnder` to 700 so that
+size takes the 64 px band.

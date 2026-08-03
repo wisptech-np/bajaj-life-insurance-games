@@ -129,7 +129,7 @@
 
 ---
 
-### 11. Ripple Shield (`ripple-shield`)
+### 11. Ripple Shield (`ripple-shield`) — DROPPED 2026-08-03, game deleted; no assets needed
 
 | Asset ID | Legacy Asset | Upgraded Asset Name | Target File Path | Format | Dimensions | Status | Affected Files |
 |---|---|---|---|---|---|---|---|

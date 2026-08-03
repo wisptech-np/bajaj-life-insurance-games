@@ -18,7 +18,7 @@
 // of `--runs` runs (default 500). A band that holds on the mean but breaks on a
 // block fails the gate: one lucky seed is not evidence.
 
-import { GAME_CONFIG, RESULT_TARGET_SCORE } from '../src/data.js';
+import { GAME_CONFIG, GRAMMAR, MOMENTS, RESULT_TARGET_SCORE } from '../src/data.js';
 import { gauss, mulberry32 } from '../src/rng.js';
 import {
   applyOutcome, buildRunPlan, createRun, maxAchievableScore, runSeconds,
@@ -609,6 +609,31 @@ console.log(`  ${BLOCKS} seed blocks x ${RUNS.toLocaleString()} runs, base seed 
   if (r.failures.length > 8) {
     failures.push(`render smoke — and ${r.failures.length - 8} further render failures`);
   }
+}
+
+/* -- The instruction frame must cover every microgame --------------------- */
+/* A rush is only legible if the frame around it is complete. The persistent
+   strip needs three things from every microgame — a verb inside the four-gesture
+   grammar, a money moment, and a one-line ask — and any of them missing means a
+   scene ships that the player is never told how to answer or what it is about.
+   That is exactly the defect the 2026-08-03 review reported, so it is a gate
+   assertion rather than a convention. `why` is capped because it has to fit the
+   strip on a 320 px handset. */
+{
+  const bad = [];
+  for (const m of MICROGAME_LIST) {
+    if (!GRAMMAR[m.verb]) bad.push(`${m.id}: verb "${m.verb}" is not in the input grammar`);
+    const mo = MOMENTS[m.id];
+    if (!mo) bad.push(`${m.id}: no money moment in MOMENTS`);
+    else if (mo.moment.length + mo.why.length > 45) {
+      bad.push(`${m.id}: moment+why is ${mo.moment.length + mo.why.length} chars, cap 45`);
+    }
+    if (!m.hint || m.hint.length > 34) bad.push(`${m.id}: hint missing or over 34 chars`);
+  }
+  console.log(`   instruction frame: verb + moment + ask present on all ${MICROGAME_LIST.length} `
+    + `microgames, grammar of ${new Set(Object.values(GRAMMAR).map((g) => g.glyph)).size} gestures `
+    + `${bad.length ? 'FAIL' : 'OK'}`);
+  for (const b of bad) failures.push(`instruction frame — ${b}`);
 }
 
 /* -- Stale-gesture guard (the recogniser, not a model of it) -------------- */

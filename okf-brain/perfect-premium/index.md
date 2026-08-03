@@ -1,160 +1,175 @@
 ---
 type: project
 title: Perfect Premium
-description: Stop-the-marker precision timing across a twelve-stage life timeline from age 25 to 60, where the safe zone narrows from 24% to 9% of the bar, the sweep speeds up 7% a stage, and three grace periods are the only thing that makes finishing possible.
+description: Real-time cover-level management across a 25-to-60 life timeline. Claims arrive with their size class known and their size hidden until 0.72s out; the player drags a cover line that raises slowly and drops fast. Under-cover costs family security on a super-linear damage curve, over-cover drains the budget meter, and both zeroes end the run.
 resource: file:///c:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/perfect-premium
 tags:
   - game
-  - timing
-  - precision
-  - arcade
-timestamp: 2026-07-28
+  - action
+  - resource-management
+  - risk-under-uncertainty
+timestamp: 2026-08-03
 ---
 
 # Perfect Premium
 
-One-thumb precision timing. A marker sweeps back and forth across a bar; a single
-tap locks it. Green band = that year's premium is paid and the stage clears; the
-gold sliver at the centre of green = PERFECT, worth double and worth a combo
-step; anywhere else = one of three grace periods gone and the stage repeats.
-Twelve premiums from age 25 to the vesting date at 60, inside a 100-second cap.
+**Set the cover. Then live with it.**
 
-Theme copy: *"Pay every premium right on time from 25 to 60 — discipline today is
-a pension tomorrow."*
+A cover line runs across the field at whatever level the player's thumb puts it.
+Claims travel toward the NOW line from the right. Each shows its **class** — and
+therefore the band its size was drawn from — from the moment it appears on the
+horizon, and its **true size** only when it crosses the FORECAST line, 0.72 s
+out. A claim under the line is covered, and worth more the tighter the fit. A
+claim above it takes the uncovered part out of the family's security. Carrying
+cover burns budget every second, so a line left sitting at the top is money that
+never reaches the gold goal tokens riding along the floor.
 
-## Financial hook
+Raising cover is slow (0.52 of the scale per second). Dropping it is fast (1.30).
 
-Premium discipline and the grace period. The mechanic *is* the argument that a
-policy is a 35-year habit rather than a purchase:
+Eight chapters, ages 25 to 60, about 96 seconds, roughly 39 claims and 13 goal
+tokens per run.
 
-- **The window narrows with age.** Green runs 24% → 9% of the bar and the sweep
-  compounds +7% a stage, so the tap that was comfortable at 25 is a commitment at
-  55. Life gets busier; the discipline has to get sharper.
-- **Every due date is named after the thing that wants the money instead** —
-  first job raise, wedding year, home loan, school fees, parents' care, business
-  dream. The premium is never convenient, and it gets paid anyway.
-- **Three grace periods, then the policy lapses.** A real policy forgives a late
-  premium up to a point; a fourth miss ends the run and everything paid so far
-  counts for nothing toward the vesting date.
-- **A missed premium comes back harder, not easier.** The stage repeats with a
-  freshly randomised zone at the *same* narrower width and the same faster sweep.
-- **The top-up band is the honest trap.** A narrow gold band offset from green
-  banks +150 but does not pay the premium — the stage stays open and the speed
-  bonus keeps draining. Measured, the bot that chases top-ups wins 7.8% of runs
-  against 39.4% for the bot that simply pays the premium: chasing extra return
-  before covering the basics is a losing strategy, with a number on it.
-- **Perfection compounds; adequacy does not.** Consecutive PERFECTs stack a
-  multiplier to x4, and an ordinary on-time payment keeps the policy alive but
-  resets the streak. The ceiling belongs to people who are exact every year.
+Theme copy: *"Too little cover and the claim lands on your family. Too much and
+the money never reaches your goals. Find the line."*
 
-## Stage table
+## Why the previous version was replaced
 
-| # | age | life event | green | gold | sweep | bar |
+The 2026-08-03 client review rejected the stop-the-marker build: *"The current
+experience does not feel like a game… introduce a genuine gameplay loop with
+player decisions, challenge, scoring and progression… add meaningful consequences
+for choosing the correct or incorrect premium strategy."*
+
+The old loop had exactly one verb (tap to stop a sweeping marker) and exactly one
+axis of skill (timing precision). There was no decision in it — nothing to weigh,
+nothing to trade off, and no way for a premium *strategy* to be right or wrong,
+only for a tap to be early or late. What replaced it keeps the theme and the
+timeline and swaps the loop for one where the player's only verb sets a
+**quantity** rather than an **instant**, under genuine uncertainty, with an
+opposing cost on each side of the right answer.
+
+## Financial hook — the two-sided cost of getting cover wrong
+
+Every claim below is a measured number from `scripts/balance.mjs`, not a slogan:
+
+- **Under-insuring is free until it is not.** Shortfall damage is
+  `62 x (gap/0.70)^1.6` — super-linear on purpose. A 5%-of-scale gap costs under
+  1 point of security; a critical claim taken bare costs 62 of 100. Small risks
+  are genuinely self-insurable and large ones genuinely are not, and that is a
+  rule rather than a caption.
+- **Over-insuring is safe and still loses.** The always-max-cover bot suffers
+  **zero** shortfalls across 20,000 runs and is bankrupt at **11.4 s**, 100% of
+  the time. The realistic version — a cautious bot holding a 45% cover floor
+  between claims — is bankrupt at **31.0 s**, also 100% of the time.
+- **Over-insuring costs even when it survives.** A bot that ignores the reveal and
+  carries every claim's band top wins 99.2% of its runs and scores **6,438
+  against skilled's 14,753** (43.6%) for 13.5% mean surplus. Buying the maximum
+  is a permanent tax, with a number on it.
+- **Cover cannot be bought in the moment.** 0.72 s of reveal buys 0.37 of raise,
+  enough to fix a routine or major misread and not enough to rescue a critical
+  one from the floor. The forecast band is load-bearing, which is why the
+  raise/drop asymmetry exists.
+- **Chasing returns before covering the basics loses.** Goal tokens ride low, so
+  taking one means dipping and then climbing back the slow way. The goal-greedy
+  bot wins 85.0% against 100.0% for the same skill spent on claims.
+- **Early frugality funds late cover.** Chapter 1 is routine claims only; chapter
+  8 is 38% critical at 1.05–1.36 s spacing. The budget that survives the last
+  three chapters is the budget not burned at 25.
+
+## Chapter table
+
+| # | age | life event | seconds | gap | routine/major/critical | goal |
 |---|---|---|---|---|---|---|
-| 1 | 25 | first pay cheque | 24.0% | 6.2% | 0.90 | straight |
-| 2 | 28 | first job raise | 22.6% | 5.9% | 0.96 | straight |
-| 3 | 30 | wedding year | 21.3% | 5.5% | 1.03 | straight |
-| 4 | 32 | first child | 19.9% | 5.2% | 1.10 | arc |
-| 5 | 35 | home loan | 18.5% | 4.8% | 1.18 | straight |
-| 6 | 38 | car upgrade | 17.2% | 4.5% | 1.26 | straight |
-| 7 | 41 | school fees | 15.8% | 4.1% | 1.35 | straight |
-| 8 | 44 | parents' care | 14.5% | 3.8% | 1.45 | arc |
-| 9 | 47 | college fund | 13.1% | 3.4% | 1.55 | straight |
-| 10 | 51 | business dream | 11.7% | 3.0% | 1.65 | straight |
-| 11 | 55 | pre-retirement top-up | 10.4% | 2.7% | 1.77 | straight |
-| 12 | 60 | retirement day | 9.0% | 2.3% | 1.89 | arc |
+| 1 | 25 | first pay cheque | 9.5 | 1.50–1.95 s | 100/0/0 | 30% |
+| 2 | 29 | first job raise | 9.5 | 1.42–1.85 s | 78/22/0 | 30% |
+| 3 | 33 | wedding year | 10 | 1.35–1.75 s | 60/40/0 | 28% |
+| 4 | 37 | first child | 10 | 1.28–1.66 s | 48/40/12 | 28% |
+| 5 | 42 | home loan | 10 | 1.22–1.58 s | 40/42/18 | 26% |
+| 6 | 47 | school fees and parents | 10 | 1.16–1.50 s | 32/42/26 | 26% |
+| 7 | 53 | college fund | 10 | 1.10–1.42 s | 26/42/32 | 24% |
+| 8 | 60 | retirement day | 10 | 1.05–1.36 s | 22/40/38 | 24% |
 
-Widths are fractions of the bar, sweep is bar-widths per second. Every 4th stage
-the bar bends into a circular arc — different geometry to read, identical timing
-rule, which is why `isArcStage()` lives in the rules module and not in the
-renderer.
+Claim classes: ROUTINE 10–24% of the scale, MAJOR 30–56%, CRITICAL 55–88%. Size
+inside the band is uniform and hidden until the reveal.
 
 ## Scoring
 
-`stage = (100 + round(remaining stage seconds) x 10) x min(1 + consecutive
-PERFECTs, 4)`, doubled on a PERFECT. Each attempt carries a 6-second speed-bonus
-allowance drawn as a draining meter. The bonus top-up band is a flat +150 that
-does not clear the stage and does not touch the combo. A miss resets the combo
-and burns a grace period.
+```
+covered claim = (20 + round(efficiency x 30)) x combo x (perfect ? 2 : 1)
+  efficiency  = 1 - surplus/0.35, floored at 0
+  perfect     = surplus <= 0.06     (+1 combo, capped at x3)
+goal token    = 200 + 5 budget refunded
+shortfall     = 0 points, combo reset, security -= 62 x (gap/0.70)^1.6
+end bonus     = (budget x 10 + security x 8) x (security/100)
+```
 
-Stats contract: `{ score, perfects, bestCombo, stagesCleared }`.
+The end-bonus scaling matters: without it a player who never bought any cover
+would finish with a full budget meter and be paid for it. Money hoarded while the
+family was wiped out is not a saving.
+
+Stats contract: `{ score, playScore, endBonus, covered, perfects, shortfalls,
+goals, bestCombo, yearsCleared, budgetLeft, securityLeft, meanSurplus, cause }`.
 
 ## Shape of the build
 
-- `src/data.js` — `COLORS`, `STAGES` (twelve ages and life events) and
-  `GAME_CONFIG`: sweep ramp, zone ramp, gold fraction, top-up band, scoring
-  weights, grace count, 100 s clock, pacing beats, every effect count. Zero
-  imports, zero browser API.
-- `src/stages.js` — **every rule**, as pure functions: difficulty ramp, zone
-  generation, lock judgment, sweep kinematics, scoring, and the complete run
-  state machine (`createRun` / `runStep` / `runTap` / `lockAt` / `runStats`).
-  No DOM, no React, no canvas. The component drives it and the balance simulator
-  drives it, which is what makes the gate measure the shipping game.
-- `src/PerfectPremiumGame.jsx` — presentation only: canvas layout, offscreen
-  pre-render, programmatic painters, particles, audio, HUD. Mutable state in refs.
-- `src/Screens.jsx` — Home (the timeline, bar and sweeping marker as inline SVG),
-  How to Play (3-beat CSS-animated SVG), Results (a ring filled by premiums paid,
-  with the stats-contract tiles).
+- `src/data.js` — `COLORS`, `RISK_CLASSES`, `YEARS`, `GAME_CONFIG`. Zero imports,
+  zero browser API, so `scripts/balance.mjs` imports it under Node exactly as the
+  app does.
+- `src/cover.js` — **every rule**, as pure functions: schedule generation
+  (`buildSchedule`), fog reading (`isRevealed`, `readNeed`), cover kinematics,
+  `coverScore`, `shortfallDamage`, `endBonus`, and the run state machine
+  (`createRun` / `runStep` / `setTarget` / `runStats`). No DOM, no React, no
+  canvas.
+- `src/PerfectPremiumGame.jsx` — presentation only. Mutable state in refs, HUD
+  written to the DOM via textContent/style, offscreen backdrop rebuilt on resize.
+- `src/Screens.jsx` — Home, How to Play (3-beat CSS/SVG demo, no instructional
+  paragraphs), Results.
 - `src/kit/` — byte-identical copy of `shared/game-kit`, never edited in place.
-- `scripts/balance.mjs` — the balance gate; not part of the bundle.
+- `scripts/balance.mjs` — the gate; not part of the bundle.
+- `src/stages.js` — **deleted** (the old stop-the-marker rules module).
 
-## Colour grammar
+## Presentation
 
-Green is "premium paid on time" — the safe zone, the cleared milestone nodes, the
-results ring. Gold is the reward tier: the PERFECT sliver and the bonus top-up
-band. Orange is the player's own hand — the sweeping marker and the milestone
-that is due right now. Red only ever means a grace period being burned. Blue is
-the timeline itself, the policy years stretching from 25 to 60.
+Space on screen is time: events carry a `due` in seconds and the renderer maps
+`(due - now)` to x, so the FORECAST line falls exactly where `revealSeconds` puts
+it and the rules module needs no notion of scroll speed.
+
+A fogged claim is drawn in two parts — solid to the band floor (cover certainly
+needed), hatched to the band ceiling (cover possibly needed), dashed line on the
+ceiling. The player can see how much of the decision is known and how much is a
+bet.
+
+Colour grammar: cyan/blue is your cover (the line and the band beneath it); green
+a claim that landed inside it; gold precision and free money (tight cover, the
+streak, the goal tokens); orange a major claim and the draining budget; red only
+ever a shortfall.
+
+Auto-pause releases into a 3-second re-acquire countdown, so backgrounding the
+tab cannot be used to freeze an inbound claim and study it.
 
 ## Balance
 
-`scripts/balance.mjs` imports `src/stages.js` and `src/data.js` and drives them
-with a bot whose realised lock is `green centre + N(0, sigma)`, clamped to the
-bar. Timing is simulated, not assumed: after a 0.22 s beat to read a fresh
-layout the bot waits for the marker to actually reach its target and locks there,
-so resolve beats and wasted sweeps come out of the same 100-second clock the
-player gets. Two mulberry32 streams per run (game zones, bot noise), both a pure
-function of the run index and the master seed; gaussians via Box-Muller.
+Gate at 600 runs per profile; table below at 20,000, seed `0x5eed1234`:
 
-Gate: sigma 6% in 25–45%, sigma 2% at or above 90%, every run terminates inside
-the clock, and the timeout lose path must be demonstrably reachable.
+| profile | win% | lose: gap | lose: budget | score | claims | perfect | gaps | surplus | clock |
+|---|---|---|---|---|---|---|---|---|---|
+| skilled | 100.0% | 0.0% | 0.0% | 14,753 | 39.8 | 38.2 | 0.2 | 3.5% | 96.2 s |
+| good | 100.0% | 0.0% | 0.0% | 6,768 | 22.0 | 16.5 | 18.0 | 4.2% | 96.2 s |
+| **casual** | **45.4%** | 54.6% | 0.0% | 2,643 | 9.2 | 6.5 | 28.1 | 4.9% | 89.3 s |
+| novice | 0.0% | 100.0% | 0.0% | 983 | 2.3 | 1.4 | 18.0 | 5.0% | 53.1 s |
+| never trusts the reveal | 99.2% | 0.0% | 0.8% | 6,438 | 39.6 | 6.9 | 0.4 | 13.5% | 96.2 s |
+| over-cautious (45% floor) | 0.0% | 0.0% | 100.0% | 1,225 | 10.7 | 1.2 | 0.1 | 23.8% | 31.0 s |
+| goal-greedy | 85.0% | 15.0% | 0.0% | 9,921 | 31.3 | 28.8 | 8.2 | 3.6% | 94.7 s |
+| **random flailing** | **0.0%** | 1.5% | 98.5% | 1,094 | 10.1 | 1.2 | 3.5 | 26.5% | 38.3 s |
+| always max cover | 0.0% | 0.0% | 100.0% | 870 | 3.5 | 0.0 | 0.0 | 82.8% | 11.4 s |
+| never cover | 0.0% | 100.0% | 0.0% | 147 | 0.0 | 0.0 | 10.5 | 0.0% | 29.8 s |
 
-Measured, 20,000 runs per profile, seed `0x5eed1234`:
-
-| profile | win% | lose: grace | lose: clock | mean score | premiums | perfects | clock |
-|---|---|---|---|---|---|---|---|
-| sigma 2% (expert) | 100.0% | 0.0% | 0.0% | 7,444 | 12.00 | 8.34 | 13.9 s |
-| sigma 4% | 88.7% | 11.3% | 0.0% | 4,118 | 11.81 | 5.11 | 15.1 s |
-| **sigma 6% (casual)** | **39.4%** | 60.6% | 0.0% | 2,884 | 10.18 | 3.55 | 15.3 s |
-| sigma 8% | 10.4% | 89.6% | 0.0% | 2,028 | 7.80 | 2.47 | 13.5 s |
-| sigma 12% (mashing) | 0.5% | 99.5% | 0.0% | 1,090 | 4.56 | 1.33 | 10.1 s |
-| sigma 6% greedy | 7.8% | 92.2% | 0.0% | 2,073 | 7.24 | 2.56 | 13.7 s |
-| dithering (2%, 7.2 s) | 90.4% | 0.0% | 9.6% | 4,845 | 11.90 | 8.30 | 98.1 s |
-
-At the default 500-run gate the same seed measures casual 42.4% / expert 100.0%;
-across five other master seeds casual measured 35.8–42.4%, so the gate sits well
-inside the band and is not seed-fragile.
-
-The curve is steep exactly where a skill test wants it — halving aiming error
-from 6% to 3% moves the win rate from 39% to 99%, doubling it to 12% moves it to
-0.5%:
-
-```
-sigma   1.0%   2.0%   3.0%   4.0%   5.0%   6.0%   7.0%   8.0%  10.0%  12.0%
-win%   100.0  100.0   99.0   88.7   64.8   39.4   21.1   10.4    2.3    0.5
-```
-
-With gaussian error the per-stage clear chance is `erf((green/2)/(sigma*sqrt2))`,
-running 95.4% on stage 1 to 54.7% on stage 12; zero misses across all twelve is
-only 5.7% likely. **The three grace periods are what turn 5.7% into 39%** — they
-are the mechanism that makes the run winnable at all, which is exactly the point
-the game is making about real policies.
-
-No spec constant needed correcting: everything in design spec §10 shipped as
-written and hit both targets on the first measurement. See `log.md`.
+**Skilled scores 13.49x random.** That ratio is the gate's headline assertion and
+the direct answer to the review: a player who understands nothing does not score
+like a player who understands everything.
 
 ## Ports and commands
 
 Dev server on **5064**. `pnpm dev`, `pnpm build` (uat), `pnpm build:preprod`,
 `pnpm build:prod`, `pnpm preview`, `pnpm balance`,
-`node scripts/balance.mjs --runs 20000 --sweep`.
+`node scripts/balance.mjs --runs 20000`, and from the repo root
+`node scripts/play-test.mjs perfect-premium --all-sizes`.

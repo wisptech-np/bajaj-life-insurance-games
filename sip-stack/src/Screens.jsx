@@ -277,14 +277,19 @@ export function HomeScreen({ onStart }) {
    GAME_CONFIG.slabHueStart 216 (brand blue) drifting to slabHueEnd 130 (green)
    — so the tutorial and the game are visibly the same object. */
 
-/** One pseudo-3D SIP slab, same geometry the canvas draws. */
+/**
+ * One pseudo-3D SIP slab, built from the same face list as stack.js slabFaces():
+ * the extrusion is INSET, so the whole solid lives inside [0, w] — exactly the
+ * footprint the drop is judged on. Nothing here may draw past w.
+ */
 function Slab({ x = 0, y = 0, w, h = 14, d = 4.5, sh = 5, hue }) {
+  const s = Math.min(sh, w * 0.5);
   return (
     <g transform={`translate(${x} ${y})`}>
-      <rect x="0" y={d} width={w} height={h - d} fill={`hsl(${hue}, 64%, 40%)`} />
-      <polygon points={`${w},${d} ${w + sh},0 ${w + sh},${h - d} ${w},${h}`} fill={`hsl(${hue}, 62%, 25%)`} />
-      <polygon points={`0,${d} ${sh},0 ${w + sh},0 ${w},${d}`} fill={`hsl(${hue}, 58%, 58%)`} />
-      <line x1="0" y1={d} x2={w} y2={d} stroke="rgba(255,255,255,0.28)" strokeWidth="0.8" />
+      <polygon points={`0,${d} ${w - s},${d} ${w - s},${h} 0,${h}`} fill={`hsl(${hue}, 64%, 40%)`} />
+      <polygon points={`${w - s},${d} ${w},0 ${w},${h - d} ${w - s},${h}`} fill={`hsl(${hue}, 62%, 25%)`} />
+      <polygon points={`0,${d} ${s},0 ${w},0 ${w - s},${d}`} fill={`hsl(${hue}, 58%, 58%)`} />
+      <line x1="0" y1={d} x2={w - s} y2={d} stroke="rgba(255,255,255,0.28)" strokeWidth="0.8" />
     </g>
   );
 }
@@ -478,16 +483,83 @@ export function HowToPlayScreen({ onPlay }) {
   );
 }
 
+/* ─── Result-screen primitives ───────────────────────────── */
+
+const ordinal = (n) => {
+  const r = n % 100;
+  if (r >= 11 && r <= 13) return 'th';
+  return ['th', 'st', 'nd', 'rd'][n % 10] || 'th';
+};
+
+function StatTile({ label, value, suffix, tint = '#fff' }) {
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.05)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 14,
+      padding: '9px 12px',
+      textAlign: 'left',
+    }}>
+      <div style={{
+        fontSize: 8.5, fontWeight: 900, letterSpacing: '0.16em',
+        color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase',
+      }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 900, color: tint, fontVariantNumeric: 'tabular-nums' }}>
+        {value}
+        {suffix && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginLeft: 3 }}>{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+/** One layer's instalment (solid) and what it has grown into (full bar). */
+function CompoundBar({ label, paid, worth, max, tint }) {
+  const wFrac = Math.max(0.04, worth / max);
+  const pFrac = Math.max(0.02, (paid / max));
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.7)', marginBottom: 3,
+      }}>
+        <span>{label}</span>
+        <span style={{ color: tint, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+          {Math.round(worth).toLocaleString('en-IN')} pts
+        </span>
+      </div>
+      <div style={{ position: 'relative', height: 10, borderRadius: 999, background: 'rgba(255,255,255,0.08)' }}>
+        <div style={{
+          position: 'absolute', inset: 0, width: `${wFrac * 100}%`, borderRadius: 999,
+          background: `linear-gradient(90deg, ${tint}55, ${tint})`,
+        }} />
+        <div style={{
+          position: 'absolute', top: 0, bottom: 0, left: 0, width: `${pFrac * 100}%`,
+          borderRadius: 999, background: 'rgba(255,255,255,0.55)',
+        }} />
+      </div>
+    </div>
+  );
+}
+
 export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLabel = 'Play again' }) {
   const score = stats?.score || 0;
   const layers = stats?.layers || 0;
   const perfects = stats?.perfects || 0;
   const prevBest = stats?.prevBest || 0;
+  const contributed = stats?.contributed || 0;
   const target = stats?.targetLayers || GAME_CONFIG.targetLayers;
+  const growthEarned = Math.max(0, score - contributed);
+  const multiple = contributed > 0 ? score / contributed : 1;
+  const firstPaid = stats?.firstLayerPaid || 0;
+  const firstWorth = stats?.firstLayerValue || 0;
+  const lastWorth = stats?.lastLayerValue || 0;
+  const firstMultiple = firstPaid > 0 ? (firstWorth / firstPaid).toFixed(1) : '1.0';
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
-  const stars = won && perfects >= GAME_CONFIG.threeStarPerfects ? 3 : won ? 2 : layers >= 10 ? 1 : 0;
+  const stars = won && perfects >= GAME_CONFIG.threeStarPerfects ? 3
+    : won ? 2
+      : layers >= Math.round(target * 0.35) ? 1 : 0;
 
   // Best-run delta — the retry fuel.
   let deltaText;
@@ -532,7 +604,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   async function handleShare() {
     const rawShareUrl = buildShareUrl() || window.location.href;
     const shareUrl = await shortenUrl(rawShareUrl);
-    const shareMessage = `Hi,\nI stacked my SIP tower ${layers} layers high and scored ${score} in SIP Stack.\nDiscipline builds the corpus — one SIP at a time. Try it: ${shareUrl}`.trim();
+    const shareMessage = `Hi,\nI stacked ${layers} SIP layers in SIP Stack and grew a ${score.toLocaleString('en-IN')}-point corpus — ${multiple.toFixed(2)}x what I put in.\nThe earliest layer ends up the biggest. Try it: ${shareUrl}`.trim();
 
     if (navigator.share) {
       try {
@@ -597,8 +669,17 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.03em', textShadow: '0 2px 12px rgba(0,0,0,0.55)', fontVariantNumeric: 'tabular-nums' }}>
           {animatedScore.toLocaleString()}
         </div>
-        <div style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 4 }}>
-          Points
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
+          <span style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+            Corpus
+          </span>
+          <span style={{
+            fontSize: 11, fontWeight: 900, color: '#FFC845',
+            background: 'rgba(255,200,69,0.14)', border: '1px solid rgba(255,200,69,0.34)',
+            borderRadius: 999, padding: '3px 9px', fontVariantNumeric: 'tabular-nums',
+          }}>
+            {multiple.toFixed(2)}x invested
+          </span>
         </div>
       </div>
 
@@ -618,31 +699,69 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         {deltaText}
       </div>
 
-      {/* Stats grid */}
+      {/* Score & bonus summary table */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gap: 10,
+        gap: 8,
+        width: '100%',
+        maxWidth: 360,
+        marginBottom: 12,
+        zIndex: 2,
+      }}>
+        <StatTile label="SIP Layers" value={`${layers}`} suffix={`/ ${target}`} />
+        <StatTile label="Perfect SIPs" value={`${perfects}`} tint="#FFC845" />
+        <StatTile label="Invested" value={contributed.toLocaleString('en-IN')} />
+        <StatTile label="Growth Earned" value={growthEarned.toLocaleString('en-IN')} tint="#7CF5A0" />
+      </div>
+
+      {/* Financial Goal Insight Box — the compounding lesson, in their numbers */}
+      <div style={{
         width: '100%',
         maxWidth: 360,
         marginBottom: 16,
+        padding: '14px 16px',
+        borderRadius: 18,
+        background: 'linear-gradient(180deg, rgba(255,200,69,0.12) 0%, rgba(255,138,61,0.06) 100%)',
+        border: '1px solid rgba(255,200,69,0.28)',
         zIndex: 2,
       }}>
-        <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '10px 14px', textAlign: 'left' }}>
-          <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase' }}>SIP Layers</div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{layers} <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>/ {target}</span></div>
+        <div style={{
+          fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase',
+          color: '#FFC845', marginBottom: 10,
+        }}>
+          Why the early layers matter
         </div>
-        <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '10px 14px', textAlign: 'left' }}>
-          <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase' }}>Perfects</div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#FFC845' }}>{perfects}</div>
-        </div>
-      </div>
-
-      {/* Financial hook */}
-      <div style={{ textAlign: 'center', marginBottom: 18, padding: '0 14px', zIndex: 2 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 800, color: 'rgba(255,255,255,0.9)', lineHeight: 1.4, margin: 0 }}>
-          Place every SIP with discipline and the corpus rises — consistency even repairs old mistakes.
-        </h2>
+        {layers >= 2 ? (
+          <>
+            <CompoundBar
+              label="Your 1st SIP layer"
+              paid={firstPaid}
+              worth={firstWorth}
+              max={Math.max(firstWorth, lastWorth, 1)}
+              tint="#FFC845"
+            />
+            <CompoundBar
+              label={`Your ${layers}${ordinal(layers)} SIP layer`}
+              paid={lastWorth}
+              worth={lastWorth}
+              max={Math.max(firstWorth, lastWorth, 1)}
+              tint="#5B8CE8"
+            />
+            <p style={{
+              margin: '10px 0 0 0', fontSize: 11.5, lineHeight: 1.45, fontWeight: 700,
+              color: 'rgba(255,255,255,0.82)',
+            }}>
+              Same instalment, {firstMultiple}x the value — only because it was invested
+              {' '}{layers - 1} layers earlier. That is compounding, not luck.
+            </p>
+          </>
+        ) : (
+          <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.45, fontWeight: 700, color: 'rgba(255,255,255,0.82)' }}>
+            Every layer you place keeps growing for as long as the tower keeps rising.
+            The earliest SIP always ends up the biggest one.
+          </p>
+        )}
       </div>
 
       <button

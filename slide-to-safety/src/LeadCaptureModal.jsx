@@ -72,7 +72,7 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
               Enter Details
             </h2>
             <p className="sl-lead-sub">
-              To see your rescue score
+              To see your route home
             </p>
           </div>
 

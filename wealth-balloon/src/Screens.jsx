@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { GAME_CONFIG, RESULT_TARGET_SCORE } from './data.js';
+import { RESULT_TARGET_SCORE } from './data.js';
 
 const GAME_TITLE = 'Wealth Balloon';
 
@@ -112,158 +112,63 @@ const SCREEN_CSS = `
 @keyframes wbTitleIn { from { opacity: 0; letter-spacing: 0.24em; transform: translateY(10px); } to { opacity: 1; letter-spacing: -0.02em; transform: none; } }
 @keyframes wbFloat   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 @keyframes wbGlow    { 0%,100% { opacity: 0.3; } 50% { opacity: 0.9; } }
-@keyframes wbChip    { from { opacity: 0; transform: translateY(8px) scale(0.9); } to { opacity: 1; transform: none; } }
-@keyframes wbHeroGrow {
-  0%      { transform: scale(0.42); }
-  58%     { transform: scale(1); }
-  74%     { transform: scale(1.05); }
-  86%     { transform: scale(1.02); }
-  100%    { transform: scale(0.42); }
-}
-@keyframes wbHeroWarm { 0%,52% { opacity: 0; } 78% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes wbHeroCount {
-  0%   { transform: translateY(6px); opacity: 0.35; }
-  60%  { transform: translateY(0);   opacity: 1; }
-  100% { transform: translateY(6px); opacity: 0.35; }
-}
-@keyframes wbDrone { 0% { transform: translateX(-34px); } 100% { transform: translateX(214px); } }
-@keyframes wbBeatHold { 0%,20% { transform: scale(0.5); } 70%,100% { transform: scale(1); } }
-@keyframes wbBeatTell { 0%,45% { opacity: 0.15; } 70%,100% { opacity: 1; } }
-@keyframes wbBeatShield { 0%,40% { opacity: 0.25; transform: scale(0.85); } 65%,100% { opacity: 1; transform: scale(1); } }
 .wb-title { animation: wbTitleIn 700ms cubic-bezier(0.22,1,0.36,1) both; }
 .wb-float { animation: wbFloat 4s ease-in-out infinite; }
 .wb-glow  { animation: wbGlow 2.2s ease-in-out infinite; }
-.wb-chip  { animation: wbChip 420ms cubic-bezier(0.22,1,0.36,1) both; }
-.wb-hero-grow  { animation: wbHeroGrow 4.2s ease-in-out infinite; transform-origin: 100px 104px; }
-.wb-hero-warm  { animation: wbHeroWarm 4.2s ease-in-out infinite; }
-.wb-hero-count { animation: wbHeroCount 4.2s ease-in-out infinite; }
-.wb-drone { animation: wbDrone 5.2s linear infinite; }
-.wb-hold   { animation: wbBeatHold 2.4s ease-in-out infinite; transform-origin: 37px 38px; }
-.wb-tell   { animation: wbBeatTell 2.4s ease-in-out infinite; }
-.wb-shield { animation: wbBeatShield 2.4s ease-in-out infinite; transform-origin: 37px 32px; }
 
-/* How-to-play demo. One 6.4s loop, two rounds of the real press-your-luck loop:
-   round 1 banks on the wobble, round 2 pushes past it and the Term Shield pays
-   half. Every transform is authored around its parent's origin, so no
-   transform-box/transform-origin fiddling is needed. */
-@keyframes wbDemoBody {
-  0%,2%    { opacity: 0; }
-  4%,31%   { opacity: 1; }
-  35%,41%  { opacity: 0; }
-  43%,71%  { opacity: 1; }
-  74%,100% { opacity: 0; }
+/* Home hero: the middle goal fills toward its ring while a shock is forecast
+   on it and cover snaps in. Same three beats the game opens with. */
+@keyframes wbHeroFill  { 0%,4% { transform: scale(0.22); } 62% { transform: scale(0.86); } 86%,100% { transform: scale(1); } }
+@keyframes wbHeroBadge { 0%,26% { opacity: 0; } 34%,66% { opacity: 1; } 72%,100% { opacity: 0; } }
+@keyframes wbHeroRing  { 0%,58% { opacity: 0; transform: scale(0.8); } 66% { opacity: 1; transform: scale(1); } 92%,100% { opacity: 1; transform: scale(1); } }
+.wb-hero-fill  { animation: wbHeroFill 5.2s cubic-bezier(0.4,0,0.5,1) infinite; }
+.wb-hero-badge { animation: wbHeroBadge 5.2s linear infinite; }
+.wb-hero-ring  { animation: wbHeroRing 5.2s cubic-bezier(0.22,1,0.36,1) infinite; }
+
+/* How-to-play demo. One 7 s loop plays the whole decision:
+   hold the goal that is due -> a shock is forecast with its exact cost ->
+   the cost beats the premium so cover is bought -> the shock is absorbed ->
+   funding resumes and the goal lands. Nothing is narrated; it is all shown. */
+@keyframes wbDemoFill {
+  0%,3%    { transform: scale(0.18); }
+  32%      { transform: scale(0.70); }
+  52%      { transform: scale(0.70); }
+  80%      { transform: scale(1); }
+  92%,100% { transform: scale(0.18); }
 }
-@keyframes wbDemoScale {
-  0%,3%    { transform: scale(0.34); }
-  26%      { transform: scale(0.95); }
-  31%      { transform: scale(1.02); }
-  34%      { transform: scale(1.12); }
-  42%      { transform: scale(0.34); }
-  68%      { transform: scale(1.18); }
-  71%      { transform: scale(1.3); }
-  73%      { transform: scale(1.55); }
-  75%,100% { transform: scale(0.34); }
-}
-@keyframes wbDemoWarm {
-  0%,10%   { opacity: 0; }
-  24%,31%  { opacity: 1; }
-  35%,49%  { opacity: 0; }
-  60%,73%  { opacity: 1; }
-  76%,100% { opacity: 0; }
-}
-@keyframes wbDemoHot {
-  0%,60%   { opacity: 0; }
-  68%,73%  { opacity: 1; }
-  76%,100% { opacity: 0; }
-}
-@keyframes wbDemoWobble {
-  0%,24%   { transform: translate(0,0) rotate(0deg); }
-  26%      { transform: translate(-2.5px,0) rotate(-2.5deg); }
-  28%      { transform: translate(2.5px,0) rotate(2.5deg); }
-  30%      { transform: translate(-2px,0) rotate(-2deg); }
-  32%,61%  { transform: translate(0,0) rotate(0deg); }
-  63%      { transform: translate(-4px,0) rotate(-4.5deg); }
-  65%      { transform: translate(4px,0) rotate(4.5deg); }
-  67%      { transform: translate(-4px,0) rotate(-4.5deg); }
-  69%      { transform: translate(4px,0) rotate(4.5deg); }
-  71%      { transform: translate(-3px,0) rotate(-3.5deg); }
-  73%,100% { transform: translate(0,0) rotate(0deg); }
-}
+@keyframes wbDemoDone   { 0%,79% { opacity: 0; } 82%,91% { opacity: 1; } 93%,100% { opacity: 0; } }
+@keyframes wbDemoBadge  { 0%,20% { opacity: 0; } 25%,53% { opacity: 1; } 56%,100% { opacity: 0; } }
+@keyframes wbDemoRing   { 0%,41% { opacity: 0; } 44%,54% { opacity: 1; } 58%,100% { opacity: 0; } }
+@keyframes wbDemoBtn    { 0%,38% { opacity: 0.35; } 42%,54% { opacity: 1; } 58%,100% { opacity: 0.35; } }
+@keyframes wbDemoShock  { 0%,53% { opacity: 0; transform: scale(0.4); } 56% { opacity: 1; transform: scale(1); } 63%,100% { opacity: 0; transform: scale(1.5); } }
+@keyframes wbDemoSaved  { 0%,55% { opacity: 0; transform: translateY(0); } 59% { opacity: 1; transform: translateY(-6px); } 70%,100% { opacity: 0; transform: translateY(-14px); } }
+@keyframes wbDemoGain   { 0%,80% { opacity: 0; transform: translateY(0); } 84% { opacity: 1; transform: translateY(-7px); } 93%,100% { opacity: 0; transform: translateY(-16px); } }
 @keyframes wbDemoFinger {
-  0%,1%    { transform: translate(136px, 164px); }
-  3%,31%   { transform: translate(136px, 173px); }
-  33%,41%  { transform: translate(136px, 164px); }
-  43%,73%  { transform: translate(136px, 173px); }
-  76%,100% { transform: translate(136px, 164px); }
+  0%,2%    { transform: translate(140px, 96px); }
+  6%,33%   { transform: translate(140px, 104px); }
+  38%,40%  { transform: translate(140px, 158px); }
+  42%,44%  { transform: translate(140px, 166px); }
+  48%,52%  { transform: translate(140px, 158px); }
+  57%,79%  { transform: translate(140px, 104px); }
+  84%,100% { transform: translate(140px, 96px); }
 }
-@keyframes wbDemoHoldRing {
-  0%,2%    { opacity: 0; transform: scale(0.5); }
-  6%       { opacity: 0.9; transform: scale(1); }
-  29%      { opacity: 0.9; transform: scale(1.35); }
-  33%,42%  { opacity: 0; transform: scale(0.5); }
-  46%      { opacity: 0.9; transform: scale(1); }
-  71%      { opacity: 0.9; transform: scale(1.35); }
-  75%,100% { opacity: 0; transform: scale(0.5); }
-}
-@keyframes wbDemoValue {
-  0%,3%    { transform: scaleY(0.06); }
-  26%      { transform: scaleY(0.62); }
-  31%      { transform: scaleY(0.66); }
-  34%,42%  { transform: scaleY(0.06); }
-  68%      { transform: scaleY(0.92); }
-  73%      { transform: scaleY(1); }
-  76%,100% { transform: scaleY(0.06); }
-}
-@keyframes wbDemoCoinA {
-  0%,31%   { transform: translate(150px,108px) scale(0.15); opacity: 0; }
-  34%      { transform: translate(150px,108px) scale(1);    opacity: 1; }
-  42%      { transform: translate(44px,176px)  scale(0.85); opacity: 1; }
-  45%,100% { transform: translate(44px,176px)  scale(0.85); opacity: 0; }
-}
-@keyframes wbDemoCoinB {
-  0%,76%   { transform: translate(150px,108px) scale(0.12); opacity: 0; }
-  79%      { transform: translate(150px,108px) scale(0.6);  opacity: 1; }
-  88%      { transform: translate(44px,176px)  scale(0.52); opacity: 1; }
-  91%,100% { transform: translate(44px,176px)  scale(0.52); opacity: 0; }
-}
-@keyframes wbDemoBurst {
-  0%,71%   { opacity: 0; transform: scale(0.35); }
-  73.5%    { opacity: 1; transform: scale(1); }
-  80%,100% { opacity: 0; transform: scale(1.55); }
-}
-@keyframes wbDemoShield {
-  0%,72%   { opacity: 0; transform: scale(0.5); }
-  77%      { opacity: 1; transform: scale(1.14); }
-  82%      { opacity: 1; transform: scale(1); }
-  90%,100% { opacity: 0; transform: scale(1); }
-}
-@keyframes wbDemoVault {
-  0%,40%   { opacity: 0.3; }
-  44%      { opacity: 1; }
-  50%,85%  { opacity: 0.3; }
-  89%      { opacity: 1; }
-  95%,100% { opacity: 0.3; }
-}
-.wb-demo-body    { animation: wbDemoBody 6.4s linear infinite; }
-.wb-demo-scale   { animation: wbDemoScale 6.4s cubic-bezier(0.4,0,0.6,1) infinite; }
-.wb-demo-warm    { animation: wbDemoWarm 6.4s linear infinite; }
-.wb-demo-hot     { animation: wbDemoHot 6.4s linear infinite; }
-.wb-demo-wobble  { animation: wbDemoWobble 6.4s linear infinite; }
-.wb-demo-finger  { animation: wbDemoFinger 6.4s ease-out infinite; }
-.wb-demo-ring    { animation: wbDemoHoldRing 6.4s ease-out infinite; }
-.wb-demo-value   { animation: wbDemoValue 6.4s cubic-bezier(0.4,0,0.6,1) infinite; }
-.wb-demo-coin-a  { animation: wbDemoCoinA 6.4s cubic-bezier(0.5,0,0.6,1) infinite; }
-.wb-demo-coin-b  { animation: wbDemoCoinB 6.4s cubic-bezier(0.5,0,0.6,1) infinite; }
-.wb-demo-burst   { animation: wbDemoBurst 6.4s ease-out infinite; }
-.wb-demo-shield  { animation: wbDemoShield 6.4s cubic-bezier(0.22,1,0.36,1) infinite; }
-.wb-demo-vault   { animation: wbDemoVault 6.4s ease-in-out infinite; }
+@keyframes wbDemoIncome { 0%,3% { width: 92px; } 33% { width: 30px; } 41% { width: 46px; } 44% { width: 18px; } 78% { width: 8px; } 92%,100% { width: 92px; } }
+.wb-demo-fill   { animation: wbDemoFill 7s cubic-bezier(0.4,0,0.5,1) infinite; }
+.wb-demo-done   { animation: wbDemoDone 7s linear infinite; }
+.wb-demo-badge  { animation: wbDemoBadge 7s linear infinite; }
+.wb-demo-ring   { animation: wbDemoRing 7s linear infinite; }
+.wb-demo-btn    { animation: wbDemoBtn 7s linear infinite; }
+.wb-demo-shock  { animation: wbDemoShock 7s ease-out infinite; }
+.wb-demo-saved  { animation: wbDemoSaved 7s ease-out infinite; }
+.wb-demo-gain   { animation: wbDemoGain 7s ease-out infinite; }
+.wb-demo-finger { animation: wbDemoFinger 7s cubic-bezier(0.3,0,0.3,1) infinite; }
+.wb-demo-income { animation: wbDemoIncome 7s linear infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .wb-title, .wb-float, .wb-glow, .wb-chip, .wb-hero-grow, .wb-hero-warm,
-  .wb-hero-count, .wb-drone, .wb-hold, .wb-tell, .wb-shield,
-  .wb-demo-body, .wb-demo-scale, .wb-demo-warm, .wb-demo-hot, .wb-demo-wobble,
-  .wb-demo-finger, .wb-demo-ring, .wb-demo-value, .wb-demo-coin-a,
-  .wb-demo-coin-b, .wb-demo-burst, .wb-demo-shield,
-  .wb-demo-vault { animation: none !important; }
+  .wb-title, .wb-float, .wb-glow,
+  .wb-hero-fill, .wb-hero-badge, .wb-hero-ring,
+  .wb-demo-fill, .wb-demo-done, .wb-demo-badge, .wb-demo-ring, .wb-demo-btn,
+  .wb-demo-shock, .wb-demo-saved, .wb-demo-gain, .wb-demo-finger,
+  .wb-demo-income { animation: none !important; }
 }
 `;
 
@@ -298,17 +203,40 @@ function Confetti() {
 
 /* ─── Home ───────────────────────────────────────────────── */
 /**
- * Hero motif: the game itself — one balloon inflating past its tell (blue into
- * orange), the value counter climbing with it, and a needle drone crossing the
- * lane below. Same construction the canvas uses, so the screen previews the
- * game rather than illustrating it.
+ * Hero motif: the game itself. Three goals inflating toward their dashed
+ * targets, a shock forecast on the middle one with the exact money it would
+ * take, and cover snapping in to stop it. The screen previews the decision the
+ * game is about rather than illustrating a balloon.
  */
-function BalloonShape({ fill }) {
+function BalloonShape({ fill, r = 30 }) {
   return (
-    <path
-      d="M0,-60 C33,-60 46,-36 46,-14 C46,12 26,42 0,54 C-26,42 -46,12 -46,-14 C-46,-36 -33,-60 0,-60 Z"
-      fill={fill}
-    />
+    <>
+      <path
+        d={`M0,${-r} C${r * 0.72},${-r} ${r},${-r * 0.6} ${r},${-r * 0.22}
+            C${r},${r * 0.24} ${r * 0.56},${r * 0.76} 0,${r}
+            C${-r * 0.56},${r * 0.76} ${-r},${r * 0.24} ${-r},${-r * 0.22}
+            C${-r},${-r * 0.6} ${-r * 0.72},${-r} 0,${-r} Z`}
+        fill={fill}
+      />
+      <ellipse cx={-r * 0.34} cy={-r * 0.38} rx={r * 0.17} ry={r * 0.26}
+        fill="rgba(255,255,255,0.42)" transform={`rotate(-28 ${-r * 0.34} ${-r * 0.38})`} />
+      <path d={`M${-r * 0.1},${r} L${r * 0.1},${r} L0,${r * 1.24} Z`} fill="#002D7A" />
+    </>
+  );
+}
+
+/** One hero column: dashed target ring, the balloon inside it, a name strip. */
+function HeroGoal({ x, fill, scale, ring = 30, label, fillClass }) {
+  return (
+    <g transform={`translate(${x},96)`}>
+      <circle cx="0" cy="0" r={ring} fill="none" stroke="rgba(255,255,255,0.34)"
+        strokeWidth="1.4" strokeDasharray="4 4" />
+      <g className={fillClass} transform={fillClass ? undefined : `scale(${scale})`}>
+        <BalloonShape fill={fill} r={ring} />
+      </g>
+      <text x="0" y={ring + 18} fill="rgba(255,255,255,0.6)" fontSize="8" fontWeight="900"
+        textAnchor="middle" fontFamily="'Poppins', sans-serif">{label}</text>
+    </g>
   );
 }
 
@@ -354,12 +282,12 @@ export function HomeScreen({ onStart }) {
           maxWidth: 300,
           lineHeight: 1.45,
         }}>
-          Grow your wealth as far as you dare — and let a Term Shield absorb the one burst you never saw coming.
+          Three goals, one income, and shocks you can see coming. Fund what is due — and cover what you cannot afford to lose.
         </p>
       </div>
 
-      <div className="wb-float" style={{ position: 'relative', width: 262, height: 234, zIndex: 1 }}>
-        <svg width="262" height="234" viewBox="0 0 200 180" style={{ overflow: 'visible' }} aria-hidden="true">
+      <div className="wb-float" style={{ position: 'relative', width: 268, height: 224, zIndex: 1 }}>
+        <svg width="268" height="224" viewBox="0 0 210 176" style={{ overflow: 'visible' }} aria-hidden="true">
           <defs>
             <linearGradient id="wbSky" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#0A1E42" />
@@ -370,51 +298,38 @@ export function HomeScreen({ onStart }) {
               <stop offset="52%" stopColor="#1E6BE0" />
               <stop offset="100%" stopColor="#002D7A" />
             </radialGradient>
-            <radialGradient id="wbHot" cx="0.34" cy="0.3" r="0.8">
-              <stop offset="0%" stopColor="#FFCD96" />
-              <stop offset="52%" stopColor="#F26522" />
-              <stop offset="100%" stopColor="#962C08" />
-            </radialGradient>
-            <clipPath id="wbClip"><rect x="4" y="4" width="192" height="172" rx="26" /></clipPath>
+            <clipPath id="wbClip"><rect x="4" y="4" width="202" height="168" rx="24" /></clipPath>
           </defs>
 
-          <rect x="4" y="4" width="192" height="172" rx="26" fill="url(#wbSky)"
+          <rect x="4" y="4" width="202" height="168" rx="24" fill="url(#wbSky)"
             stroke="rgba(255,255,255,0.12)" strokeWidth="1.4" />
 
           <g clipPath="url(#wbClip)">
-            <g className="wb-glow">
-              <ellipse cx="100" cy="100" rx="86" ry="72" fill="rgba(38,102,196,0.22)" />
+            <g className="wb-glow"><ellipse cx="105" cy="96" rx="92" ry="70" fill="rgba(38,102,196,0.2)" /></g>
+
+            {/* Income — the one scarce resource everything competes for */}
+            <rect x="16" y="20" width="178" height="10" rx="5" fill="rgba(255,255,255,0.1)" />
+            <rect x="16" y="20" width="104" height="10" rx="5" fill={GOLD} />
+            <text x="22" y="27.5" fill="#0B1221" fontSize="6.6" fontWeight="900"
+              fontFamily="'Poppins', sans-serif">INCOME</text>
+
+            <HeroGoal x={44} fill="url(#wbCalm)" scale={0.52} ring={26} label="HOME" />
+            <HeroGoal x={105} fill="url(#wbCalm)" ring={30} label="CHILD&rsquo;S FEES" fillClass="wb-hero-fill" />
+            <HeroGoal x={166} fill="url(#wbCalm)" scale={0.38} ring={26} label="RETIREMENT" />
+
+            {/* Cover snapping onto the goal under threat */}
+            <circle className="wb-hero-ring" cx="105" cy="96" r="36" fill="none"
+              stroke={BLUE_LT} strokeWidth="3" />
+
+            {/* The forecast, with the exact money it would take */}
+            <g className="wb-hero-badge" transform="translate(105,50)">
+              <rect x="-30" y="-13" width="60" height="26" rx="8" fill="rgba(239,68,68,0.94)"
+                stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
+              <text x="0" y="-2" fill="#fff" fontSize="12" fontWeight="900" textAnchor="middle"
+                fontFamily="'Poppins', sans-serif">-96</text>
+              <text x="0" y="8" fill="rgba(255,255,255,0.9)" fontSize="6.6" fontWeight="800"
+                textAnchor="middle" fontFamily="'Poppins', sans-serif">55%  in 2.4s</text>
             </g>
-
-            {/* Skyline: the goals the balloon is being inflated for. */}
-            {[10, 30, 50, 70, 90, 110, 130, 150, 170].map((x, i) => (
-              <rect key={x} x={x} y={146 - (i % 3) * 9} width="16" height={40 + (i % 3) * 9}
-                rx="2" fill="rgba(6,18,41,0.85)" />
-            ))}
-
-            {/* Drone lane + drone */}
-            <line x1="0" y1="140" x2="200" y2="140" stroke={DANGER} strokeWidth="1"
-              strokeDasharray="4 7" opacity="0.35" />
-            <g className="wb-drone">
-              <rect x="-9" y="136" width="18" height="8" rx="3" fill="#2B3A50" stroke="rgba(214,228,247,0.45)" strokeWidth="0.8" />
-              <line x1="9" y1="140" x2="21" y2="140" stroke="#D6E4F7" strokeWidth="1.6" />
-              <circle cx="-3" cy="140" r="1.8" fill={DANGER} />
-              <line x1="-6" y1="134" x2="-12" y2="130" stroke="rgba(214,228,247,0.4)" strokeWidth="1.2" />
-              <line x1="6" y1="134" x2="12" y2="130" stroke="rgba(214,228,247,0.4)" strokeWidth="1.2" />
-            </g>
-
-            {/* The balloon, inflating past its tell */}
-            <g className="wb-hero-grow">
-              <g transform="translate(100,104)">
-                <BalloonShape fill="url(#wbCalm)" />
-                <g className="wb-hero-warm"><BalloonShape fill="url(#wbHot)" /></g>
-                <ellipse cx="-16" cy="-24" rx="10" ry="15" fill="rgba(255,255,255,0.42)" transform="rotate(-28 -16 -24)" />
-                <path d="M-5,54 L5,54 L2,62 L-2,62 Z" fill="#002D7A" />
-              </g>
-            </g>
-
-            <text x="100" y="34" className="wb-hero-count" fill={GOLD_LT} fontSize="21" fontWeight="900"
-              textAnchor="middle" fontFamily="'Poppins', sans-serif">68</text>
           </g>
         </svg>
       </div>
@@ -458,38 +373,31 @@ export function HomeScreen({ onStart }) {
   );
 }
 
-/* ─── How to play ────────────────────────────────────────── */
+/* ─── How to play ──────────────────────────────── */
 /**
- * Animation-first how-to-play. One 6.4 s loop plays two real rounds:
- *   round 1  hold → the envelope grows and warms → the wobble arrives → let go
- *            → the round's value drops into the vault.
- *   round 2  hold → push past the wobble → burst → the Term Shield catches it
- *            and a half-size coin drops into the vault.
- * No prose: the curve, the tell, the bank and the cover are all shown.
+ * Animation-first how-to-play. One 7 s loop plays the whole decision once:
+ *   hold the goal that is due -> a shock is forecast with its exact cost ->
+ *   the cost (96) beats the premium (28), so cover is bought -> the shock is
+ *   absorbed -> funding resumes and the goal lands.
+ * The arithmetic is on screen the entire time; no sentence has to explain it.
+ * The live game then re-teaches the same three beats with its coach overlay,
+ * which advances only when the player actually does the thing.
  */
-
-/** The envelope, drawn around its parent's origin so CSS scale works cleanly. */
-function DemoBalloon() {
-  const r = 40;
+function DemoGoal({ x, ring, scale, label, fillClass }) {
   return (
-    <g className="wb-demo-scale">
-      <ellipse cx="0" cy="0" rx={r} ry={r * 1.14} fill={BLUE_LT} />
-      <ellipse className="wb-demo-warm" cx="0" cy="0" rx={r} ry={r * 1.14} fill={ORANGE} />
-      <ellipse className="wb-demo-hot" cx="0" cy="0" rx={r} ry={r * 1.14} fill={DANGER} />
-      <ellipse cx={-r * 0.34} cy={-r * 0.42} rx={r * 0.2} ry={r * 0.3} fill="rgba(255,255,255,0.5)" />
-      <path d={`M${-r * 0.12},${r * 1.1} L${r * 0.12},${r * 1.1} L${r * 0.06},${r * 1.36} L${-r * 0.06},${r * 1.36} Z`}
-        fill="#002D7A" />
-    </g>
-  );
-}
-
-/** A banked coin. Small = the half the Term Shield rescues. */
-function DemoCoin({ cls }) {
-  return (
-    <g className={cls}>
-      <circle cx="0" cy="0" r="11" fill={GOLD} stroke="#B07B12" strokeWidth="2" />
-      <circle cx="-3" cy="-3.4" r="3" fill={GOLD_LT} />
-      <path d="M0 -5.5 L0 5.5 M-3.6 -2 L3.6 -2" stroke="#8A5E0B" strokeWidth="2" strokeLinecap="round" />
+    <g transform={`translate(${x},104)`}>
+      <circle cx="0" cy="0" r={ring} fill="none" stroke="rgba(255,255,255,0.32)"
+        strokeWidth="1.3" strokeDasharray="4 4" />
+      <g className={fillClass} transform={fillClass ? undefined : `scale(${scale})`}>
+        <BalloonShape fill="url(#wbCalmB)" r={ring} />
+      </g>
+      {fillClass && (
+        <g className="wb-demo-done">
+          <BalloonShape fill="url(#wbDone)" r={ring} />
+        </g>
+      )}
+      <text x="0" y={ring + 15} fill="rgba(255,255,255,0.55)" fontSize="7.5" fontWeight="900"
+        textAnchor="middle" fontFamily="'Poppins', sans-serif">{label}</text>
     </g>
   );
 }
@@ -534,97 +442,106 @@ export function HowToPlayScreen({ onPlay }) {
           How to Play
         </h2>
 
-        {/* ── The looping demo: hold, read the wobble, bank — then the burst ── */}
-        <svg viewBox="0 0 300 210" width="100%" role="img"
-          aria-label="A finger holds to inflate the balloon until it wobbles, then lets go and the value drops into the vault; on the second round it holds too long, the balloon bursts and the Term Shield banks half."
+        {/* -- The looping demo: fund, read the forecast, cover, land it -- */}
+        <svg viewBox="0 0 280 200" width="100%" role="img"
+          aria-label="A finger holds the middle goal to fund it. A red badge forecasts a shock costing 96. Because 96 is more than the 28 premium, the finger taps Cover, the shock is absorbed, and the goal is funded."
           style={{ display: 'block', borderRadius: 16, border: '1px solid rgba(255,255,255,0.1)' }}>
           <defs>
-            <radialGradient id="wbDemoBg" cx="50%" cy="42%" r="70%">
+            <radialGradient id="wbDemoBg" cx="50%" cy="42%" r="72%">
               <stop offset="0%" stopColor="rgba(30,107,224,0.24)" />
-              <stop offset="100%" stopColor="rgba(6,11,22,0.92)" />
+              <stop offset="100%" stopColor="rgba(6,11,22,0.94)" />
+            </radialGradient>
+            <radialGradient id="wbCalmB" cx="0.34" cy="0.3" r="0.8">
+              <stop offset="0%" stopColor="#7ABAFF" />
+              <stop offset="52%" stopColor="#1E6BE0" />
+              <stop offset="100%" stopColor="#002D7A" />
+            </radialGradient>
+            <radialGradient id="wbDone" cx="0.34" cy="0.3" r="0.8">
+              <stop offset="0%" stopColor="#D6FFD6" />
+              <stop offset="52%" stopColor="#28A745" />
+              <stop offset="100%" stopColor="#0C4E20" />
             </radialGradient>
           </defs>
-          <rect x="0" y="0" width="300" height="210" rx="15" fill="url(#wbDemoBg)" />
+          <rect x="0" y="0" width="280" height="200" rx="15" fill="url(#wbDemoBg)" />
 
-          {/* Value column: the 10·t^1.6 curve, shown as a rising gold gauge */}
-          <rect x="272" y="38" width="14" height="134" rx="7" fill="rgba(255,255,255,0.08)" />
-          <g transform="translate(279,172)">
-            <rect className="wb-demo-value" x="-5" y="-132" width="10" height="132" rx="5" fill={GOLD} />
+          {/* Income drains as you fund and as you pay the premium */}
+          <rect x="14" y="14" width="180" height="9" rx="4.5" fill="rgba(255,255,255,0.1)" />
+          <rect className="wb-demo-income" x="14" y="14" width="92" height="9" rx="4.5" fill={GOLD} />
+          <text x="200" y="21.5" fill="rgba(255,255,255,0.6)" fontSize="8" fontWeight="900"
+            fontFamily="'Poppins', sans-serif">INCOME</text>
+
+          <DemoGoal x={52} ring={22} scale={0.5} label="HOME" />
+          <DemoGoal x={140} ring={30} label="CHILD&rsquo;S FEES" fillClass="wb-demo-fill" />
+          <DemoGoal x={228} ring={22} scale={0.34} label="RETIREMENT" />
+
+          {/* Cover ring on the goal under threat */}
+          <circle className="wb-demo-ring" cx="140" cy="104" r="36" fill="none"
+            stroke={BLUE_LT} strokeWidth="3" />
+
+          {/* The forecast: which goal, how bad, and what it costs in money */}
+          <g className="wb-demo-badge" transform="translate(140,52)">
+            <rect x="-31" y="-13" width="62" height="26" rx="8" fill="rgba(239,68,68,0.94)"
+              stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
+            <text x="0" y="-2.5" fill="#fff" fontSize="12.5" fontWeight="900" textAnchor="middle"
+              fontFamily="'Poppins', sans-serif">-96</text>
+            <text x="0" y="8" fill="rgba(255,255,255,0.9)" fontSize="6.8" fontWeight="800"
+              textAnchor="middle" fontFamily="'Poppins', sans-serif">55%  in 2.4s</text>
           </g>
 
-          {/* The vault the banked value falls into */}
-          <g transform="translate(44,176)">
-            <rect className="wb-demo-vault" x="-27" y="-24" width="54" height="46" rx="10"
-              fill={GREEN} stroke={GREEN_LT} strokeWidth="2.5" />
-            <rect x="-13" y="-16" width="26" height="5" rx="2.5" fill="#062B12" opacity="0.7" />
-            <circle cx="0" cy="4" r="9" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="2.5" />
-            <path d="M0 -1.5 V9" stroke="rgba(255,255,255,0.75)" strokeWidth="2.5" strokeLinecap="round" />
+          {/* The shock landing, and the money cover kept */}
+          <g className="wb-demo-shock" transform="translate(140,104)">
+            {[0, 60, 120, 180, 240, 300].map((ang) => (
+              <path key={ang} transform={`rotate(${ang})`} d="M0 -30 L5 -44 L0 -58 L-5 -44 Z" fill={DANGER} />
+            ))}
           </g>
+          <text className="wb-demo-saved" x="140" y="82" fill={SKY_LT} fontSize="13" fontWeight="900"
+            textAnchor="middle" fontFamily="'Poppins', sans-serif">SAVED 96</text>
+          <text className="wb-demo-gain" x="140" y="78" fill={GOLD_LT} fontSize="15" fontWeight="900"
+            textAnchor="middle" fontFamily="'Poppins', sans-serif">+180</text>
 
-          {/* The envelope, with its wobble tell */}
-          <g transform="translate(150,108)">
-            <g className="wb-demo-wobble">
-              <g className="wb-demo-body">
-                <DemoBalloon />
-              </g>
-
-              {/* Burst rays — round 2 only */}
-              <g className="wb-demo-burst">
-                {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
-                  <path key={a} transform={`rotate(${a})`} d="M0 -22 L6 -40 L0 -62 L-6 -40 Z" fill={DANGER} />
-                ))}
-                <circle cx="0" cy="0" r="18" fill={ORANGE_LT} />
-              </g>
-
-              {/* The Term Shield that absorbs it */}
-              <g className="wb-demo-shield">
-                <path d="M0 -30 l22 8 v17 c0 14 -9 24 -22 30 c-13 -6 -22 -16 -22 -30 v-17 z"
-                  fill="rgba(30,107,224,0.92)" stroke={SKY_LT} strokeWidth="2.4" />
-                <path d="M-9 2 l7 7 l13 -14" fill="none" stroke="#fff" strokeWidth="3.6"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </g>
+          {/* COVER buttons -- the middle one lights up and is pressed */}
+          {[52, 140, 228].map((cx) => (
+            <g key={cx} className={cx === 140 ? 'wb-demo-btn' : undefined} opacity={cx === 140 ? undefined : 0.35}>
+              <rect x={cx - 30} y="156" width="60" height="30" rx="9"
+                fill="rgba(30,107,224,0.2)" stroke={SKY_LT} strokeWidth="1.2" />
+              <text x={cx} y="168" fill={SKY_LT} fontSize="8" fontWeight="900" textAnchor="middle"
+                fontFamily="'Poppins', sans-serif">COVER</text>
+              <text x={cx} y="179" fill="#fff" fontSize="11" fontWeight="900" textAnchor="middle"
+                fontFamily="'Poppins', sans-serif">28</text>
             </g>
-          </g>
+          ))}
 
-          {/* Banked value flying to the vault */}
-          <DemoCoin cls="wb-demo-coin-a" />
-          <DemoCoin cls="wb-demo-coin-b" />
-
-          {/* The finger, held down for as long as the balloon is inflating */}
+          {/* The finger: holds the goal, moves down to buy cover, comes back */}
           <g className="wb-demo-finger">
-            <g transform="translate(15,6)">
-              <circle className="wb-demo-ring" cx="0" cy="0" r="17" fill="none"
-                stroke={GOLD} strokeWidth="3" />
-            </g>
             <path d="M13 21V7.6a3 3 0 0 1 6 0V18h1.6a3 3 0 0 1 3 3v.6l3.2 1.4a4 4 0 0 1 2.3 4.5l-1.2 5.6A5 5 0 0 1 23 37h-6.4a6 6 0 0 1-4.6-2.2l-5.6-6.9a2.8 2.8 0 0 1 3.9-4L13 26"
               fill="#FFFFFF" stroke="#0B1221" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
           </g>
         </svg>
 
-        {/* ── At most three icon-led labels ── */}
+        {/* -- Three icon-led labels, no prose -- */}
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, margin: '12px 2px 14px' }}>
           {[
             {
-              color: GOLD, word: 'HOLD TO GROW',
+              color: GOLD, word: 'HOLD TO FUND',
               icon: (
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" stroke={GOLD} strokeWidth="1.8" opacity="0.5" />
-                  <circle cx="12" cy="12" r="4.6" fill={GOLD} />
+                  <circle cx="12" cy="12" r="9" stroke={GOLD} strokeWidth="1.8" strokeDasharray="3 3" opacity="0.7" />
+                  <circle cx="12" cy="12" r="5" fill={GOLD} />
                 </svg>
               ),
             },
             {
-              color: ORANGE_LT, word: 'WOBBLE = BANK',
+              color: ORANGE_LT, word: 'BEAT THE CLOCK',
               icon: (
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <ellipse cx="12" cy="12" rx="5.4" ry="6.2" fill={ORANGE_LT} />
-                  <path d="M3.4 7.4 Q1.4 12 3.4 16.6M20.6 7.4 Q22.6 12 20.6 16.6" stroke={ORANGE_LT}
-                    strokeWidth="1.9" fill="none" strokeLinecap="round" opacity="0.85" />
+                  <circle cx="12" cy="12" r="8.6" stroke={ORANGE_LT} strokeWidth="1.9" />
+                  <path d="M12 7v5.4l3.4 2" stroke={ORANGE_LT} strokeWidth="2.1"
+                    strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               ),
             },
             {
-              color: SKY_LT, word: 'COVER SAVES HALF',
+              color: SKY_LT, word: 'LOSS > PREMIUM? COVER',
               icon: (
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M12 2.6 4.6 5.4v6.1c0 5 3.3 8.6 7.4 10.3 4.1-1.7 7.4-5.3 7.4-10.3V5.4L12 2.6z"
@@ -641,7 +558,7 @@ export function HowToPlayScreen({ onPlay }) {
               background: 'rgba(255,255,255,0.05)', border: `1px solid ${color}44`,
             }}>
               {icon}
-              <span style={{ fontSize: 9.5, fontWeight: 900, color, letterSpacing: '0.03em', lineHeight: 1.15 }}>
+              <span style={{ fontSize: 8.5, fontWeight: 900, color, letterSpacing: '0.02em', lineHeight: 1.15 }}>
                 {word}
               </span>
             </div>
@@ -691,9 +608,9 @@ function StatTile({ label, value, accent }) {
 
 export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLabel }) {
   const score = stats?.score || 0;
-  const rounds = stats?.rounds || 0;
-  const bursts = stats?.bursts || 0;
-  const bestRound = stats?.bestRound || 0;
+  const goals = stats?.goals || 0;
+  const missed = stats?.missed || 0;
+  const bestGoal = stats?.bestGoal || 0;
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
@@ -775,12 +692,12 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         }}>
           {won ? <TrophyIcon size={20} /> : <ShortfallIcon size={20} />}
           <span style={{ fontSize: 13, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {won ? 'Target beaten' : 'Short of target'}
+            {won ? 'Goals funded' : 'Short of target'}
           </span>
         </div>
         <p style={{ color: '#fff', fontSize: 21, fontWeight: 900, lineHeight: 1.25, margin: 0 }}>
           Hi <span style={{ color: BLUE_LT }}>{leadName || 'Friend'}!</span>{' '}
-          <span style={{ color: 'rgba(255,255,255,0.85)' }}>Here&rsquo;s what you banked.</span>
+          <span style={{ color: 'rgba(255,255,255,0.85)' }}>Here&rsquo;s what you funded.</span>
         </p>
       </div>
 
@@ -805,7 +722,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
               {animatedScore.toLocaleString()}
             </span>
             <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.55)', marginTop: 5, letterSpacing: '0.16em' }}>
-              BANKED
+              FUNDED
             </span>
             <span style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
               target {RESULT_TARGET_SCORE.toLocaleString()}
@@ -814,11 +731,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         </div>
       </div>
 
-      {/* Run stats — the {score, rounds, bursts, bestRound} contract */}
+      {/* Run stats — the {score, goals, missed, bestGoal} contract */}
       <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2 }}>
-        <StatTile label="Rounds played" value={`${rounds}/${GAME_CONFIG.rounds}`} accent={GOLD} />
-        <StatTile label="Bursts" value={bursts} accent={bursts > 1 ? '#FF8B8B' : SKY_LT} />
-        <StatTile label="Best round" value={bestRound} accent={GREEN_LT} />
+        <StatTile label="Goals funded" value={goals} accent={GOLD} />
+        <StatTile label="Fell short" value={missed} accent={missed > 4 ? '#FF8B8B' : SKY_LT} />
+        <StatTile label="Biggest goal" value={bestGoal} accent={GREEN_LT} />
       </div>
 
       <button
@@ -847,7 +764,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         textAlign: 'center', marginBottom: 16, zIndex: 2,
       }}>
         <p style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.35, margin: '0 0 16px 0' }}>
-          Real life only hands you a Term Shield if you arranged it first. A specialist can size yours in a few minutes.
+          In the game the premium is 28 and you can see every shock coming. Real life gives you neither — which is exactly why cover is arranged in advance. A specialist can size yours in a few minutes.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

@@ -17,13 +17,53 @@ at least 1 heart. **Lose:** 0 hearts, or the clock runs out.
 
 ## Controls
 
-- **Tap** — fire a radar pulse from the family (460 px/s wavefront, 400px max
-  radius, 18px band). Wall chunks light only while the wavefront crosses them:
-  alpha 1.0, hold 1.0s, fade 0.7s. Cooldown 1.6s, shown as a thumb-ring arc
-  around the family.
-- **Hold + drag** — walk toward your finger at 105 px/s. The family follows at
-  12px spacing along your breadcrumb trail. Footsteps ripple a faint micro-ring
-  every 0.32s.
+Two surfaces, one meaning each — there is no tap-versus-hold to guess at.
+
+- **Touch the maze** — walk toward your finger at 105 px/s, from the instant it
+  lands. The family follows at 12px spacing along your breadcrumb trail.
+  Footsteps ripple a faint micro-ring every 0.32s.
+- **RADAR button** — fire a radar pulse from the family (460 px/s wavefront,
+  400px max radius, 18px band). Wall chunks light only while the wavefront
+  crosses them: alpha 1.0, hold 1.0s, then fade 0.7s down to a dim **memory
+  trace** that stays. Cooldown 1.6s, drawn as the ring around the button.
+  The game fires the first ping for you 1.1s in.
+- **? button** — the signal key (below), any time.
+
+## The signal vocabulary
+
+Every signal is identifiable by **shape and behaviour**, not colour alone —
+read the list with the colours removed and each row is still unambiguous.
+Defined once in `src/signals.jsx`; the How to Play key and the in-game `?`
+legend both render from it.
+
+| Signal | Shape | Behaviour |
+| --- | --- | --- |
+| **Wall** | straight line | bright as the ring passes, then a dim memory that stays |
+| **Risk pool** | spiked disc | breathes in and out at 1.5 Hz, forever |
+| **Shelter** | roof chevron | emits its own ring every 2s once found — nothing else does |
+| **Checkpoint** | dashed line across the corridor | goes solid once crossed |
+| **Bonus orb** | four-spoke spinner | turns steadily |
+| **Lurker** | repeating rings from a moving point | leaves **no** memory trace — only living things don't |
+
+Static landmarks are remembered at a dim floor; anything alive is not, so a
+stale ghost of a lurker can never lie to you. Pausing wipes the memory map with
+everything else.
+
+## Teaching
+
+- **Tutorial** — three coached lines over the live game, each clearing when the
+  player *does* the thing (watch the opening ping → walk → ping again). Never a
+  blocking modal.
+- **First-encounter tooltips** — the first time each signal type is ever
+  revealed, an on-canvas plate names it. One shot each, clamped inside the
+  viewport and clear of the HUD.
+- **Indicators** — a gold chevron on the family always points along the
+  corridor toward home; the HUD carries a route-progress bar.
+- **Right/wrong feedback** — a ping heard by lurkers raises a banner naming how
+  many, and marks the spot they are walking to ("THEY COME HERE"); a ping heard
+  by nobody floats "CLEAR PING". Checkpoints and finding the shelter wash the
+  screen edge green; heart losses wash it red and name both the cause and what
+  to do differently.
 
 ## The noise economy
 
@@ -33,9 +73,10 @@ pass window. Fairness invariant (enforced in `src/rules.js`, proven by
 `gate.mjs`): **nothing hits you unrevealed** — every lurker self-telegraphs a
 gray ring every 3.2s, force-rings inside 250px, cruises at ≤0.9× your speed,
 and every lunge (180 px/s, 0.4s) is preceded by a 0.5s shriek + screen-edge
-flash. Hidden geometry is *never* rendered at any alpha, so screen-brightness
-cheating shows only more black. Pausing blacks out everything revealed
-immediately and resumes behind a 3-2-1 re-acquire count (clock held).
+flash. Geometry that has **never** been swept is not rendered at any alpha, so
+screen-brightness cheating shows only more black. Pausing blacks out everything
+revealed — memory map included — and resumes behind a 3-2-1 re-acquire count
+(clock held).
 
 ## Scoring
 
@@ -65,15 +106,20 @@ hearts to spare, deterministically; (b) across 10,000 random walks every heart
 loss was telegraphed within the prior 3.2s (self-ring/shriek; spike losses had
 the ember shimmer ≥0.5s) and the in-rules fairness backstop never fires;
 (c) a pulse-spam bot scores worse than a quiet bot and attracts far more
-lurker aggro; (d) the reveal timing — chunks light exactly on wavefront
-crossing, hold 1.0s, fade 0.7s, nothing lit before a pulse and nothing beyond
-400px.
+lurker aggro; (c2) `onHeard` reports exactly the lurkers that overheard a ping,
+and reports none for a ping fired out of earshot — the "N lurkers heard that"
+and "CLEAR PING" feedback is only honest if this holds; (d) the reveal timing —
+chunks light exactly on wavefront crossing, hold 1.0s, fade 0.7s down to the
+memory floor, nothing lit before a pulse, nothing beyond 400px, and pausing
+wipes the memory map too.
 
 ## Structure
 
 - `src/rules.js` — the whole simulation as a pure module (no DOM/React); the
   gate runs exactly this code.
 - `src/data.js` — every tunable (`GAME_CONFIG`) and the authored maze.
+- `src/signals.jsx` — the signal vocabulary, defined once; the How to Play key
+  and the in-game `?` legend both render from it so they cannot drift.
 - `src/RiskRadarGame.jsx` — presentation only: canvas rendering, Web Audio
   synth (pulse whoosh, proximity heartbeat 80→140 BPM, shriek, gate chime),
   input, HUD.

@@ -2,20 +2,22 @@
 //
 // PURE MODULE. No DOM, no canvas, no React, no import of data.js. Every entry
 // point takes the config object as a parameter, so legacy-echo/gate.mjs runs
-// EXACTLY this code headless — the solvability, anti-AFK and ghost-determinism
-// numbers are measured against the simulation that ships, never against a
-// re-implementation of it.
+// EXACTLY this code headless — the solvability, anti-AFK, objective and
+// ghost-determinism numbers are measured against the simulation that ships,
+// never against a re-implementation of it.
+//
+// THE WHOLE GAME IN ONE SENTENCE: carry the gold chest up to the vault; the
+// gates in the way stay open only while somebody stands on their green pads,
+// and the only somebody you have is the run you already finished.
 //
 // TIME MODEL (load-bearing). The sim runs on the kit's fixed 1/120 s step and
 // counts one integer `tick` per step inside the current loop. Ghost recording
 // is a STATE TRACK, not an input log: every 2nd tick (60 Hz) the player's
-// (x, y, actionBits) is written into a preallocated Float32Array — 1080
-// samples per 18 s loop, ~13 KB. Replay is pure array playback indexed by the
-// same tick counter; plates, levers and the beam are evaluated each tick from
-// the replayed POSITIONS, and the beam schedule keys off the loop clock plus a
-// session-seeded phase, so the world is bit-identical on every loop and a
-// ghost can never desync from it. Pausing freezes this one clock for player
-// and ghosts alike — there is no second timeline to drift.
+// (x, y, actionBits) is written into a preallocated Float32Array — 720
+// samples per 12 s loop. Replay is pure array playback indexed by the same
+// tick counter, and pads are evaluated each tick from the replayed POSITIONS,
+// identically for the live player and every echo. Pausing freezes this one
+// clock for player and ghosts alike — there is no second timeline to drift.
 //
 // The world is a plain mutable object (see createWorld) and every function
 // mutates it in place. Nothing below allocates after createWorld() except at
@@ -26,36 +28,25 @@
 
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
-/** Deterministic PRNG, so any session can be reproduced from its seed. */
-export function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function rand() {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 /* Phases */
 export const PHASE_INTRO = 0;
 export const PHASE_PLAY = 1;
 export const PHASE_REWIND = 2;
 export const PHASE_OVER = 3;
 
+/* Objective kinds — what the player should do RIGHT NOW. The HUD prints the
+   text and the canvas pulses a ring at (x, y); see objectiveOf(). */
+export const OBJ_PAD = 0;    // go stand on a green pad
+export const OBJ_HOLD = 1;   // you are on one — stay, your echo will repeat it
+export const OBJ_CHEST = 2;  // every gate is held open — go get the chest
+export const OBJ_VAULT = 3;  // you have the chest — take it home
+
 /* ─── World construction ─────────────────────────────────── */
 
 export function createWorld(cfg, seed) {
-  const rand = mulberry32(seed >>> 0);
   const f = cfg.field;
 
-  // Session-seeded beam phase: fixed for the whole session, so the beam
-  // schedule is identical on every loop (world events key off the loop clock).
-  const beamCycle = cfg.beam.onSeconds + cfg.beam.offSeconds;
-  const beamPhase = rand() * beamCycle;
-
-  // Flatten plates for allocation-free per-tick iteration.
+  // Flatten pads for allocation-free per-tick iteration.
   let nPlates = 0;
   for (let i = 0; i < cfg.doors.length; i++) nPlates += cfg.doors[i].plates.length;
   const plateX = new Float32Array(nPlates);
@@ -78,12 +69,9 @@ export function createWorld(cfg, seed) {
   ]);
 
   const maxBodies = 1 + cfg.ghosts.max;
-  const nLevers = cfg.levers.length;
 
   const world = {
-    seed: seed >>> 0,
-    beamPhase,
-    beamCycle,
+    seed: seed >>> 0,      // kept for reproducibility; the sim is deterministic
 
     phase: PHASE_INTRO,
     phaseLeft: cfg.loops.introSeconds,
@@ -100,8 +88,6 @@ export function createWorld(cfg, seed) {
     targetX: cfg.body.spawnX,
     targetY: cfg.body.spawnY,
     hasTarget: false,
-    stun: 0,
-    hitCooldown: 0,
     pathLen: 0,
     burnChecked: false,
 
@@ -125,33 +111,33 @@ export function createWorld(cfg, seed) {
     bbits: new Uint8Array(maxBodies),
     bCount: 1,
 
-    // Plates / doors.
+    // Pads / gates.
     nPlates,
     plateX,
     plateY,
     plateDoor,
     plateOcc: new Int8Array(nPlates),
     plateHeld: new Uint8Array(nPlates),
+    // Whether an ECHO (not the live player) is holding this pad right now.
+    plateGhostHeld: new Uint8Array(nPlates),
+    // Whether an echo has this pad covered for most of THIS loop — computed
+    // once per loop from the recorded tracks, before a single tick runs. The
+    // objective reads this, not the live flag, so the carry loop says "go
+    // get the chest" from frame one instead of telling the player to go and
+    // stand on a pad their own past self is already walking towards.
+    plateGhostCovered: new Uint8Array(nPlates),
+    // True only when the echoes cover EVERY pad this loop, i.e. the road is
+    // genuinely open. The chest cannot be picked up before then — otherwise
+    // a first-timer scoops it on loop 1, jams against a gate they have no
+    // way to open, and spends the loop believing the game is broken.
+    chestReady: false,
     doorOpen: new Uint8Array(cfg.doors.length),
     doorHeldCount: new Int8Array(cfg.doors.length),
     doorsEverOpen: 0,
-    redundantSeconds: 0,
 
-    // Levers / alcove.
-    nLevers,
-    leverIn: new Uint8Array(maxBodies * nLevers),
-    leverFlipAt: new Float64Array(nLevers),
-    leverSynced: false,
-    alcoveOpen: false,
-
-    // Beam.
-    beamOn: false,
-    beamCutX: f.spineR,
-    beamBlocked: false,
-
-    // Coins (persist across loops — no farming).
-    coinTaken: new Uint8Array(cfg.coins.length),
-    coins: 0,
+    // Wrong-action feedback: which shut gate the player just walked into.
+    blockedDoor: -1,
+    blockCooldown: 0,
 
     // Pause / re-acquire (anti-pause-scum; see beginPause/endPause).
     paused: false,
@@ -168,7 +154,6 @@ export function createWorld(cfg, seed) {
 
     walls,
   };
-  world.leverFlipAt.fill(-1);
   return world;
 }
 
@@ -182,8 +167,14 @@ function circleRect(x, y, r, x0, y0, x1, y1) {
   return dx * dx + dy * dy < r * r;
 }
 
-/** True when a LIVE body at (x, y) intersects any solid. Ghosts never collide —
-    they are pure playback of positions that were legal when recorded. */
+/**
+ * True when a LIVE body at (x, y) intersects any solid. Ghosts never collide —
+ * they are pure playback of positions that were legal when recorded.
+ *
+ * Side effect by design: when a SHUT GATE is what blocked the move, its index
+ * is left in `world.blockedDoor` so stepWorld can fire the "that gate needs
+ * more pads" feedback. Everything the player can bump into should say why.
+ */
 export function bodyBlocked(world, cfg, x, y) {
   const f = cfg.field;
   const r = cfg.body.r;
@@ -191,20 +182,18 @@ export function bodyBlocked(world, cfg, x, y) {
   for (let i = 0; i < w.length; i += 4) {
     if (circleRect(x, y, r, w[i], w[i + 1], w[i + 2], w[i + 3])) return true;
   }
-  // Closed doors block the spine crossing.
+  // Shut gates block the spine crossing.
   const ht = cfg.doorT / 2;
   for (let i = 0; i < cfg.doors.length; i++) {
     if (world.doorOpen[i]) continue;
     const dy = cfg.doors[i].y;
-    if (circleRect(x, y, r, f.spineL, dy - ht, f.spineR, dy + ht)) return true;
+    if (circleRect(x, y, r, f.spineL, dy - ht, f.spineR, dy + ht)) {
+      world.blockedDoor = i;
+      return true;
+    }
   }
-  // Coin-alcove gate until the twin levers sync.
-  if (!world.alcoveOpen) {
-    const g = cfg.alcoveGate;
-    if (circleRect(x, y, r, g.x0, g.y - ht, g.x1, g.y + ht)) return true;
-  }
-  // The chest only fits through the vault doors: while carrying, the wings
-  // read as solid so the carrier is committed to the spine.
+  // The chest only fits through the gates: while carrying, the wings read as
+  // solid so the carrier is committed to the spine.
   if (world.carrying) {
     if (circleRect(x, y, r, 0, 0, f.spineL, f.wallBottomY)) return true;
     if (circleRect(x, y, r, f.spineR, 0, f.W, f.wallBottomY)) return true;
@@ -262,14 +251,105 @@ export function isInputLocked(world) {
   return world.freezeLeft > 0 || world.inputLockLeft > 0;
 }
 
-/* ─── Beam schedule (loop clock + session seed, identical every loop) ── */
+/* ─── The objective ──────────────────────────────────────
+   The single most important readability device in the game: at every instant
+   the world can name the one next thing to do and the one place to go. The
+   HUD prints `text`, the canvas pulses a ring at (x, y), so a player who
+   reads nothing at all still has an arrow pointing at their next move.
 
-export function beamOnAt(cfg, world, tSec) {
-  const t = (tSec + world.beamPhase) % world.beamCycle;
-  return t < cfg.beam.onSeconds;
+   It is a pure read of the world, so gate.mjs can assert it is never stale
+   and never points at somewhere the player cannot act on. */
+
+const OBJ_TEXT = [
+  'Stand on a green pad',
+  'Stay here — your echo will repeat this',
+  'Grab the gold chest',
+  'Carry it to the vault',
+];
+
+/** `out` is an optional scratch object so the render loop stays allocation-free. */
+export function objectiveOf(cfg, world, out) {
+  const f = cfg.field;
+  const cx = (f.spineL + f.spineR) / 2;
+  const o = out || { kind: 0, text: '', x: 0, y: 0 };
+  const set = (kind, x, y) => {
+    o.kind = kind;
+    o.text = OBJ_TEXT[kind];
+    o.x = x;
+    o.y = y;
+    return o;
+  };
+
+  // 1. Chest in hand: there is only one place to be.
+  if (world.carrying) return set(OBJ_VAULT, cx, f.vaultY - 14);
+
+  // 2. Standing on a pad no echo is covering — this run is the one holding
+  //    it, so the correct move is to not move. This is the line that teaches
+  //    the whole mechanic, and it fires the first time the player lands.
+  for (let i = 0; i < world.nPlates; i++) {
+    if (world.plateGhostCovered[i]) continue;
+    const dx = world.px - world.plateX[i];
+    const dy = world.py - world.plateY[i];
+    if (dx * dx + dy * dy < cfg.plateR * cfg.plateR) {
+      return set(OBJ_HOLD, world.plateX[i], world.plateY[i]);
+    }
+  }
+
+  // 3. Echoes already cover every pad: the road is open, go and carry.
+  if (world.chestReady) return set(OBJ_CHEST, world.chestX, world.chestY);
+
+  // 4. Otherwise: the nearest pad nobody is covering yet, on the lowest gate
+  //    that is still shut — the next brick in the relay.
+  let bestI = -1;
+  let bestD = Infinity;
+  let bestDoor = 127;
+  for (let i = 0; i < world.nPlates; i++) {
+    if (world.plateGhostCovered[i]) continue;
+    const d = world.plateDoor[i];
+    if (d > bestDoor) continue;
+    const dx = world.px - world.plateX[i];
+    const dy = world.py - world.plateY[i];
+    const dist = dx * dx + dy * dy;
+    if (d < bestDoor || dist < bestD) {
+      bestDoor = d;
+      bestD = dist;
+      bestI = i;
+    }
+  }
+  if (bestI < 0) return set(OBJ_CHEST, world.chestX, world.chestY);
+  return set(OBJ_PAD, world.plateX[bestI], world.plateY[bestI]);
 }
 
 /* ─── Loop lifecycle ─────────────────────────────────────── */
+
+/**
+ * Which pads the current cast of echoes will hold for most of this loop.
+ * Runs once per loop boundary over the recorded tracks (3 pads x <=4 ghosts
+ * x 720 samples), never inside the 120 Hz tick path.
+ */
+function recomputeGhostCoverage(world, cfg) {
+  world.plateGhostCovered.fill(0);
+  const r2 = cfg.plateR * cfg.plateR;
+  for (let g = 0; g < world.ghosts.length; g++) {
+    const gh = world.ghosts[g];
+    const need = gh.count * cfg.ghosts.coverFraction;
+    for (let i = 0; i < world.nPlates; i++) {
+      if (world.plateGhostCovered[i]) continue;
+      let hits = 0;
+      for (let k = 0; k < gh.count; k++) {
+        const dx = gh.data[k * 3] - world.plateX[i];
+        const dy = gh.data[k * 3 + 1] - world.plateY[i];
+        if (dx * dx + dy * dy < r2) hits += 1;
+      }
+      if (hits >= need) world.plateGhostCovered[i] = 1;
+    }
+  }
+  let all = world.nPlates > 0;
+  for (let i = 0; i < world.nPlates; i++) {
+    if (!world.plateGhostCovered[i]) { all = false; break; }
+  }
+  world.chestReady = all;
+}
 
 function resetLoopState(world, cfg) {
   world.tick = 0;
@@ -283,8 +363,6 @@ function resetLoopState(world, cfg) {
   world.pvx = 0;
   world.pvy = 0;
   world.hasTarget = false;
-  world.stun = 0;
-  world.hitCooldown = 0;
 
   world.carrying = false;
   world.chestX = cfg.chest.x;
@@ -292,20 +370,17 @@ function resetLoopState(world, cfg) {
 
   world.plateOcc.fill(0);
   world.plateHeld.fill(0);
+  world.plateGhostHeld.fill(0);
   world.doorOpen.fill(0);
   world.doorHeldCount.fill(0);
 
-  world.leverIn.fill(0);
-  world.leverFlipAt.fill(-1);
-  world.leverSynced = false;
-  world.alcoveOpen = false;
-
-  world.beamOn = false;
-  world.beamCutX = cfg.field.spineR;
-  world.beamBlocked = false;
+  world.blockedDoor = -1;
+  world.blockCooldown = 0;
 
   world.freezeLeft = 0;
   world.inputLockLeft = 0;
+
+  recomputeGhostCoverage(world, cfg);
 }
 
 function endLoop(world, cfg, ev, burned) {
@@ -363,7 +438,7 @@ export function stepWorld(world, cfg, dt, ev) {
   if (world.over) return;
 
   // Re-acquire freeze: the world and the loop clock are both held. A body
-  // three pixels from the beam is still three pixels from it on resume.
+  // three pixels from a gate is still three pixels from it on resume.
   if (world.freezeLeft > 0) {
     world.freezeLeft = Math.max(0, world.freezeLeft - dt);
     return;
@@ -386,17 +461,13 @@ export function stepWorld(world, cfg, dt, ev) {
 
   // ---- PLAY ---------------------------------------------------------------
   if (world.inputLockLeft > 0) world.inputLockLeft = Math.max(0, world.inputLockLeft - dt);
+  if (world.blockCooldown > 0) world.blockCooldown = Math.max(0, world.blockCooldown - dt);
 
   const f = cfg.field;
   const r = cfg.body.r;
 
   /* -- player movement: critically damped follow, speed-clamped ----------- */
-  if (world.stun > 0) {
-    world.stun = Math.max(0, world.stun - dt);
-    // Knockback decays; input has no authority while stunned.
-    world.pvx *= Math.exp(-6 * dt);
-    world.pvy *= Math.exp(-2.4 * dt);
-  } else if (world.hasTarget) {
+  if (world.hasTarget) {
     const w0 = cfg.body.followOmega;
     world.pvx += (w0 * w0 * (world.targetX - world.px) - 2 * w0 * world.pvx) * dt;
     world.pvy += (w0 * w0 * (world.targetY - world.py) - 2 * w0 * world.pvy) * dt;
@@ -414,21 +485,31 @@ export function stepWorld(world, cfg, dt, ev) {
   }
 
   // Axis-separated moves give natural wall sliding without a solver.
+  world.blockedDoor = -1;
   const prevX = world.px;
   const prevY = world.py;
-  let nx = clamp(world.px + world.pvx * dt, r, f.W - r);
+  const nx = clamp(world.px + world.pvx * dt, r, f.W - r);
   if (bodyBlocked(world, cfg, nx, world.py)) {
     world.pvx = 0;
   } else {
     world.px = nx;
   }
-  let ny = clamp(world.py + world.pvy * dt, r, f.H - r);
+  const ny = clamp(world.py + world.pvy * dt, r, f.H - r);
   if (bodyBlocked(world, cfg, world.px, ny)) {
     world.pvy = 0;
   } else {
     world.py = ny;
   }
   world.pathLen += Math.hypot(world.px - prevX, world.py - prevY);
+
+  // Walked into a shut gate: say which one, and how many pads it wants.
+  if (world.blockedDoor >= 0 && world.blockCooldown <= 0) {
+    world.blockCooldown = cfg.fx.blockCooldownSeconds;
+    if (ev.onGateBlocked) {
+      const d = world.blockedDoor;
+      ev.onGateBlocked(d, world.doorHeldCount[d], cfg.doors[d].plates.length);
+    }
+  }
 
   /* -- state-track recording (60 Hz decimation of the 120 Hz sim) --------- */
   if (world.tick % cfg.record.decimate === 0 && world.recCount < cfg.record.samplesPerLoop) {
@@ -455,52 +536,30 @@ export function stepWorld(world, cfg, dt, ev) {
   }
   world.bCount = 1 + nGhosts;
 
-  /* -- levers: flip on entry, sync within the window ---------------------- */
-  const lvR2 = cfg.leverR * cfg.leverR;
-  for (let b = 0; b < world.bCount; b++) {
-    for (let l = 0; l < world.nLevers; l++) {
-      const dx = world.bx[b] - cfg.levers[l].x;
-      const dy = world.by[b] - cfg.levers[l].y;
-      const inside = dx * dx + dy * dy < lvR2 ? 1 : 0;
-      const slot = b * world.nLevers + l;
-      if (inside && !world.leverIn[slot]) {
-        world.leverFlipAt[l] = world.loopTime;
-        if (ev.onLeverFlip) ev.onLeverFlip(l, cfg.levers[l].x, cfg.levers[l].y, b === 0);
-      }
-      world.leverIn[slot] = inside;
-    }
-  }
-  if (!world.leverSynced && world.nLevers >= 2 && world.leverFlipAt[0] >= 0 && world.leverFlipAt[1] >= 0) {
-    if (Math.abs(world.leverFlipAt[0] - world.leverFlipAt[1]) <= cfg.leverSyncWindow) {
-      world.leverSynced = true;
-      world.alcoveOpen = true;
-      if (ev.onLeverSync) ev.onLeverSync();
-    }
-  }
-
-  /* -- plates: k distinct bodies on k plates (stacking counts once) ------- */
+  /* -- pads: k distinct bodies on k pads (stacking still counts once) ----- */
   const plR2 = cfg.plateR * cfg.plateR;
   world.plateOcc.fill(0);
+  world.plateGhostHeld.fill(0);
   for (let b = 0; b < world.bCount; b++) {
     for (let i = 0; i < world.nPlates; i++) {
       const dx = world.bx[b] - world.plateX[i];
       const dy = world.by[b] - world.plateY[i];
-      if (dx * dx + dy * dy < plR2) world.plateOcc[i] += 1;
+      if (dx * dx + dy * dy < plR2) {
+        world.plateOcc[i] += 1;
+        if (b > 0) world.plateGhostHeld[i] = 1;
+      }
     }
   }
-  let redundant = 0;
   for (let i = 0; i < world.nPlates; i++) {
     const occ = world.plateOcc[i];
     const held = occ > 0 ? 1 : 0;
     if (held !== world.plateHeld[i]) {
       world.plateHeld[i] = held;
-      if (ev.onPlate) ev.onPlate(i, held === 1, occ);
+      if (ev.onPlate) ev.onPlate(i, held === 1, world.plateGhostHeld[i] === 1);
     }
-    if (occ > 1) redundant += occ - 1;
   }
-  world.redundantSeconds += redundant * dt;
 
-  /* -- doors: open only while every plate is held ------------------------- */
+  /* -- gates: open only while every pad is held --------------------------- */
   for (let d = 0; d < cfg.doors.length; d++) {
     let heldCount = 0;
     for (let i = 0; i < world.nPlates; i++) {
@@ -515,47 +574,8 @@ export function stepWorld(world, cfg, dt, ev) {
     }
   }
 
-  /* -- hazard beam: fixed schedule; standing bodies block it -------------- */
-  const beamOn = beamOnAt(cfg, world, world.loopTime);
-  if (beamOn !== world.beamOn) {
-    world.beamOn = beamOn;
-    if (ev.onBeamToggle) ev.onBeamToggle(beamOn);
-  }
-  const bandLo = cfg.beam.y - cfg.beam.halfW - r;
-  const bandHi = cfg.beam.y + cfg.beam.halfW + r;
-  let cutX = f.spineR;
-  if (beamOn) {
-    for (let g = 1; g < world.bCount; g++) {
-      const gy = world.by[g];
-      const gx = world.bx[g];
-      if (gy > bandLo && gy < bandHi && gx >= f.spineL && gx <= f.spineR && gx < cutX) {
-        cutX = gx;
-      }
-    }
-  }
-  world.beamCutX = cutX;
-  const blocked = beamOn && cutX < f.spineR;
-  if (blocked !== world.beamBlocked) {
-    world.beamBlocked = blocked;
-    if (ev.onBeamBlock) ev.onBeamBlock(blocked, cutX);
-  }
-  if (world.hitCooldown > 0) world.hitCooldown = Math.max(0, world.hitCooldown - dt);
-  if (
-    beamOn && world.hitCooldown <= 0 &&
-    world.py > bandLo && world.py < bandHi &&
-    world.px >= f.spineL && world.px <= f.spineR &&
-    world.px <= cutX // an echo standing nearer the emitter shields the player
-  ) {
-    world.stun = cfg.beam.stunSeconds;
-    world.hitCooldown = cfg.beam.hitCooldownSeconds;
-    world.pvx = 0;
-    world.pvy = cfg.beam.knockbackPx * 6; // shoved back south, resolved by collision
-    world.hasTarget = false;
-    if (ev.onBeamHit) ev.onBeamHit(world.px, world.py);
-  }
-
   /* -- chest: pickup, carry, deliver -------------------------------------- */
-  if (!world.carrying) {
+  if (!world.carrying && world.chestReady) {
     const dx = world.px - world.chestX;
     const dy = world.py - world.chestY;
     if (dx * dx + dy * dy < cfg.chest.pickupR * cfg.chest.pickupR) {
@@ -577,25 +597,15 @@ export function stepWorld(world, cfg, dt, ev) {
     }
   }
 
-  /* -- coins: live player only; persist across loops ---------------------- */
-  const ccR2 = cfg.coinCollectR * cfg.coinCollectR;
-  for (let i = 0; i < cfg.coins.length; i++) {
-    if (world.coinTaken[i]) continue;
-    const dx = world.px - cfg.coins[i].x;
-    const dy = world.py - cfg.coins[i].y;
-    if (dx * dx + dy * dy < ccR2) {
-      world.coinTaken[i] = 1;
-      world.coins += 1;
-      if (ev.onCoin) ev.onCoin(i, cfg.coins[i].x, cfg.coins[i].y);
-    }
-  }
-
   /* -- clocks, anti-AFK, loop end ----------------------------------------- */
   world.tick += 1;
   world.masterTick += 1;
   world.loopTime += dt;
 
-  if (!world.burnChecked && world.loopTime >= cfg.loops.burnCheckSeconds) {
+  // Loop 1 is exempt: a first-time player is still reading the screen, and
+  // killing their opening loop three seconds in teaches nothing. Loops 2-5
+  // still burn, so an AFK session still ends at zero with no echoes.
+  if (world.loop > 1 && !world.burnChecked && world.loopTime >= cfg.loops.burnCheckSeconds) {
     world.burnChecked = true;
     if (world.pathLen < cfg.loops.burnPathPx) {
       if (ev.onBurn) ev.onBurn(world.loop);
@@ -611,27 +621,24 @@ export function stepWorld(world, cfg, dt, ev) {
 
 /* ─── Scoring / stats ────────────────────────────────────── */
 
+/** Delivery is the only way to score, and finishing sooner scores more. */
 export function computeScore(cfg, world) {
-  let s = world.coins * cfg.scoring.coin
-    - world.redundantSeconds * cfg.scoring.redundancyPerSecond;
-  if (world.won) {
-    s += cfg.scoring.deliver
-      + cfg.scoring.unusedLoop * (cfg.loops.count - world.loopsUsed);
-  }
-  return Math.max(0, Math.round(s));
+  if (!world.won) return 0;
+  return Math.max(0, Math.round(
+    cfg.scoring.deliver + cfg.scoring.unusedLoop * (cfg.loops.count - world.loopsUsed),
+  ));
 }
 
 export function statsOf(world) {
   let doorsOpened = 0;
-  for (let d = 0; d < 3; d++) if (world.doorsEverOpen & (1 << d)) doorsOpened += 1;
+  for (let d = 0; d < 8; d++) if (world.doorsEverOpen & (1 << d)) doorsOpened += 1;
   return {
     score: world.score,
     loopsUsed: world.loopsUsed || world.loop,
-    coins: world.coins,
+    echoes: world.ghosts.length,
     delivered: world.won,
     doorsOpened,
     burnedLoops: world.burnedLoops,
-    redundantSeconds: Math.round(world.redundantSeconds * 10) / 10,
   };
 }
 

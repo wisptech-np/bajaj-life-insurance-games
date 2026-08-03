@@ -172,3 +172,170 @@ canvas artwork, `data.js`, `api.js`, `src/kit/`.
 
 **Build:** `pnpm install && pnpm build` — exit 0, `✓ built in 2.54s`
 (`dist/assets/index-OfumB4RS.js 425.37 kB │ gzip: 141.22 kB`).
+
+---
+
+## 2026-08-03 — premium asset ladder, colour system, merge rewards
+
+**The defect.** Review: *"The assets and colour combinations are too basic…
+ensure each merge stage communicates increasing financial value or wealth
+growth."* The old tier table failed that last point outright. Its hues were a
+rainbow with no rank order — gold, gold, amber, orange, **green**, **blue**,
+orange, gold — so tier 5 (green SIP jar) read as *lower* value than tier 4
+(orange piggy), tier 6 (blue) sat above green for no reason a player could
+name, and tier 7 reused the same orange as tier 4. Size was the ONLY channel
+that climbed, and in a packed jar size alone is ambiguous. Every sprite was
+also the same object: one radial-gradient sphere plus a white emblem, so a
+one-rupee coin and a Retirement Corpus were the same manufactured thing at two
+scales. Glow existed on tier 8 only; nothing else escalated.
+
+**The tier ladder (new).** Four material bands, two tiers each, in the rank
+order every loyalty programme and card tier has already taught the audience —
+**bronze → gold → platinum → diamond** — mapped onto a monotone financial
+life: loose change → savings → habit → asset → compounding → protected →
+life goal → freedom. The emblem order was also corrected: "Piggy Bank" now
+sits *below* "Gold Reserve" (it was above it), because a child's savings pot
+outranking a bullion reserve was the same ranking failure in silhouette form.
+
+| # | Tier | Band | Body | Luminance | glow | pips | facets | motes | Communicates |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | Rupee Coin | copper | `#A25A2C` | 0.152 | 0 | 1 | 0 | 0 | Loose change |
+| 2 | Coin Stack | copper | `#C4821B` | 0.278 | 3 | 2 | 4 | 0 | You started saving |
+| 3 | Piggy Bank | gold | `#E3A82A` | 0.445 | 6 | 3 | 6 | 0 | Saving is a habit |
+| 4 | Gold Reserve | gold | `#FFC845` | 0.630 | 10 | 4 | 9 | 0 | You own an asset |
+| 5 | SIP Growth | platinum | `#C9D8E6` | 0.672 | 15 | 5 | 11 | 0 | Money that compounds |
+| 6 | Protection Plan | platinum | `#DCE8F4` | 0.795 | 21 | 6 | 13 | 1 | Your wealth is insured |
+| 7 | Family Home | radiant | `#F7EBDA` | 0.843 | 27 | 7 | 14 | 2 | A life goal, funded |
+| 8 | Retirement Corpus | radiant | `#FFFDF0` | 0.978 | 34 | 8 | 16 | 3 | Financial freedom |
+
+Six independent channels climb together, and none of them ever goes backwards:
+
+- **radius** 12 → 96 (unchanged — physics and pacing are untouched).
+- **body luminance** 0.152 → 0.978. Value is carried by *lightness*, not hue,
+  so the ladder still ranks in greyscale and for colour-blind players.
+- **glow** 0 → 34 px. The base metals throw no light at all; the top of the
+  ladder is a lamp. This is the strongest single "worth more" cue and it
+  previously existed on one tier.
+- **pips** 1 → 8 rim studs. A literal countable rank that survives down to a
+  12 px token — the one channel that gives an exact answer, not an impression.
+- **facets** 0 → 16 brushed/polished streaks. Detail density = craft = cost.
+  A copper coin is a plain blank; a corpus is machined.
+- **motes** 0 → 3 orbiting lights. Tiers 1–5 are inert objects; 6–8 are
+  animated. Money that is *working* versus money that is sitting.
+
+Plus two categorical breaks that make the band boundaries unmistakable:
+the emblem ink flips from stamped white to **engraved deep navy** at the gold
+band (this also fixed a real contrast bug — a white emblem on `#FFC845` was
+1.5:1), and a **gem inlay** appears only at tiers 6–8, which is where the brand
+colours enter: brand blue `#1E6BE0` for Protection, warm amber `#FF8A3D` for
+the Home, white-gold for the Corpus.
+
+**Colour system.** Three exclusive jobs so no colour ever means two things:
+VALUE is the metal ladder above; DANGER is red and nothing else is red (the
+overflow line, its countdown, its alarm wash); the PLAYER'S OWN TOUCH is pure
+white (aim guide, ghost landing ring). Green was removed from the tokens
+entirely — it now appears only as the score-bar fill, where "progress" is what
+it means. Backdrop gained a cool bloom at the jar mouth and a warm gold bloom
+centred on the jar *floor* (not the screen edge, which only muddied the navy),
+so the scene has a vertical temperature gradient pulling the eye down toward
+the money, plus a vignette that turns the unavoidable 3:4-field letterboxing
+into a frame.
+
+**Assets.** All sprite drawing moved out of the 44 kB component into
+`src/sprites.js`, driven entirely by the per-tier art tokens in `data.js` — so
+"make tier 6 read as worth more than tier 5" is now a data change, not a code
+change. Token construction: lit sphere → polished wedges or brushed grain →
+recessed bezel plate → gem inlay → radiant corona → bevel crescents → rim
+studs → rim → engraved emblem → gloss. The jar was rebuilt from two flat rails
+into one glass vessel: single silhouette path with rounded lower corners, a
+thickened base, rim light, two specular streaks that fade at both ends, a
+meniscus curve and caustic rings — following `asset-from-here.md`'s
+`wmg-jar`. The `NEXT` socket became the frosted rounded-square well from
+`wmg-hud-next`; the danger line is now drawn twice (wide coral halo under a
+bright core, round dash caps) per `wmg-danger-line`. Still zero binary assets.
+
+**Merge animation, rewards, progression.**
+
+- **Shockwave ring** at every merge contact point: a fixed pool of 10, no
+  allocation in the hot loop, expanding on ease-out cubic. Radius, thickness
+  and duration all scale with the created tier, and a second inner ring is
+  added from tier 4 up, so the *reward* obeys the same ranking contract the
+  tokens do. Gem tiers throw their gem colour.
+- **Pop depth scales with tier** (`popSquash` 0.16 + 0.028/tier): a Retirement
+  Corpus lands with visibly more weight than a coin stack.
+- **The float text names the rung** — `SIP GROWTH +15`, not `+15` — so the
+  payout teaches the ladder. Tiers 1–2 keep the bare number because during a
+  cascade they fire several times a second. The duplicate `CHAIN x` float was
+  *deleted*: the HUD chain chip already carries it and the second float per
+  merge was the clutter.
+- **New-tier beat.** The first time a tier is ever created in a run it gets an
+  extra white ring, a power-up sting and a `NEW TIER UNLOCKED` banner naming
+  what it means ("Family Home — A life goal, funded"). Tracked in the
+  component; `physics.js` untouched.
+- **The banner wears the tier's colours** instead of always being the same gold
+  card, so the reward escalates visually with the ladder.
+- **Wealth-ladder rail** (new, top-left HUD): eight rungs, dim until created,
+  the newest lit, ringed and popped. The only thing on screen that answers
+  "how far up am I?" without a merge happening, and it teaches the ladder's
+  order before the player has climbed it.
+- Results screen prints the best tier in that tier's own colour with its glow;
+  the How-to-Play ladder strip now shows the glow ramp too.
+
+**Balance: unchanged.** Radii, the triangular score table (1/3/6/10/15/21/28/36),
+the 300-point target, chain multipliers, gravity, damping, the overflow grace
+window and the droppable-tier weights are all byte-identical. Only tiers 3 and 4
+swapped *emblems and labels*; their radii and scores stayed put, so merge
+pacing is exactly as balanced before. Play-test survival times confirm it:
+55/43/60/62 s before, 56/55/50/55 s after.
+
+**New guard.** `wealth-merge/scripts/tier-ladder.mjs` asserts the ranking
+contract — strict monotonicity on radius, body luminance and pips, non-decreasing
+glow/facets/motes/score, gems confined to tiers 6–8, and every emblem at 3:1 or
+better contrast against its own body. It caught two real defects while the
+ladder was being built: white emblems at 2.1:1 on the gold band, and engraved
+detail that vanished because the etch colour was contrasted against the body
+instead of against the ink (the shield and the home rendered as solid navy blobs).
+
+**Verification.**
+
+```
+$ node scripts/tier-ladder.mjs
+ 1  Rupee Coin           copper     #A25A2C  L=0.152  r= 12  glow= 0  pips=1  facets= 0  alive=0  score= 1
+ 2  Coin Stack           copper     #C4821B  L=0.278  r= 16  glow= 3  pips=2  facets= 4  alive=0  score= 3
+ 3  Piggy Bank           gold       #E3A82A  L=0.445  r= 22  glow= 6  pips=3  facets= 6  alive=0  score= 6
+ 4  Gold Reserve         gold       #FFC845  L=0.630  r= 30  glow=10  pips=4  facets= 9  alive=0  score=10
+ 5  SIP Growth           platinum   #C9D8E6  L=0.672  r= 40  glow=15  pips=5  facets=11  alive=0  score=15
+ 6  Protection Plan      platinum   #DCE8F4  L=0.795  r= 54  glow=21  pips=6  facets=13  alive=1  score=21  gem #1E6BE0
+ 7  Family Home          radiant    #F7EBDA  L=0.843  r= 72  glow=27  pips=7  facets=14  alive=2  score=28  gem #FF8A3D
+ 8  Retirement Corpus    radiant    #FFFDF0  L=0.978  r= 96  glow=34  pips=8  facets=16  alive=3  score=36  gem #FFE38A
+
+OK — 8 tiers, ladder monotone on radius, body luminance, pips, glow, facets, motion.
+
+$ npx vite build
++ 525 modules transformed.
+dist/index.html                 0.85 kB | gzip:   0.46 kB
+dist/assets/index-bneSBdfR.css 33.60 kB | gzip:   6.87 kB
+dist/assets/index-BOq8RH3u.js 433.35 kB | gzip: 144.03 kB
++ built in 4.07s
+
+$ node scripts/play-test.mjs wealth-merge --all-sizes
+=== wealth-merge @ iPhone SE   320x568 - ok ===   painted 100.0%   ended 56s   retry ok
+=== wealth-merge @ iPhone 12   390x844 - ok ===   painted 100.0%   ended 55s   retry ok
+=== wealth-merge @ Pixel 7     412x915 - ok ===   painted 100.0%   ended 50s   retry ok
+=== wealth-merge @ chrome open 412x700 - ok ===   painted 100.0%   ended 55s   retry ok
+(zero console errors, zero page errors at every size)
+```
+
+**Bundle:** gzip JS 141.22 kB → **144.03 kB** (+2.81 kB, +2.0%); CSS 6.87 kB
+unchanged. No binary assets added — the whole ladder is still programmatic
+canvas.
+
+**Not changed:** `physics.js`, screen flow, LMS/lead-capture (still Name +
+Mobile only, no email), compliance copy, `src/kit/`, `shared/`, any other game.
+
+**Known limitation:** the 360×480 playfield is 3:4 and phones are ~1:2, so the
+jar is width-limited and there is letterboxing above and below it at every
+tested size. The vignette now frames that band instead of leaving it dead, but
+genuinely filling the screen needs a taller `field.H` + `floorY`, which changes
+stacking room and therefore difficulty — out of scope for an art pass, and it
+would invalidate the "balance unchanged" claim above.

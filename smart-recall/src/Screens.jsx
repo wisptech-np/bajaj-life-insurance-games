@@ -10,7 +10,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { GAME_CONFIG, GOALS, perfectScore } from './data.js';
+import { COLORS, GAME_CONFIG, GOALS, perfectScore } from './data.js';
 import { tapCount } from './sequence.js';
 
 const GAME_TITLE = 'Smart Recall';
@@ -20,17 +20,21 @@ const ROUNDS = GAME_CONFIG.rounds;
 const LONGEST = ROUNDS[ROUNDS.length - 1].len;
 const TOTAL_TAPS = ROUNDS.reduce((a, _, i) => a + tapCount(GAME_CONFIG, i + 1), 0);
 
-/* Brand palette, inline. These screens are chrome rather than gameplay. */
-const BLUE = '#003DA6';
-const BLUE_LT = '#1E6BE0';
-const ORANGE = '#F26522';
-const ORANGE_LT = '#FF8A3D';
-const GREEN_LT = '#4ADE80';
-const GOLD = '#FFC845';
-const GOLD_LT = '#FFE38A';
-const DANGER = '#EF4444';
-const DANGER_LT = '#FF8B8B';
-const SCREEN_BG = 'radial-gradient(ellipse at 50% 26%, rgba(14,79,148,0.55), rgba(11,18,33,0.96) 72%), #0B1221';
+/* One palette for the whole game. These used to be a second, dimmer copy of the
+   same nine names declared inline here, which is how the chrome and the board
+   drifted apart in the first place — repainting data.js left these behind. */
+const BLUE = COLORS.brandBlue;
+const BLUE_LT = COLORS.brandBlueLt;
+const ORANGE = COLORS.orange;
+const ORANGE_LT = COLORS.orangeLt;
+const GREEN_LT = COLORS.greenLt;
+const GOLD = COLORS.gold;
+const GOLD_LT = COLORS.goldLt;
+const DANGER = COLORS.danger;
+const DANGER_LT = COLORS.dangerLt;
+/* Brighter, bluer field than the flat near-black it was, so the same tiles read
+   with the energy they have on the board. */
+const SCREEN_BG = `radial-gradient(ellipse at 50% 24%, rgba(30,110,220,0.55), rgba(8,18,42,0.97) 70%), ${COLORS.bgDark}`;
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function PlayIcon({ size = 18 }) {
@@ -324,6 +328,19 @@ function GoalBoard({ cell = 40, gap = 6, sequence = [], showOrder = true, riskIn
             <stop offset="100%" stopColor={g.colorDeep} />
           </linearGradient>
         ))}
+        {GOALS.map((g) => (
+          <linearGradient key={`r-${g.id}`} id={`sr-rest-${g.id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={g.colorRest} />
+            <stop offset="55%" stopColor={g.colorRest} />
+            <stop offset="100%" stopColor={g.colorDeep} />
+          </linearGradient>
+        ))}
+        {/* The canvas tile's top sheen. Without it these tiles read flatter than
+            the same nine on the board. */}
+        <linearGradient id="sr-sheen" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+        </linearGradient>
       </defs>
 
       {GOALS.map((g, i) => {
@@ -333,11 +350,15 @@ function GoalBoard({ cell = 40, gap = 6, sequence = [], showOrder = true, riskIn
         const isRisk = order >= 0 && order === riskIndex;
         return (
           <g key={g.id} transform={`translate(${p.x} ${p.y})`}>
-            {/* Resting face — always visible, always face-up. */}
+            {/* Resting face — always visible, always face-up. Opaque colorRest,
+                same as the canvas: the alpha wash it used to be is exactly what
+                the review saw as dull. */}
             <rect width={cell} height={cell} rx={cell * 0.22}
-              fill={`${g.colorDeep}CC`} stroke="rgba(255,255,255,0.16)" strokeWidth="1" />
-            <g transform={`translate(${cell * 0.24} ${cell * 0.2})`} opacity="0.72">
-              <GoalGlyph kind={g.icon} fill={g.colorLt} cut="rgba(9,20,42,0.95)" size={cell * 0.52} />
+              fill={`url(#sr-rest-${g.id})`} stroke={COLORS.tileRim} strokeWidth="1.4" />
+            <rect x="1.5" y="1.5" width={cell - 3} height={cell * 0.5} rx={cell * 0.19}
+              fill="url(#sr-sheen)" />
+            <g transform={`translate(${cell * 0.24} ${cell * 0.2})`} opacity="0.95">
+              <GoalGlyph kind={g.icon} fill={g.colorLt} cut={g.colorDeep} size={cell * 0.52} />
             </g>
 
             {order >= 0 && (
@@ -374,9 +395,9 @@ function GoalBoard({ cell = 40, gap = 6, sequence = [], showOrder = true, riskIn
 
       <defs>
         <linearGradient id="sr-risk-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FF8B8B" />
+          <stop offset="0%" stopColor={DANGER_LT} />
           <stop offset="50%" stopColor={DANGER} />
-          <stop offset="100%" stopColor="#7F1D1D" />
+          <stop offset="100%" stopColor="#8A0F0F" />
         </linearGradient>
       </defs>
     </svg>
@@ -448,7 +469,7 @@ export function HomeScreen({ onStart }) {
         whileTap={{ scale: 0.97 }}
         style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 10 }}
       >
-        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>
+        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: COLORS.inkDim }}>
           {ROUNDS.length} rounds · up to {LONGEST} steps · {GAME_CONFIG.sessionSeconds}s
         </div>
         <button
@@ -488,12 +509,15 @@ function MiniTile({ goal, lit, size = 26, risk }) {
   return (
     <g>
       <rect width={size} height={size} rx={size * 0.22}
-        fill={risk ? DANGER : lit ? goal.color : `${goal.colorDeep}CC`}
-        stroke={risk ? DANGER_LT : lit ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.16)'}
-        strokeWidth="1.2" />
-      <g transform={`translate(${size * 0.24} ${size * 0.24})`} opacity={lit || risk ? 1 : 0.7}>
+        fill={risk ? DANGER : lit ? goal.color : goal.colorRest}
+        stroke={risk ? DANGER_LT : lit ? COLORS.tileRimLit : COLORS.tileRim}
+        strokeWidth="1.4" />
+      {/* No sheen overlay here on purpose: MiniTile is rendered inside three
+          different SVG roots and `url(#sr-sheen)` only resolves in the one that
+          declares it. The demo tiles are small enough not to need it. */}
+      <g transform={`translate(${size * 0.24} ${size * 0.24})`} opacity={lit || risk ? 1 : 0.95}>
         <GoalGlyph kind={goal.icon} fill={lit || risk ? '#fff' : goal.colorLt}
-          cut={risk ? DANGER : lit ? goal.color : 'rgba(9,20,42,0.95)'} size={size * 0.52} />
+          cut={risk ? DANGER : lit ? goal.color : goal.colorDeep} size={size * 0.52} />
       </g>
       {risk && (
         <g stroke="#fff" strokeWidth={size * 0.09} strokeLinecap="round" fill="none">
@@ -524,7 +548,7 @@ function Cue({ label, tint, children }) {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
       <div style={{
         width: 46, height: 46, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+        background: COLORS.glass, border: `1px solid ${COLORS.glassLine}`,
       }}>
         {children}
       </div>
@@ -564,8 +588,9 @@ function RecallDemo() {
   return (
     <div style={{
       position: 'relative', width: '100%', height: 176,
-      background: 'rgba(6,18,41,0.6)', borderRadius: 16,
-      border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 16,
+      background: `radial-gradient(ellipse at 50% 45%, ${COLORS.boardTop}, ${COLORS.boardLow} 78%)`,
+      borderRadius: 16,
+      border: `1px solid ${COLORS.plateEdge}`, overflow: 'hidden', marginBottom: 16,
     }}>
       <svg width="100%" height="100%" viewBox="0 0 300 176" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         {/* Resting board — all nine goals, always face up */}
@@ -645,8 +670,8 @@ export function HowToPlayScreen({ onPlay }) {
       <style dangerouslySetInnerHTML={{ __html: SCREEN_CSS }} />
 
       <div style={{
-        background: 'rgba(11,18,33,0.72)',
-        border: '1px solid rgba(255,255,255,0.14)',
+        background: 'rgba(13,32,72,0.78)',
+        border: `1px solid ${COLORS.glassLine}`,
         borderRadius: 24,
         padding: '24px 18px 20px',
         width: '100%',
@@ -719,7 +744,7 @@ function StatTile({ label, value, accent }) {
       <div style={{ fontSize: 19, fontWeight: 900, color: accent, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
         {value}
       </div>
-      <div style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>
+      <div style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', color: COLORS.inkDim, marginTop: 3 }}>
         {label}
       </div>
     </div>
@@ -839,10 +864,10 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             <span style={{ fontSize: 30, fontWeight: 900, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
               {animatedScore.toLocaleString()}
             </span>
-            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.55)', marginTop: 5, letterSpacing: '0.16em' }}>
+            <span style={{ fontSize: 9, fontWeight: 900, color: COLORS.inkDim, marginTop: 5, letterSpacing: '0.16em' }}>
               SCORE
             </span>
-            <span style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: COLORS.inkDim, marginTop: 2 }}>
               perfect {PERFECT_SCORE.toLocaleString()}
             </span>
           </div>
@@ -858,7 +883,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
 
       <div style={{
         width: '100%', maxWidth: 360, marginBottom: 14, textAlign: 'center',
-        fontSize: 10.5, fontWeight: 800, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.04em', zIndex: 2,
+        fontSize: 10.5, fontWeight: 800, color: COLORS.inkDim, letterSpacing: '0.04em', zIndex: 2,
       }}>
         A perfect run recalls all {TOTAL_TAPS} steps across {ROUNDS.length} plans without one slip.
       </div>

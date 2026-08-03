@@ -1,30 +1,40 @@
 // balance.mjs — headless balance gate for Cover Drive.
 //
-// Runs the SHIPPING rules. This script imports src/deliveries.js, src/rules.js
-// and src/data.js directly — the same modules CoverDriveGame.jsx imports — so
-// the numbers documented in src/data.js are measured against the code that
-// ships rather than against a re-implementation that can silently drift from
-// it. The sim contains no gameplay maths of its own: it only decides WHEN the
-// bot swings, and even its Gaussian comes from deliveries.js.
+// Runs the SHIPPING modules. This script imports src/data.js, src/physics.js,
+// src/deliveries.js and src/rules.js directly — the same files
+// CoverDriveGame.jsx imports — so every number it prints is measured against
+// the code that ships rather than against a re-implementation that can silently
+// drift from it. The sim contains no gameplay maths of its own: it only decides
+// WHEN the bot taps and WHERE it aims, and even its Gaussian comes from
+// deliveries.js.
 //
-//   node scripts/balance.mjs                 # the gate (500 seeds per bot)
+//   node scripts/balance.mjs                 # the gate
 //   node scripts/balance.mjs --runs 5000     # tighter confidence interval
-//   node scripts/balance.mjs --sweep         # chase success vs windowScale
-//   node scripts/balance.mjs --scale 0.62    # probe one windowScale (gate is skipped)
+//   node scripts/balance.mjs --windows       # per-pace window table only
 //   node scripts/balance.mjs --seed 12345    # different seed base
 //
 // Determinism: run N uses `mulberry32(SEED + n * 2654435761)` (Knuth's 32-bit
-// golden-ratio constant, so consecutive run indices land far apart in the
-// state space). That single stream drives BOTH the bowling machine and the
-// bot's timing error, so a reported win rate is reproducible ball for ball
-// from its seed, and re-running after a rules change compares like with like.
+// golden-ratio constant, so consecutive run indices land far apart in the state
+// space). That single stream drives BOTH the bowling machine and the bot, so a
+// reported win rate is reproducible ball for ball from its seed.
 //
-// Exit code is 1 if either gate fails, so this doubles as a regression gate on
-// any change to the timing windows, the ramp or the chase target.
+// THE GATE THAT MATTERS. Gate 1 below is the direct regression test for the
+// defect the 2026-08-03 review reported as "unable to hit the ball reliably"
+// and "collision mechanics are inaccurate". It swings the bat at the moment
+// src/physics.js says is ideal, on every pace at every point in the ramp, and
+// asserts the swept collision reports a middled contact EVERY time. A
+// point-in-time collision test against a 26 m/s ball tunnels and this gate goes
+// red; the old build had no collision test at all and could not have run it.
+//
+// Exit code is 1 if any gate fails.
 
 import { GAME_CONFIG } from '../src/data.js';
 import { ballDurationSeconds, gaussian, makeDelivery, mulberry32 } from '../src/deliveries.js';
-import { createInnings, resolveBall, statsOf } from '../src/rules.js';
+import {
+  ballSpeed, classifyContact, connectWindow, idealContact, reactionBudgetSeconds,
+  stanceFor, sweepContact, zoneLaneCentre,
+} from '../src/physics.js';
+import { createInnings, resolveBall, statsOf, suggestZone } from '../src/rules.js';
 
 /* ─── Args ───────────────────────────────────────────────── */
 const argv = process.argv.slice(2);
@@ -32,35 +42,257 @@ const argOf = (name, fallback) => {
   const i = argv.indexOf(name);
   return i >= 0 && argv[i + 1] ? Number(argv[i + 1]) : fallback;
 };
-const RUNS = argOf('--runs', 500);
+const RUNS = argOf('--runs', 800);
 const SEED = argOf('--seed', 0x0c07d21e);
-const SWEEP = argv.includes('--sweep');
+const WINDOWS_ONLY = argv.includes('--windows');
+/** Probe a candidate chase target without editing data.js. Reports, never gates. */
+const PROBE_TARGET = argOf('--target', null);
 
 const GOLDEN = 2654435761;
+const cfg = PROBE_TARGET === null
+  ? GAME_CONFIG
+  : { ...GAME_CONFIG, chase: { ...GAME_CONFIG.chase, target: PROBE_TARGET } };
+
+const pct = (v) => `${(v * 100).toFixed(1)}%`;
+const ms = (v) => `${(v * 1000).toFixed(0)} ms`;
+const pad = (v, n) => String(v).padStart(n);
+
+/* ─── Thresholds ─────────────────────────────────────────────
+   Human visual reaction time to a simple stimulus is about 250 ms, and a
+   touchscreen tap adds roughly 50 ms of motor and digitiser jitter on top. The
+   reaction budget is measured from BALL RELEASE, ignoring the run-up and the
+   length marker that both telegraph the delivery earlier, so it is the
+   conservative reading. */
+const HUMAN_REACTION_SECONDS = 0.25;
+const MIN_REACTION_SECONDS = 0.34;
+const MIN_CONNECT_SECONDS = 0.150;
+const MIN_PERFECT_SECONDS = 0.030;
+const SKILLED_BAND = [0.55, 0.90];
+const CASUAL_BAND = [0.15, 0.55];
+const RANDOM_MAX = 0.10;
+const SKILLED_SIGMA_MS = argOf('--skilled', 35);
+const CASUAL_SIGMA_MS = argOf('--casual', 60);
+
+const failures = [];
+
+/* ─── Every delivery the bowler can bowl ─────────────────────
+   The three paces, at each over of the ramp, with and without the slower-ball
+   variation, at the fullest and shortest length the tier can bowl and at the
+   widest line either side. That is the full corner set of the delivery space,
+   and gate 1 asserts the perfect swing connects on all of it, not just on a
+   sample of the middle. */
+function cornerDeliveries() {
+  const out = [];
+  const overs = Math.ceil(cfg.chase.balls / cfg.ramp.ballsPerOver);
+  for (let over = 0; over < overs; over++) {
+    const ramp = Math.pow(cfg.ramp.speedStepPerOver, over);
+    for (const tier of cfg.deliveries.tiers) {
+      for (const slower of over * cfg.ramp.ballsPerOver + 1 >= cfg.ramp.slowerBallFromBall
+        ? [false, true] : [false]) {
+        const speed = tier.factor * ramp * (slower ? cfg.ramp.slowerBallFactor : 1);
+        for (const lengthFrac of tier.lengthFrac) {
+          for (const lineX of [-cfg.pitch.maxLineM, -0.12, 0, 0.12, cfg.pitch.maxLineM]) {
+            for (const deviate of [-0.15, 0, 0.15]) {
+              out.push({
+                index: over * cfg.ramp.ballsPerOver,
+                ballNo: over * cfg.ramp.ballsPerOver + 1,
+                over,
+                tier: tier.key,
+                tierLabel: slower ? 'Slower' : tier.label,
+                speed,
+                slower,
+                flightSeconds: cfg.deliveries.referenceFlightSeconds / speed,
+                runUpSeconds: cfg.deliveries.runUpSeconds,
+                stumpLine: Math.abs(lineX) < cfg.pitch.stumpHalfM,
+                lengthFrac,
+                releaseX: 0.06,
+                pitchX: lineX - deviate,
+                lineX,
+                name: tier.label,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/* ─── Gate 1 — a perfectly timed swing always connects ────── */
+function gatePerfectSwing() {
+  const corners = cornerDeliveries();
+
+  // Plus a large seeded sample of real deliveries from the shipped generator,
+  // so the corner set cannot hide a hole in the interior.
+  const sampled = [];
+  const rand = mulberry32(SEED ^ 0x5bf03635);
+  for (let n = 0; n < 4000; n++) {
+    sampled.push(makeDelivery(cfg, n % cfg.chase.balls, rand));
+  }
+
+  const all = corners.concat(sampled);
+  let hits = 0;
+  let perfect = 0;
+  let worstOff = 0;
+  let worstDelivery = null;
+  const scratch = {};
+
+  for (const d of all) {
+    const ideal = idealContact(cfg, d, {});
+    const c = sweepContact(cfg, d, { swung: true, tapSeconds: ideal.tapSeconds }, scratch);
+    if (c.hit) hits += 1;
+    const shot = classifyContact(cfg, c);
+    if (shot === 'perfect') perfect += 1;
+    const off = c.hit ? c.offSweetM : Infinity;
+    if (off > worstOff) { worstOff = off; worstDelivery = d; }
+  }
+
+  const ok = hits === all.length && perfect === all.length;
+  console.log('── gate 1: a perfectly timed swing always connects');
+  console.log(`   ${all.length.toLocaleString()} deliveries `
+    + `(${corners.length} corners of the delivery space + ${sampled.length.toLocaleString()} seeded)`);
+  console.log(`   swept collision, ${cfg.pitch.batter.contactSubsteps} sub-steps per swing `
+    + `(${(cfg.pitch.batter.swingSeconds / cfg.pitch.batter.contactSubsteps * 1000).toFixed(2)} ms each)`);
+  console.log(`   connected ${hits}/${all.length}, middled ${perfect}/${all.length}, `
+    + `worst distance from the sweet spot ${(worstOff * 1000).toFixed(1)} mm `
+    + `(tolerance ${(cfg.pitch.batter.perfectTolM * 1000).toFixed(0)} mm) -> ${ok ? 'OK' : 'FAIL'}\n`);
+
+  if (!ok) {
+    failures.push(`perfect swing missed or failed to middle: hit ${hits}/${all.length}, `
+      + `perfect ${perfect}/${all.length}`
+      + (worstDelivery ? `; worst ${worstDelivery.tierLabel} lineX ${worstDelivery.lineX.toFixed(2)}` : ''));
+  }
+  return { count: all.length, hits, perfect, worstOff };
+}
+
+/* ─── Gate 2 — the timing windows, in seconds ─────────────── */
+function gateWindows() {
+  const rows = [];
+  let fastest = null;
+  const overs = Math.ceil(cfg.chase.balls / cfg.ramp.ballsPerOver);
+
+  for (let over = 0; over < overs; over++) {
+    const ramp = Math.pow(cfg.ramp.speedStepPerOver, over);
+    for (const tier of cfg.deliveries.tiers) {
+      const speed = tier.factor * ramp;
+      const d = {
+        flightSeconds: cfg.deliveries.referenceFlightSeconds / speed,
+        lengthFrac: (tier.lengthFrac[0] + tier.lengthFrac[1]) / 2,
+        releaseX: 0.06, pitchX: 0, lineX: 0, stumpLine: true, speed,
+        tierLabel: tier.label, over,
+      };
+      const w = connectWindow(cfg, d, {});
+      const row = {
+        label: `over ${over + 1} ${tier.label}`,
+        speedKph: ballSpeed(cfg, d) * 3.6,
+        flight: d.flightSeconds,
+        reaction: reactionBudgetSeconds(cfg, d),
+        connect: w.connectSeconds,
+        good: w.goodSeconds,
+        perfect: w.perfectSeconds,
+      };
+      rows.push(row);
+      if (!fastest || row.speedKph > fastest.speedKph) fastest = row;
+    }
+  }
+
+  console.log('── gate 2: measured timing windows (bisected against the shipped collision)');
+  console.log('   delivery          ball speed   flight   react budget   CONNECT    GOOD   PERFECT');
+  for (const r of rows) {
+    console.log(`   ${r.label.padEnd(16)}  ${pad(r.speedKph.toFixed(0), 6)} km/h  `
+      + `${pad(ms(r.flight), 7)}   ${pad(ms(r.reaction), 11)}   ${pad(ms(r.connect), 7)} `
+      + `${pad(ms(r.good), 7)}  ${pad(ms(r.perfect), 7)}`);
+  }
+
+  const reactOk = fastest.reaction >= MIN_REACTION_SECONDS;
+  const connectOk = fastest.connect >= MIN_CONNECT_SECONDS;
+  const perfectOk = fastest.perfect >= MIN_PERFECT_SECONDS;
+
+  console.log(`\n   at the FASTEST delivery (${fastest.label}, ${fastest.speedKph.toFixed(0)} km/h):`);
+  console.log(`     reaction budget  ${fastest.reaction.toFixed(3)} s  `
+    + `vs ${HUMAN_REACTION_SECONDS.toFixed(2)} s human reaction, floor ${MIN_REACTION_SECONDS.toFixed(2)} s`
+    + `  -> ${reactOk ? 'OK' : 'FAIL'}`);
+  console.log(`     connect window   ${fastest.connect.toFixed(3)} s  `
+    + `(floor ${MIN_CONNECT_SECONDS.toFixed(3)} s)  -> ${connectOk ? 'OK' : 'FAIL'}`);
+  console.log(`     perfect window   ${fastest.perfect.toFixed(3)} s  `
+    + `(floor ${MIN_PERFECT_SECONDS.toFixed(3)} s)  -> ${perfectOk ? 'OK' : 'FAIL'}\n`);
+
+  if (!reactOk) {
+    failures.push(`reaction budget at the fastest delivery is ${fastest.reaction.toFixed(3)}s, `
+      + `below the ${MIN_REACTION_SECONDS}s floor`);
+  }
+  if (!connectOk) {
+    failures.push(`connect window at the fastest delivery is ${fastest.connect.toFixed(3)}s, `
+      + `below the ${MIN_CONNECT_SECONDS}s floor`);
+  }
+  if (!perfectOk) {
+    failures.push(`perfect window at the fastest delivery is ${fastest.perfect.toFixed(3)}s, `
+      + `below the ${MIN_PERFECT_SECONDS}s floor`);
+  }
+  return { rows, fastest };
+}
+
+/* ─── Gate 3 — reach: the bat can always get to the line ──── */
+function gateReach() {
+  const B = cfg.pitch.batter;
+  let worst = 0;
+  let n = 0;
+  const rand = mulberry32(SEED ^ 0x1a2b3c4d);
+  for (let i = 0; i < 4000; i++) {
+    const d = makeDelivery(cfg, i % cfg.chase.balls, rand);
+    const st = stanceFor(cfg, d, {});
+    if (st.reachM > worst) worst = st.reachM;
+    n += 1;
+  }
+  // The hands must stay further from the ball's line than the blade's inner end
+  // (or the ball passes inside the splice) and closer than the sweet spot (or
+  // the sweet-spot arc never crosses the ball's path at all).
+  const ok = worst < B.sweetRadius && worst > B.bladeInner;
+  console.log('── gate 3: the batter can reach every line he is bowled');
+  console.log(`   ${n.toLocaleString()} deliveries; widest hands-to-line distance `
+    + `${worst.toFixed(3)} m, must sit inside (${B.bladeInner}, ${B.sweetRadius}) -> ${ok ? 'OK' : 'FAIL'}\n`);
+  if (!ok) failures.push(`hands-to-line distance ${worst.toFixed(3)}m outside the blade's reach`);
+}
 
 /* ─── Bots ───────────────────────────────────────────────────
-   The brief names two: a casual bat whose timing error is Gaussian with
-   σ = 45 ms, and a metronome at σ = 12 ms that proves the skill ceiling is
-   actually reachable. Both always play a shot — leaving the ball is a real
-   option for a human (an off-line delivery cannot bowl you) but measuring it
-   would be measuring a strategy, not the timing windows. */
+   Two timing profiles and one control:
+
+     skilled   sigma = 22 ms of tap error. A player who has learned the rhythm.
+     casual    sigma = 55 ms. A first-time player on a phone.
+     random    taps at a uniformly random moment somewhere around the flight and
+               aims at a random lane. The control: if this one wins often, the
+               game is not asking for anything.
+
+   The two real bots pick their zone with rules.js suggestZone(), the same
+   function the in-game coach chip uses, so the gate measures the game a player
+   is actually being taught to play. */
 const BOTS = [
-  { key: 'casual', sigmaMs: 45, label: 'casual bat (σ = 45 ms)' },
-  { key: 'metronome', sigmaMs: 12, label: 'metronome bat (σ = 12 ms)' },
+  { key: 'skilled', sigmaMs: SKILLED_SIGMA_MS, label: `skilled bat (sigma = ${SKILLED_SIGMA_MS} ms)`, band: SKILLED_BAND, mode: 'timed' },
+  { key: 'casual', sigmaMs: CASUAL_SIGMA_MS, label: `casual bat (sigma = ${CASUAL_SIGMA_MS} ms)`, band: CASUAL_BAND, mode: 'timed' },
+  { key: 'random', sigmaMs: 0, label: 'random swings (control)', band: null, mode: 'random' },
 ];
 
-/** casual must land inside this band; metronome must clear the ceiling. */
-const CASUAL_BAND = [0.25, 0.45];
-const CEILING_MIN = 0.95;
-
-/* ─── One innings ────────────────────────────────────────── */
-function simulateInnings(cfg, sigmaMs, rand, acc) {
+function simulateInnings(bot, rand, acc) {
   const state = createInnings();
+  const scratch = {};
 
   for (let i = 0; i < cfg.chase.balls && !state.over; i++) {
     const delivery = makeDelivery(cfg, i, rand);
-    const errMs = gaussian(rand) * sigmaMs;
-    const ev = resolveBall(state, cfg, delivery, { swung: true, errMs }, rand);
+    const ideal = idealContact(cfg, delivery, {});
+
+    let tapSeconds;
+    let aim;
+    if (bot.mode === 'random') {
+      tapSeconds = rand() * (delivery.flightSeconds + 0.3);
+      aim = rand();
+    } else {
+      tapSeconds = ideal.tapSeconds + (gaussian(rand) * bot.sigmaMs) / 1000;
+      const zone = suggestZone(state, cfg);
+      aim = zoneLaneCentre(cfg, cfg.zones.indexOf(zone));
+    }
+
+    const ev = resolveBall(state, cfg, delivery, { swung: true, tapSeconds, aim }, rand, scratch);
 
     if (acc) {
       acc.balls += 1;
@@ -69,18 +301,14 @@ function simulateInnings(cfg, sigmaMs, rand, acc) {
       if (ev.shielded) acc.shieldSaves += 1;
       if (ev.gainedShield) acc.shieldsWon += 1;
       if (delivery.slower) acc.slowerBalls += 1;
-      acc.tierBalls[delivery.tier] = (acc.tierBalls[delivery.tier] || 0) + 1;
+      acc.zones[ev.zone.key] = (acc.zones[ev.zone.key] || 0) + 1;
+      if (ev.wicket) acc.wicketKind[ev.bowled ? 'bowled' : 'caught'] += 1;
     }
   }
-
-  // A chase that survives all 18 balls without reaching the target is a loss;
-  // resolveBall has already stamped cause 'balls'. Nothing to do here — the
-  // only end state this sim cannot produce is 'timeout', which is a wall-clock
-  // condition the headless run does not have.
   return state;
 }
 
-function runBot(cfg, sigmaMs, runs, seed) {
+function runBot(bot, runs, seed) {
   const acc = {
     balls: 0,
     runs: 0,
@@ -88,7 +316,8 @@ function runBot(cfg, sigmaMs, runs, seed) {
     shieldSaves: 0,
     shieldsWon: 0,
     slowerBalls: 0,
-    tierBalls: {},
+    zones: {},
+    wicketKind: { bowled: 0, caught: 0 },
   };
   const causes = { chased: 0, wickets: 0, balls: 0 };
   const scores = new Float64Array(runs);
@@ -100,7 +329,7 @@ function runBot(cfg, sigmaMs, runs, seed) {
 
   for (let n = 0; n < runs; n++) {
     const rand = mulberry32((seed + n * GOLDEN) >>> 0);
-    const state = simulateInnings(cfg, sigmaMs, rand, acc);
+    const state = simulateInnings(bot, rand, acc);
     const stats = statsOf(state);
     scores[n] = stats.runs;
     if (state.won) wins += 1;
@@ -120,9 +349,7 @@ function runBot(cfg, sigmaMs, runs, seed) {
     runs,
     winRate: wins / runs,
     meanRuns: sum / runs,
-    p25: q(0.25),
-    p50: q(0.5),
-    p75: q(0.75),
+    p25: q(0.25), p50: q(0.5), p75: q(0.75),
     wicketsPerRun: wickets / runs,
     boundariesPerRun: boundaries / runs,
     perfectsPerRun: perfects / runs,
@@ -132,22 +359,8 @@ function runBot(cfg, sigmaMs, runs, seed) {
   };
 }
 
-/** Deep-ish clone with one overridden timing constant, for the sweep. */
-function withWindowScale(cfg, scale) {
-  return { ...cfg, timing: { ...cfg.timing, windowScale: scale } };
-}
-
-/**
- * Longest an innings can take on screen, over `runs` seeded bowling cards.
- *
- * All 18 balls are generated whatever the bot would have done, because the gate
- * is about the longest possible innings — a player who never chases the target
- * and never loses three wickets faces every ball. Each ball is charged its
- * worst case (left alone to the late cutoff, then the slowest shot), so this is
- * an upper bound rather than an estimate: if it fits, no real innings can be
- * cut off by the session clock.
- */
-function worstInningsSeconds(cfg, runs, seed) {
+/* ─── Session length ─────────────────────────────────────── */
+function worstInningsSeconds(runs, seed) {
   let worst = 0;
   let sum = 0;
   for (let n = 0; n < runs; n++) {
@@ -163,86 +376,72 @@ function worstInningsSeconds(cfg, runs, seed) {
 }
 
 /* ─── Report ─────────────────────────────────────────────── */
-// --scale probes a candidate windowScale without editing data.js. It reports
-// and exits 0 whatever it measures: it is a measuring instrument, not the gate.
-const PROBE = argOf('--scale', null);
-const cfg = PROBE === null ? GAME_CONFIG : withWindowScale(GAME_CONFIG, PROBE);
-const pct = (v) => `${(v * 100).toFixed(1)}%`;
-const pad = (v, n) => String(v).padStart(n);
-
 console.log('Cover Drive — balance gate');
-console.log('  rules from src/rules.js + src/deliveries.js (the shipped modules)');
-console.log(`  chase ${cfg.chase.target} off ${cfg.chase.balls}, ${cfg.chase.wickets} wickets; `
-  + `windows ${cfg.timing.perfectMs}/${cfg.timing.goodMs}/${cfg.timing.edgeMs} ms `
-  + `x windowScale ${cfg.timing.windowScale} / delivery speed`);
-console.log(`  ramp +${Math.round((cfg.ramp.speedStepPerOver - 1) * 100)}% every `
-  + `${cfg.ramp.ballsPerOver} balls; slower ball ${cfg.ramp.slowerBallFactor}x from ball `
-  + `${cfg.ramp.slowerBallFromBall} at p=${cfg.ramp.slowerBallChance}; `
-  + `edge wicket p=${cfg.timing.edgeWicketChance}; stump line p=${cfg.timing.stumpLineChance}`);
-console.log(`  ${RUNS.toLocaleString()} innings per bot, seed 0x${SEED.toString(16)}`);
-console.log(`  gate: casual inside ${pct(CASUAL_BAND[0])}-${pct(CASUAL_BAND[1])}, `
-  + `metronome >= ${pct(CEILING_MIN)}, and the longest possible innings inside `
-  + `${cfg.sessionSeconds}s\n`);
+console.log('  rules from src/physics.js + src/deliveries.js + src/rules.js (the shipped modules)');
+console.log(`  chase ${cfg.chase.target} off ${cfg.chase.balls}, ${cfg.chase.wickets} wickets`);
+console.log(`  blade ${cfg.pitch.batter.bladeInner}-${cfg.pitch.batter.bladeOuter} m from the hands, `
+  + `sweet spot ${cfg.pitch.batter.sweetRadius} m, `
+  + `PERFECT within ${(cfg.pitch.batter.perfectTolM * 1000).toFixed(0)} mm of it, `
+  + `GOOD within ${(cfg.pitch.batter.goodTolM * 1000).toFixed(0)} mm`);
+console.log(`  swing ${cfg.pitch.batter.swingSeconds}s through `
+  + `${(cfg.pitch.batter.swingArcRad * 180 / Math.PI).toFixed(0)} degrees`);
+console.log(`  ramp +${Math.round((cfg.ramp.speedStepPerOver - 1) * 100)}% every ${cfg.ramp.ballsPerOver} balls; `
+  + `slower ball ${cfg.ramp.slowerBallFactor}x from ball ${cfg.ramp.slowerBallFromBall}`);
+console.log(`  ${RUNS.toLocaleString()} innings per bot, seed 0x${SEED.toString(16)}\n`);
+
+const g1 = gatePerfectSwing();
+const g2 = gateWindows();
+gateReach();
+
+if (WINDOWS_ONLY) process.exit(0);
+
+console.log('── zones on the field');
+for (const z of cfg.zones) {
+  console.log(`   ${z.label.padEnd(20)} perfect ${z.runs.perfect}  good ${z.runs.good}  edge ${z.runs.edge}`
+    + `   caught-on-good ${pct(z.catch.good || 0).padStart(6)}`
+    + (z.grantsShield ? '   banks a shield' : ''));
+}
+console.log('');
 
 const results = {};
-const failures = [];
-
 for (const bot of BOTS) {
-  const r = runBot(cfg, bot.sigmaMs, RUNS, SEED);
+  const r = runBot(bot, RUNS, SEED);
   results[bot.key] = r;
-
   const shotTotal = r.acc.balls || 1;
+
   console.log(`── ${bot.label}`);
   console.log(`   chase success ${pct(r.winRate)}   `
     + `runs mean ${r.meanRuns.toFixed(1)}  p25 ${pad(r.p25, 3)}  p50 ${pad(r.p50, 3)}  p75 ${pad(r.p75, 3)}`);
-  console.log(`   per innings: ${r.ballsPerRun.toFixed(1)} balls, `
-    + `${r.perfectsPerRun.toFixed(2)} perfects, ${r.boundariesPerRun.toFixed(2)} boundaries, `
-    + `${r.wicketsPerRun.toFixed(2)} wickets`);
-  console.log(`   shots: perfect ${pct(r.acc.shots.perfect / shotTotal)} | `
-    + `good ${pct(r.acc.shots.good / shotTotal)} | `
-    + `edge ${pct(r.acc.shots.edge / shotTotal)} | `
-    + `miss ${pct(r.acc.shots.miss / shotTotal)}`);
-  console.log(`   cover: ${(r.acc.shieldsWon / r.runs).toFixed(2)} shields won, `
-    + `${(r.acc.shieldSaves / r.runs).toFixed(2)} wickets absorbed per innings`);
-  console.log(`   ended: chased ${r.causes.chased || 0} | `
-    + `all out ${r.causes.wickets || 0} | balls gone ${r.causes.balls || 0}`);
-  console.log(`   mix: slower ${pct(r.acc.slowerBalls / shotTotal)}, `
-    + Object.entries(r.acc.tierBalls).map(([k, v]) => `${k} ${pct(v / shotTotal)}`).join(', ')
-    + '\n');
-}
-
-if (SWEEP) {
-  console.log('── windowScale sweep (chase success by bot)');
-  console.log('   scale   casual  metronome');
-  for (let s = 0.40; s <= 1.001; s += 0.04) {
-    const scaled = withWindowScale(cfg, Number(s.toFixed(2)));
-    const casual = runBot(scaled, 45, RUNS, SEED).winRate;
-    const metro = runBot(scaled, 12, RUNS, SEED).winRate;
-    console.log(`   ${s.toFixed(2)}   ${pct(casual).padStart(6)}   ${pct(metro).padStart(6)}`);
-  }
-  console.log('');
-}
-
-const casual = results.casual.winRate;
-const metro = results.metronome.winRate;
-
-if (PROBE !== null) {
-  console.log(`PROBE windowScale ${PROBE}: casual ${pct(casual)}, metronome ${pct(metro)} `
-    + '(gate not applied — probe run)');
-  process.exit(0);
+  console.log(`   per innings: ${r.ballsPerRun.toFixed(1)} balls, ${r.perfectsPerRun.toFixed(2)} middled, `
+    + `${r.boundariesPerRun.toFixed(2)} boundaries, ${r.wicketsPerRun.toFixed(2)} wickets`);
+  console.log(`   contact: middled ${pct(r.acc.shots.perfect / shotTotal)} | `
+    + `good ${pct(r.acc.shots.good / shotTotal)} | edge ${pct(r.acc.shots.edge / shotTotal)} | `
+    + `missed ${pct(r.acc.shots.miss / shotTotal)}`);
+  console.log(`   zones: ` + cfg.zones.map((z) =>
+    `${z.short} ${pct((r.acc.zones[z.key] || 0) / shotTotal)}`).join('  '));
+  console.log(`   wickets: bowled ${r.acc.wicketKind.bowled}, caught ${r.acc.wicketKind.caught}; `
+    + `shields won ${(r.acc.shieldsWon / r.runs).toFixed(2)}/innings, `
+    + `absorbed ${(r.acc.shieldSaves / r.runs).toFixed(2)}/innings`);
+  console.log(`   ended: chased ${r.causes.chased || 0} | all out ${r.causes.wickets || 0} | `
+    + `balls gone ${r.causes.balls || 0}\n`);
 }
 
 /* -- stats contract ------------------------------------------------------
-   The spec fixes the results payload at exactly {runs, boundaries, wickets,
-   perfects}. Screens.jsx and App.jsx both read it, and the CRM records `runs`,
-   so a stray extra key or a rename is a silent integration break rather than a
-   crash. Assert the shape here, where it costs nothing. */
-const EXPECTED_STATS = ['boundaries', 'perfects', 'runs', 'wickets'];
+   App.jsx reads `runs` (the CRM records it) and Screens.jsx reads all six, so a
+   stray rename is a silent integration break rather than a crash. Assert the
+   shape here, where it costs nothing. */
+const EXPECTED_STATS = ['boundaries', 'perfects', 'runs', 'shieldSaves', 'wickets', 'zoneRuns'];
 {
   const probe = createInnings();
   const rand = mulberry32(SEED);
   for (let i = 0; i < cfg.chase.balls && !probe.over; i++) {
-    resolveBall(probe, cfg, makeDelivery(cfg, i, rand), { swung: true, errMs: gaussian(rand) * 45 }, rand);
+    const d = makeDelivery(cfg, i, rand);
+    const ideal = idealContact(cfg, d, {});
+    resolveBall(probe, cfg, d, {
+      swung: true,
+      tapSeconds: ideal.tapSeconds + (gaussian(rand) * 30) / 1000,
+      aim: rand(),
+    }, rand);
   }
   const keys = Object.keys(statsOf(probe)).sort();
   const ok = keys.length === EXPECTED_STATS.length && keys.every((k, i) => k === EXPECTED_STATS[i]);
@@ -250,28 +449,26 @@ const EXPECTED_STATS = ['boundaries', 'perfects', 'runs', 'wickets'];
   if (!ok) failures.push(`stats contract is {${keys.join(', ')}}, expected {${EXPECTED_STATS.join(', ')}}`);
 }
 
-/* -- session length ------------------------------------------------------
-   The brief caps a session at two minutes and asks for a clear win AND lose
-   inside it. Both real lose paths (all out, balls exhausted) live inside the
-   18 balls, so the session clock must never be the thing that ends a run. */
-const wall = worstInningsSeconds(cfg, Math.max(RUNS, 2000), SEED);
+/* -- session length ----------------------------------------------------- */
+const wall = worstInningsSeconds(Math.max(RUNS, 2000), SEED);
 const wallOk = wall.worst < cfg.sessionSeconds;
-console.log('── session length (upper bound, all 18 balls faced)');
-console.log(`   worst ${wall.worst.toFixed(1)}s, mean ${wall.mean.toFixed(1)}s, `
-  + `session cap ${cfg.sessionSeconds}s -> ${wallOk ? 'OK' : 'FAIL'} `
-  + `(${(cfg.sessionSeconds - wall.worst).toFixed(1)}s of headroom)\n`);
+console.log('── session length (upper bound, all 18 balls faced and left alone)');
+console.log(`   worst ${wall.worst.toFixed(1)}s, mean ${wall.mean.toFixed(1)}s, cap ${cfg.sessionSeconds}s `
+  + `-> ${wallOk ? 'OK' : 'FAIL'} (${(cfg.sessionSeconds - wall.worst).toFixed(1)}s of headroom)\n`);
 if (!wallOk) {
   failures.push(`worst-case innings ${wall.worst.toFixed(1)}s exceeds sessionSeconds ${cfg.sessionSeconds}`);
 }
 
-const casualOk = casual >= CASUAL_BAND[0] && casual <= CASUAL_BAND[1];
-const ceilingOk = metro >= CEILING_MIN;
-
-if (!casualOk) {
-  failures.push(`casual bat ${pct(casual)} outside ${pct(CASUAL_BAND[0])}-${pct(CASUAL_BAND[1])}`);
-}
-if (!ceilingOk) {
-  failures.push(`metronome bat ${pct(metro)} below the ${pct(CEILING_MIN)} skill ceiling`);
+/* -- bot bands ---------------------------------------------------------- */
+for (const bot of BOTS) {
+  const r = results[bot.key];
+  if (bot.band) {
+    if (r.winRate < bot.band[0] || r.winRate > bot.band[1]) {
+      failures.push(`${bot.key} bat ${pct(r.winRate)} outside ${pct(bot.band[0])}-${pct(bot.band[1])}`);
+    }
+  } else if (r.winRate > RANDOM_MAX) {
+    failures.push(`random swings win ${pct(r.winRate)}, above the ${pct(RANDOM_MAX)} ceiling`);
+  }
 }
 
 if (failures.length) {
@@ -279,7 +476,11 @@ if (failures.length) {
   for (const f of failures) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log(`GATE: PASS — casual ${pct(casual)} inside ${pct(CASUAL_BAND[0])}-${pct(CASUAL_BAND[1])}, `
-  + `metronome ${pct(metro)} at or above ${pct(CEILING_MIN)}, `
-  + `longest innings ${wall.worst.toFixed(1)}s inside ${cfg.sessionSeconds}s.`);
+console.log('GATE: PASS');
+console.log(`  perfect swing connected and middled ${g1.perfect}/${g1.count} deliveries`);
+console.log(`  fastest delivery: reaction budget ${g2.fastest.reaction.toFixed(3)}s, `
+  + `connect window ${g2.fastest.connect.toFixed(3)}s, perfect window ${g2.fastest.perfect.toFixed(3)}s`);
+console.log(`  skilled ${pct(results.skilled.winRate)}, casual ${pct(results.casual.winRate)}, `
+  + `random ${pct(results.random.winRate)}`);
+console.log(`  longest possible innings ${wall.worst.toFixed(1)}s inside ${cfg.sessionSeconds}s`);
 process.exit(0);

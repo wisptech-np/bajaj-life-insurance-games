@@ -11,39 +11,75 @@
 // of DOM and React references.
 
 /* ─── Palette ─────────────────────────────────────────────
-   Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745, dark bg #0B1221.
+   Brand: BLUE #003DA6, ORANGE #F26522, GREEN #28A745.
 
    Colour grammar: every goal tile owns one hue and one silhouette, and nothing
-   else on screen uses that hue. RED (#EF4444) is reserved for exactly one thing
-   — the risk flash and the slip — so red never means "a goal", it always means
-   "do not touch this". White is the plan itself (the playback glow). */
+   else on screen uses that hue. RED is reserved for exactly one thing — the risk
+   flash and the slip — so red never means "a goal", it always means "do not
+   touch this". White is the plan itself (the playback glow).
+
+   2026-08-03 repaint. The review read the board as dull, and it was: a resting
+   tile was its hue held back to ~15% over deep navy, so nine goals composited
+   down to nine near-identical mud rectangles and the whole stage sat in one
+   narrow, low-chroma band. The fix is structural rather than a nudge —
+
+     · every goal now carries a fourth token, `colorRest`, an OPAQUE mid-tone of
+       its own hue. Alpha-blending a hue over navy is what desaturates it; an
+       opaque rest tone cannot desaturate. Resting tiles are now unmistakably
+       nine different colours.
+     · `color` / `colorLt` are pushed up in chroma so the LIT state is a real
+       jump in both luminance and saturation off that brighter rest, not a
+       marginal one.
+     · the stage is pushed the other way — deeper at the bottom, a stronger
+       brand-blue wash at the top — so cards gain contrast against it rather
+       than losing it to a brightened background.
+     · tile labels used to be 52% white straight onto the hue, which failed AA
+       on the light goals. They are now near-solid white on a `tileScrim` plate,
+       which fixes every hue at once instead of hand-tuning nine.
+
+   Contrast floors this palette is held to (verified, see okf-brain log):
+   body text >= 4.5:1, icons and state indicators >= 3:1. Colour is never the
+   only signal — correct draws a tick, a slip draws a cross, risk draws a
+   circle-slash, and the progress rail marks slips with an X glyph. */
 export const COLORS = {
   brandBlue: '#003DA6',
-  brandBlueLt: '#1E6BE0',
-  brandBlueGlow: 'rgba(30,107,224,0.55)',
-  orange: '#F26922',
-  orangeLt: '#FF8A3D',
+  brandBlueLt: '#3D8BFF',
+  orange: '#F26522',
+  orangeLt: '#FF9A52',
   green: '#28A745',
-  greenLt: '#4ADE80',
+  greenLt: '#5BF08D',
   gold: '#FFC845',
-  goldLt: '#FFE38A',
-  danger: '#EF4444',
-  dangerLt: '#FF8B8B',
-  dangerDeep: '#7F1D1D',
+  goldLt: '#FFE9A0',
+  danger: '#FF3B30',
+  dangerLt: '#FFA3A3',
 
-  bgDark: '#0B1221',
-  boardTop: '#0A1E42',
-  boardMid: '#0B2450',
-  boardLow: '#061229',
+  bgDark: '#081026',
 
-  tileWell: 'rgba(255,255,255,0.05)',
-  tileEdge: 'rgba(255,255,255,0.14)',
-  tileShade: 'rgba(4,12,26,0.55)',
+  /* Stage. Top carries the brand blue, bottom drops away, so the board reads as
+     a lit plate on a deep field instead of a flat navy rectangle. */
+  boardTop: '#123A7D',
+  boardMid: '#0B2A5C',
+  boardLow: '#050F28',
+  boardWell: 'rgba(64,150,255,0.38)',
+  /* The plate is DARKER than the field it sits in, not lighter. A lighter plate
+     was competing with the tiles for the eye and squeezing tile-vs-ground
+     contrast; recessing it lets nine saturated keys read as raised objects. */
+  platePaint: 'rgba(3,10,26,0.42)',
+  plateEdge: 'rgba(120,190,255,0.34)',
 
-  ink: '#FFFFFF',
-  inkDim: 'rgba(255,255,255,0.62)',
-  glass: 'rgba(255,255,255,0.05)',
-  glassLine: 'rgba(255,255,255,0.12)',
+  /* Tile chrome. `tileScrim` is the plate the label sits on — it is what makes
+     one label colour legible on all nine hues. */
+  tileRim: 'rgba(255,255,255,0.34)',
+  tileRimLit: 'rgba(255,255,255,0.92)',
+  tileScrim: 'rgba(4,10,22,0.78)',
+  labelInk: 'rgba(255,255,255,0.95)',
+
+  /* HUD glass. Both were roughly half these values and read as absent. */
+  glass: 'rgba(255,255,255,0.09)',
+  glassLine: 'rgba(255,255,255,0.26)',
+  inkDim: 'rgba(255,255,255,0.78)',
+  /* Unfilled step on the progress rail. Was 0.22 — invisible on a lit board. */
+  stepPending: 'rgba(255,255,255,0.40)',
 };
 
 /* ─── The nine goals ──────────────────────────────────────
@@ -57,17 +93,27 @@ export const COLORS = {
    `icon` selects a programmatic vector silhouette in SmartRecallGame.jsx. No
    emoji, no image files — the silhouettes are the primary identifier and the
    hues are the secondary one, which is the way round it has to be with nine
-   categories on one screen. */
+   categories on one screen.
+
+   Four colour tokens per goal, and the split matters:
+     colorRest  OPAQUE resting face. The tile's identity when nothing is
+                happening. Mid-tone and fully saturated, because this is the one
+                that used to be an alpha wash and hence the one that was dull.
+     color      the lit body — full chroma, ~2x the luminance of colorRest.
+     colorLt    lit top stop, and the resting icon fill (>= 3:1 on colorRest).
+     colorDeep  bottom stop of both gradients; the shadow side of the key.
+   Home keeps a brightened Bajaj blue and Emergency a brightened Bajaj orange,
+   so the two brand anchors are still the two loudest tiles on the board. */
 export const GOALS = [
-  { id: 'health', label: 'Health', icon: 'heart', color: '#FF4D6D', colorLt: '#FFB3C0', colorDeep: '#7E1B2E', pitch: 0 },
-  { id: 'home', label: 'Home', icon: 'house', color: '#2E7BE8', colorLt: '#A9CBFF', colorDeep: '#123A75', pitch: 1 },
-  { id: 'education', label: 'Education', icon: 'cap', color: '#8B5CF6', colorLt: '#CDB7FF', colorDeep: '#3D2378', pitch: 2 },
-  { id: 'retirement', label: 'Retirement', icon: 'sun', color: '#E3B23C', colorLt: '#FFE0A0', colorDeep: '#6E4E0F', pitch: 3 },
-  { id: 'travel', label: 'Travel', icon: 'plane', color: '#17C3D4', colorLt: '#A2ECF4', colorDeep: '#0A5A64', pitch: 4 },
-  { id: 'family', label: 'Family', icon: 'family', color: '#2FB162', colorLt: '#A2E9BD', colorDeep: '#0F5029', pitch: 5 },
-  { id: 'savings', label: 'Savings', icon: 'coins', color: '#B7DD3F', colorLt: '#E4F5A8', colorDeep: '#4F681A', pitch: 6 },
-  { id: 'wedding', label: 'Wedding', icon: 'rings', color: '#EC5FA8', colorLt: '#FFBBDD', colorDeep: '#71184A', pitch: 7 },
-  { id: 'emergency', label: 'Emergency', icon: 'shieldbolt', color: '#F26922', colorLt: '#FFC3A0', colorDeep: '#7A2C08', pitch: 8 },
+  { id: 'health', label: 'Health', icon: 'heart', color: '#FF3D71', colorLt: '#FFB3C8', colorRest: '#A32149', colorDeep: '#6B1230', pitch: 0 },
+  { id: 'home', label: 'Home', icon: 'house', color: '#2B8CFF', colorLt: '#B3D8FF', colorRest: '#1552A8', colorDeep: '#0A2E6B', pitch: 1 },
+  { id: 'education', label: 'Education', icon: 'cap', color: '#A06BFF', colorLt: '#DCC8FF', colorRest: '#5427BE', colorDeep: '#33167A', pitch: 2 },
+  { id: 'retirement', label: 'Retirement', icon: 'sun', color: '#FFC531', colorLt: '#FFE9A6', colorRest: '#A06A00', colorDeep: '#5A3C00', pitch: 3 },
+  { id: 'travel', label: 'Travel', icon: 'plane', color: '#14D3E8', colorLt: '#ADF2F9', colorRest: '#067C8D', colorDeep: '#034C58', pitch: 4 },
+  { id: 'family', label: 'Family', icon: 'family', color: '#24CC6F', colorLt: '#A6F3C6', colorRest: '#0D7C3F', colorDeep: '#064E27', pitch: 5 },
+  { id: 'savings', label: 'Savings', icon: 'coins', color: '#C4F03A', colorLt: '#EAFBAA', colorRest: '#6E9414', colorDeep: '#3D5406', pitch: 6 },
+  { id: 'wedding', label: 'Wedding', icon: 'rings', color: '#FF5FB4', colorLt: '#FFBFE0', colorRest: '#A81C72', colorDeep: '#6C1049', pitch: 7 },
+  { id: 'emergency', label: 'Emergency', icon: 'shieldbolt', color: '#FF7A2F', colorLt: '#FFC9A3', colorRest: '#B2430C', colorDeep: '#732A05', pitch: 8 },
 ];
 
 export const TILE_COUNT = GOALS.length;
@@ -263,6 +309,10 @@ export const GAME_CONFIG = {
     loseParticles: 24,
     /** Seconds a tapped tile stays squashed / glowing after the press. */
     pressSeconds: 0.34,
+    /** Seconds the confirmed-correct tick and its green wash stay on the tile. */
+    okSeconds: 0.5,
+    /** Seconds the green board-plate ring holds after a round is cleared. */
+    clearFlashSeconds: 0.7,
     litFlashSeconds: 0.3,
     riskParticles: 12,
     /** Fraction of the idle window that passes before the ring appears. */

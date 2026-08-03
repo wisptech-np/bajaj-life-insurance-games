@@ -20,7 +20,7 @@
 // the loop, input, effects, audio and device profiling.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { COLORS, GAME_CONFIG } from './data.js';
+import { COLORS, GAME_CONFIG, WIN_TANKS } from './data.js';
 import {
   TILE_BASE,
   computeFlow, createFlowScratch, isLevelSolved, scoreLevel, tapCell, isLocked,
@@ -55,13 +55,25 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
    Side padding is proportional rather than fixed: on a 320 px stage a fixed
    58 px tank column would eat a whole tile's width. */
 function buildGeometry(level, W, H) {
-  const padL = Math.max(26, W * 0.075);
-  const padR = Math.max(38, W * 0.105);
+  // The side gutters have to hold real furniture, not just air: the salary
+  // valve body hangs off the left of the board and the tank glasses off the
+  // right. Sizing them from the same numbers the painters use is what keeps
+  // both inside the canvas — a gutter derived only from a width fraction let
+  // the valve and the last tank run off the edge on a 368 px stage.
+  // stub + half the valve body (22 wide) + a 6 px margin on the left;
+  // tank width + a 12 px margin on the right.
+  const stub = 30;
+  const tankW = 40;
+  const padL = Math.max(stub + 11 + 6, W * 0.115);
+  const padR = Math.max(tankW + 12, W * 0.14);
   const padT = 112;
   const padB = 66;
   const availW = Math.max(60, W - padL - padR);
   const availH = Math.max(60, H - padT - padB);
-  const cell = Math.min(availW / level.cols, availH / level.rows, 70);
+  // The old 70 px ceiling left a 4x4 board floating in the middle of a tall
+  // handset. Width is the real constraint on a phone, so let the tiles take it;
+  // the cap only bites on a short, wide stage where height would run out first.
+  const cell = Math.min(availW / level.cols, availH / level.rows, 92);
   const boardW = cell * level.cols;
   const boardH = cell * level.rows;
   return {
@@ -74,8 +86,8 @@ function buildGeometry(level, W, H) {
     h: boardH,
     cols: level.cols,
     rows: level.rows,
-    tankW: Math.min(40, padR - 6),
-    stub: Math.min(30, padL - 4),
+    tankW: Math.min(tankW, padR - 12),
+    stub: Math.min(stub, padL - 8),
   };
 }
 
@@ -687,17 +699,19 @@ export default function IncomePipelineGame({ config, onWin, onLose }) {
         fx.floatText(bx, by, `EARLY +${res.bonus}`, COLORS.orangeLt, 15);
       }
 
-      if (f.tanksFilled === 0) {
-        showBanner('dry', 'Nothing routed', 'No tank was connected', 0);
-        endRun(false, 'dry');
-        return;
-      }
-
+      // A dry board costs the level, never the run. Ending the session here is
+      // what made the game read as broken: the level-1 clock is short enough
+      // that a first-time player routes nothing, and the run was over roughly
+      // eighteen seconds in without ever showing boards 2 and 3. Every run now
+      // plays all three levels; `advance()` decides the outcome at the end.
+      const dry = f.tanksFilled === 0;
       const allFilled = f.tanksFilled === level.tanks.length;
       showBanner(
-        allFilled ? 'level' : 'partial',
-        allFilled ? `Level ${level.id} routed` : `Level ${level.id} leaked`,
-        `${f.tanksFilled}/${level.tanks.length} tanks · ${f.leakCount} leak${f.leakCount === 1 ? '' : 's'}`,
+        dry ? 'dry' : allFilled ? 'level' : 'partial',
+        dry ? `Level ${level.id} ran dry` : allFilled ? `Level ${level.id} routed` : `Level ${level.id} leaked`,
+        dry
+          ? 'No tank was connected'
+          : `${f.tanksFilled}/${level.tanks.length} tanks · ${f.leakCount} leak${f.leakCount === 1 ? '' : 's'}`,
         res.total,
       );
 
@@ -705,12 +719,10 @@ export default function IncomePipelineGame({ config, onWin, onLose }) {
       s.phaseT = 0;
     };
 
-    const totalTanks = cfg.levels.reduce((sum, l) => sum + l.tanks, 0);
-
     const advance = () => {
       if (s.ended) return;
       if (s.levelIdx + 1 >= s.levels.length) {
-        endRun(s.tanksTotal >= totalTanks, 'complete');
+        endRun(s.tanksTotal >= WIN_TANKS, 'complete');
         return;
       }
       s.levelIdx += 1;

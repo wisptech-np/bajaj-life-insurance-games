@@ -907,10 +907,12 @@ export default function SmartSorterGame({ config, onWin, onLose }) {
         });
         fx.floatText(anchor.x, anchor.y - 12,
           m.cause === 'missort' ? 'WRONG SHELF' : 'MISSED', COLORS.dangerLt, 16);
-        showBanner('bad', m.item.label,
-          m.cause === 'missort'
-            ? `Belongs on ${FAMILY_STYLE[m.item.family].title}`
-            : 'Scrolled off the belt');
+        const reason = m.cause === 'missort'
+          ? `Belongs on ${FAMILY_STYLE[m.item.family].title}`
+          : 'Scrolled off the belt';
+        // A grace card costs no life, so say so — a red banner with the mistake
+        // pips untouched would otherwise read as the counter being broken.
+        showBanner('bad', m.item.label, m.grace ? `${reason} · warm-up, no life lost` : reason);
       },
     };
 

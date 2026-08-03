@@ -442,3 +442,284 @@ reachable from the sim.
 
 **Build:** `pnpm install` + `pnpm build` exit 0 — 525 modules transformed,
 `dist/assets/index-Cfvv4GrS.js` 435.72 kB / 144.05 kB gzip, built in 2.23 s.
+
+---
+
+## 2026-08-03 — Review response: a real bat, a real ball, and insurance zones
+
+Acting on the 2026-08-03 client review of Cover Drive. Two lines of that review were
+overridden by the coordinator before work started and are recorded here so nobody
+re-opens them: **the email field was deliberately NOT added** (see G5 below), and the
+result-screen rebuild WAS in scope (G4).
+
+### Root cause — "unable to hit the ball" and "collision is inaccurate" were one defect
+
+The review listed these as two issues. They were one, and it was not a tunnelling bug:
+**the build had no collision test of any kind.** `rules.classifySwing()` took
+`errMs = (tapTime - flightSeconds) * 1000` and compared it to three authored
+millisecond windows. Nothing ever asked where the bat was.
+
+Measured, against the shipped `buildGround()` / `ballPathAt()` / `drawBatter()` at the
+exact instant the game declared contact (`u = 1`), over 7,200 seeded deliveries:
+
+| canvas | batter x | mean bat-to-ball gap | min | max | deliveries where the blade touched the ball |
+|---|---|---|---|---|---|
+| 320x480 | cx + 29 px | **32.0 px** | 3.6 px | 76.6 px | 5.8% |
+| 390x740 | cx + 35 px | **39.5 px** | 5.4 px | 93.2 px | **4.3%** |
+| 412x800 | cx + 37 px | **41.8 px** | 5.9 px | 98.4 px | 4.1% |
+
+The batter was pinned at `cx + halfWidthAt(creaseY) * 0.46` regardless of where the
+ball was going, while the ball arrived at `cx + lineOffset * halfWidth * 1.1`. On 95%+
+of deliveries the two were nowhere near each other, so the banner could read "FOUR —
+middle of the bat" while the ball passed 40 px wide of the blade. **The picture and
+the verdict were unrelated, so the picture could not be used to learn the timing.**
+
+That left the gauge as the only feedback, and the gauge was brutal. Effective windows,
+measured from the shipped constants:
+
+    over 1 Stock    flight 620 ms   PERFECT +-18.7 ms   CONNECT(edge) +-78.0 ms
+    over 3 Express  flight 450 ms   PERFECT +-13.6 ms   CONNECT(edge) +-56.7 ms
+
+A +/-13.6 ms PERFECT band is inside the jitter of a touchscreen tap. Miss entirely and,
+on the 60% of deliveries bowled at the stumps, you were out. Three wickets ends it —
+which is why the run died so quickly.
+
+So the fix was **not** to widen the window. The window was a symptom.
+
+### G1 — `src/physics.js`: real ball flight, real bat sweep, swept collision
+
+New pure module that **imports nothing at all**, so `scripts/balance.mjs` drives the
+shipped code. Works in metres and seconds in the pitch's own top-down frame:
+
+- **Ball**: circle, radius 36 mm, exactly linear in `t` down the pitch (which is what
+  makes the ideal contact closed form), piecewise-linear lateral line with seam
+  movement off the pitch mark, and a height curve that skids for a yorker and climbs
+  for a bouncer.
+- **Bat**: a SEGMENT from `bladeInner` 0.34 m to `bladeOuter` 0.98 m out from the
+  hands, rotating at a constant angular rate through 118 degrees over 0.30 s.
+- **Contact**: `sweepContact()` sub-steps the swing 256 times (1.17 ms each) and in
+  each sub-step measures the true minimum distance between the **ball's travel
+  segment** and the **blade segment** (`segmentDistance()`, a proper
+  segment-to-segment solve with the double clamp, not a line-to-line answer that has
+  been clipped). At 26 m/s the ball moves 30 mm per sub-step against a blade 112 mm
+  thick, so a point-in-time sample would tunnel; a travel segment cannot.
+  A hit is then bisected for its instant and validated three ways: the ball must still
+  be in front of `minContactY` (a ball level with the stumps has beaten the bat), its
+  height must be inside the blade's vertical span, and it must be closing on the
+  **face** of the blade rather than overtaking its back — without that last test a
+  hopelessly late tap would score on the far side of the arc.
+
+**Everything else falls out of that geometry rather than being asserted beside it:**
+
+- **Shot quality is where on the blade it landed.** Contact radius within 125 mm of
+  the sweet spot is middled, 260 mm is good, anywhere else on the blade is an edge.
+  Read from the blade's own closest-point parameter, not from the ball centre's
+  distance to the hands, because the swept scan reports first-surface-touch and the
+  centre is a ball-radius short at that instant.
+- **Timing windows are measured, not authored.** `connectWindow()` bisects the shipped
+  collision per delivery and returns seconds. The gauge draws exactly those bands, so
+  it can no longer promise a window the bat will not honour.
+- **A quicker ball is harder for a geometric reason.** It crosses the blade's reach
+  sooner, so every window narrows in proportion. There is no difficulty constant
+  applied to a window anywhere in the codebase now; `timing.windowScale` is gone.
+- **`idealContact()` is closed form**: the ideal contact is where the ball's straight
+  path crosses the circle the sweet spot traces about the hands — Pythagoras for `y`,
+  linearity for `t`, `atan2` for the required blade bearing, and the inverse of the
+  swing easing for the tap. It is the single definition of "perfect" and the gate
+  asserts the independent swept test agrees with it.
+
+### G2 — batter placement and animation
+
+- **The hands track the line.** `stanceFor()` puts the hands at
+  `footworkFrac (0.88) * lineX + pivotOffsetM (0.50)`, with the body 0.22 m to the leg
+  side of them. A real batter moves to the line; the old build did not, which is
+  exactly "the batter is not positioned correctly". The residual 0.41-0.59 m between
+  hands and ball line is now the thing that sets the windows, so a ball angled away
+  from the body is measurably harder and the length marker telegraphs it before the
+  run-up. `gate 3` asserts that residual always stays inside (0.34 m, 0.78 m), i.e.
+  the ball can never pass inside the splice nor outside the sweet spot's reach.
+- **The drawn bat IS the collision bat.** `buildPose()` pushes
+  `physics.bladeAtPhase()`'s pitch-space segment through the renderer's single
+  `projectPitch()`, and `drawBatter()` draws the handle from the hands to the splice
+  and the blade along that segment, with the sweet spot marked on it. Position, length
+  and angle are the collision's; only the drawn THICKNESS is exaggerated, because the
+  camera is nearly over the batter's shoulder and a bat's 108 mm face projects to
+  about three pixels. That allowance is commented at the draw site and never reaches
+  `physics.js`.
+- **Bug found and fixed while checking screenshots:** the torso's lean used
+  `ctx.rotate()` without first moving the origin to the hips, so at `lean = 1` it
+  swung a hip-height's worth of arc — **72 px on a 390 px canvas** — leaving the torso
+  detached from the head and pads. Visible in the first round of screenshots, invisible
+  in the previous build only because the old follow-through decayed `lean` faster. Also
+  added a neck (the helmet read as floating) and a follow-through settle.
+
+### G3 — the insurance scoring zones
+
+The outfield is four drawn wedges and the bottom of the screen is four tap lanes in
+the same order, so "tap under the wedge you want" is literally true. Lane width is a
+quarter of the canvas — 80 px on a 320 px handset, past the 44 px minimum.
+
+| Zone | Middled | Good | Edge | Caught on a good shot |
+|---|---|---|---|---|
+| Child's Education | 4 | 3 | 0 | 14% |
+| Protection Cover | 4 **+ wicket shield** | 1 | 0 | 10% |
+| Retirement Corner (aerial) | **6** | 3 | 0 | **36%** |
+| Guaranteed Income | 2 | 2 | **1** | none |
+
+They are a real choice because they have different *shapes* of payout, not different
+sizes. Guaranteed Income is flat — 2 whether you middle it or not, 1 off an edge, and
+it can never get you caught — but 2 a ball off 18 is 36 against a target of 48, so an
+innings of nothing but Income loses **by construction**. Retirement Corner is the only
+six and the only zone with real catch risk. Protection Cover trades runs for a shield
+that absorbs the next dismissal, and has to be bought before the ball that would have
+ended the innings.
+
+The required rate drives it. `rules.suggestZone()` takes the least risk that still
+covers the rate on a merely-good shot; failing that, the best expected value; and it
+buys Protection Cover when one wicket from the end with no shield in hand. That same
+function drives the in-game coach pip AND the balance bots, so the gate measures the
+game the player is being taught. The measured mix bears it out: the skilled bot sits
+on Education 55.5% / Income 39.2% while the casual bot, which falls behind more often,
+is pushed onto Retirement 9.9% and Protection 12.3%.
+
+The old "every 6th ball is a Cover ball" mechanic is retired; the shield now comes
+from the Protection zone, which ties the mechanic to the zone design instead of
+sitting beside it.
+
+Chase moved 40 off 18 -> **48 off 18** so that Income alone provably cannot reach it.
+
+### G4 — result screen rebuilt onto the shared template
+
+The screen already carried the shared skeleton (outcome pill, name greeting, score
+ring, three stat tiles, Share Score, lead card with Book a Slot / Call Specialist,
+Retry + Home, disclaimer) and is structurally identical to
+`risk-radar/src/Screens.jsx` where it is not game-specific. What it was missing was two
+of the four elements `docs/GAME_DESIGN_SYSTEM.md` section 4.D.4 requires:
+
+- **Score & Bonus Summary Table** — `ZoneTable`, "Where your runs came from": one row
+  per zone with a coloured bar and the runs banked, plus a footer line for wickets the
+  cover absorbed and the total. The new scoring is what makes this worth showing: it
+  is the record of the financial choices made under a rising required rate.
+- **Financial Goal Insight Box** — `InsightBox`, an educational takeaway keyed to how
+  the innings was actually played: never started, chased and lost, played it safe on
+  Income, chased growth on Retirement, bought cover first, or balanced it.
+
+Stat tiles relabelled ("Perfect timing" -> "Middled") and the stats contract widened to
+`{runs, boundaries, wickets, perfects, shieldSaves, zoneRuns}`; `runs` is unchanged and
+is still what the CRM records. `scripts/balance.mjs` asserts the new shape.
+
+**How to Play** gained the four-zone legend (colour, payout, risk) and its CTA changed
+from "Take Strike" to "**Got it! Start Game**" — the wording
+`docs/GAME_DESIGN_SYSTEM.md` 4.D.2 specifies, and also the string
+`scripts/play-test.mjs` looks for. Under the old label the harness could never get past
+the how-to-play screen and reported "canvas: NONE — game never mounted" at all four
+sizes; that was a verification blind spot, not a game defect, and it is now closed.
+
+### G5 — the email field was deliberately NOT added
+
+The review asks for an email field on the lead form. **It was not added.** The client
+reaffirmed on 2026-08-03 that lead forms across this repo are **Name + Mobile only**;
+that line of the review is stale, and email was already removed from this game on
+2026-07-31 (see the entry above). `src/LeadCaptureModal.jsx` is untouched by this pass.
+Verified in the browser: the lead modal renders exactly two inputs, `Full Name` and the
+mobile field, at all four viewport sizes. `src/api.js` still sends `email_id: ''`, so
+the LMS payload shape is unchanged.
+
+### Verification
+
+**Balance gate** — `node scripts/balance.mjs --runs 2000`, seed `0x0c07d21e`, **PASS**:
+
+    gate 1: a perfectly timed swing always connects
+       4,450 deliveries (450 corners of the delivery space + 4,000 seeded)
+       swept collision, 256 sub-steps per swing (1.17 ms each)
+       connected 4450/4450, middled 4450/4450,
+       worst distance from the sweet spot 112.6 mm (tolerance 125 mm) -> OK
+
+    gate 2: measured timing windows (bisected against the shipped collision)
+       delivery          ball speed   flight   react budget   CONNECT    GOOD   PERFECT
+       over 1 Loopy          64 km/h   909 ms        762 ms    250 ms  185 ms    64 ms
+       over 1 Stock          73 km/h   800 ms        653 ms    242 ms  180 ms    62 ms
+       over 1 Express        83 km/h   702 ms        554 ms    236 ms  176 ms    60 ms
+       over 2 Loopy          68 km/h   858 ms        710 ms    246 ms  183 ms    63 ms
+       over 2 Stock          77 km/h   755 ms        607 ms    239 ms  178 ms    61 ms
+       over 2 Express        88 km/h   662 ms        514 ms    233 ms  174 ms    59 ms
+       over 3 Loopy          72 km/h   809 ms        662 ms    243 ms  181 ms    62 ms
+       over 3 Stock          82 km/h   712 ms        564 ms    237 ms  176 ms    60 ms
+       over 3 Express        93 km/h   625 ms        476 ms    231 ms  172 ms    58 ms
+
+       at the FASTEST delivery (over 3 Express, 93 km/h):
+         reaction budget  0.476 s  vs 0.25 s human reaction, floor 0.34 s  -> OK
+         connect window   0.231 s  (floor 0.150 s)                         -> OK
+         perfect window   0.058 s  (floor 0.030 s)                         -> OK
+
+    gate 3: widest hands-to-line distance 0.589 m, inside (0.34, 0.78) -> OK
+
+    skilled bat (sigma = 35 ms)  chase 83.6%  mean 46.7  middled 54.1% good 39.3% missed  6.5%
+    casual  bat (sigma = 60 ms)  chase 34.8%  mean 37.2  middled 37.4% good 41.7% missed 19.1%
+    random swings (control)      chase  0.0%  mean  2.7  middled  5.3%            missed 78.4%
+
+    stats contract {boundaries, perfects, runs, shieldSaves, wickets, zoneRuns} -> OK
+    session length worst 80.9 s, mean 79.5 s, cap 110 s -> OK (29.1 s headroom)
+    GATE: PASS
+
+Gate 1 is the direct regression test for the defect. It swings at the instant
+`idealContact()` computes in closed form, then asserts the *independent* swept
+collision reports a middled contact — on the full corner set of the delivery space
+(three paces x three overs x slower-ball variation x fullest/shortest length x five
+lines x three seam deviations) plus 4,000 seeded deliveries. Under the old build this
+gate was not expressible: there was nothing to ask.
+
+Note the 112.6 mm worst residual against a 125 mm tolerance: the swept scan reports
+first-surface-touch, which is up to a ball-radius before the centre arrives, so a
+contact the closed form places exactly on the sweet spot measures a few millimetres
+short of it. The tolerance is documented in `data.js` as carrying that allowance.
+
+**Build** — `cd cover-drive && npx vite build` exit 0: 526 modules,
+`dist/assets/index-XHCzoXfN.js` 451.89 kB / 149.79 kB gzip, CSS 33.00 kB / 6.77 kB.
+
+**Play-test** — `node scripts/play-test.mjs cover-drive --all-sizes`, real touch input
+in headless Chrome:
+
+| viewport | errors | canvas | painted | random-bot run | retry |
+|---|---|---|---|---|---|
+| 320x568 | none | 320x568 | 100.0% | ended 10 s at "try again" | canvas back |
+| 390x844 | none | 390x844 | 100.0% | ended  9 s at "try again" | canvas back |
+| 412x915 | none | 412x915 | 100.0% | ended 22 s at "try again" | canvas back |
+| 412x700 | none | 412x700 | 100.0% | ended 22 s at "try again" | canvas back |
+
+Zero console or page errors at every size. The short random-bot runs are correct
+behaviour, not the failure mode the harness warns about: that bot taps at uniformly
+random moments, the gate measures it at **0.0% chase success and 78.4% missed swings**,
+and 58% of deliveries are on the stumps, so it is bowled three times in about six
+balls. A *timed* tap behaves completely differently — see below.
+
+**A real, single, deliberately-timed touch connects.** Driving one tap at a chosen
+wall-clock instant into the Retirement lane at 390x844 and reading back what the game
+said: `1850 ms -> SIX!`, `2050 ms -> SIX!`, `1950 ms -> THICK EDGE`,
+`2150 ms -> CAUGHT!`, `2250 ms -> BOWLED!`. That is the whole band structure appearing
+from one input channel, on the shipped build, through real touch events.
+
+**Screenshots inspected at every size** (320x568, 390x844, 412x915, 412x700), mid-ball
+and at the moment of contact. What they now show: the batter beside the stumps with the
+bat reaching across to the ball's line; the ball on the marker's line; the four wedges
+and the four-lane strip with the aimed zone highlighted in both; the gauge below the
+crease with its measured bands; and on a middled Retirement shot, the ball leaving the
+bat along the Retirement bearing under a "SIX! - Middle of the bat - Retirement"
+banner. Two rounds of screenshot review drove the torso-pivot fix, the bat thickness,
+the neck, the wedge label clamp and the bowler's walk-in height.
+
+### Not fixed
+
+- **The delivery card and the first-ball hint overlap the bowler** during his walk-in
+  at 320x568 and 412x700. Both sit behind translucent glass, the hint disappears on the
+  first tap, and the bowler is 30 px of figure at the far end of the pitch. Fixing it
+  properly means moving the delivery card into the canvas so it can be laid out against
+  `stripTop`, which is a larger change than the review asked for.
+- **`index.css` `touch-action` parity** (carried over from the previous entry): the
+  shared stylesheet sets no global `touch-action` while the stage and canvas set it
+  inline. Gameplay is correct; the two are just not stated in the same place. Still not
+  changed here because `index.css` is a verbatim shared copy.
+- **The bat's drawn thickness is not its collision thickness.** Position, length and
+  angle are exact; thickness is a legibility allowance of roughly 1.9x, because the
+  near-overhead camera projects a bat's face to about three pixels. Fixing it honestly
+  would mean lowering the camera, which is a whole-game art change.

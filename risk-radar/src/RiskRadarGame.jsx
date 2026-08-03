@@ -31,9 +31,10 @@ import { detectTier, effectBudget, fitCanvas, haptic } from './kit/device.js';
 import {
   buildWorld, stepWorld, setWalkTarget, clearWalkTarget, emitPulse,
   beginPause, endPause, isFrozen, chunkAlpha, seenAlpha, nearestThreatDist,
-  statsOf, mulberry32, clamp,
+  statsOf, mulberry32, clamp, pointAtArc,
   L_SHRIEK, L_LUNGE, L_RETREAT,
 } from './rules.js';
+import { SIGNALS } from './signals.jsx';
 
 /* ─── Audio ──────────────────────────────────────────────────
    Risk Radar's voices are game-specific (pulse whoosh, proximity heartbeat,
@@ -153,7 +154,7 @@ function createRadarAudio() {
 
 /* ─── Screen-space overlays (built once per resize) ─────── */
 
-function makeVignette(W, H, dpr) {
+function makeVignette(W, H, dpr, edgeAlpha) {
   const cv = document.createElement('canvas');
   cv.width = Math.max(1, Math.round(W * dpr));
   cv.height = Math.max(1, Math.round(H * dpr));
@@ -161,14 +162,14 @@ function makeVignette(W, H, dpr) {
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
   const g = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.34, W / 2, H / 2, Math.max(W, H) * 0.72);
   g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(1, 'rgba(0,0,0,0.82)');
+  g.addColorStop(1, `rgba(0,0,0,${edgeAlpha})`);
   c.fillStyle = g;
   c.fillRect(0, 0, W, H);
   return cv;
 }
 
-/** Red inward edge glow, blitted with globalAlpha for shriek/hurt flashes. */
-function makeEdgeFlash(W, H, dpr) {
+/** Inward edge glow, blitted with globalAlpha. Red = danger, green = well done. */
+function makeEdgeFlash(W, H, dpr, rgb) {
   const cv = document.createElement('canvas');
   cv.width = Math.max(1, Math.round(W * dpr));
   cv.height = Math.max(1, Math.round(H * dpr));
@@ -183,13 +184,53 @@ function makeEdgeFlash(W, H, dpr) {
   ];
   for (const [x, y, w, h, gx1, gy1, gx2, gy2] of sides) {
     const g = c.createLinearGradient(gx1, gy1, gx2, gy2);
-    g.addColorStop(0, 'rgba(255,60,60,0.55)');
-    g.addColorStop(1, 'rgba(255,60,60,0)');
+    g.addColorStop(0, `rgba(${rgb},0.55)`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
     c.fillStyle = g;
     c.fillRect(x, y, w, h);
   }
   return cv;
 }
+
+const TAG_FONT = '800 11px "Plus Jakarta Sans", system-ui, sans-serif';
+const TAG_H = 19;
+
+/**
+ * Label plate + leader line. The caller has already clamped the plate into the
+ * safe rect, so all this does is draw; both points are world space.
+ * A tooltip half off the edge of a 320px phone teaches nobody anything.
+ */
+function drawTag(ctx, ax, ay, bx, by, w, text, color, alpha) {
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(clamp(ax, bx + 4, bx + w - 4), ay > by + TAG_H ? by + TAG_H : by);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(4,8,16,0.94)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(bx, by, w, TAG_H, 6);
+  else ctx.rect(bx, by, w, TAG_H);
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.stroke();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = TAG_FONT;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, bx + 7, by + TAG_H / 2 + 0.5);
+  ctx.globalAlpha = 1;
+}
+
+/* The on-canvas tooltips, fired the first time each signal is ever revealed.
+   One shot each — after that the ? legend is the reference. */
+const TAG_TEXT = {
+  hazard: 'RISK POOL — costs a heart',
+  exit: 'SHELTER — get here',
+  gate: 'CHECKPOINT — cross it',
+  orb: 'BONUS ORB',
+  lurker: 'LURKER — hunts your ping',
+};
 
 /* ─── Component ──────────────────────────────────────────── */
 export default function RiskRadarGame({ config, onWin, onLose }) {
@@ -199,14 +240,20 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
   const canvasRef = useRef(null);
   const endTimerRef = useRef(null);
   const bannerTimerRef = useRef(null);
+  const legendTimerRef = useRef(null);
   const scoreElRef = useRef(null);
-  const hintRef = useRef(true);
+  const pulseArcRef = useRef(null);
+  const pulseBtnRef = useRef(null);
+  const progressFillRef = useRef(null);
+  const progressTextRef = useRef(null);
+  const firePulseRef = useRef(null);
 
   const [timeLeft, setTimeLeft] = useState(cfg.sessionSeconds);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
   const [banner, setBanner] = useState(null);
-  const [hint, setHint] = useState(true);
+  const [coach, setCoach] = useState(null);   // { id, text } — the 3-step tutorial
+  const [legend, setLegend] = useState(false);
   const [over, setOver] = useState(false);
   const [hearts, setHearts] = useState(cfg.hearts);
   const [orbsHud, setOrbsHud] = useState(0);
@@ -233,14 +280,10 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       camY: 0,
       camSnap: true,
 
-      // pointer / walk-arm gesture state
+      // pointer — touching the maze always means "walk here", nothing else
       ptrDown: false,
       ptrX: 0,
       ptrY: 0,
-      ptrDownAt: 0,
-      ptrDownX: 0,
-      ptrDownY: 0,
-      ptrArmed: false,
 
       // pooled visuals
       footRings: Array.from({ length: 10 }, () => ({ t: -1e9, x: 0, y: 0 })),
@@ -251,13 +294,35 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
 
       edgeFlash: 0,   // shriek warning (red screen-edge)
       hurtFlash: 0,   // heart-loss vignette
+      goodFlash: 0,   // green screen-edge — a decision that went right
       heartClock: 0,
+
+      // Signal tooltips: one per signal type, the first time it is ever seen.
+      tags: Object.keys(TAG_TEXT).map((key) => ({ key, t: -1e9, x: 0, y: 0 })),
+
+      // Noise-economy feedback: was the last ping overheard, and by how many?
+      pingJudgeAt: -1,
+      pingHeard: 0,
+      lureT: -1e9,   // "they are walking to HERE" marker at the overheard origin
+      lureX: 0,
+      lureY: 0,
+
+      // Tutorial: 0 watch the opening ping, 1 learn to walk, 2 learn to ping, 3 done
+      coachStep: -1,
+      coachSince: 0,
+      openingPingDone: false,
+      manualPings: 0,
+
+      aheadPt: { x: 0, y: 0, nx: 0, ny: 0, hw: 0 }, // scratch for the home chevron
 
       shownScore: -1,
       shownHearts: cfg.hearts,
       shownOrbs: -1,
       shownCount: -1,
+      shownPct: -1,
+      shownReady: null,
       bannerSeq: 0,
+      coachSeq: 0,
 
       ended: false,
       effects: null,
@@ -318,8 +383,9 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       s.dpr = fitCanvas(canvas, w, h, 2);
       s.W = w;
       s.H = h;
-      s.vignette = makeVignette(w, h, s.dpr);
-      s.edgeCanvas = makeEdgeFlash(w, h, s.dpr);
+      s.vignette = makeVignette(w, h, s.dpr, cfg.fx.vignetteEdge);
+      s.edgeCanvas = makeEdgeFlash(w, h, s.dpr, '255,60,60');
+      s.goodCanvas = makeEdgeFlash(w, h, s.dpr, '40,200,110');
     };
     fit();
 
@@ -341,6 +407,29 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       r.t = s.time;
       r.x = x;
       r.y = y;
+    };
+
+    /* One coached line at a time, over the live game — never a blocking modal.
+       Steps advance when the player DOES the thing, or time out. */
+    const COACH = [
+      'Watch the ring. It lights only what it touches.',
+      'Drag anywhere to walk your family there.',
+      'Tap RADAR to ping again. Every ping is overheard.',
+    ];
+    const setCoachStep = (n) => {
+      s.coachStep = n;
+      s.coachSince = s.time;
+      s.coachSeq += 1;
+      setCoach(n >= 0 && n < COACH.length ? { id: s.coachSeq, text: COACH[n] } : null);
+    };
+
+    /* First-encounter tooltip for a signal type. Fires once, ever. */
+    const tagOnce = (key, x, y) => {
+      const tag = s.tags.find((t) => t.key === key);
+      if (!tag || tag.t > -1e8) return;
+      tag.t = s.time;
+      tag.x = x;
+      tag.y = y;
     };
 
     /* --- run lifecycle ---------------------------------------------------- */
@@ -389,13 +478,15 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
     /* --- simulation events (fire from inside stepWorld; must not allocate
            beyond the occasional banner/float string) ------------------------ */
     const events = {
-      onPulse: () => {
+      onPulse: (x, y) => {
         audio.whoosh();
         haptic('light');
-        if (hintRef.current) {
-          hintRef.current = false;
-          setHint(false);
-        }
+        // Judge this ping once the wavefront has passed everything that could
+        // hear it: heard by nobody = a good call, heard = the lesson.
+        s.pingHeard = 0;
+        s.pingJudgeAt = s.world.time + cfg.noise.hearRadius / cfg.pulse.speed + 0.1;
+        s.lureX = x;
+        s.lureY = y;
       },
       onFootstep: (x, y) => {
         addFootRing(x, y);
@@ -405,11 +496,19 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
         const world = s.world;
         const d = Math.hypot(world.px - x, world.py - y);
         if (d < 430) audio.grayRing();
+        if (d < 300) tagOnce('lurker', x, y);
       },
-      onShriek: () => {
+      /* The rule players never spot on their own: your ping is a beacon. */
+      onHeard: (li, x, y) => {
+        s.pingHeard += 1;
+        s.lureT = s.time;
+        tagOnce('lurker', x, y);
+      },
+      onShriek: (li, x, y) => {
         audio.shriek();
         haptic('medium');
         s.edgeFlash = cfg.fx.shriekFlashSeconds;
+        fx.floatText(x, y - 26, 'LUNGING — BACK OFF', COLORS.hazard, 13);
       },
       onSpike: (i, x, y) => {
         fx.burst({
@@ -430,10 +529,15 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
         fx.addShake(cfg.fx.heartLossShake);
         s.hurtFlash = cfg.fx.vignetteSeconds;
         setHearts(heartsLeft);
-        const title = victim === 'follower'
-          ? 'A family member was caught'
-          : cause === 'spike' ? 'Stepped into a risk pool' : 'Caught in the dark';
-        showBanner('hurt', title, `${heartsLeft} heart${heartsLeft === 1 ? '' : 's'} left`);
+        // Say WHAT hit you and WHAT to do differently — a heart is only a
+        // lesson if the player can name the mistake.
+        const title = cause === 'spike'
+          ? 'Walked into a risk pool'
+          : victim === 'follower' ? 'A lurker caught the family' : 'A lurker caught you';
+        const sub = cause === 'spike'
+          ? 'The breathing spiked disc — go round its dark side'
+          : 'Ping, then step away from where you pinged';
+        showBanner('hurt', title, sub);
       },
       onRespawn: () => {
         s.camSnap = true;
@@ -454,15 +558,18 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       onGate: (i, x, y) => {
         audio.gate();
         haptic('success');
+        s.goodFlash = cfg.fx.goodFlashSeconds;
         fx.burst({
           x, y, count: cfg.fx.gateParticles, color: COLORS.green,
           speed: 180, spread: Math.PI * 2, size: 3, life: 0.7, gravity: 160, drag: 0.92,
         });
-        showBanner('gate', `Checkpoint ${i + 1} secured`, 'The family regroups here if caught');
+        fx.floatText(x, y - 26, 'CHECKPOINT', COLORS.green, 14);
+        showBanner('gate', `Checkpoint ${i + 1} of ${cfg.maze.gates.length}`, 'You restart from here if caught');
       },
       onExitFound: () => {
         audio.exitFound();
-        showBanner('exit', 'Shelter sighted', 'Reach the gold light');
+        s.goodFlash = cfg.fx.goodFlashSeconds;
+        showBanner('exit', 'Shelter found', 'The gold arrow now points home');
       },
     };
 
@@ -475,25 +582,65 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
 
       if (s.edgeFlash > 0) s.edgeFlash = Math.max(0, s.edgeFlash - dt);
       if (s.hurtFlash > 0) s.hurtFlash = Math.max(0, s.hurtFlash - dt);
+      if (s.goodFlash > 0) s.goodFlash = Math.max(0, s.goodFlash - dt);
 
-      /* Hold-to-walk: arm after cfg.player.walkArmSeconds or 8px of drag so a
-         quick tap stays a pulse. The finger point is re-projected into world
-         space every tick because the camera moves under it. */
+      /* ONE gesture, ONE meaning: a finger on the maze walks the family to it,
+         from the instant it lands. The radar is a button, so there is no
+         tap-versus-hold to guess at. The finger point is re-projected into
+         world space every tick because the camera moves under it. */
       if (s.ptrDown && !s.ended) {
-        if (!s.ptrArmed) {
-          const moved = Math.hypot(s.ptrX - s.ptrDownX, s.ptrY - s.ptrDownY);
-          if (moved >= cfg.player.walkArmMovePx || s.time - s.ptrDownAt >= cfg.player.walkArmSeconds) {
-            s.ptrArmed = true;
-          }
-        }
-        if (s.ptrArmed) {
-          setWalkTarget(world, s.camX + (s.ptrX - s.W / 2), s.camY + (s.ptrY - s.H / 2));
-        }
+        setWalkTarget(world, s.camX + (s.ptrX - s.W / 2), s.camY + (s.ptrY - s.H / 2));
       }
 
       if (s.ended) return;
 
       stepWorld(world, cfg, dt, events);
+
+      /* -- tutorial ------------------------------------------------------- */
+      if (!s.openingPingDone && world.time >= cfg.hud.openingPingSeconds && !isFrozen(world)) {
+        // The game takes the first shot for you, so nobody stares at a black
+        // screen wondering what a "pulse" is.
+        if (emitPulse(world, cfg, events)) {
+          s.openingPingDone = true;
+          setCoachStep(0);
+        }
+      }
+      if (s.coachStep >= 0 && s.coachStep < 3) {
+        const held = s.time - s.coachSince;
+        const done =
+          (s.coachStep === 0 && held > 3.4) ||
+          (s.coachStep === 1 && world.walkedDist > 60) ||
+          (s.coachStep === 2 && s.manualPings > 0);
+        if (done || held > cfg.hud.coachSeconds) setCoachStep(s.coachStep + 1);
+      }
+
+      /* -- was that ping a good call? ------------------------------------- */
+      if (s.pingJudgeAt > 0 && world.time >= s.pingJudgeAt) {
+        s.pingJudgeAt = -1;
+        if (s.pingHeard > 0) {
+          showBanner('hurt',
+            `${s.pingHeard} lurker${s.pingHeard === 1 ? '' : 's'} heard that ping`,
+            'They are walking to the marked spot — leave it');
+        } else if (world.pulsesUsed > 1) {
+          fx.floatText(world.px, world.py - 38, 'CLEAR PING', COLORS.pulseCyan, 14);
+        }
+      }
+
+      /* -- first-encounter tooltips --------------------------------------- */
+      for (let i = 0; i < world.hazX.length; i++) {
+        if (world.hazSeenTime[i] > world.time - 0.2) tagOnce('hazard', world.hazX[i], world.hazY[i]);
+      }
+      for (let i = 0; i < world.orbX.length; i++) {
+        if (!world.orbTaken[i] && world.orbSeenTime[i] > world.time - 0.2) {
+          tagOnce('orb', world.orbX[i], world.orbY[i]);
+        }
+      }
+      for (let i = 0; i < world.gateS.length; i++) {
+        if (!world.gatePassed[i] && world.gateSeenTime[i] > world.time - 0.2) {
+          tagOnce('gate', world.gateX[i], world.gateY[i]);
+        }
+      }
+      if (world.exitSeenTime > world.time - 0.2) tagOnce('exit', world.exitX, world.exitY);
 
       // Camera: eased follow; snapped on respawn so the checkpoint is not a
       // three-second pan through corridors the player has not earned seeing.
@@ -545,6 +692,26 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       const W = s.W;
       const H = s.H;
       const now = world.time;
+      // The memory floor for static landmarks. Living things get none.
+      const MEM = cfg.reveal.entityMemory;
+      /* Tooltip placement. The plate is clamped into the safe rect — inside the
+         canvas, below the HUD pills, above the coach line and the radar button
+         — so a label never lands under something else on a 320px handset. */
+      const tagAt = (x, y, text, color, alpha) => {
+        ctx.font = TAG_FONT;
+        const w = ctx.measureText(text).width + 14;
+        const ox = W / 2 - s.camX;   // world -> screen
+        const oy = H / 2 - s.camY;
+        const sx = x + ox;
+        const sy = y + oy;
+        let px = sx + 16;
+        if (px + w > W - 8) px = sx - 16 - w;
+        px = clamp(px, 8, Math.max(8, W - 8 - w));
+        let py = sy - 32;
+        if (py < 88) py = sy + 14;
+        py = clamp(py, 88, Math.max(88, H - 130));
+        drawTag(ctx, x, y, px - ox, py - oy, w, text, color, alpha);
+      };
 
       ctx.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
       ctx.fillStyle = '#03060C';
@@ -564,10 +731,13 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       }
       ctx.globalAlpha = 1;
 
-      /* -- walls: lit chunks only — a chunk with alpha 0 is NOT drawn ------- */
+      /* -- walls: lit chunks only — a chunk with alpha 0 is NOT drawn -------
+         Butt caps, not round: chunks abut end-to-end, and round caps overlap
+         by half a line width, so a dim memory wall composited into a dotted
+         line instead of a wall. Restored to round straight afterwards. */
       ctx.strokeStyle = COLORS.wall;
       ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
+      ctx.lineCap = 'butt';
       for (let i = 0; i < world.chunkCount; i++) {
         const a = chunkAlpha(world, cfg, i, now);
         if (a <= 0.004) continue;
@@ -577,17 +747,18 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
         ctx.lineTo(world.cx2[i], world.cy2[i]);
         ctx.stroke();
       }
+      ctx.lineCap = 'round';
       ctx.globalAlpha = 1;
 
-      /* -- gates (revealed by the pulse; green once passed) ----------------- */
+      /* -- gates: DASHED line across the corridor, solid once crossed ------- */
       for (let i = 0; i < world.gateS.length; i++) {
-        const a = seenAlpha(cfg, world.gateSeenTime[i], now);
+        const a = seenAlpha(cfg, world.gateSeenTime[i], now, MEM);
         if (a <= 0.004) continue;
         const hw = world.gateHW[i];
         ctx.globalAlpha = a * 0.9;
         ctx.strokeStyle = world.gatePassed[i] ? COLORS.green : COLORS.exitGold;
-        ctx.lineWidth = 2;
-        ctx.setLineDash(DASH_GATE);
+        ctx.lineWidth = world.gatePassed[i] ? 3 : 2;
+        ctx.setLineDash(world.gatePassed[i] ? DASH_NONE : DASH_GATE);
         ctx.beginPath();
         ctx.moveTo(world.gateX[i] - world.gateNX[i] * hw, world.gateY[i] - world.gateNY[i] * hw);
         ctx.lineTo(world.gateX[i] + world.gateNX[i] * hw, world.gateY[i] + world.gateNY[i] * hw);
@@ -596,12 +767,15 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       }
       ctx.globalAlpha = 1;
 
-      /* -- spike pools ------------------------------------------------------ */
+      /* -- risk pools: SPIKED DISC that BREATHES -----------------------------
+         Shape (radiating spikes) and rhythm (a 1.5 Hz throb) carry the meaning,
+         so the pool reads as a hazard with the colour stripped out. */
       for (let i = 0; i < world.hazX.length; i++) {
         const hx = world.hazX[i];
         const hy = world.hazY[i];
-        const a = seenAlpha(cfg, world.hazSeenTime[i], now);
+        const a = seenAlpha(cfg, world.hazSeenTime[i], now, MEM);
         if (a > 0.004) {
+          const throb = 0.88 + 0.12 * Math.sin(s.time * Math.PI * 2 * cfg.fx.hazThrobHz + i);
           ctx.globalAlpha = a;
           if (s.shadows) {
             ctx.shadowColor = COLORS.hazard;
@@ -609,20 +783,20 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
           }
           ctx.fillStyle = COLORS.hazardDeep;
           ctx.beginPath();
-          ctx.arc(hx, hy, cfg.hazards.spikeRadius, 0, Math.PI * 2);
+          ctx.arc(hx, hy, cfg.hazards.spikeRadius * throb, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
           ctx.strokeStyle = COLORS.hazard;
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(hx, hy, cfg.hazards.spikeRadius, 0, Math.PI * 2);
+          ctx.arc(hx, hy, cfg.hazards.spikeRadius * throb, 0, Math.PI * 2);
           ctx.stroke();
           // spikes
           ctx.beginPath();
           for (let k = 0; k < 8; k++) {
             const ang = (k / 8) * Math.PI * 2 + i;
             const r0 = cfg.hazards.spikeRadius * 0.45;
-            const r1 = cfg.hazards.spikeRadius * 0.88;
+            const r1 = cfg.hazards.spikeRadius * (0.78 + 0.22 * throb);
             ctx.moveTo(hx + Math.cos(ang) * r0, hy + Math.sin(ang) * r0);
             ctx.lineTo(hx + Math.cos(ang) * r1, hy + Math.sin(ang) * r1);
           }
@@ -643,10 +817,10 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       }
       ctx.globalAlpha = 1;
 
-      /* -- orbs (glint only inside the pulse sweep envelope) ---------------- */
+      /* -- orbs: FOUR-SPOKE SPINNER, always turning ------------------------- */
       for (let i = 0; i < world.orbX.length; i++) {
         if (world.orbTaken[i]) continue;
-        const a = seenAlpha(cfg, world.orbSeenTime[i], now);
+        const a = seenAlpha(cfg, world.orbSeenTime[i], now, MEM);
         if (a <= 0.004) continue;
         const ox = world.orbX[i];
         const oy = world.orbY[i];
@@ -673,13 +847,22 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       }
       ctx.globalAlpha = 1;
 
-      /* -- the shelter (gold) ----------------------------------------------- */
+      /* -- the shelter: ROOF CHEVRON that rings for you, forever -------------
+         Once found it becomes a beacon — it emits its own slow ring every 2s,
+         which no other signal does, so it is identifiable by rhythm alone. */
       {
-        const a = seenAlpha(cfg, world.exitSeenTime, now);
+        const a = seenAlpha(cfg, world.exitSeenTime, now, MEM + 0.14);
         if (a > 0.004) {
           const ex = world.exitX;
           const ey = world.exitY;
           const pulse = 0.85 + 0.15 * Math.sin(s.time * 3);
+          const beat = (s.time % cfg.fx.exitBeaconSeconds) / cfg.fx.exitBeaconSeconds;
+          ctx.globalAlpha = a * (1 - beat) * 0.5;
+          ctx.strokeStyle = COLORS.exitGold;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(ex, ey, cfg.exit.radius + beat * 70, 0, Math.PI * 2);
+          ctx.stroke();
           ctx.globalAlpha = a;
           if (s.shadows) {
             ctx.shadowColor = COLORS.exitGold;
@@ -802,6 +985,43 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       }
       ctx.globalAlpha = 1;
 
+      /* -- "they are walking to HERE" ----------------------------------------
+         The single rule players never work out unaided: a lurker hunts the spot
+         your ping came FROM, not you. When one is overheard, that spot is
+         marked, so the cause and the effect are on screen together. */
+      {
+        const age = s.time - s.lureT;
+        if (age >= 0 && age < cfg.hud.lureMarkSeconds) {
+          const k = 1 - age / cfg.hud.lureMarkSeconds;
+          ctx.globalAlpha = k * 0.85;
+          ctx.strokeStyle = COLORS.lurkerRing;
+          ctx.lineWidth = 1.8;
+          ctx.setLineDash(DASH_GATE);
+          ctx.beginPath();
+          ctx.arc(s.lureX, s.lureY, 14 + (1 - k) * 10, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash(DASH_NONE);
+          ctx.beginPath();
+          ctx.moveTo(s.lureX - 9, s.lureY);
+          ctx.lineTo(s.lureX + 9, s.lureY);
+          ctx.moveTo(s.lureX, s.lureY - 9);
+          ctx.lineTo(s.lureX, s.lureY + 9);
+          ctx.stroke();
+          tagAt(s.lureX, s.lureY, 'THEY COME HERE', COLORS.lurkerRing, k);
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      /* -- first-encounter signal tooltips ------------------------------------ */
+      for (let i = 0; i < s.tags.length; i++) {
+        const tag = s.tags[i];
+        const age = s.time - tag.t;
+        if (age < 0 || age >= cfg.hud.labelSeconds) continue;
+        const k = Math.min(1, age * 4) * Math.min(1, (cfg.hud.labelSeconds - age) * 2);
+        tagAt(tag.x, tag.y, TAG_TEXT[tag.key],
+          tag.key === 'hazard' || tag.key === 'lurker' ? COLORS.hazard : COLORS.exitGold, k);
+      }
+
       /* -- walk target marker ------------------------------------------------- */
       if (world.walking) {
         const k = 0.7 + 0.3 * Math.sin(s.time * 8);
@@ -854,17 +1074,26 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        /* Thumb-ring HUD: pulse cooldown drawn as an arc around the family.
-           Full circle = radar ready (it breathes); the gap refills over 1.6s. */
-        const frac = 1 - world.pulseCooldown / cfg.pulse.cooldownSeconds;
-        const ready = frac >= 1;
-        const rr = cfg.player.radius + 12 + (ready ? Math.sin(s.time * 5) * 1.4 : 0);
-        ctx.globalAlpha = ready ? 0.85 : 0.5;
-        ctx.strokeStyle = ready ? COLORS.pulseCore : COLORS.pulseCyan;
-        ctx.lineWidth = 2.6;
+        /* WHICH WAY IS HOME. The maze is one corridor, so pointing along it
+           gives away no puzzle — it only removes the "I have no idea where I
+           am" that made the darkness unreadable. It is the one indicator that
+           is always on, and it always means: walk this way. */
+        const ahead = pointAtArc(world, Math.min(world.totalLen, world.playerS + 34), s.aheadPt);
+        const ang = Math.atan2(ahead.y - world.py, ahead.x - world.px);
+        const bob = 26 + Math.sin(s.time * 3) * 2.5;
+        ctx.save();
+        ctx.translate(world.px + Math.cos(ang) * bob, world.py + Math.sin(ang) * bob);
+        ctx.rotate(ang);
+        ctx.globalAlpha = 0.95;
+        ctx.fillStyle = COLORS.exitGold;
         ctx.beginPath();
-        ctx.arc(world.px, world.py, rr, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
-        ctx.stroke();
+        ctx.moveTo(7, 0);
+        ctx.lineTo(-5, -6);
+        ctx.lineTo(-2.5, 0);
+        ctx.lineTo(-5, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
         ctx.globalAlpha = 1;
       }
 
@@ -885,6 +1114,13 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
         ctx.drawImage(s.edgeCanvas, 0, 0, W, H);
         ctx.globalAlpha = 1;
       }
+      // Green wash: you did that right. The mirror image of the red one, so
+      // right and wrong read the same way, from the same place on screen.
+      if (s.goodFlash > 0) {
+        ctx.globalAlpha = (s.goodFlash / cfg.fx.goodFlashSeconds) * 0.55;
+        ctx.drawImage(s.goodCanvas, 0, 0, W, H);
+        ctx.globalAlpha = 1;
+      }
 
       /* -- HUD written straight to the DOM ------------------------------------ */
       if (world.score !== s.shownScore) {
@@ -899,6 +1135,27 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
         s.shownHearts = world.hearts;
         setHearts(Math.max(0, world.hearts));
       }
+      // Route progress — "how far along am I" was unanswerable before.
+      const pct = Math.min(100, Math.round((world.playerS / world.totalLen) * 100));
+      if (pct !== s.shownPct) {
+        s.shownPct = pct;
+        if (progressFillRef.current) progressFillRef.current.style.width = `${pct}%`;
+        if (progressTextRef.current) progressTextRef.current.textContent = `${pct}%`;
+      }
+      // Radar button: cooldown arc + a ready state you can see without looking
+      // at the canvas, because that is where your thumb is.
+      const frac = 1 - world.pulseCooldown / cfg.pulse.cooldownSeconds;
+      if (pulseArcRef.current) {
+        pulseArcRef.current.style.strokeDashoffset = String(PULSE_CIRC * (1 - frac));
+      }
+      const ready = frac >= 1;
+      if (ready !== s.shownReady) {
+        s.shownReady = ready;
+        if (pulseBtnRef.current) {
+          pulseBtnRef.current.classList.toggle('rrg-ready', ready);
+          pulseBtnRef.current.setAttribute('aria-disabled', ready ? 'false' : 'true');
+        }
+      }
       // Re-acquire countdown: 3 / 2 / 1 while frozen, then GO for the live lock.
       const count = world.freezeLeft > 0
         ? Math.max(1, Math.ceil(world.freezeLeft / (cfg.hud.reacquireFreezeSeconds / 3)))
@@ -909,36 +1166,37 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       }
     };
 
-    /* --- input: tap = pulse, hold/drag = walk ------------------------------- */
+    /* --- input: the maze is ONLY ever "walk here" --------------------------- */
     const input = createInput(canvas, {
       onDown: (p) => {
         audio.unlock();
         if (s.ended) return;
         s.ptrDown = true;
-        s.ptrArmed = false;
         s.ptrX = p.x;
         s.ptrY = p.y;
-        s.ptrDownX = p.x;
-        s.ptrDownY = p.y;
-        s.ptrDownAt = s.time;
       },
       onMove: (p) => {
         s.ptrX = p.x;
         s.ptrY = p.y;
       },
       onUp: () => {
-        if (!s.ptrDown) return;
         s.ptrDown = false;
         clearWalkTarget(s.world);
-        if (s.ended) return;
-        if (!s.ptrArmed) {
-          // A clean tap: fire the radar from the family's position.
-          if (!emitPulse(s.world, cfg, events) && s.world.pulseCooldown > 0) {
-            audio.denied();
-          }
-        }
       },
     });
+
+    /* The radar lives on its own button, so firing is a deliberate act with a
+       visible cost meter — not a gesture that competes with walking. */
+    firePulseRef.current = () => {
+      audio.unlock();
+      if (s.ended || !s.world) return;
+      if (emitPulse(s.world, cfg, events)) {
+        s.manualPings += 1;
+      } else if (s.world.pulseCooldown > 0) {
+        audio.denied();
+        haptic('light');
+      }
+    };
 
     /* --- loop ---------------------------------------------------------------- */
     const loop = createGameLoop({
@@ -976,6 +1234,8 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
       window.removeEventListener('orientationchange', fit);
       clearTimeout(endTimerRef.current);
       clearTimeout(bannerTimerRef.current);
+      clearTimeout(legendTimerRef.current);
+      firePulseRef.current = null;
       fx.reset();
       audio.destroy();
       s.effects = null;
@@ -989,6 +1249,19 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
   }, []);
 
   const lowTime = timeLeft <= cfg.hud.lowTimeSeconds;
+
+  const firePulse = useCallback((e) => {
+    e.preventDefault();
+    firePulseRef.current?.();
+  }, []);
+
+  const toggleLegend = useCallback(() => {
+    clearTimeout(legendTimerRef.current);
+    setLegend((open) => {
+      if (!open) legendTimerRef.current = setTimeout(() => setLegend(false), cfg.hud.legendSeconds * 1000);
+      return !open;
+    });
+  }, [cfg.hud.legendSeconds]);
 
   return (
     <div style={styles.root}>
@@ -1031,12 +1304,18 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
           </div>
         </div>
 
+        {/* Route progress — the answer to "how far have I got?" ------- */}
         <div style={styles.subWrap}>
           <div style={styles.subPill}>
             <span style={styles.subText}>
-              <span style={{ opacity: 0.55 }}>Orbs </span>
+              <span style={{ opacity: 0.6 }}>HOME</span>
+              <span ref={progressTextRef} style={{ marginLeft: 6 }}>0%</span>
+            </span>
+            <div style={styles.progressRail}>
+              <div ref={progressFillRef} style={styles.progressFill} />
+            </div>
+            <span style={{ ...styles.subText, opacity: 0.6 }}>
               {orbsHud}/{cfg.maze.orbs.length}
-              <span style={{ opacity: 0.55 }}> · quiet bonus at {'≤'}{cfg.scoring.quietMaxPulses} pulses</span>
             </span>
           </div>
         </div>
@@ -1060,12 +1339,30 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
           </div>
         )}
 
-        {/* First-run hint -------------------------------------------- */}
-        {hint && !over && (
-          <div style={styles.hintWrap} className="rrg-hint">
-            <div style={styles.hint}>
-              <strong style={{ color: '#60CDFF' }}>Tap</strong> to send the radar ·{' '}
-              <strong style={{ color: '#FF8A3D' }}>hold</strong> to walk
+        {/* Tutorial: one coached line at a time, over the live game ---
+            Steps clear when the player DOES the thing, so nobody is made to
+            read a wall of rules before touching anything. */}
+        {coach && !over && !paused && (
+          <div key={coach.id} style={styles.coachWrap} className="rrg-coach">
+            <div style={styles.coach}>{coach.text}</div>
+          </div>
+        )}
+
+        {/* Signal key — the whole vocabulary, one tap away, always ---- */}
+        {legend && (
+          <div style={styles.legendWrap} onPointerDown={toggleLegend}>
+            <div style={styles.legendCard}>
+              <div style={styles.legendTitle}>What the radar shows</div>
+              {SIGNALS.map(({ key, Glyph, name, shape }) => (
+                <div key={key} style={styles.legendRow}>
+                  <span style={styles.legendGlyph}><Glyph /></span>
+                  <span style={styles.legendText}>
+                    <strong style={styles.legendName}>{name}</strong>
+                    <span style={styles.legendShape}>{shape}</span>
+                  </span>
+                </div>
+              ))}
+              <div style={styles.legendFoot}>Tap anywhere to close</div>
             </div>
           </div>
         )}
@@ -1099,6 +1396,45 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
           </div>
         )}
 
+        {/* THE RADAR BUTTON ------------------------------------------
+            One button, one job. The ring around it IS the cooldown, so the
+            cost of a ping is visible at the thumb instead of hidden in a
+            gesture that used to fight with walking. */}
+        <button
+          ref={pulseBtnRef}
+          type="button"
+          onPointerDown={firePulse}
+          aria-label="Send a radar pulse"
+          style={styles.pulseBtn}
+          className="rrg-pulsebtn"
+        >
+          <svg width="70" height="70" viewBox="0 0 70 70" style={styles.pulseSvg} aria-hidden="true">
+            <circle cx="35" cy="35" r="30" fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="4" />
+            <circle
+              ref={pulseArcRef}
+              cx="35" cy="35" r="30" fill="none" stroke="#60CDFF" strokeWidth="4"
+              strokeLinecap="round" transform="rotate(-90 35 35)"
+              strokeDasharray={PULSE_CIRC} strokeDashoffset={0}
+            />
+          </svg>
+          <span style={styles.pulseLabel}>RADAR</span>
+        </button>
+
+        {/* Signal key ------------------------------------------------- */}
+        <button
+          type="button"
+          onClick={toggleLegend}
+          aria-label="Show the radar signal key"
+          style={{ ...styles.muteBtn, left: 10, right: 'auto' }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.4 9.2a2.7 2.7 0 1 1 3.4 3.1c-.6.2-.8.7-.8 1.2v.4" />
+            <path d="M12 17.2v.01" />
+          </svg>
+        </button>
+
         {/* Mute ------------------------------------------------------- */}
         <button
           type="button"
@@ -1126,6 +1462,8 @@ export default function RiskRadarGame({ config, onWin, onLose }) {
 /* Reused dash arrays — no per-frame allocation in setLineDash. */
 const DASH_GATE = [6, 6];
 const DASH_NONE = [];
+/* Circumference of the r=30 cooldown ring on the radar button. */
+const PULSE_CIRC = 2 * Math.PI * 30;
 
 /* ─── Styles ─────────────────────────────────────────────── */
 const CSS = `
@@ -1138,16 +1476,20 @@ const CSS = `
   80%  { opacity: 1; transform: translateY(0) scale(1); }
   100% { opacity: 0; transform: translateY(-14px) scale(0.96); }
 }
-@keyframes rrgHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
 @keyframes rrgHeart { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
 @keyframes rrgCount { from { opacity: 0; transform: scale(1.55); } 55% { opacity: 1; transform: scale(1); } to { opacity: 0.85; transform: scale(1); } }
+@keyframes rrgCoach { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes rrgReady { 0%,100% { box-shadow: 0 0 0 0 rgba(96,205,255,0.42); } 50% { box-shadow: 0 0 0 9px rgba(96,205,255,0); } }
 .rrg-count  { animation: rrgCount 460ms cubic-bezier(0.22,1,0.36,1) both; }
 .rrg-stage  { animation: rrgIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .rrg-banner { animation: rrgBanner 1.6s ease-out both; }
-.rrg-hint   { animation: rrgHint 1.6s ease-in-out infinite; }
+.rrg-coach  { animation: rrgCoach 320ms ease-out both; }
 .rrg-heart  { animation: rrgHeart 2.4s ease-in-out infinite; }
+.rrg-pulsebtn { transition: transform 120ms ease, opacity 160ms ease; opacity: 0.72; }
+.rrg-pulsebtn:active { transform: scale(0.93); }
+.rrg-pulsebtn.rrg-ready { opacity: 1; animation: rrgReady 1.9s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .rrg-stage, .rrg-banner, .rrg-hint, .rrg-heart, .rrg-count {
+  .rrg-stage, .rrg-banner, .rrg-coach, .rrg-heart, .rrg-count, .rrg-pulsebtn {
     animation-duration: 1ms !important; animation-iteration-count: 1 !important;
   }
 }
@@ -1242,13 +1584,35 @@ const styles = {
     pointerEvents: 'none',
     zIndex: 4,
   },
-  subPill: { ...glass, borderRadius: 12, padding: '5px 14px', textAlign: 'center' },
+  subPill: {
+    ...glass,
+    borderRadius: 12,
+    padding: '5px 12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
   subText: {
     fontSize: 11,
     fontWeight: 800,
     color: '#fff',
-    letterSpacing: '0.03em',
+    letterSpacing: '0.06em',
     fontVariantNumeric: 'tabular-nums',
+    whiteSpace: 'nowrap',
+  },
+  progressRail: {
+    width: 92,
+    height: 5,
+    borderRadius: 3,
+    background: 'rgba(255,255,255,0.16)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    width: '0%',
+    height: '100%',
+    borderRadius: 3,
+    background: 'linear-gradient(90deg, #28A745, #FFC845)',
+    transition: 'width 240ms ease-out',
   },
   bannerWrap: {
     position: 'absolute',
@@ -1278,9 +1642,9 @@ const styles = {
     textTransform: 'uppercase',
     color: 'rgba(255,255,255,0.85)',
   },
-  hintWrap: {
+  coachWrap: {
     position: 'absolute',
-    bottom: 66,
+    bottom: 104,
     left: 12,
     right: 12,
     display: 'flex',
@@ -1288,14 +1652,90 @@ const styles = {
     pointerEvents: 'none',
     zIndex: 5,
   },
-  hint: {
-    ...glass,
+  coach: {
+    background: 'rgba(4,10,20,0.9)',
+    border: '1px solid rgba(96,205,255,0.45)',
     borderRadius: 999,
     padding: '9px 16px',
-    fontSize: 12,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.92)',
+    fontSize: 12.5,
+    fontWeight: 800,
+    color: '#FFFFFF',            // 16.6:1 on the plate — well past WCAG AA
     textAlign: 'center',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.55)',
+  },
+  pulseBtn: {
+    position: 'absolute',
+    left: '50%',
+    bottom: 12,
+    marginLeft: -35,
+    width: 70,
+    height: 70,
+    padding: 0,
+    borderRadius: '50%',
+    background: 'rgba(4,12,24,0.86)',
+    border: '1px solid rgba(96,205,255,0.4)',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    touchAction: 'manipulation',
+    zIndex: 9,
+  },
+  pulseSvg: { position: 'absolute', inset: 0 },
+  pulseLabel: {
+    fontSize: 10,
+    fontWeight: 900,
+    letterSpacing: '0.12em',
+    color: '#DFF3FF',
+    pointerEvents: 'none',
+  },
+  legendWrap: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    background: 'rgba(2,5,11,0.9)',
+    zIndex: 10,
+    cursor: 'pointer',
+  },
+  legendCard: {
+    ...glass,
+    background: 'rgba(10,18,32,0.96)',
+    width: '100%',
+    maxWidth: 330,
+    borderRadius: 18,
+    padding: '14px 14px 10px',
+  },
+  legendTitle: {
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    color: '#8FD6FF',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  legendRow: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 9 },
+  legendGlyph: { flex: '0 0 24px', lineHeight: 0, paddingTop: 1 },
+  legendText: { display: 'flex', flexDirection: 'column', gap: 1 },
+  legendName: { fontSize: 12.5, fontWeight: 900, color: '#FFFFFF', lineHeight: 1.2 },
+  legendShape: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: 'rgba(255,255,255,0.82)', // 12.1:1 on the card — WCAG AA at this size
+    lineHeight: 1.35,
+  },
+  legendFoot: {
+    fontSize: 10,
+    fontWeight: 800,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
+    paddingTop: 2,
   },
   reacquireVeil: {
     position: 'absolute',

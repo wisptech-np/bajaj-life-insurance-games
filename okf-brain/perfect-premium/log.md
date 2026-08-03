@@ -322,3 +322,202 @@ Two presentation-layer decisions worth recording because they are not obvious:
 
 - `pnpm install` — OK.
 - `pnpm build` (vite --mode uat) — **passes**, `✓ built in 2.42s`.
+
+## 2026-08-03 — Rebuilt as a real-time cover-management game (client review)
+
+### Why the previous version was not a game
+
+The 2026-08-03 client review: *"The current experience does not feel like a game.
+Introduce a genuine gameplay loop with player decisions, challenge, scoring and
+progression. Avoid presenting a static calculator, questionnaire or form as a
+game. Add meaningful consequences for choosing the correct or incorrect premium
+strategy."*
+
+The stop-the-marker build had one verb (tap to freeze a sweeping marker) and one
+axis of skill (timing precision). Nothing in it was a *decision*: there was
+nothing to weigh, no information to read, and no way for a premium strategy to be
+right or wrong — only for a tap to be early or late. The grace periods and the
+top-up band added variance, not choice. It was a reflex test wearing a policy
+timeline, and the reviewer was right about it.
+
+### The loop that replaced it
+
+The player's only verb: **drag to set a cover level** in [0,1] of the scale. The
+cover line then travels toward that target at rate limits that are deliberately
+asymmetric — 0.52 of the scale per second up, 1.30 down. You can always stop
+paying for cover instantly; you can never buy it in the moment you need it.
+
+Claims scroll toward a NOW line. Each publishes its CLASS (routine 10–24%, major
+30–56%, critical 55–88% of the scale) the moment it appears, so the player knows
+the *range*; its true size is drawn uniformly inside that band and is revealed
+only 0.72 s before it lands. 0.72 s buys 0.37 of raise, which is enough to
+correct a routine or major misread and not enough to rescue a critical one off
+the floor — so the forecast band is load-bearing rather than decorative, and the
+commit really does happen before the number is known.
+
+Consequences, in the rules rather than in captions:
+
+- **Under-cover** — the uncovered part of the claim comes out of family security
+  at `62 x (gap/0.70)^1.6`. Super-linear: a 5%-of-scale gap costs under 1 point,
+  a bare critical claim costs 62 of 100. Small risks are self-insurable; large
+  ones are not. Security to zero ends the run.
+- **Over-cover** — cover burns 10.5 budget per second at the top of the scale
+  against about 1.3/s of chapter income. Budget to zero ends the run.
+- **Over-cover that survives** — scoring pays `20 + round(efficiency x 30)` where
+  efficiency falls away over 0.35 of surplus, doubled inside a 0.06 PERFECT
+  margin, times a streak multiplier up to x3. Two players who both survive the
+  same claim score very differently.
+- **Money freed by not over-insuring** — gold goal tokens ride low on the scale
+  (5–20%) and are taken by touching them, so they are only reachable by dipping,
+  and the climb back is the slow direction.
+- **End bonus** `(budget x 10 + security x 8) x (security/100)` — scaled by
+  surviving security so that hoarding budget while the family is wiped out pays
+  nothing. Without that scaling the never-cover bot scored 1,636; with it, 147.
+
+Progression: 8 chapters, ages 25 to 60, about 96 s. Gaps tighten 1.50–1.95 s to
+1.05–1.36 s and the mix shifts from 100% routine to 38% critical. Each chapter
+credits +17 budget. The budget that survives the last three chapters is the
+budget not burned at 25.
+
+### Anti-duplication check
+
+`bajaj-game-store/GAMES_CATALOG.md` (33 deployed games) and this repo's
+`scripts/games-manifest.json` were both checked before committing to the loop.
+
+- Nothing in either list manages a **continuously variable resource level against
+  partially-hidden incoming demands**. The catalog's quick index covers snake,
+  word, match-3, tetris, slicing, runners, shooters, sudoku, whack-a-mole,
+  brick-breaker, jigsaw, minesweeper, racing, sorting, quiz, bubble shooter,
+  marble, stacking, tile-flip and tower defense. This is none of them.
+- The nearest visual neighbour in this repo is `steady-wings` (port 5065), a
+  one-tap flappy-style flyer with expense-wall pillars. It was deliberately
+  designed away from: there is no gravity and no impulse (direct rate-limited
+  positioning), the player must **intersect** hazards rather than avoid them,
+  intersecting costs a resource, hazard sizes are hidden behind a forecast band,
+  and there are two opposed lose conditions instead of one collision.
+- `guardian-shelter` is umbrella/shield *placement* physics (drag static objects,
+  then a storm runs) — a different verb and a different genre; the umbrella motif
+  was avoided here for that reason.
+- Theme: the catalog has no game about **right-sizing cover**, only games about
+  having cover or not having it.
+
+### Verification
+
+- `node scripts/balance.mjs` (600 runs/profile, seed 0x5eed1234) — **GATE: PASS**.
+- `node scripts/balance.mjs --runs 20000` — table below. Every profile terminates
+  inside the 120 s cap; no run hit the step guard.
+
+```
+profile                        win%   lose:gap  lose:budget   score  claims  perfect  gaps  surplus  cover  clock
+skilled                      100.0%      0.0%         0.0%   14753    39.8     38.2   0.2     3.5%  18.9%   96.2s
+good                         100.0%      0.0%         0.0%    6768    22.0     16.5  18.0     4.2%  16.4%   96.2s
+casual                        45.4%     54.6%         0.0%    2643     9.2      6.5  28.1     4.9%  14.7%   89.3s
+novice                         0.0%    100.0%         0.0%     983     2.3      1.4  18.0     5.0%   9.8%   53.1s
+never trusts the reveal       99.2%      0.0%         0.8%    6438    39.6      6.9   0.4    13.5%  21.3%   96.2s
+over-cautious (45% floor)      0.0%      0.0%       100.0%    1225    10.7      1.2   0.1    23.8%  44.3%   31.0s
+goal-greedy                   85.0%     15.0%         0.0%    9921    31.3     28.8   8.2     3.6%  17.6%   94.7s
+random flailing                0.0%      1.5%        98.5%    1094    10.1      1.2   3.5    26.5%  39.3%   38.3s
+always max cover               0.0%      0.0%       100.0%     870     3.5      0.0   0.0    82.8%  91.6%   11.4s
+never cover                    0.0%    100.0%         0.0%     147     0.0      0.0  10.5     0.0%   0.0%   29.8s
+```
+
+The gate now asserts a **separation**, not just a difficulty band: skilled at or
+above 80%, casual in 25–60%, random at or below 5% AND skilled scoring at least
+3x random. Measured **13.49x** — that line is the direct answer to "this is not a
+game". Four further assertions protect the consequence model: always-max-cover
+must be at least 90% bankrupt with zero shortfalls; never-cover at least 90%
+exposed; the band-top bot must score at most 60% of skilled; the over-cautious
+45%-floor bot must be at least 90% bankrupt.
+
+- `cd perfect-premium && npx vite build --mode uat` — **passes**, 524 modules,
+  `dist/assets/index-*.js` 430.7 kB (gzip 142.0 kB), `index-*.css` 33.0 kB.
+- `node scripts/play-test.mjs perfect-premium --all-sizes` — **ok at all four
+  sizes**, zero console/page errors, canvas mounted and 100.0% of sampled pixels
+  painted at every size, random-input bot survives 33–35 s, results screen and
+  retry path both work.
+
+```
+320x568  canvas 302x550  painted 100.0%  run ended after 35s at "try again"  retry ok
+390x844  canvas 372x826  painted 100.0%  run ended after 33s at "try again"  retry ok
+412x915  canvas 394x897  painted 100.0%  run ended after 35s at "try again"  retry ok
+412x700  canvas 394x682  painted 100.0%  run ended after 35s at "try again"  retry ok
+```
+
+### Screenshot review and the fixes it produced
+
+Screens were captured and inspected at all four sizes across home, how-to-play,
+mid-game and results, and iterated three times:
+
+1. **The chapter chip collided with the HUD.** The in-canvas `AGE nn` gate label
+   was drawn at `topY - 16` while the two HUD meters occupy a fixed ~105 px strip
+   regardless of screen height. Moved inside the field, and `topY` changed from a
+   pure fraction to `max(H x 0.155, 116)` so a 568 px handset cannot put the top
+   of the field underneath the meters.
+2. **Awkward axis labels.** `scaleLakh` 30 gave 8L/15L/23L/30L gridlines; changed
+   to 40 so the four marks land on 10/20/30/40.
+3. **The protected band was nearly invisible.** Cover fill alphas raised from
+   0.30/0.10 to 0.42/0.26/0.16, so "everything under the line is safe" reads at a
+   glance.
+4. **The result banner covered the play field.** It sat at 46% of the stage,
+   directly over the claims. Moved to a compact chip at the top of the field, and
+   the shortfall sub-line now names the size of the hole (`CRITICAL · 12L SHORT`)
+   rather than restating the outcome.
+5. **HUD overflow at 320 px.** `box-sizing: border-box` added to the HUD pills and
+   meters, which were overflowing the stage by 4 px.
+6. Lead modal subtitle "To see your premium record" became "To see your cover
+   record".
+
+To review art that a random-input bot never reaches, a throwaway build with
+claim-heavy early chapters and inflated meters was used to photograph critical
+claims, fogged bands and shortfall states, then `src/data.js` was restored from
+backup and the shipping numbers re-measured.
+
+### Standards compliance
+
+- Screen flow unchanged: `home → howtoplay → game → results (+LeadCaptureModal if
+  `sessionStorage[LEAD_NO_KEY]` is empty) → [Book a Slot → SlotBookingModal] →
+  thankyou`. `incrementPlayCount()` is still called in exactly one place
+  (`startGame()` in App.jsx); restart is still a remount via `key={gameKey}`.
+- Lead capture remains **Name + Mobile only** — no email field was added.
+- LMS wiring untouched: `LEAD_NO_KEY = 'perfectPremiumLeadNo'`,
+  `summaryDtls = 'Perfect Premium Lead'`, slot remark
+  `Perfect Premium Slot Booking | Score: N`.
+- Directory name and port 5064 unchanged.
+- `src/kit/` and `shared/game-kit/` untouched.
+- No emoji sprites: every game object is a programmatic canvas shape and every
+  screen graphic is inline SVG.
+- Compliance: no premium figure anywhere in the game; the budget meter is
+  unitless; the lakh marks are labels on a game axis with an `illustrative` chip
+  in the HUD legend, and the results disclaimer now states explicitly that cover
+  amounts, budgets and claims are illustrative game mechanics that do not
+  represent any product, premium or benefit.
+- Pause-scum: auto-pause now releases into a 3-second re-acquire countdown
+  (`hud.resumeCountdownSeconds`), so backgrounding the tab cannot be used to
+  freeze an inbound claim and study it.
+
+### Files
+
+- Rewritten: `src/data.js`, `src/PerfectPremiumGame.jsx`, `src/Screens.jsx`,
+  `scripts/balance.mjs`, `README.md`.
+- Added: `src/cover.js`.
+- Deleted: `src/stages.js`.
+- One-line copy change: `src/LeadCaptureModal.jsx`.
+- Untouched: `src/App.jsx`, `src/api.js`, `src/SlotBookingModal.jsx`,
+  `src/ThankYouScreen.jsx`, `src/main.jsx`, `src/index.css`, `src/services/`,
+  `src/utils/`, `src/kit/`, `vite.config.js`, `index.html`, `package.json`.
+
+### Known issues / deferred
+
+- `asset-from-here.md` still describes the old game's "precision horology" art
+  motif (sweep needles, guilloché plates, grace jewels). It is a Nano Banana
+  prompt sheet rather than shipped code, and rewriting it for the cover-line game
+  was outside this task's scope. It should be regenerated before any art pass.
+- The skilled bot wins 100.0% rather than merely clearing the 80% floor. The skill
+  ceiling is real (13.49x score separation from random, and the band-top bot at
+  43.6% of skilled), but survival saturates for a player who plays the forecast
+  perfectly; the remaining ceiling is expressed in score rather than in win rate.
+- Registration deltas (`scripts/games-manifest.json`, root `README.md` table,
+  `scripts/build-status.json`, `scripts/build_tracker.py`, `GAMES_TRACKER.xlsx`)
+  are the coordinator's task and were deliberately not touched. The manifest
+  concept line should become "Rate-limited cover-level management against
+  partially-hidden incoming claims".

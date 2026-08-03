@@ -27,7 +27,7 @@ Every prompt in this catalog is constructed using the following authoritative st
 8. [Portfolio Fit](#8-portfolio-fit)
 9. [Spiral Sprint](#9-spiral-sprint)
 10. [Wealth Drop](#10-wealth-drop)
-11. [Ripple Shield](#11-ripple-shield)
+11. ~~Ripple Shield~~ — dropped 2026-08-03, game deleted
 12. [Steady Tower](#12-steady-tower)
 13. [Goal Orbit](#13-goal-orbit)
 14. [Risk Strike](#14-risk-strike)

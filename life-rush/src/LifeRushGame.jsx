@@ -25,7 +25,7 @@
 // effects, audio and device profiling.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { COLORS, GAME_CONFIG } from './data.js';
+import { COLORS, GAME_CONFIG, GRAMMAR, MOMENTS } from './data.js';
 import { mulberry32 } from './rng.js';
 import { applyOutcome, buildRunPlan, createRun, statsOf, tierOf } from './scheduler.js';
 import { MICROGAMES } from './microgames/index.js';
@@ -71,6 +71,16 @@ const REASON_TEXT = {
   missed9: 'MISSED THE 9th!',
   early9: 'TOO EARLY!',
   hang: 'TIME UP!',
+};
+
+/* One line under the verdict saying WHY, for the two failures a first-time
+   player cannot otherwise account for. Running out of time is obvious once the
+   bar is unobstructed; being killed for touching before the cue is not, and it
+   was the single most opaque rule in the game. */
+const REASON_SUB = {
+  early: 'You moved before the chip lit up',
+  late: 'The action window ran out',
+  early9: 'You moved before the chip lit up',
 };
 
 /* Particle colour per microgame event kind (see common.js `emit`). */
@@ -119,10 +129,184 @@ function makeStageBitmap(W, H, dpr) {
   return cv;
 }
 
+/* ─── The persistent frame ────────────────────────────────
+   Everything below is drawn on EVERY frame of every phase, in the same place,
+   whatever microgame is running. It is the answer to "the objective and
+   mechanics are unclear": the content changes every two seconds, the frame
+   never does.
+
+   It is also drawn AFTER the phase overlays (banner, breather, speed-up), so
+   the instruction and the progress are never dimmed by the thing that is
+   supposed to be introducing them. */
+
+/**
+ * Progress track — twelve segments, one per moment.
+ *
+ * green cleared · red failed · orange (pulsing) the one you are on · dim to come.
+ * The "7/12" pill says the same thing in a number; this says it in a shape you
+ * can read without counting.
+ */
+function drawTrack(ctx, x, y, w, h, marks, current, n, time) {
+  const gap = 3;
+  const seg = (w - gap * (n - 1)) / n;
+  for (let i = 0; i < n; i++) {
+    const sx = x + i * (seg + gap);
+    let fill = 'rgba(255,255,255,0.14)';
+    if (marks[i] === 1) fill = 'rgba(74,222,128,0.92)';
+    else if (marks[i] === 2) fill = 'rgba(239,68,68,0.92)';
+    else if (i === current) {
+      ctx.save();
+      ctx.globalAlpha = 0.7 + 0.3 * Math.sin(time * 6);
+      ctx.fillStyle = COLORS.orangeLt;
+      rr(ctx, sx, y - 1, seg, h + 2, (h + 2) / 2);
+      ctx.fill();
+      ctx.restore();
+      continue;
+    }
+    ctx.fillStyle = fill;
+    rr(ctx, sx, y, seg, h, h / 2);
+    ctx.fill();
+  }
+}
+
+/** The four gestures of the input grammar, drawn identically every time. */
+function drawVerbGlyph(ctx, kind, x, y, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (kind === 'swipe') {
+    ctx.beginPath();
+    ctx.moveTo(-6, 0);
+    ctx.lineTo(5, 0);
+    ctx.moveTo(1, -4);
+    ctx.lineTo(5, 0);
+    ctx.lineTo(1, 4);
+    ctx.stroke();
+  } else if (kind === 'drag') {
+    ctx.beginPath();
+    ctx.arc(-5, 0, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.setLineDash([2, 2]);
+    ctx.moveTo(-1.5, 0);
+    ctx.lineTo(4, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(6, -3.4);
+    ctx.lineTo(6, 3.4);
+    ctx.stroke();
+  } else if (kind === 'hold') {
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.setLineDash([2.2, 2]);
+    ctx.arc(0, 0, 5.6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else {
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, 5.8, -0.9, 0.9);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, 5.8, Math.PI - 0.9, Math.PI + 0.9);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * The instruction strip — the one line that never leaves the screen.
+ *
+ * Before this existed, the command word and its hint were shown for 1.15 s on
+ * the banner and then vanished for the entire action window: the player was
+ * asked to remember the rules of a game they had seen once, while a clock ran.
+ * It now carries three things for the whole microgame:
+ *
+ *   the VERB CHIP   which of the four gestures this one wants — and, before the
+ *                   cue, the word WAIT, which is the only visible statement of
+ *                   the rule that touching early fails you outright;
+ *   the ASK         the microgame's own one-line hint;
+ *   the MOMENT      what the scene is about in money terms (data.js MOMENTS).
+ *
+ * `fit` is measured once per microgame per width (see `fitStrip`) rather than
+ * per frame — measureText allocates.
+ */
+function drawStrip(ctx, x, y, w, h, live, chip, glyph, ask, moment, why, fit, time) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(6,14,28,0.82)';
+  rr(ctx, x, y, w, h, 10);
+  ctx.fill();
+  ctx.strokeStyle = live ? 'rgba(255,138,61,0.45)' : 'rgba(255,255,255,0.13)';
+  ctx.lineWidth = 1;
+  rr(ctx, x, y, w, h, 10);
+  ctx.stroke();
+
+  // Verb chip. Slate while the microgame is locked, orange the instant it opens
+  // — the same beat the countdown bar starts draining on, said twice.
+  const cw = 58;
+  const ch = 22;
+  const cx = x + 7;
+  const cy = y + (h - ch) / 2;
+  const pop = live ? 1 : 0.94 + 0.06 * Math.sin(time * 5);
+  ctx.save();
+  ctx.translate(cx + cw / 2, cy + ch / 2);
+  ctx.scale(pop, pop);
+  ctx.translate(-(cx + cw / 2), -(cy + ch / 2));
+  ctx.fillStyle = live ? 'rgba(242,101,34,0.95)' : 'rgba(30,107,224,0.30)';
+  rr(ctx, cx, cy, cw, ch, 7);
+  ctx.fill();
+  ctx.strokeStyle = live ? 'rgba(255,196,150,0.8)' : 'rgba(166,208,255,0.45)';
+  ctx.lineWidth = 1;
+  rr(ctx, cx, cy, cw, ch, 7);
+  ctx.stroke();
+
+  const label = live ? chip : 'WAIT';
+  ctx.font = fontOf(live ? 11 : 10.5, 900);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = live ? '#FFFFFF' : 'rgba(214,232,255,0.92)';
+  const lw = ctx.measureText(label).width;
+  const gx = cx + (cw - (lw + 15)) / 2 + 6;
+  drawVerbGlyph(ctx, live ? glyph : 'hold', gx, cy + ch / 2, live ? '#FFFFFF' : 'rgba(214,232,255,0.9)');
+  ctx.fillText(label, gx + 9, cy + ch / 2 + 0.5);
+  ctx.restore();
+
+  const tx = cx + cw + 8;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.globalAlpha = live ? 1 : 0.62;
+  ctx.font = fontOf(fit.ask, 800);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(ask, tx, y + h * 0.44);
+  ctx.font = fontOf(fit.why, 700);
+  ctx.fillStyle = 'rgba(255,178,122,0.92)';
+  ctx.fillText(`${moment} · ${why}`, tx, y + h * 0.78);
+  ctx.restore();
+}
+
+/** Largest size at or below `max` that fits `str` in `w`. Called once per
+    microgame per width, never per frame. */
+function fitText(ctx, str, w, max, min) {
+  for (let size = max; size > min; size -= 0.5) {
+    ctx.font = fontOf(size, 800);
+    if (ctx.measureText(str).width <= w) return size;
+  }
+  return min;
+}
+
 /** The command word: a slammed-in card with the verb and its one-line hint.
     `slash` is the horizontal gradient behind the word, built once per resize —
     creating it here would allocate a gradient object on every banner frame. */
-function drawCommand(ctx, W, H, word, hint, k, slash) {
+function drawCommand(ctx, W, H, word, hint, moment, k, slash) {
   const inK = Easing.outBack(clamp(k / 0.32, 0, 1));
   const outK = k > 0.86 ? (k - 0.86) / 0.14 : 0;
   const alpha = 1 - outK;
@@ -152,6 +336,12 @@ function drawCommand(ctx, W, H, word, hint, k, slash) {
   ctx.fillText(word, 0, 3);
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText(word, 0, 0);
+
+  // The money moment above the verb, the ask below it: the banner says what
+  // this scene IS before it says what to do about it.
+  ctx.font = fontOf(Math.min(13, W * 0.036), 900);
+  ctx.fillStyle = COLORS.goldLt;
+  ctx.fillText(moment, 0, -bandH / 2 - 14);
 
   ctx.font = fontOf(Math.min(15, W * 0.040), 800);
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
@@ -205,13 +395,15 @@ function drawSpeedUp(ctx, W, H, k, step) {
   ctx.restore();
 }
 
-/** Verdict stamp after a microgame resolves. */
-function drawVerdict(ctx, W, H, ok, label, k) {
+/** Verdict stamp after a microgame resolves, with an optional line saying why. */
+function drawVerdict(ctx, W, H, ok, label, sub, k) {
   const inK = Easing.outBack(clamp(k / 0.26, 0, 1));
   const alpha = k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1;
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.translate(W / 2, H * 0.5);
+  // Above centre on purpose: the +points / SHIELD LOST floats own the middle of
+  // the stage, and stamping the verdict on top of them made both unreadable.
+  ctx.translate(W / 2, H * 0.36);
   ctx.scale(0.55 + inK * 0.45, 0.55 + inK * 0.45);
   ctx.rotate((1 - inK) * 0.22 - 0.05);
 
@@ -229,13 +421,19 @@ function drawVerdict(ctx, W, H, ok, label, k) {
   const w = ctx.measureText(label).width + 34;
   rr(ctx, -w / 2, -size * 0.72, w, size * 1.44, 12);
   ctx.stroke();
+
+  if (sub) {
+    ctx.font = fontOf(12, 800);
+    ctx.fillStyle = 'rgba(255,255,255,0.86)';
+    ctx.fillText(sub, 0, size * 1.05);
+  }
   ctx.restore();
 }
 
 /** The 3 - 2 - 1 - GO. */
 const INTRO_COUNTS = 3;
 const INTRO_GO_SECONDS = 0.6;
-function drawIntro(ctx, W, H, t, total) {
+function drawIntro(ctx, W, H, t, total, cfg) {
   const per = (total - INTRO_GO_SECONDS) / INTRO_COUNTS;
   const i = Math.floor(t / per);
   const go = i >= INTRO_COUNTS;
@@ -262,11 +460,19 @@ function drawIntro(ctx, W, H, t, total) {
   ctx.fillText(label, 0, 0);
   ctx.restore();
 
+  // The objective, in the last place a player can read it before it starts.
+  // "One verb, a few seconds, twelve times" described the format and never said
+  // what winning was.
   ctx.save();
-  ctx.font = fontOf(13, 800);
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.fillText('ONE VERB. A FEW SECONDS. TWELVE TIMES.', W / 2, H * 0.62);
+  ctx.font = fontOf(Math.min(15, W * 0.046), 900);
+  ctx.fillStyle = COLORS.goldLt;
+  ctx.fillText(cfg.theme.goal, W / 2, H * 0.60);
+  ctx.font = fontOf(Math.min(11.5, W * 0.036), 800);
+  ctx.fillStyle = 'rgba(255,255,255,0.78)';
+  ctx.fillText(cfg.theme.fail, W / 2, H * 0.655);
+  ctx.fillStyle = 'rgba(255,178,122,0.9)';
+  ctx.fillText(cfg.theme.cue, W / 2, H * 0.70);
   ctx.restore();
 }
 
@@ -353,6 +559,14 @@ export default function LifeRushGame({ config, onWin, onLose }) {
       mgState: null,
       outcome: null,
 
+      /* The persistent frame's own state. `marks` is the progress track (0 to
+         come, 1 cleared, 2 failed); `moments` is the same history in words, so
+         the results screen can list back the run the player just had. */
+      marks: null,
+      moments: [],
+      strip: null,
+      stripKey: '',
+
       phase: PHASE.INTRO,
       phaseT: 0,
       speedUps: 0,
@@ -422,6 +636,8 @@ export default function LifeRushGame({ config, onWin, onLose }) {
     s.plan = buildRunPlan(cfg, mulberry32(seed));
     s.run = createRun(cfg);
     s.index = 0;
+    s.marks = new Int8Array(cfg.gamesPerRun);
+    s.moments = [];
 
     /* --- canvas sizing --------------------------------------------------- */
     const fit = () => {
@@ -433,10 +649,14 @@ export default function LifeRushGame({ config, onWin, onLose }) {
       s.H = h;
       s.stageBmp = makeStageBitmap(w, h, s.dpr);
 
-      // Letterbox the 100 x 130 logical box into the stage, leaving room at the
-      // top for the countdown bar.
-      const top = 26;
-      const bottom = 10;
+      // Letterbox the 100 x 130 logical box into the stage, UNDER the whole
+      // persistent frame. The first build reserved 26 px for the countdown bar
+      // and then drew the DOM pill row on top of it at y=10, so the one element
+      // that tells you you are about to die was behind the score pill on every
+      // handset. The frame now owns the top `stageTop` px outright and nothing
+      // overlaps anything.
+      const top = cfg.hud.stageTop;
+      const bottom = cfg.hud.stageBottom;
       const availH = h - top - bottom;
       s.k = Math.min(w / STAGE_W, availH / STAGE_H);
       s.ox = (w - STAGE_W * s.k) / 2;
@@ -449,8 +669,27 @@ export default function LifeRushGame({ config, onWin, onLose }) {
       slash.addColorStop(0.5, 'rgba(242,101,34,0.92)');
       slash.addColorStop(1, 'rgba(242,101,34,0)');
       s.slash = slash;
+
+      // The strip's text sizes are measured against the width; a resize has to
+      // re-measure them.
+      s.stripKey = '';
     };
     fit();
+
+    /* The instruction strip's two lines are shrunk to fit the stage once per
+       microgame per width. Measuring in the render loop would allocate a
+       TextMetrics object every frame for text that changes twelve times a run. */
+    const fitStrip = () => {
+      const key = `${s.mg.id}|${s.W}`;
+      if (s.stripKey === key) return;
+      s.stripKey = key;
+      const avail = s.W - cfg.hud.inset * 2 - 58 - 22;
+      const m = MOMENTS[s.mg.id];
+      s.strip = {
+        ask: fitText(ctx, s.mg.hint, avail, 12.5, 8.5),
+        why: fitText(ctx, `${m.moment} · ${m.why}`, avail, 9.5, 7),
+      };
+    };
 
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
     ro?.observe(wrap);
@@ -517,7 +756,11 @@ export default function LifeRushGame({ config, onWin, onLose }) {
         fx.floatText(cx, Math.max(36, cy - 52), 'LIFE GOT AHEAD', COLORS.dangerLt, 18);
       }
 
-      const stats = statsOf(s.run);
+      // The {score, cleared, bestStreak, perfects} contract, plus the run's own
+      // history so the results screen can name the twelve moments back. Extra
+      // key, same contract — nothing downstream reads `moments` unless it wants
+      // to.
+      const stats = { ...statsOf(s.run), moments: s.moments };
       endTimerRef.current = setTimeout(() => {
         (won ? winRef.current : loseRef.current)?.(stats);
       }, cfg.pacing.endBeatSeconds * 1000);
@@ -545,6 +788,8 @@ export default function LifeRushGame({ config, onWin, onLose }) {
       const rec = applyOutcome(s.run, entry, res, cfg);
       s.outcome = rec;
       s.score = s.run.score;
+      s.marks[s.index] = rec.cleared ? 1 : 2;
+      s.moments.push({ id: entry.id, cleared: rec.cleared });
 
       const cx = s.W / 2;
       const cy = s.oy + STAGE_H * s.k * 0.5;
@@ -577,7 +822,14 @@ export default function LifeRushGame({ config, onWin, onLose }) {
           x: cx, y: cy, count: cfg.fx.failParticles, color: COLORS.danger,
           speed: 230, spread: Math.PI * 2, size: 3.4, life: 0.75, gravity: 480, drag: 0.9,
         });
-        fx.floatText(cx, clamp(cy - 34, 40, s.H - 60), 'COVER LOST', COLORS.dangerLt, 16);
+        // Name the cost and what is left of it. "COVER LOST" did not say that a
+        // life had gone, let alone how many remained.
+        fx.floatText(cx, clamp(cy - 34, 40, s.H - 60), 'SHIELD LOST', COLORS.dangerLt, 17);
+        fx.floatText(
+          cx, clamp(cy - 8, 40, s.H - 44),
+          s.run.lives > 0 ? `${s.run.lives} LEFT` : 'NO SHIELDS LEFT',
+          s.run.lives === 1 ? COLORS.danger : COLORS.dangerLt, 13,
+        );
       }
 
       s.phase = PHASE.BEAT;
@@ -712,34 +964,17 @@ export default function LifeRushGame({ config, onWin, onLose }) {
         ctx.restore();
       }
 
-      /* Countdown bar. It shows the ANSWERABLE window (cue -> the next instant
-         that can end the microgame), not the whole action window. Drawing
-         `1 - t/duration`, as the first build did, was a lie: the real deadline
-         is 41-65% of the window on every microgame at every slot, so players
-         timed out with the bar still a third full and the red state was dead
-         code. `countdownFrac` is shared with the gate's HUD-honesty assertion.
-
-         Before the cue the bar shows an ARMING state rather than draining, so
-         the moment it starts moving is itself the tell that the window is
-         open. */
-      if (s.phase === PHASE.PLAY && s.mgState) {
-        const st = s.mgState;
-        const armed = st.phase !== 'wait';
-        const frac = countdownFrac(st);
-        drawCountdown(ctx, 16, 12, W - 32, frac, armed && frac <= cfg.hud.lowFrac, !armed, s.time);
-      } else if (s.phase === PHASE.BANNER) {
-        drawCountdown(ctx, 16, 12, W - 32, 1, false, true, s.time);
-      }
-
       if (s.phase === PHASE.INTRO) {
-        drawIntro(ctx, W, H, s.phaseT, cfg.pacing.introSeconds);
+        drawIntro(ctx, W, H, s.phaseT, cfg.pacing.introSeconds, cfg);
       } else if (s.phase === PHASE.BANNER) {
-        drawCommand(ctx, W, H, s.mg.command, s.mg.hint, s.phaseT / cfg.pacing.bannerSeconds, s.slash);
+        drawCommand(ctx, W, H, s.mg.command, s.mg.hint, MOMENTS[s.mg.id].moment,
+          s.phaseT / cfg.pacing.bannerSeconds, s.slash);
       } else if (s.phase === PHASE.BEAT && s.outcome) {
         const dur = s.outcome.cleared ? cfg.pacing.clearBeatSeconds : cfg.pacing.failBeatSeconds;
         drawVerdict(
           ctx, W, H, s.outcome.cleared,
           s.outcome.cleared ? 'CLEARED!' : (REASON_TEXT[s.outcome.reason] || 'MISSED!'),
+          s.outcome.cleared ? '' : (REASON_SUB[s.outcome.reason] || ''),
           clamp(s.phaseT / dur, 0, 1),
         );
       } else if (s.phase === PHASE.BREATHER) {
@@ -751,6 +986,38 @@ export default function LifeRushGame({ config, onWin, onLose }) {
         ctx.restore();
       } else if (s.phase === PHASE.SPEEDUP) {
         drawSpeedUp(ctx, W, H, clamp(s.phaseT / cfg.pacing.speedUpSeconds, 0, 1), s.speedUps);
+      }
+
+      /* ── The persistent frame, drawn LAST so no overlay dims it ──────────
+         Progress track, action window, instruction strip. Present in every
+         phase after the intro, identical in position and shape whichever of the
+         fourteen scenes is on the stage. The whole point of the change: the
+         content is a rush, the frame is a constant. */
+      const HD = cfg.hud;
+      if (s.phase !== PHASE.INTRO && s.mg) {
+        const fw = W - HD.inset * 2;
+        drawTrack(ctx, HD.inset, HD.trackY, fw, HD.trackH, s.marks, s.index, cfg.gamesPerRun, s.time);
+
+        /* The action window. It shows the ANSWERABLE window (cue -> the next
+           instant that can end the microgame), not the whole action window.
+           Drawing `1 - t/duration`, as the first build did, was a lie: the real
+           deadline is 41-65% of the window on every microgame at every slot.
+           `countdownFrac` is shared with the gate's HUD-honesty assertion.
+
+           Before the cue the bar shows an ARMING state rather than draining, so
+           the moment it starts moving is itself the tell that the window is
+           open — said again by the verb chip lighting up. */
+        const st = s.phase === PHASE.PLAY ? s.mgState : null;
+        const armed = !!st && st.phase !== 'wait';
+        const frac = st ? countdownFrac(st) : 1;
+        drawCountdown(ctx, HD.inset, HD.barY, fw, frac,
+          armed && frac <= HD.lowFrac, !armed, s.time);
+
+        fitStrip();
+        const m = MOMENTS[s.mg.id];
+        const g = GRAMMAR[s.mg.verb] || GRAMMAR.tap;
+        drawStrip(ctx, HD.inset, HD.stripY, fw, HD.stripH, armed,
+          g.chip, g.glyph, s.mg.hint, m.moment, m.why, s.strip, s.time);
       }
 
       fx.draw(ctx);
@@ -814,21 +1081,32 @@ export default function LifeRushGame({ config, onWin, onLose }) {
         <canvas ref={canvasRef} style={styles.canvas} />
 
         {/* HUD ------------------------------------------------------- */}
-        <div style={styles.hudTop}>
+        {/* Sits BELOW the progress track and the action window (both drawn on
+            the canvas) rather than on top of them — see the note in fit(). */}
+        <div style={{ ...styles.hudTop, top: cfg.hud.pillsY }}>
           <div style={styles.pill}>
             <span style={styles.pillLabel}>Score</span>
             <span ref={scoreElRef} style={styles.pillValue}>0</span>
           </div>
 
-          {/* Lives as shield pips. */}
-          <div style={styles.lives}>
-            {Array.from({ length: cfg.lives }).map((_, i) => (
-              <ShieldPip key={i} lit={i < hud.lives} />
-            ))}
+          {/* Lives as shield pips, captioned. Three unlabelled crests do not say
+              what they are or what running out of them costs. */}
+          <div style={styles.livesWrap}>
+            <span style={{
+              ...styles.pillLabel,
+              color: hud.lives === 1 ? COLORS.dangerLt : 'rgba(255,255,255,0.55)',
+            }}>
+              {hud.lives === 1 ? 'Last shield' : 'Shields'}
+            </span>
+            <div style={styles.lives}>
+              {Array.from({ length: cfg.lives }).map((_, i) => (
+                <ShieldPip key={i} lit={i < hud.lives} />
+              ))}
+            </div>
           </div>
 
           <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
-            <span style={styles.pillLabel}>Game</span>
+            <span style={styles.pillLabel}>Moment</span>
             <span ref={slotElRef} style={styles.pillValue}>1/{cfg.gamesPerRun}</span>
           </div>
         </div>
@@ -977,18 +1255,23 @@ const styles = {
     fontVariantNumeric: 'tabular-nums',
     display: 'inline-block',
   },
+  livesWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 2,
+  },
   lives: {
     ...glass,
     display: 'flex',
     alignItems: 'center',
     gap: 4,
     borderRadius: 999,
-    padding: '5px 9px',
-    marginTop: 3,
+    padding: '4px 9px',
   },
   streakWrap: {
     position: 'absolute',
-    top: 58,
+    top: 116,
     left: 0,
     right: 0,
     display: 'flex',

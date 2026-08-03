@@ -417,3 +417,196 @@ keep-clear box marking, and win/loss tableaus.
   (141.93 kB gzip), `index-v4scUYR6.css` 33.00 kB, built in 2.51 s.
 - `node scripts/balance.mjs --runs 60` — **GATE: PASS** (reaction bot 30.0% at
   338×452, do-nothing crash-out 5.7 s, park-N/S 3.3%). Balance harness unmodified.
+
+---
+
+## 2026-08-03 — UI review round: danger/safety indicators, HUD composition, movement feedback
+
+Review verdict was "the user interface requires major improvement", with the
+danger and safety indicators named as the priority. Scope: presentation only.
+`src/traffic.js`, `scripts/balance.mjs` and every rule, constant and screen in
+the flow are untouched — the only files changed are `src/data.js` (tokens) and
+`src/SafeCrossingGame.jsx` (draw + HUD). `src/kit/` is untouched.
+
+### The defect, as measured on the shipped build
+
+Screenshots of the built `dist/` at 320×568, 390×844, 412×915 and 412×700
+(headless Chrome, real touch, captured mid-play rather than on the results
+screen) showed three separate problems, all of them presentation:
+
+1. **There was no "safe" state at all, and "danger" was ambient.** The only
+   danger cue was a thin orange dashed ring drawn on every vehicle flagged by
+   `collectConflicts`, anywhere on its runway. At 412×700 that put a ring on
+   **five of the seven vehicles on screen**. A marker that is on almost
+   everything is not a signal. Nothing anywhere told the player the junction was
+   currently clear, so the go/stop question the whole game asks had no answer on
+   screen.
+2. **Orange meant three different things at once** — the risk truck's body, the
+   predicted-conflict ring, and the out-of-patience dashed ring — while red
+   meant "held", i.e. the player's own protective action. The colour grammar
+   documented at the top of `data.js` ("protection is always blue, never red")
+   was contradicted by the code.
+3. **The HUD sat on the play area.** Three stacked absolute rows down the top of
+   the stage: pills at `top:10`, the progress rail at `top:62`, the status chips
+   at `top:96`. On a 320×568 handset the third row lands at x 20–130, and the
+   southbound lane runs x 115–183 — the "Claim Cushion" chip was sitting on top
+   of moving traffic in the exact strip where the approach is read. No
+   `env(safe-area-inset-*)` anywhere, so a notched phone would have clipped it.
+
+### Composition and hierarchy
+
+Two strips, and everything between them is play area.
+
+- **Top:** ONE glass card (`styles.hudTop`) carrying Through / Score / Time and
+  the progress rail inside it, instead of three floating rows. Through and Time
+  are 20 px 900-weight (they are the two numbers a decision is made against);
+  Score is a step down at 16 px, because it is a reward readout and nothing is
+  decided by it. Labels went 8 px / 0.55 alpha → 9 px / 0.68, which is where
+  they clear 4.5:1 on the dark glass; at the old size and alpha they did not
+  read at all on a dim screen. Net effect on the board: the top clutter band
+  shrinks from 117 px to ~70 px, so ~47 px more of the northbound approach is
+  visible.
+- **Bottom-left:** the two state chips (junction status, Claim Cushion). The
+  bottom-left quadrant is a city block at every canvas size, so nothing can ever
+  drive under them. Labels are sized so the widest ("No cover") stays under
+  ~95 px and clears the southbound lane on a 320 px handset.
+- Safe-area insets are applied once, to the STAGE (`styles.root`), rather than
+  per HUD strip — everything the player reads lives inside the stage, so one
+  inset covers all of it. This was a known repo-wide gap.
+- Deleted the "N held" chip and its React state. The canvas already shows every
+  held vehicle with a ring, and it was re-rendering the tree every time the
+  count changed.
+- The junction status chip is driven through a `data-state` attribute written
+  from the render loop, not through React state: the conflict scan runs ~8 times
+  a second and re-rendering the tree that often to flip one word is not worth a
+  frame of anybody's budget. CSS owns the colour, the glyph swap and the alarm.
+
+### Danger and safety, and the non-colour signal
+
+The rule applied throughout: no state is signalled by colour alone. Each one
+changes SHAPE as well, and the two most important also differ in stroke weight
+and in whether they move.
+
+| state | colour | shape | motion |
+|---|---|---|---|
+| junction clear | green `#4ADE80` | four OPEN corner brackets, 2 px | none, perfectly still |
+| junction contested | red `#EF4444` | the same four corners become FILLED TRIANGLES, plus a 2.6 px full outline | pulses at 2.1 Hz |
+| exact collision point | red | a filled DIAMOND — the only rotated square on a board of axis-aligned rounded rects and circles | pulses with the frame |
+| vehicle in a predicted pair | red | solid ring + a hazard TRIANGLE at twelve o'clock, drawn in screen space so it always points up | pulses with the frame |
+| held by the player | brand blue `#1E6BE0` | the only CLOSED, DRAINING arc gauge in the game | static, and no motion streaks |
+| no control (truck / patience spent) | orange | dashed ring, hazard chevrons, beacon | slow blink |
+
+Three decisions worth recording:
+
+- **Held moved from red to brand blue.** Red is now used for exactly one thing —
+  a collision that is about to happen or has just happened — which is what the
+  repo convention asks for. Holding a vehicle is the protective act, and
+  protection is blue everywhere in this suite; the tap-to-hold particle burst
+  moved to blue with it. This also means the insurance theme is carried by the
+  mechanic itself rather than bolted on: every time the player protects
+  somebody, a Bajaj-blue ring appears around them.
+- **The junction frame is the peripheral read.** It is drawn on the box, which
+  is where the eye already is, so "safe now / not safe now" is answered without
+  looking away from the mover. The chip in the HUD carries the same state as a
+  WORD ("Clear" / "Conflict") with a circle→triangle glyph swap — a word is the
+  strongest non-colour signal there is, and it is what survives a greyscale
+  screenshot.
+- **The per-vehicle ring is now range-limited** to `indicator.warnRangeLanes`
+  (4.5 lane widths) from the box. The information the player can act on is
+  "which of the vehicles about to enter the box", not "which two objects
+  anywhere on a runway half of which is off-canvas".
+
+Tuned against the screenshots, not asserted: the first pass used
+`cornerFrac 0.46` and `diamondFrac 0.26`, and on a box only two lane widths
+across the four corner triangles met in the middle and the whole junction read
+as a solid red block that hid the keep-clear hatch and the vehicles inside it.
+Shipped at 0.26 and 0.18, with the outline glow cut from `10 + beat*14` to
+`4 + beat*7`. Both numbers are commented at their definition in `data.js`.
+
+Nothing here tells the player which vehicle to hold. Both vehicles of a pair are
+marked identically, so the risk-truck lesson — the 18-point gap between the
+gated bot (34.3%) and the truck-aware ceiling (52.8%) — is still something the
+player learns rather than something the HUD hands them.
+
+### Movement feedback
+
+- **Motion streaks.** Every vehicle above `indicator.trailMinSpeed` (16% of
+  cruise) trails two tapered wheel streaks whose length and alpha track its
+  ACTUAL speed. This is both the movement feedback the review asked for and the
+  non-colour half of the go/stop read: a rolling vehicle has streaks, a stopped
+  one has none, and a vehicle easing off behind a hold visibly shortens its
+  streak before it stops. Drawn as four flat rects at two alphas rather than a
+  per-vehicle `createLinearGradient`, so the hot loop still allocates nothing.
+- Existing feedback kept and now consistent with the grammar: brake-light glare
+  scaled by braking, squash on tap, blue burst on hold / green on release,
+  floating `+50` and `SMART TIMING +30`, hit-stop and shake on collision.
+- `prefers-reduced-motion`: the single `beat` that drives every contested
+  indicator is pinned to 0.85 via the kit's `fx.reducedMotion` rather than being
+  hand-rolled, so the alarm stays LIT but stops flashing; the CSS chip alarm
+  does the same via a `@media (prefers-reduced-motion: reduce)` override that
+  swaps the keyframe for a static box-shadow. Verified in headless with
+  `emulateMediaFeatures` — state still reads, nothing moves.
+
+### Insurance theme without interfering with gameplay
+
+- A Bajaj-blue shield-and-tick watermark is embossed into the top-right and
+  bottom-right city blocks (`paintShieldMark`). Vehicles only ever travel on the
+  cross, so those two quadrants are the one part of the board that can never
+  have traffic on it. It is baked into the pre-rendered road bitmap, so it costs
+  nothing per frame, and it sits well under the asphalt's contrast so it reads
+  as an emboss rather than as something tappable. Bottom-left is deliberately
+  left bare — that is where the status chips live.
+- The Claim Cushion chip stays, now reading "Cover 1" with a shield-and-tick and
+  "No cover" once spent.
+- The strongest carrier is the blue hold ring described above.
+
+### Verification
+
+- `npx vite build` — **PASS**. 524 modules, `dist/assets/index-CHvtAH6C.js`
+  430.86 kB (143.50 kB gzip), `index-v4scUYR6.css` 33.00 kB, 7.64 s.
+- `node scripts/balance.mjs --runs 400` — **GATE: PASS** at all three canvas
+  sizes, unchanged from the previous round as expected (no rule touched):
+  reaction bot 34.3% / 38.5% / 32.5%, truck-aware ceiling 52.8% / 57.5% / 51.5%,
+  park-N/S 5.0% / 5.0% / 4.8%, do-nothing crash-out 6.3 s / 5.4 s / 5.5 s,
+  truck-vs-truck 0.3–0.8% of all crashes.
+- `node scripts/play-test.mjs safe-crossing --all-sizes` — **no page errors and
+  no console errors at any size**; canvas mounts and paints at all four:
+
+  | viewport | canvas | painted | run | retry |
+  |---|---|---|---|---|
+  | 320×568 | 298×546 | 100.0% | ended 5 s at "try again" | canvas back |
+  | 390×844 | 368×822 | 100.0% | ended 6 s at "try again" | canvas back |
+  | 412×915 | 390×893 | 100.0% | ended 17 s at "try again" | canvas back |
+  | 412×700 | 390×678 | 100.0% | ended 11 s at "try again" | canvas back |
+
+  The harness's "random-input run under 20 s" note fires, as it did on the
+  pre-change build and as it must: the bot swipes at random, and `balance.mjs`
+  measures a do-nothing player crashing out at a 5.4–6.3 s median BY DESIGN
+  (that is the brief's own under-15 s gate). Random tapping is worse than doing
+  nothing here, because it releases vehicles it just held. The authority on
+  reachability is gate 1, which is inside its 25–45% band at every size.
+- Screenshots read at all four sizes, in both the contested and the clear state,
+  and under `prefers-reduced-motion`. At 320×568 and 412×700 — the two the
+  review calls out — the top card clears the box by 175 px and 250 px, the
+  bottom chips sit entirely on the bottom-left city block, and nothing clips.
+
+### Known issues / deferred
+
+- The first-run hint is two lines and, at 320×568, sits over the northbound
+  approach until the first tap dismisses it. Shortened from four clauses to two
+  this round; removing it entirely would leave the tap-to-hold control
+  undiscoverable for anyone who skipped the how-to-play screen.
+- The Claim Cushion road decal still blooms to 3.2 lane widths and briefly
+  covers a large part of the board. It is a 1.1 s one-shot on a once-per-run
+  event and it was not raised, so it was left alone.
+- The bottom-left chips can overlap the leftmost ~10 px of the southbound lane
+  on a 320 px canvas. They are translucent glass and sit ~180 px below the box,
+  where no decision is being made; the alternative (the old row at `top:96`) put
+  them in the middle of the approach.
+- `centerYFrac` was left at 0.53. Centring the box in the visible band between
+  the two strips would want ~0.52, but it feeds `J.near` / `J.far` and therefore
+  the measured balance table, and a one-percent composition gain is not worth
+  re-measuring 1,200 gated runs for.
+- The results screen, lead modal and slot modal were not touched: they are
+  shared-system chrome, the review did not raise them, and the lead form is
+  already Name + Mobile only per the 2026-08-03 client reaffirmation.

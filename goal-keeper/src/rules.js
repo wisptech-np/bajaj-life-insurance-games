@@ -1,167 +1,130 @@
-// rules.js — pure save judgment, scoring, shield and win/lose rules.
+// rules.js — scoring, the family's funding, and the win/lose line.
 //
-// PURE MODULE. No DOM, no canvas, no React, no import of data.js. Everything
-// takes the config object as a parameter, so scripts/balance.mjs runs exactly
-// these rules headless.
+// PURE MODULE. No DOM, no canvas, no React, no import of data.js. It is
+// deliberately separate from cover.js: cover.js knows where the span is and
+// whether a ball got past it, and knows nothing about what that costs. This
+// file is the only place that decides what a save is worth and when the match
+// is over, which is why scripts/balance.mjs can measure the two independently.
 //
-// The run state is a plain mutable object (see createRun). Mutating it is
-// deliberate: the game component holds it in a ref and the sim holds it on the
-// stack, and neither wants a fresh object allocated ten times a run.
+// `run` is a plain mutable object, mutated in place for the same reason the
+// world is (see cover.js).
 
-import { diveTravelMs } from './shots.js';
+import { goalIndexFor } from './cover.js';
 
-/**
- * Judge one dive against one shot.
- *
- * A save needs BOTH halves:
- *   - the right zone (the read), and
- *   - a dive that gets there no later than the ball (the commitment).
- *
- * `dive` is `{ zone, perfect, commitMs }` or null when the keeper never moved.
- * `commitMs` is measured from the start of the run-up, i.e. the same clock as
- * `shot.arrivalMs`.
- */
-export function judgeDive(shot, dive, cfg) {
-  if (!dive) {
-    return { saved: false, correctZone: false, inTime: false, perfect: false, frozen: true, arriveMs: Infinity };
-  }
-  const travel = diveTravelMs(cfg, dive.zone);
-  const arriveMs = dive.commitMs + travel;
-  const inTime = arriveMs <= shot.arrivalMs + cfg.dive.graceMs;
-  const correctZone = dive.zone === shot.zone;
-  const saved = correctZone && inTime;
+/** Fresh run state. `lives` is per family goal, in cfg.goals order. */
+export function createRun(cfg) {
   return {
-    saved,
-    correctZone,
-    inTime,
-    perfect: saved && !!dive.perfect,
-    frozen: false,
-    arriveMs,
-  };
-}
-
-/** Fresh run state. */
-export function createRun() {
-  return {
-    shotIndex: 0,
     score: 0,
     saves: 0,
     conceded: 0,
     streak: 0,
     bestStreak: 0,
-    perfects: 0,
-    riskSaves: 0,
-    shieldsUsed: 0,
-    shieldsEarned: 0,
-    shield: 0,
+    planned: 0,
+    renewals: 0,
+    lapses: 0,
+    blocked: 0,
+    lives: cfg.goals.map(() => cfg.livesPerGoal),
     over: false,
     won: false,
+    /** Set by finishRun; the results screen reports it. */
+    survivedSeconds: 0,
   };
+}
+
+/**
+ * Apply one event from stepWorld.
+ *
+ * Only 'impact', 'renew' and 'blocked' carry consequences; 'wave' and 'premium'
+ * are presentation cues and are ignored here on purpose, so the renderer can
+ * consume the same event stream without the scoring double-counting.
+ */
+export function applyEvent(run, ev, cfg) {
+  if (ev.type === 'renew') {
+    run.renewals += 1;
+    if (ev.cost > 1) run.lapses += 1;
+    return null;
+  }
+  if (ev.type === 'blocked') {
+    run.blocked += 1;
+    return null;
+  }
+  if (ev.type !== 'impact') return null;
+
+  const sc = cfg.scoring;
+  if (ev.saved) {
+    // The streak bonus uses the streak BEFORE this save, so the first save of a
+    // run is a flat 100 and the run only compounds once it is actually a run.
+    const streakBonus = Math.min(run.streak, sc.streakCap) * sc.streakBonus;
+    const plannedBonus = ev.planned ? sc.plannedBonus : 0;
+    const points = sc.save + streakBonus + plannedBonus;
+    run.score += points;
+    run.saves += 1;
+    run.streak += 1;
+    if (run.streak > run.bestStreak) run.bestStreak = run.streak;
+    if (ev.planned) run.planned += 1;
+    return { kind: 'save', points, streakBonus, plannedBonus, planned: !!ev.planned, goal: goalIndexFor(ev.u, cfg) };
+  }
+
+  const goal = goalIndexFor(ev.u, cfg);
+  run.conceded += 1;
+  run.streak = 0;
+  run.lives[goal] = Math.max(0, run.lives[goal] - 1);
+  const status = runStatus(run, cfg);
+  run.over = status.over;
+  run.won = status.won;
+  return { kind: 'goal', points: 0, goal, livesLeft: run.lives[goal], over: status.over };
 }
 
 /**
  * Is the run finished, and did the keeper win?
  *
- * Note `savesToWin` (6) and `concededToLose` (5) are two views of the same
- * line: with 10 shots, a fifth goal makes a sixth save arithmetically
- * impossible. The "unreachable" clause below is therefore never in conflict
- * with the conceded clause — it is stated separately so that retuning either
- * constant in data.js cannot produce a run that can neither be won nor ended.
+ * Losing is per-goal, not on a shared pool: every pip on ANY ONE family goal
+ * gone ends the match. Three goals x five pips is fifteen concessions if the
+ * damage is spread perfectly and five if it is not, which is what makes WHERE
+ * the span sits a decision that outlives the shot in front of you.
+ *
+ * Winning is not a score line — it is reaching full time with all three still
+ * standing. Nothing about the ending depends on how you played, only on
+ * whether the family's plan survived, which is the whole point.
  */
 export function runStatus(run, cfg) {
-  if (run.saves >= cfg.savesToWin) return { over: true, won: true };
-  if (run.conceded >= cfg.concededToLose) return { over: true, won: false };
-  const shotsLeft = cfg.shotsPerSession - run.shotIndex;
-  if (shotsLeft <= 0) return { over: true, won: run.saves >= cfg.savesToWin };
-  if (run.saves + shotsLeft < cfg.savesToWin) return { over: true, won: false };
-  return { over: false, won: false };
+  for (let i = 0; i < run.lives.length; i++) {
+    if (run.lives[i] <= 0) return { over: true, won: false, breached: i };
+  }
+  return { over: false, won: false, breached: -1 };
 }
 
-/**
- * Apply one judged shot to the run.
- *
- * Mutates `run` and returns an outcome record the presentation layer uses to
- * pick sounds, particles and banner copy. Three outcomes:
- *
- *   'save'   — read it and got there. Scores base (200 on a Risk shot, else
- *              100) + 25 x the streak you already had + 50 for a dive planted
- *              in the centre of the zone.
- *   'shield' — beaten, but a Shield glove was held. Counts as a save toward
- *              the win line, pays a flat consolation, and resets the streak:
- *              the cover did the work, not the read.
- *   'goal'   — conceded.
- *
- * A third consecutive save earns a Shield glove, capped at one held.
- */
-export function resolveShot(run, shot, judgement, cfg) {
-  const sc = cfg.scoring;
-  let kind;
-  let base = 0;
-  let streakBonus = 0;
-  let perfectBonus = 0;
-
-  if (judgement.saved) {
-    kind = 'save';
-    base = shot.risk ? sc.riskSave : sc.save;
-    streakBonus = run.streak * sc.streakBonus;
-    perfectBonus = judgement.perfect ? sc.perfectBonus : 0;
-    run.saves += 1;
-    run.streak += 1;
-    if (run.streak > run.bestStreak) run.bestStreak = run.streak;
-    if (judgement.perfect) run.perfects += 1;
-    if (shot.risk) run.riskSaves += 1;
-  } else if (run.shield > 0) {
-    kind = 'shield';
-    base = sc.shieldSave;
-    run.shield -= 1;
-    run.shieldsUsed += 1;
-    run.saves += 1;
-    run.streak = 0;
-  } else {
-    kind = 'goal';
-    run.conceded += 1;
-    run.streak = 0;
-  }
-
-  const points = base + streakBonus + perfectBonus;
-  run.score += points;
-
-  // Three in a row earns the glove. `streak % savesToEarn` rather than `>=` so a
-  // long run of saves does not re-grant on every save after the third; `maxHeld`
-  // stops it stockpiling.
-  let shieldGranted = false;
-  if (kind === 'save'
-    && run.streak > 0
-    && run.streak % cfg.shield.savesToEarn === 0
-    && run.shield < cfg.shield.maxHeld) {
-    run.shield += 1;
-    run.shieldsEarned += 1;
-    shieldGranted = true;
-  }
-
-  run.shotIndex += 1;
+/** Called once when the plan runs out. Adds the end-of-match bonuses. */
+export function finishRun(run, cfg, secondsSurvived) {
   const status = runStatus(run, cfg);
-  run.over = status.over;
-  run.won = status.won;
-
-  return {
-    kind,
-    points,
-    base,
-    streakBonus,
-    perfectBonus,
-    shieldGranted,
-    over: status.over,
-    won: status.won,
-  };
+  run.survivedSeconds = Math.round(secondsSurvived);
+  run.over = true;
+  run.won = !status.over;
+  if (run.won) {
+    const sc = cfg.scoring;
+    let intact = 0;
+    for (let i = 0; i < run.lives.length; i++) if (run.lives[i] >= cfg.livesPerGoal) intact += 1;
+    run.score += sc.survivalBonus + intact * sc.goalIntactBonus;
+    run.intactGoals = intact;
+  } else {
+    run.intactGoals = 0;
+  }
+  return run;
 }
 
 /** The stats contract this game reports to the results screen. */
-export function statsOf(run) {
+export function statsOf(run, cfg) {
   return {
     score: Math.round(run.score),
     saves: run.saves,
     conceded: run.conceded,
     streak: run.bestStreak,
+    planned: run.planned,
+    renewals: run.renewals,
+    survived: run.survivedSeconds,
+    /** Percentage of the family's total funding still standing. */
+    funding: Math.round(
+      (run.lives.reduce((a, b) => a + b, 0) / (cfg.goals.length * cfg.livesPerGoal)) * 100,
+    ),
   };
 }

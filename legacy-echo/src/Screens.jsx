@@ -381,16 +381,31 @@ export function HowToPlayScreen({ onPlay }) {
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 14px 0',
+          margin: '0 0 6px 0',
           color: '#fff',
           textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
-          How to Play
+          Your Goal
         </h2>
+
+        {/* The objective, once, in words a first-timer can act on. The demo
+            below shows the rest; there is no second paragraph. */}
+        <p style={{
+          fontSize: 14,
+          fontWeight: 800,
+          lineHeight: 1.35,
+          margin: '0 0 12px 0',
+          color: 'rgba(255,255,255,0.92)',
+        }}>
+          Get the <span style={{ color: '#FFC845' }}>gold chest</span> up to the{' '}
+          <span style={{ color: '#FFC845' }}>vault</span>. Gates open only while
+          someone stands on a <span style={{ color: '#4ADE80' }}>green pad</span> —
+          so your last loop comes back to stand on it for you.
+        </p>
 
         <div style={{
           position: 'relative',
@@ -432,16 +447,26 @@ export function HowToPlayScreen({ onPlay }) {
               <TutBody core="#B3E5FC" rim="#4FC3F7" glow="rgba(79,195,247,0.28)" />
             </g>
 
+            {/* NOTE: anything whose keyframes animate `transform` must sit in
+                an OUTER <g> that carries the placement, because a CSS
+                transform REPLACES the SVG transform attribute rather than
+                composing with it — without the wrapper these three all
+                animate about the viewBox origin and vanish off-frame. */}
+
             {/* The policy chest, carried once the guardian picks it up. */}
-            <g className="le-tut-chest" transform="translate(148 168)">
-              <rect x="-11" y="-8" width="22" height="16" rx="3" fill="#B07B12" />
-              <rect x="-11" y="-8" width="22" height="7" rx="3" fill="#FFC845" />
-              <rect x="-2.5" y="-4" width="5" height="7" rx="1.5" fill="#FFE38A" />
+            <g transform="translate(148 168)">
+              <g className="le-tut-chest">
+                <rect x="-11" y="-8" width="22" height="16" rx="3" fill="#B07B12" />
+                <rect x="-11" y="-8" width="22" height="7" rx="3" fill="#FFC845" />
+                <rect x="-2.5" y="-4" width="5" height="7" rx="1.5" fill="#FFE38A" />
+              </g>
             </g>
 
             {/* The living guardian. */}
-            <g className="le-tut-hero" transform="translate(148 150)">
-              <TutBody core="#FFD9B8" rim="#F26522" glow="rgba(242,101,34,0.32)" />
+            <g transform="translate(148 150)">
+              <g className="le-tut-hero">
+                <TutBody core="#FFD9B8" rim="#F26522" glow="rgba(242,101,34,0.32)" />
+              </g>
             </g>
 
             {/* Rewind scrub between loops. */}
@@ -449,12 +474,14 @@ export function HowToPlayScreen({ onPlay }) {
               fill="#4FC3F7" />
 
             {/* The real input: a finger dragging the guardian. */}
-            <g className="le-tut-finger" transform="translate(148 150)">
-              <g transform="translate(0 6) scale(1.5)">
+            <g transform="translate(148 150)">
+              <g className="le-tut-finger">
+                <g transform="translate(0 6) scale(1.5)">
                 <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
                 <path d="M14 10V5a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
                 <path d="M10 10.5V2a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
-                <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+                  <path d="M6 14v-2.5a2 2 0 0 0-2-2 2 2 0 0 0-2 2V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinejoin="round" />
+                </g>
               </g>
             </g>
           </svg>
@@ -473,14 +500,14 @@ export function HowToPlayScreen({ onPlay }) {
               <circle cx="16" cy="10" r="5.5" fill="#B39DDB" opacity="0.45" />
               <path d="M4 21 H22" stroke="#4ADE80" strokeWidth="3.2" strokeLinecap="round" />
             </svg>
-          }>Echoes hold plates</TutLabel>
+          }>Echoes hold pads</TutLabel>
           <TutLabel icon={
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
               <rect x="4" y="12" width="18" height="11" rx="2.5" fill="#B07B12" />
               <rect x="4" y="12" width="18" height="5" rx="2.5" fill="#FFC845" />
               <path d="M8 8 L13 3 L18 8" stroke="#FFE38A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
-          }>Carry chest home</TutLabel>
+          }>Carry chest up</TutLabel>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
@@ -561,7 +588,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
 
   const radius = 75;
   const circumference = 2 * Math.PI * radius;
-  const targetScore = 2600;
+  // Best possible: deliver on loop 3 (the fastest the map allows).
+  const targetScore = GAME_CONFIG.scoring.deliver + GAME_CONFIG.scoring.unusedLoop * 2;
   const progress = (Math.min(score, targetScore) / targetScore) * circumference;
   const strokeColor = won ? '#28A745' : '#ef4444';
   const glowColor = won ? 'rgba(40, 167, 69, 0.4)' : 'rgba(239, 68, 68, 0.4)';
@@ -639,8 +667,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
       }}>
         {[
           { label: 'Loops used', value: `${stats?.loopsUsed ?? GAME_CONFIG.loops.count}/${GAME_CONFIG.loops.count}` },
-          { label: 'Coins', value: `${stats?.coins ?? 0}/${GAME_CONFIG.coins.length}` },
-          { label: 'Gates opened', value: `${stats?.doorsOpened ?? 0}/3` },
+          { label: 'Echoes made', value: `${stats?.echoes ?? 0}` },
+          { label: 'Gates opened', value: `${stats?.doorsOpened ?? 0}/${GAME_CONFIG.doors.length}` },
         ].map((it) => (
           <div key={it.label} style={{
             flex: 1,

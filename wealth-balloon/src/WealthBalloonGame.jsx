@@ -1,376 +1,185 @@
-// WealthBalloonGame.jsx — press-your-luck inflate.
+// WealthBalloonGame.jsx — fund three goals, cover the shocks worth covering.
 //
-// HOLD anywhere to inflate the wealth balloon. The counter climbs superlinearly
-// (10 x t^1.6), so every extra beat of holding is worth more than the last one
-// was. Each round the balloon has a hidden burst threshold drawn uniform between
-// 2.2 s and 4.6 s; at 70% of it (give or take 0.35 s) the balloon starts to
-// wobble and shift from cool blue through orange to red. That tell is honest —
-// it can never arrive after the burst — but it is noisy, so it narrows the
-// threshold to a one-second window rather than pinpointing it.
+// Three life goals inflate side by side. Each shows its funding target as a
+// dashed ring, its deadline as a bar, and what it holds right now as a number.
+// HOLD a balloon to pour income into it; slide your thumb to move to another.
+// Income refills far slower than a balloon drains it, so you can never fund all
+// three and every second is a choice about which one.
 //
-// RELEASE to bank what is shown. Burst and the round is worth nothing. ONE Term
-// Shield per game absorbs the first burst and banks half of what the balloon was
-// holding. From round four, needle drones drift across a fixed lane: let go
-// while one is touching the envelope and it pops whatever the threshold said —
-// and because the envelope grows with the hold, a greedy balloon covers far more
-// of that lane than a disciplined one.
+// Shocks are FORECAST four seconds before they land, on a named goal, with the
+// exact money they will take printed on the badge. One tap buys cover for a
+// FIXED premium. So the question is always the same and always answerable from
+// the screen: is the loss bigger than the premium? Cover a balloon holding 180
+// against a 55% shock and you save 99 for 28; cover one holding 30 and you spend
+// 28 to save 16. Nothing in this game is hidden and nothing is a coin flip.
 //
-// Structure mirrors WealthDropGame.jsx and SwingToSecureGame.jsx: one canvas
-// component whose mutable state lives in refs (never React state — a 120 Hz tick
-// must not re-render), module-level pure draw helpers, all tunables in data.js,
-// and all RULES in rounds.js — the same module scripts/balance.mjs runs headless,
-// so the shipped game and the measured game are the same game.
+// Structure: one canvas component whose mutable state lives in refs (never React
+// state — a 120 Hz tick must not re-render), module-level pure draw helpers, all
+// tunables in data.js, and ALL RULES in goals.js — the same module
+// scripts/balance.mjs runs headless, so the shipped game and the measured game
+// are the same game.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { COLORS, GAME_CONFIG, SKIN } from './data.js';
 import {
-  applyOutcome,
+  buyCover,
   clamp,
-  createRun,
-  drawRound,
-  needleHitAt,
-  needleX,
-  radiusAt,
-  resolveRelease,
-  runStats,
-  tellIntensity,
-  valueAt,
-} from './rounds.js';
-import { BALANCE } from './kit/config.js';
+  coverIsWorthIt,
+  createSim,
+  exposureOf,
+  isWin,
+  stats,
+  step,
+} from './goals.js';
 import { createGameLoop } from './kit/loop.js';
 import { createInput } from './kit/input.js';
-import { createEffects, damp } from './kit/effects.js';
+import { createEffects } from './kit/effects.js';
 import { createAudio } from './kit/audio.js';
 import { detectTier, effectBudget, fitCanvas, haptic } from './kit/device.js';
 
-/* ─── Offscreen pre-render ───────────────────────────────────
-   The sky, its stars, the skyline and the launch pad are static art that would
-   otherwise cost a dozen gradients and a hundred path ops every frame. Built
-   once per resize and blitted. */
+const FONT = "'Plus Jakarta Sans', 'Poppins', system-ui, sans-serif";
+/** A balloon is taller than it is wide. Height = width x this. */
+const ASPECT = 1.3;
+const rgb = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
-function offscreen(w, h, dpr) {
+/* ─── Offscreen backdrop ─────────────────────────────────────
+   Sky, stars and skyline are static art that would otherwise cost a dozen
+   gradients and a hundred path ops per frame. Built once per resize, blitted. */
+function makeSkyBitmap(W, H, dpr) {
   const cv = document.createElement('canvas');
-  cv.width = Math.max(1, Math.round(w * dpr));
-  cv.height = Math.max(1, Math.round(h * dpr));
+  cv.width = Math.max(1, Math.round(W * dpr));
+  cv.height = Math.max(1, Math.round(H * dpr));
   const c = cv.getContext('2d');
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { cv, c };
-}
-
-/** Backdrop: night sky, a soft well behind the balloon, skyline and launch pad. */
-function makeSkyBitmap(W, H, cy, dpr, shadows) {
-  const { cv, c } = offscreen(W, H, dpr);
 
   const sky = c.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, COLORS.skyTop);
-  sky.addColorStop(0.5, COLORS.skyMid);
+  sky.addColorStop(0.55, COLORS.skyMid);
   sky.addColorStop(1, COLORS.skyLow);
   c.fillStyle = sky;
   c.fillRect(0, 0, W, H);
 
-  const well = c.createRadialGradient(W / 2, cy, W * 0.05, W / 2, cy, W * 0.95);
-  well.addColorStop(0, 'rgba(38,102,196,0.30)');
-  well.addColorStop(1, 'rgba(38,102,196,0)');
-  c.fillStyle = well;
-  c.fillRect(0, 0, W, H);
-
-  // Stars. Deterministic positions from a cheap hash so the sky does not
-  // reshuffle when the mobile URL bar moves and forces a rebuild.
-  for (let i = 0; i < 46; i++) {
+  // Deterministic star field from a cheap hash, so the sky does not reshuffle
+  // every time the mobile URL bar moves and forces a rebuild.
+  for (let i = 0; i < 42; i++) {
     const hx = Math.sin(i * 12.9898) * 43758.5453;
     const hy = Math.sin(i * 78.233) * 12345.6789;
     const x = (hx - Math.floor(hx)) * W;
-    const y = (hy - Math.floor(hy)) * H * 0.62;
-    const r = 0.5 + ((i * 7) % 5) * 0.22;
-    c.fillStyle = `rgba(214,228,247,${0.18 + ((i * 13) % 7) * 0.06})`;
+    const y = (hy - Math.floor(hy)) * H * 0.55;
+    c.fillStyle = `rgba(214,228,247,${0.16 + ((i * 13) % 7) * 0.05})`;
     c.beginPath();
-    c.arc(x, y, r, 0, Math.PI * 2);
+    c.arc(x, y, 0.5 + ((i * 7) % 5) * 0.2, 0, Math.PI * 2);
     c.fill();
   }
 
-  // Skyline: the goals the balloon is being inflated for. Plain silhouette
-  // rectangles with lit windows, so the horizon reads as a city rather than a bar.
-  const baseY = H - Math.max(34, H * 0.062);
-  const towers = 13;
+  // Skyline: the life these goals are being funded for.
+  const baseY = H - Math.max(20, H * 0.035);
+  const towers = 14;
   for (let i = 0; i < towers; i++) {
-    const hh = Math.sin(i * 2.1) * 0.5 + 0.5;
     const w = W / towers;
-    const x = i * w;
-    const h = 20 + hh * H * 0.075;
-    c.fillStyle = 'rgba(6,18,41,0.85)';
+    const h = 14 + (Math.sin(i * 2.1) * 0.5 + 0.5) * H * 0.05;
+    c.fillStyle = 'rgba(6,18,41,0.9)';
     c.beginPath();
-    c.roundRect(x + 1, baseY - h, w - 2, h + 8, [3, 3, 0, 0]);
+    c.roundRect(i * w + 1, baseY - h, w - 2, h + 10, [3, 3, 0, 0]);
     c.fill();
-    for (let r = 0; r < Math.floor(h / 13); r++) {
-      for (let q = 0; q < 2; q++) {
-        if ((i * 3 + r * 5 + q) % 4 === 0) continue;
-        c.fillStyle = `rgba(255,200,69,${0.10 + ((i + r + q) % 3) * 0.05})`;
-        c.fillRect(x + 5 + q * (w * 0.42), baseY - h + 7 + r * 13, w * 0.22, 4);
-      }
-    }
   }
-
-  // Launch pad the balloon is tethered to.
-  const padW = W * 0.30;
-  const padH = Math.max(10, H * 0.018);
-  const padY = H - padH - Math.max(8, H * 0.016);
-  const pad = c.createLinearGradient(0, padY, 0, padY + padH);
-  pad.addColorStop(0, 'rgba(214,228,247,0.35)');
-  pad.addColorStop(1, 'rgba(90,130,190,0.20)');
-  if (shadows) {
-    c.shadowColor = COLORS.brandBlueGlow;
-    c.shadowBlur = 14;
-  }
-  c.fillStyle = pad;
-  c.beginPath();
-  c.roundRect(W / 2 - padW / 2, padY, padW, padH, padH / 2);
-  c.fill();
-  c.shadowBlur = 0;
-
   return cv;
 }
 
 /**
- * Balloon skins as UNIT-SPACE gradients: built once per resize, anchored at the
- * origin with radius 1, and used by scaling the context to the live radius. A
- * gradient rebuilt at the balloon's real radius every frame is one allocation
- * per frame in the hottest loop in the game; this is none.
+ * The three balloon fills, as UNIT-SPACE radial gradients (centre 0,0, radius 1)
+ * built once per resize. Rebuilding a gradient at the live radius would be three
+ * allocations per frame in the hottest draw path; scaling the context instead is
+ * none.
  */
 function makeSkins(ctx) {
-  const build = (s) => {
-    const g = ctx.createRadialGradient(-0.34, -0.42, 0.06, 0, 0, 1.12);
-    g.addColorStop(0, `rgb(${s.core[0]},${s.core[1]},${s.core[2]})`);
-    g.addColorStop(0.52, `rgb(${s.mid[0]},${s.mid[1]},${s.mid[2]})`);
-    g.addColorStop(1, `rgb(${s.deep[0]},${s.deep[1]},${s.deep[2]})`);
-    return g;
-  };
-  return { calm: build(SKIN.calm), warm: build(SKIN.warm), hot: build(SKIN.hot) };
+  const out = {};
+  for (const key of Object.keys(SKIN)) {
+    const s = SKIN[key];
+      const g = ctx.createRadialGradient(-0.3, -0.5, 0.05, 0, 0, 1.4);
+    g.addColorStop(0, rgb(s.core, 1));
+    g.addColorStop(0.55, rgb(s.mid, 1));
+    g.addColorStop(1, rgb(s.deep, 1));
+    out[key] = { grad: g, deep: rgb(s.deep, 1), core: rgb(s.core, 0.35) };
+  }
+  return out;
 }
-
-/* ─── Entity draw functions (all programmatic — no emoji, no images) ── */
-
-const BALLOON_SEGMENTS = 40;
-
-/** Constant, so the hottest draw path does not build a colour string per frame. */
-const KNOT_FILL = `rgba(${SKIN.calm.deep[0]},${SKIN.calm.deep[1]},${SKIN.calm.deep[2]},0.95)`;
 
 /**
- * Trace the balloon envelope in UNIT space (radius 1, centred on the origin).
- *
- * A real balloon is not a circle: it is widest above the middle and tapers to
- * the neck, so the profile is an ellipse with a squared-off taper toward the
- * bottom. `wob` adds two counter-rotating sine harmonics — that is the visible
- * half of the tell, and its amplitude is driven entirely by tell intensity.
+ * A balloon: 32-segment polar path traced in UNIT space and scaled to the live
+ * radius, with a taper toward the neck so it reads as a balloon rather than a
+ * circle, plus a highlight and a knot.
  */
-function traceBalloon(ctx, wob, time, squash) {
+function drawBalloon(ctx, x, y, r, skin, wobble) {
+  if (r <= 0.5) return;
+  const N = 32;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(r, r);
+
   ctx.beginPath();
-  for (let i = 0; i <= BALLOON_SEGMENTS; i++) {
-    const th = (i / BALLOON_SEGMENTS) * Math.PI * 2;
-    const down = (1 - Math.cos(th)) * 0.5; // 0 at the top, 1 at the neck
-    const taper = 1 - 0.24 * down * down;
-    const wobble = 1 + wob * (0.62 * Math.sin(3 * th + time * 6.1) + 0.38 * Math.sin(5 * th - time * 4.3));
-    const r = taper * wobble;
-    const x = Math.sin(th) * r * (1 + squash);
-    const y = -Math.cos(th) * r * 1.08 * (1 - squash);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  for (let i = 0; i <= N; i++) {
+    const a = (i / N) * Math.PI * 2 - Math.PI / 2;
+    // Taper: narrower toward the bottom (the neck), fatter across the shoulders.
+    // Narrow toward the neck (bottom), slightly fuller across the shoulders.
+    const down = Math.max(0, Math.sin(a));
+    const taper = 1 - 0.26 * down ** 1.5 + 0.04 * Math.max(0, -Math.sin(a));
+    const w = wobble * (Math.sin(a * 3 + wobble * 9) * 0.5 + Math.cos(a * 2 - wobble * 7) * 0.3);
+    const rr = taper + w * 0.06;
+    const px = Math.cos(a) * rr;
+    const py = Math.sin(a) * rr * ASPECT;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
   }
   ctx.closePath();
-}
-
-/** The balloon: tether, envelope, cross-faded skin, specular highlight, knot. */
-function drawBalloon(ctx, s, cx, cy, R, tellK, time, padY) {
-  const wob = 0.014 + tellK * 0.082;
-  const squash = s.squash > 0 ? s.effects.squash(1 - s.squash).sx - 1 : 0;
-
-  // Tether from the launch pad to the knot.
-  ctx.save();
-  ctx.strokeStyle = 'rgba(214,228,247,0.35)';
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(cx, padY);
-  ctx.quadraticCurveTo(cx + Math.sin(time * 1.7) * 8, (padY + cy + R) / 2, cx, cy + R * 1.16);
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(R, R);
-
-  if (s.shadows) {
-    ctx.shadowColor = tellK > 0.35 ? 'rgba(239,68,68,0.55)' : COLORS.brandBlueGlow;
-    ctx.shadowBlur = (10 + tellK * 26) / R;
-  }
-  traceBalloon(ctx, wob, time, squash);
-  ctx.fillStyle = s.skins.calm;
+  ctx.fillStyle = skin.grad;
   ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Hue shift: two alpha-blended fills over the calm skin rather than a gradient
-  // rebuilt per frame. warm leads, hot follows, so the balloon goes blue →
-  // orange → red across the tell ramp.
-  const warmA = clamp(tellK * 1.7, 0, 1);
-  if (warmA > 0.001) {
-    ctx.globalAlpha = warmA;
-    ctx.fillStyle = s.skins.warm;
-    ctx.fill();
-  }
-  const hotA = clamp((tellK - 0.48) * 2.1, 0, 1);
-  if (hotA > 0.001) {
-    ctx.globalAlpha = hotA;
-    ctx.fillStyle = s.skins.hot;
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-
-  // Rim light.
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = 1.4 / R;
+  ctx.lineWidth = 1.2 / r;
+  ctx.strokeStyle = skin.core;
   ctx.stroke();
 
-  // Specular highlight and a soft secondary.
-  ctx.fillStyle = 'rgba(255,255,255,0.42)';
+  // Specular highlight.
   ctx.beginPath();
-  ctx.ellipse(-0.34, -0.40, 0.20, 0.30, -0.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.16)';
-  ctx.beginPath();
-  ctx.ellipse(0.30, 0.16, 0.10, 0.20, 0.4, 0, Math.PI * 2);
+  ctx.ellipse(-0.34, -0.48, 0.19, 0.3, -0.5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
   ctx.fill();
 
   // Knot.
-  ctx.fillStyle = KNOT_FILL;
   ctx.beginPath();
-  ctx.moveTo(-0.11, 1.04);
-  ctx.lineTo(0.11, 1.04);
-  ctx.lineTo(0.05, 1.19);
-  ctx.lineTo(-0.05, 1.19);
+  ctx.moveTo(-0.1, ASPECT * 0.99);
+  ctx.lineTo(0.1, ASPECT * 0.99);
+  ctx.lineTo(0, ASPECT * 1.16);
   ctx.closePath();
+  ctx.fillStyle = skin.deep;
   ctx.fill();
-
-  ctx.restore();
-
-  // Stress rings once the tell is up: the balloon visibly straining.
-  if (tellK > 0.02) {
-    ctx.save();
-    const pulse = 0.5 + 0.5 * Math.sin(time * (7 + tellK * 9));
-    ctx.strokeStyle = `rgba(255,139,139,${(0.18 + tellK * 0.5) * (0.45 + pulse * 0.55)})`;
-    ctx.lineWidth = 1.6 + tellK * 1.6;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, R * (1.10 + tellK * 0.10 + pulse * 0.05), R * (1.18 + tellK * 0.10 + pulse * 0.05), 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
-}
-
-/** One needle drone: rotor arms, a steel body, and the spike that does the work. */
-function drawNeedle(ctx, x, y, size, dir, time, shadows, armed) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(dir, 1);
-
-  // Rotors — two blurred arcs, spun by time.
-  ctx.strokeStyle = 'rgba(214,228,247,0.30)';
-  ctx.lineWidth = size * 0.09;
-  ctx.lineCap = 'round';
-  for (let i = -1; i <= 1; i += 2) {
-    ctx.beginPath();
-    ctx.ellipse(i * size * 0.42, -size * 0.42, size * 0.34, size * 0.1, Math.sin(time * 16 + i) * 0.35, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(i * size * 0.42, -size * 0.42);
-    ctx.lineTo(i * size * 0.2, 0);
-    ctx.stroke();
-  }
-
-  // Body.
-  if (shadows) {
-    ctx.shadowColor = 'rgba(239,68,68,0.5)';
-    ctx.shadowBlur = 10;
-  }
-  ctx.fillStyle = '#2B3A50';
-  ctx.beginPath();
-  ctx.roundRect(-size * 0.46, -size * 0.22, size * 0.92, size * 0.44, size * 0.16);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(214,228,247,0.45)';
-  ctx.lineWidth = 1.1;
-  ctx.stroke();
-
-  // Warning eye.
-  const blink = 0.55 + 0.45 * Math.sin(time * 8);
-  ctx.fillStyle = `rgba(239,68,68,${armed ? 0.55 + blink * 0.45 : 0.35})`;
-  ctx.beginPath();
-  ctx.arc(-size * 0.16, 0, size * 0.11, 0, Math.PI * 2);
-  ctx.fill();
-
-  // The needle itself.
-  ctx.strokeStyle = COLORS.steelLt;
-  ctx.lineWidth = Math.max(1.4, size * 0.07);
-  ctx.beginPath();
-  ctx.moveTo(size * 0.4, 0);
-  ctx.lineTo(size * 1.15, 0);
-  ctx.stroke();
-  ctx.fillStyle = COLORS.dangerLt;
-  ctx.beginPath();
-  ctx.moveTo(size * 1.42, 0);
-  ctx.lineTo(size * 1.05, -size * 0.11);
-  ctx.lineTo(size * 1.05, size * 0.11);
-  ctx.closePath();
-  ctx.fill();
-
   ctx.restore();
 }
 
-/** The lane a drone flies down, so its pass can be read and timed. */
-function drawNeedleLane(ctx, W, y, k) {
-  ctx.save();
-  ctx.globalAlpha = 0.16 + k * 0.2;
-  ctx.strokeStyle = COLORS.dangerLt;
-  ctx.lineWidth = 1.2;
-  ctx.setLineDash([5, 9]);
+/** Rounded pill helper — used for panels, badges and buttons. */
+function pill(ctx, x, y, w, h, r, fill, stroke) {
   ctx.beginPath();
-  ctx.moveTo(0, y);
-  ctx.lineTo(W, y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
+  ctx.roundRect(x, y, w, h, r);
+  if (fill) {
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+  if (stroke) {
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+  }
 }
 
-/** The live value, floating above the balloon. */
-function drawValue(ctx, cx, y, value, tellK, shadows) {
-  ctx.save();
-  ctx.textAlign = 'center';
+function text(ctx, str, x, y, size, weight, color, align = 'center') {
+  ctx.font = `${weight} ${size}px ${FONT}`;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
   ctx.textBaseline = 'middle';
-  const size = 34 + Math.min(1, value / 120) * 12;
-  ctx.font = `900 ${size}px 'Poppins', 'Plus Jakarta Sans', system-ui, sans-serif`;
-  if (shadows) {
-    ctx.shadowColor = tellK > 0.4 ? 'rgba(239,68,68,0.7)' : 'rgba(255,200,69,0.6)';
-    ctx.shadowBlur = 16;
-  }
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
-  ctx.fillText(String(Math.floor(value)), cx, y + 2);
-  ctx.fillStyle = tellK > 0.4 ? COLORS.dangerLt : COLORS.goldLt;
-  ctx.fillText(String(Math.floor(value)), cx, y);
-  ctx.shadowBlur = 0;
-  ctx.restore();
-}
-
-/** "HOLD" prompt ring drawn around a resting balloon. */
-function drawArmPrompt(ctx, cx, cy, R, time) {
-  const pulse = 0.5 + 0.5 * Math.sin(time * 3.1);
-  ctx.save();
-  ctx.strokeStyle = `rgba(255,138,61,${0.25 + pulse * 0.45})`;
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6, 8]);
-  ctx.beginPath();
-  ctx.arc(cx, cy, R * (2.0 + pulse * 0.16), 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
+  ctx.fillText(str, x, y);
 }
 
 /* ─── Component ──────────────────────────────────────────── */
+
 export default function WealthBalloonGame({ config, onWin, onLose }) {
   const cfg = config || GAME_CONFIG;
 
@@ -382,17 +191,11 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
 
   const [timeLeft, setTimeLeft] = useState(cfg.sessionSeconds);
   const [paused, setPaused] = useState(false);
+  const [resumeIn, setResumeIn] = useState(0);
   const [muted, setMuted] = useState(false);
-  const [hint, setHint] = useState(true);
   const [over, setOver] = useState(false);
-  const [roundNo, setRoundNo] = useState(1);
-  const [streak, setStreak] = useState(0);
-  const [shieldLeft, setShieldLeft] = useState(cfg.shield.count);
-  const [pending, setPending] = useState(0);
-  const [card, setCard] = useState(null);
+  const [coach, setCoach] = useState(0); // 0 hold · 1 ring · 2 cover · 3 done
 
-  // Latest callbacks without re-running the setup effect (which would restart
-  // the run every time App re-renders).
   const winRef = useRef(onWin);
   const loseRef = useRef(onLose);
   winRef.current = onWin;
@@ -401,38 +204,21 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
   const stateRef = useRef(null);
   if (stateRef.current === null) {
     stateRef.current = {
-      time: 0,
-      W: 400,
-      H: 620,
-      dpr: 1,
-      cx: 200,
-      cy: 330,
-      padY: 590,
-      skyBmp: null,
-      skins: null,
-      shadows: true,
-      rand: Math.random,
-
-      run: null,
-      round: null,
-      phase: 'arm', // arm | inflate | beat
-      held: 0,
-      beat: 0,
-      burst: false,
-      squash: 0,
-      tickClock: 0,
-      lastTellK: 0,
-
-      scoreShown: 0,
+      W: 380, H: 560, dpr: 1,
+      skyBmp: null, skins: null, incomeGrad: null, shadows: true, reduced: false,
+      lay: null,          // layout rects, rebuilt on resize
+      sim: null,
+      feed: -1,           // slot the thumb is on, or -1
+      pressLock: false,   // this gesture was a cover-button press, not a hold
+      resumeHold: 0,
+      shownResume: -1,
+      fedFor: 0,          // seconds of funding done, drives the coach
+      pulse: 0,
       shownScore: -1,
-      shownStreak: -1,
-      shownShield: -1,
-      shownPending: -1,
-
-      ended: false,
-      won: false,
-      effects: null,
-      audio: null,
+      events: [],
+      flash: [0, 0, 0],   // per-slot white flash after an event
+      ended: false, won: false,
+      effects: null, audio: null,
     };
   }
 
@@ -459,31 +245,69 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
 
     s.effects = fx;
     s.audio = audio;
-    s.shadows = budget.shadows;
-    s.rand = Math.random;
-    s.run = createRun(cfg);
-    s.round = drawRound(cfg, 0, s.rand);
+    s.shadows = budget.shadows && tier !== 'low';
+    s.reduced = fx.reducedMotion;
+    s.sim = createSim(cfg, Math.random);
 
-    /* --- canvas sizing --------------------------------------------------- */
+    /* --- layout ---------------------------------------------------------- */
     const fit = () => {
-      // clientWidth/Height, not getBoundingClientRect: the stage has a 1.5 px
-      // border and sizing to the border box clips the canvas against the
-      // stage's overflow:hidden.
-      const w = Math.max(280, wrap.clientWidth || 400);
-      const h = Math.max(420, wrap.clientHeight || 620);
-      // ResizeObserver fires on observe() and again for every pixel of mobile
-      // URL-bar movement; rebuilding the sky bitmap each time is a visible
-      // hitch, so bail out when nothing actually changed.
+      const w = Math.max(280, wrap.clientWidth || 380);
+      const h = Math.max(400, wrap.clientHeight || 560);
       if (w === s.W && h === s.H && s.skyBmp) return;
 
       s.dpr = fitCanvas(canvas, w, h, 2);
       s.W = w;
       s.H = h;
-      s.cx = w * cfg.balloon.centreX;
-      s.cy = h * cfg.balloon.centreYFrac;
-      s.padY = h - Math.max(8, h * 0.016) - Math.max(10, h * 0.018);
+      s.skyBmp = makeSkyBitmap(w, h, s.dpr);
       s.skins = makeSkins(ctx);
-      s.skyBmp = makeSkyBitmap(w, h, s.cy, s.dpr, s.shadows && tier !== 'low');
+      // Fixed geometry, so build it here rather than once a frame in render().
+      s.incomeGrad = ctx.createLinearGradient(12, 0, w - 12, 0);
+      s.incomeGrad.addColorStop(0, COLORS.goldDeep);
+      s.incomeGrad.addColorStop(1, COLORS.gold);
+
+      // Everything below the DOM HUD strip is ours. `top` reserves the two HUD
+      // pill rows plus the coach line; the three columns are equal thirds, so
+      // the layout is identical on a 320 px handset and a 430 px one.
+      const top = Math.max(142, Math.min(154, h * 0.27));
+      const btnH = clamp(h * 0.082, 42, 48);
+      const btnY = h - btnH - 10;
+      const colW = w / 3;
+      const incomeY = top;
+      const incomeH = 15;
+      const colTop = incomeY + incomeH + 12;   // top of the COLUMN TOUCH AREA
+      const availBot = btnY - 8;
+
+      // A balloon's half-width is bounded by the column; its height is ASPECT x
+      // that. On a tall handset there is far more vertical room than three
+      // narrow columns can use, so the PANEL is sized to its contents and
+      // centred rather than stretched — an empty stretched panel reads as a
+      // layout bug, sky does not. The touch area stays the full column either
+      // way, so nothing about reachability changes with the drawn height.
+      const CHROME = 134;                      // name + badge + value + bar + padding
+      const avail = availBot - colTop;
+      const maxR = Math.min(colW * 0.42, 60, Math.max(18, (avail - CHROME) / (2 * ASPECT)));
+      const panelH = CHROME + maxR * ASPECT * 2;
+      // Biased DOWN the slack, not centred in it. On a 915 px handset three
+      // narrow columns cannot use the vertical room, and the room they cannot
+      // use is at the top — which is also the part of the screen a thumb cannot
+      // reach. Sinking the board keeps every balloon and every COVER button
+      // inside the thumb arc and leaves the dead space as sky.
+      const panelTop = colTop + Math.max(0, (avail - panelH) * 0.62);
+      const panelBot = panelTop + panelH;
+      const badgeY = panelTop + 30;
+
+      s.lay = {
+        top, colW, colTop, btnH, btnY, incomeY, incomeH,
+        panelTop, panelBot,
+        maxR,
+        minR: maxR * 0.24,
+        cy: badgeY + 26 + 12 + maxR * ASPECT,
+        nameY: panelTop + 12,
+        badgeY,
+        valueY: panelBot - 42,
+        secY: panelBot - 27,
+        barY: panelBot - 13,
+      };
     };
     fit();
 
@@ -491,274 +315,296 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
     ro?.observe(wrap);
     window.addEventListener('orientationchange', fit);
 
-    /* --- run lifecycle --------------------------------------------------- */
+    /* --- lifecycle -------------------------------------------------------- */
     let loop = null;
 
-    const endRun = (won, cause) => {
+    const endRun = () => {
       if (s.ended) return;
       s.ended = true;
-      s.won = won;
-      s.phase = 'beat';
+      s.won = isWin(cfg, s.sim);
       setOver(true);
-
-      // The stats contract, exactly: {score, rounds, bursts, bestRound}.
-      const stats = runStats(s.run);
-
-      // Deliberately NOT loop.setPaused(true): a paused loop skips update(),
-      // which would freeze the victory/defeat particles mid-air for the whole
-      // end beat. The session clock is already held by shouldTickClock().
-      const bx = clamp(s.cx, 40, s.W - 40);
-      const by = clamp(s.cy, 70, s.H - 70);
-
-      if (won) {
+      const l = s.lay;
+      if (s.won) {
         audio.victory();
-        haptic('success');
+        haptic('heavy');
         fx.burst({
-          x: bx, y: by, count: cfg.fx.winParticles, color: COLORS.gold,
-          speed: 340, spread: Math.PI * 2, size: 5, life: 1.1, gravity: 460, drag: 0.93,
+          x: s.W / 2, y: l.cy, count: cfg.fx.winParticles, color: COLORS.gold,
+          speed: 260, size: 4, life: 1.1, gravity: 260,
         });
-        fx.burst({
-          x: bx, y: by - 20, count: cfg.fx.winParticles, color: COLORS.greenLt,
-          speed: 240, spread: Math.PI * 2, size: 4, life: 1.2, gravity: 400, drag: 0.94,
-        });
-        fx.floatText(bx, Math.max(40, by - 90), 'TARGET CLEARED', COLORS.goldLt, 19);
       } else {
         audio.failure();
-        haptic('failure');
-        fx.addShake(cfg.fx.burstShake);
-        fx.burst({
-          x: bx, y: by, count: cfg.fx.burstParticles, color: COLORS.danger,
-          speed: 250, spread: Math.PI * 2, size: 4, life: 0.9, gravity: 600, drag: 0.9,
-        });
-        fx.floatText(
-          bx, Math.max(38, by - 84),
-          cause === 'timeout' ? 'TIME UP' : 'SHORT OF TARGET',
-          COLORS.dangerLt, 18,
-        );
       }
-
+      const payload = stats(s.sim);
       endTimerRef.current = setTimeout(() => {
-        (won ? winRef.current : loseRef.current)?.(stats);
+        (s.won ? winRef.current : loseRef.current)?.(payload);
       }, cfg.hud.endBeatMs);
     };
 
-    /* --- round flow ------------------------------------------------------ */
-    const armNextRound = () => {
-      const next = s.run.roundsPlayed;
-      if (next >= cfg.rounds) {
-        endRun(s.run.score >= cfg.scoring.targetScore, 'rounds');
-        return;
-      }
-      s.round = drawRound(cfg, next, s.rand);
-      s.held = 0;
-      s.phase = 'arm';
-      s.lastTellK = 0;
-      s.burst = false;
-      setRoundNo(next + 1);
-      setCard(null);
+    /* --- events → juice ---------------------------------------------------- */
+    // Coach step is read inside the loop; mirror it in a ref so the loop never
+    // closes over a stale React value.
+    const coachRef = { current: 0 };
+    const setCoachStep = (n) => {
+      if (coachRef.current === n || coachRef.current >= 3) return;
+      coachRef.current = n;
+      setCoach(n);
     };
 
-    const startInflate = () => {
-      if (s.ended || s.phase !== 'arm') return;
-      s.phase = 'inflate';
-      s.held = 0;
-      s.tickClock = 0;
-      setHint(false);
-      audio.click();
-      haptic('light');
-    };
+    const slotX = (i) => s.lay.colW * (i + 0.5);
 
-    /** Resolve the current round from a hold of `held` seconds. */
-    const settle = (held) => {
-      if (s.phase !== 'inflate') return;
-      const outcome = resolveRelease(cfg, s.round, held);
-      const res = applyOutcome(cfg, s.run, outcome);
+    /** Just above a balloon's crown — where floating text is legible against sky. */
+    const top = (l) => l.cy - l.maxR * ASPECT - 12;
 
-      s.phase = 'beat';
-      s.beat = cfg.fx.roundBeatSeconds;
-      s.squash = 1;
-      s.held = res.at;
-      // Drives the beat's presentation without reading React state from the
-      // render loop: a banked balloon deflates away over 0.4 s, a burst one is
-      // simply gone and the confetti tells the story.
-      s.burst = outcome.kind !== 'bank';
-
-      const bx = clamp(s.cx, 46, s.W - 46);
-      const by = clamp(s.cy, 74, s.H - 74);
-
-      if (outcome.kind === 'bank') {
+    const react = (ev) => {
+      const l = s.lay;
+      const x = slotX(ev.slot);
+      s.flash[ev.slot] = 1;
+      if (ev.type === 'funded') {
         audio.coin();
-        haptic('light');
-        if (res.streak >= 2) audio.combo(res.streak);
+        haptic('medium');
+        fx.floatText(x, top(l), `+${ev.amount}`, COLORS.goldLt, 20);
         fx.burst({
-          x: bx, y: by, count: cfg.fx.bankParticles, color: COLORS.goldLt,
-          speed: 220, spread: Math.PI * 2, size: 3.4, life: 0.8, gravity: 430, drag: 0.92,
+          x, y: l.cy, count: cfg.fx.fundParticles, color: COLORS.gold,
+          speed: 200, size: 3.2, life: 0.8, gravity: 320,
         });
-        // res.banked is already the floored figure the counter was showing —
-        // see applyOutcome() — so no rounding here, ever.
-        fx.floatText(bx, by - 26, `+${res.banked}`, COLORS.goldLt, 21);
-        if (res.bonus > 0) {
-          fx.floatText(bx, clamp(by - 56, 40, s.H - 40), `COMPOUND +${res.bonus}`, COLORS.greenLt, 15);
-        }
-      } else {
+      } else if (ev.type === 'missed') {
         audio.hit();
-        haptic('failure');
-        fx.addShake(outcome.cause === 'needle' ? cfg.fx.needleShake : cfg.fx.burstShake);
-        fx.addHitStop(budget.hitStopSeconds > 0 ? cfg.fx.hitStopSeconds : 0);
-        // Deflation confetti: shreds of the envelope thrown outward, plus a
-        // downward spray so it reads as the balloon collapsing rather than
-        // simply vanishing.
+        fx.floatText(x, top(l), ev.penalty > 0 ? `-${ev.penalty}` : 'SHORT', COLORS.dangerLt, 17);
         fx.burst({
-          x: bx, y: by, count: outcome.cause === 'needle' ? cfg.fx.needleParticles : cfg.fx.burstParticles,
-          color: COLORS.danger, speed: 330, spread: Math.PI * 2, size: 4.2, life: 0.9, gravity: 620, drag: 0.9,
+          x, y: l.cy, count: cfg.fx.missParticles, color: COLORS.steel,
+          speed: 110, size: 2.4, life: 0.6, gravity: 380,
         });
+      } else if (ev.type === 'hit') {
+        audio.hit();
+        haptic('heavy');
+        fx.addShake(cfg.fx.hitShake);
+        fx.addHitStop(cfg.fx.hitStopSeconds);
+        // A shock on an empty goal costs nothing; printing "-0" over it reads as
+        // a bug rather than as the lesson it is.
+        if (Math.round(ev.amount) > 0) fx.floatText(x, top(l), `-${Math.round(ev.amount)}`, COLORS.dangerLt, 20);
         fx.burst({
-          x: bx, y: by, count: cfg.fx.burstParticles, color: COLORS.dangerLt,
-          speed: 180, spread: Math.PI * 2, size: 2.8, life: 1.1, gravity: 760, drag: 0.94,
+          x, y: l.cy, count: cfg.fx.hitParticles, color: COLORS.danger,
+          speed: 230, size: 3, life: 0.7, gravity: 340,
         });
-        if (res.shieldUsed) {
-          audio.powerUp();
-          haptic('medium');
-          fx.burst({
-            x: bx, y: by, count: cfg.fx.shieldParticles, color: COLORS.brandBlueLt,
-            speed: 210, spread: Math.PI * 2, size: 3.4, life: 0.85, gravity: 140, drag: 0.9,
-          });
-          fx.floatText(bx, by - 26, `SHIELD +${res.banked}`, COLORS.skyLt, 19);
-        } else {
-          fx.floatText(bx, by - 26, 'BURST', COLORS.dangerLt, 22);
-        }
-      }
-
-      setCard({
-        id: s.run.roundsPlayed,
-        kind: outcome.kind === 'bank' ? 'bank' : res.shieldUsed ? 'shield' : 'burst',
-        cause: outcome.cause,
-        banked: res.banked,
-        bonus: res.bonus,
-        total: res.total,
-        // What the balloon was actually holding when it went, for the shield
-        // card's "half of N rescued" line — derived, not reconstructed from the
-        // halved figure, which would be off by one whenever the halving floored.
-        atBurst: Math.floor(outcome.value),
-        seconds: res.at,
-      });
-    };
-
-    /* --- physics --------------------------------------------------------- */
-    const update = (dt) => {
-      fx.update(dt);
-      if (fx.isFrozen()) return;
-
-      s.time += dt;
-      s.scoreShown = damp(s.scoreShown, s.run.score, BALANCE.scoring.counterLerpPerSecond, dt);
-      if (s.squash > 0) s.squash = Math.max(0, s.squash - dt / 0.3);
-
-      if (s.ended) return;
-
-      if (s.phase === 'beat') {
-        s.beat -= dt;
-        if (s.beat <= 0) armNextRound();
-        return;
-      }
-
-      if (s.phase !== 'inflate') return;
-
-      s.held += dt;
-
-      // The balloon reached its hidden limit on its own.
-      if (s.held >= s.round.threshold) {
-        settle(s.round.threshold);
-        return;
-      }
-
-      // Inflation audio: a tick whose rate climbs with the value, and a rising
-      // chirp the moment the tell starts, so the warning is audible as well as
-      // visible for a player who is watching the counter rather than the skin.
-      const tellK = tellIntensity(cfg, s.round, s.held);
-      if (tellK > 0 && s.lastTellK === 0) audio.combo(6);
-      s.lastTellK = tellK;
-
-      s.tickClock += dt;
-      const period = 0.30 - clamp(s.held / cfg.balloon.fullSeconds, 0, 1) * 0.17 - tellK * 0.06;
-      if (s.tickClock >= period) {
-        s.tickClock = 0;
+      } else if (ev.type === 'absorb') {
+        audio.powerUp();
+        haptic('medium');
+        fx.floatText(x, top(l), `SAVED ${Math.round(ev.amount)}`, COLORS.skyLt, 16);
+        fx.burst({
+          x, y: l.cy, count: cfg.fx.absorbParticles, color: COLORS.brandBlueLt,
+          speed: 190, size: 3, life: 0.75, gravity: 200,
+        });
+      } else if (ev.type === 'forecast') {
         audio.tick();
-        if (fx && s.held > 0.15) {
-          fx.burst({
-            x: s.cx, y: s.cy + radiusAt(cfg, s.held) * s.W * 1.1,
-            count: cfg.fx.inflateParticles, color: tellK > 0.4 ? COLORS.dangerLt : COLORS.skyLt,
-            speed: 60, spread: Math.PI * 0.7, angle: Math.PI / 2, size: 1.8, life: 0.35,
-            gravity: 120, drag: 0.9,
-          });
-        }
+        if (coachRef.current === 1) setCoachStep(2);
       }
     };
 
-    /* --- rendering ------------------------------------------------------- */
+    /* --- update ------------------------------------------------------------ */
+    const update = (dt) => {
+      s.pulse += dt;
+      for (let i = 0; i < 3; i++) s.flash[i] = Math.max(0, s.flash[i] - dt * 3);
+
+      // Re-acquire beat after returning from a background pause, so a player
+      // cannot background the tab to think about a decision for free.
+      if (s.resumeHold > 0) {
+        s.resumeHold = Math.max(0, s.resumeHold - dt);
+        const whole = Math.ceil(s.resumeHold);
+        if (whole !== s.shownResume) {
+          s.shownResume = whole;
+          setResumeIn(whole);
+        }
+        fx.update(dt);
+        return;
+      }
+
+      fx.update(dt);
+      if (fx.isFrozen() || s.ended) return;
+
+      const evs = s.events;
+      evs.length = 0;
+      const feeding = s.feed;
+      step(cfg, s.sim, dt, feeding, evs);
+      for (let i = 0; i < evs.length; i++) react(evs[i]);
+
+      if (feeding >= 0 && s.sim.income > 0) {
+        s.fedFor += dt;
+        if (coachRef.current === 0 && s.fedFor > 1.1) setCoachStep(1);
+        if (!s.reduced && Math.random() < 0.35) {
+          const l = s.lay;
+          fx.burst({
+            x: slotX(feeding), y: l.cy + l.maxR, count: 1, color: COLORS.goldLt,
+            speed: 60, angle: -Math.PI / 2, spread: 0.9, size: 2, life: 0.4, gravity: -60,
+          });
+        }
+      }
+
+      if (s.sim.over) endRun();
+    };
+
+    /* --- render ------------------------------------------------------------ */
     const render = () => {
-      if (!s.skyBmp || !s.skins) return;
       const { W, H } = s;
-      ctx.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
+      const l = s.lay;
+      const sim = s.sim;
       ctx.clearRect(0, 0, W, H);
+      if (s.skyBmp) ctx.drawImage(s.skyBmp, 0, 0, W, H);
 
       fx.beginCamera(ctx);
-      ctx.drawImage(s.skyBmp, 0, 0, W, H);
 
-      const time = s.time;
-      const round = s.round;
-      const inflating = s.phase === 'inflate';
-      const beating = s.phase === 'beat';
-      const shown = s.phase === 'arm' ? 0 : s.held;
-      const tellK = inflating ? tellIntensity(cfg, round, s.held) : 0;
+      /* Income bar — the one scarce resource. The tick marks where the premium
+         becomes affordable, so "can I cover this?" is answerable at a glance. */
+      const ib = { x: 12, y: l.incomeY, w: W - 24, h: l.incomeH };
+      pill(ctx, ib.x, ib.y, ib.w, ib.h, 7, 'rgba(255,255,255,0.08)', COLORS.glassLine);
+      const iw = (sim.income / cfg.income.cap) * ib.w;
+      if (iw > 2) pill(ctx, ib.x, ib.y, Math.max(6, iw), ib.h, 7, s.incomeGrad, null);
+      const tickX = ib.x + (cfg.cover.premium / cfg.income.cap) * ib.w;
+      ctx.fillStyle = sim.income >= cfg.cover.premium ? COLORS.skyLt : 'rgba(255,255,255,0.45)';
+      ctx.fillRect(tickX - 1, ib.y - 2, 2, ib.h + 4);
+      // Dark ink on the gold fill, light ink once the bar has drained past the
+      // label — otherwise "INCOME 0" is unreadable at the moment it matters most.
+      const label = `INCOME  ${Math.floor(sim.income)}`;
+      ctx.font = `800 9.5px ${FONT}`;
+      const labelEnd = 8 + ctx.measureText(label).width;
+      text(ctx, label, ib.x + 8, ib.y + ib.h / 2 + 0.5, 9.5, 800,
+        iw > labelEnd ? 'rgba(11,18,33,0.85)' : 'rgba(255,255,255,0.75)', 'left');
 
-      // A banked balloon deflates away over the first 0.4 s of the beat; a burst
-      // one is already confetti.
-      const shrink = beating
-        ? clamp((cfg.fx.roundBeatSeconds - s.beat) / 0.4, 0, 1)
-        : 0;
-      const visible = !s.ended && (!beating || (!s.burst && shrink < 1));
+      /* Columns */
+      for (let i = 0; i < sim.goals.length; i++) {
+        const g = sim.goals[i];
+        const cx = l.colW * (i + 0.5);
+        const left = l.colW * i;
+        const need = g.target - g.value;
+        const timeLeftG = Math.max(0, g.deadline - sim.t);
+        const reachable = need <= 0 || need <= cfg.income.fillPerSecond * timeLeftG;
+        const doneG = need <= 0;
+        const skin = s.skins[doneG ? 'done' : reachable ? 'ok' : 'short'];
+        const active = s.feed === i;
 
-      // Drone lanes first, so the balloon draws over them.
-      for (let i = 0; i < round.needles.length; i++) {
-        drawNeedleLane(ctx, W, s.cy + round.needles[i].offset * W, tellK);
-      }
+        // Column panel — brightens under the thumb so the active choice is
+        // never ambiguous on a small screen.
+        pill(ctx, left + 3, l.panelTop, l.colW - 6, l.panelBot - l.panelTop, 14,
+          active ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.035)',
+          active ? 'rgba(255,200,69,0.55)' : COLORS.glassLine);
 
-      const R = Math.max(6, radiusAt(cfg, shown) * W * (1 - shrink));
-      if (visible) {
-        drawBalloon(ctx, s, s.cx, s.cy - shrink * 42, R, tellK, time, s.padY);
-      }
+        text(ctx, g.name, cx, l.nameY, Math.min(9.5, l.colW * 0.095), 900,
+          'rgba(255,255,255,0.72)');
 
-      // Drones over the balloon: the spike has to read as being in front of the
-      // envelope or the overlap rule looks arbitrary.
-      const size = W * 0.055;
-      const armedNeedle = inflating ? needleHitAt(cfg, round, s.held) : -1;
-      for (let i = 0; i < round.needles.length; i++) {
-        const n = round.needles[i];
-        // `shown` rather than the live clock: during the result beat the drone
-        // holds the position it had at the release, so the player can see what
-        // popped them instead of watching it drift on.
-        const x = needleX(cfg, n, shown) * W;
-        const y = s.cy + n.offset * W;
-        drawNeedle(ctx, x, y, size, n.dir, time, s.shadows, armedNeedle === i);
-      }
+        // Target ring: the finish line, drawn where the balloon reaches target.
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = doneG ? COLORS.greenLt : 'rgba(255,255,255,0.34)';
+        ctx.beginPath();
+        ctx.ellipse(cx, l.cy, l.maxR, l.maxR * ASPECT, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
 
-      if (s.phase === 'arm' && !s.ended) drawArmPrompt(ctx, s.cx, s.cy, R, time);
-      if (inflating) {
-        drawValue(
-          ctx, s.cx,
-          Math.max(190, s.cy - radiusAt(cfg, shown) * W * 1.30 - 28),
-          valueAt(cfg, shown), tellK, s.shadows,
-        );
+        const k = clamp(g.value / g.target, 0, 1);
+        const r = l.minR + (l.maxR - l.minR) * k;
+        const wob = active ? Math.sin(s.pulse * 7) * 0.5 + 0.5 : 0;
+        drawBalloon(ctx, cx, l.cy, r, skin, s.reduced ? 0 : wob * 0.5);
+
+        if (s.flash[i] > 0) {
+          ctx.save();
+          ctx.globalAlpha = s.flash[i] * 0.55;
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.ellipse(cx, l.cy, r * 1.04, r * ASPECT * 1.04, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Cover: a blue ring whose arc is the term remaining.
+        if (g.covered) {
+          const left01 = clamp((g.coverUntil - sim.t) / cfg.cover.termSeconds, 0, 1);
+          ctx.save();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = COLORS.brandBlueLt;
+          ctx.shadowColor = COLORS.brandBlueLt;
+          ctx.shadowBlur = s.shadows ? 10 : 0;
+          ctx.beginPath();
+          ctx.ellipse(cx, l.cy, l.maxR + 4, l.maxR * ASPECT + 8, 0,
+            -Math.PI / 2, -Math.PI / 2 + left01 * Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Forecast shock badge: which goal, how long, and EXACTLY how much it
+        // takes at this goal's present value. That number is the whole game.
+        if (g.risk) {
+          const secs = Math.max(0, g.risk.at - sim.t);
+          const loss = Math.round(exposureOf(g));
+          const worth = coverIsWorthIt(cfg, sim, i);
+          const bw = Math.min(l.colW - 14, 86);
+          const bh = 26;
+          const bx = cx - bw / 2;
+          const by = l.badgeY;
+          const urgent = secs < 1.6 && !g.covered && worth;
+          ctx.save();
+          if (urgent && !s.reduced) ctx.globalAlpha = 0.6 + 0.4 * Math.abs(Math.sin(s.pulse * 9));
+          // RED means money worth protecting. A shock on a goal holding almost
+          // nothing is drawn in slate: it is announced, it is real, and it is
+          // not worth 28 — which is the whole lesson, said in colour.
+          pill(ctx, bx, by, bw, bh, 8,
+            g.covered ? 'rgba(30,107,224,0.85)'
+              : worth ? 'rgba(239,68,68,0.9)' : 'rgba(90,110,140,0.8)',
+            'rgba(255,255,255,0.3)');
+          if (loss > 0) text(ctx, `-${loss}`, cx - 2, by + 9.5, 12.5, 900, '#fff');
+          else text(ctx, 'NO LOSS', cx, by + 9.5, 9.5, 900, 'rgba(255,255,255,0.9)');
+          text(ctx, `${Math.round(g.risk.severity * 100)}%  in ${secs.toFixed(1)}s`,
+            cx, by + 19.5, 8, 800, 'rgba(255,255,255,0.88)');
+          ctx.restore();
+          // A small caret under the badge when cover is the better buy.
+          if (worth && !g.covered) {
+            ctx.fillStyle = COLORS.skyLt;
+            ctx.beginPath();
+            ctx.moveTo(cx - 5, by + bh + 3);
+            ctx.lineTo(cx + 5, by + bh + 3);
+            ctx.lineTo(cx, by + bh + 9);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+
+        // Value / target.
+        const vCol = doneG ? COLORS.greenLt : reachable ? '#fff' : COLORS.dangerLt;
+        text(ctx, `${Math.floor(g.value)}`, cx - 2, l.valueY, 15, 900, vCol, 'right');
+        text(ctx, ` / ${g.target}`, cx - 2, l.valueY, 11, 800, 'rgba(255,255,255,0.5)', 'left');
+
+        // Deadline bar. Orange under five seconds — urgency, never damage.
+        const bw2 = l.colW - 26;
+        const bx2 = left + 13;
+        const t01 = clamp(timeLeftG / cfg.goal.windowSeconds, 0, 1);
+        pill(ctx, bx2, l.barY, bw2, 6, 3, 'rgba(255,255,255,0.13)', null);
+        if (t01 > 0) {
+          pill(ctx, bx2, l.barY, Math.max(3, bw2 * t01), 6, 3,
+            timeLeftG < 5 ? COLORS.orangeLt : doneG ? COLORS.greenLt : COLORS.steelLt, null);
+        }
+        text(ctx, `${timeLeftG.toFixed(1)}s left`, cx, l.secY, 9.5, 800,
+          timeLeftG < 5 ? COLORS.orangeLt : 'rgba(255,255,255,0.55)');
+
+        // Cover button.
+        const btn = coverRect(l, i);
+        const afford = sim.income >= cfg.cover.premium;
+        const on = g.covered;
+        pill(ctx, btn.x, btn.y, btn.w, btn.h, 11,
+          on ? 'rgba(30,107,224,0.9)' : afford ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
+          on ? COLORS.skyLt : afford ? 'rgba(127,182,255,0.5)' : 'rgba(255,255,255,0.1)');
+        const label = on ? 'COVERED' : 'COVER';
+        text(ctx, label, btn.x + btn.w / 2, btn.y + btn.h / 2 - 5, 10, 900,
+          on ? '#fff' : afford ? COLORS.skyLt : 'rgba(255,255,255,0.3)');
+        text(ctx, on ? `${Math.max(0, g.coverUntil - sim.t).toFixed(1)}s` : `${cfg.cover.premium}`,
+          btn.x + btn.w / 2, btn.y + btn.h / 2 + 7, 11, 900,
+          on ? 'rgba(255,255,255,0.85)' : afford ? '#fff' : 'rgba(255,255,255,0.3)');
       }
 
       fx.draw(ctx);
       fx.endCamera(ctx);
 
-      /* --- HUD values written straight to the DOM ---------------------
-         The banked counter changes many times a second while it lerps. Routing
-         it through React state would re-render the tree every frame; writing
-         textContent costs nothing and leaves the budget for the canvas. */
-      const sc = Math.round(s.scoreShown);
+      /* HUD numbers written straight to the DOM — repainting two spans is free
+         and leaves the frame budget to the canvas. */
+      const sc = Math.round(sim.score);
       if (sc !== s.shownScore) {
         s.shownScore = sc;
         if (scoreElRef.current) scoreElRef.current.textContent = sc.toLocaleString();
@@ -766,33 +612,54 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
           barElRef.current.style.width = `${clamp((sc / cfg.scoring.targetScore) * 100, 0, 100)}%`;
         }
       }
-      if (s.run.streak !== s.shownStreak) {
-        s.shownStreak = s.run.streak;
-        setStreak(s.run.streak);
-      }
-      if (s.run.shieldsLeft !== s.shownShield) {
-        s.shownShield = s.run.shieldsLeft;
-        setShieldLeft(s.run.shieldsLeft);
-      }
-      // The compound bonus this round would pay if it were banked right now —
-      // a whole number that only changes between rounds, so React state is fine.
-      const pend = inflating || s.phase === 'arm'
-        ? cfg.compound.bonusPerStep * Math.min(s.run.streak, cfg.compound.maxSteps)
-        : 0;
-      if (pend !== s.shownPending) {
-        s.shownPending = pend;
-        setPending(pend);
-      }
     };
 
-    /* --- input ------------------------------------------------------------ */
+    /* --- input ------------------------------------------------------------- */
+    const columnAt = (p) => {
+      const l = s.lay;
+      if (p.y < l.colTop || p.y > l.btnY - 2) return -1;
+      const i = Math.floor(p.x / l.colW);
+      return i >= 0 && i < cfg.slots ? i : -1;
+    };
+    const coverAt = (p) => {
+      const l = s.lay;
+      for (let i = 0; i < cfg.slots; i++) {
+        const b = coverRect(l, i);
+        // Padded hit box: the drawn button is 44 tall but the touch target
+        // reaches to the bottom of the stage so a low thumb still lands.
+        if (p.x >= b.x - 4 && p.x <= b.x + b.w + 4 && p.y >= b.y - 6) return i;
+      }
+      return -1;
+    };
+
     const input = createInput(canvas, {
-      onDown: () => {
+      onDown: (p) => {
         audio.unlock();
-        startInflate();
+        if (s.ended || s.resumeHold > 0) return;
+        const c = coverAt(p);
+        if (c >= 0) {
+          s.pressLock = true;
+          if (buyCover(cfg, s.sim, c)) {
+            audio.click();
+            haptic('light');
+            const l = s.lay;
+            s.effects.floatText(l.colW * (c + 0.5), l.btnY - 6, `-${cfg.cover.premium}`,
+              COLORS.skyLt, 14);
+            if (coachRef.current === 2) setCoachStep(3);
+          } else {
+            audio.tick();
+          }
+          return;
+        }
+        s.feed = columnAt(p);
+      },
+      onMove: (p) => {
+        if (s.pressLock || s.ended || s.resumeHold > 0) return;
+        s.feed = columnAt(p);
       },
       onUp: () => {
-        if (s.phase === 'inflate') settle(s.held);
+        s.feed = -1;
+        s.pressLock = false;
       },
     });
 
@@ -802,23 +669,20 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
       render,
       stepMode: 'fixed',
       sessionSeconds: cfg.sessionSeconds,
-      shouldTickClock: () => !s.ended,
+      shouldTickClock: () => !s.ended && s.resumeHold <= 0,
       onTick: (remaining) => setTimeLeft(remaining),
-      onExpire: () => {
-        // Bank the hold that was in flight when the clock ran out before
-        // judging the run. Without this a player holding a 90-point balloon as
-        // the timer hits zero loses it silently — and it would be asymmetric
-        // with onPause below, which already settles. settle() no-ops unless a
-        // hold is actually in progress.
-        settle(s.held);
-        endRun(s.run.score >= cfg.scoring.targetScore, 'timeout');
-      },
+      onExpire: endRun,
       onPause: (isPaused) => {
         setPaused(isPaused);
         audio.setPaused(isPaused);
-        // Backgrounding mid-hold would otherwise bank or burst on whatever the
-        // clock did while the tab was away. Resolve at the moment of pause.
-        if (isPaused && s.phase === 'inflate') settle(s.held);
+        s.feed = -1;
+        s.pressLock = false;
+        if (!isPaused && !s.ended) {
+          // Re-acquire countdown. Without it, backgrounding the tab is a free
+          // pause button in a game whose whole point is deciding under a clock.
+          s.resumeHold = cfg.hud.resumeCountdown;
+          s.shownResume = -1;
+        }
       },
     });
     loop.start();
@@ -847,10 +711,9 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
       <div ref={wrapRef} style={styles.stage} className="wb-stage">
         <canvas ref={canvasRef} style={styles.canvas} />
 
-        {/* HUD ------------------------------------------------------- */}
         <div style={styles.hudTop}>
           <div style={styles.pill}>
-            <span style={styles.pillLabel}>Banked</span>
+            <span style={styles.pillLabel}>Funded</span>
             <span ref={scoreElRef} style={styles.pillValue}>0</span>
           </div>
           <div style={{ ...styles.pill, alignItems: 'flex-end' }}>
@@ -868,114 +731,58 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
         <div style={styles.progressWrap}>
           <div style={styles.progressPill}>
             <span style={styles.progressText}>
-              <span style={{ opacity: 0.55 }}>Target </span>
+              <span style={{ opacity: 0.55 }}>Goal </span>
               {cfg.scoring.targetScore.toLocaleString()}
             </span>
             <div style={styles.track}>
               <div ref={barElRef} style={styles.trackFill} />
             </div>
-            <div style={styles.dots}>
-              {Array.from({ length: cfg.rounds }).map((_, i) => (
-                <span
-                  key={i}
-                  style={{
-                    ...styles.dot,
-                    background: i < roundNo - 1 ? 'rgba(255,255,255,0.22)' : i === roundNo - 1 ? COLORS.orangeLt : COLORS.gold,
-                    boxShadow: i === roundNo - 1 ? `0 0 7px ${COLORS.orangeLt}` : 'none',
-                  }}
-                />
-              ))}
-            </div>
           </div>
         </div>
 
-        {/* Status chips ---------------------------------------------- */}
-        <div style={styles.statusWrap}>
-          <div style={{ ...styles.status, borderColor: 'rgba(255,255,255,0.2)' }}>
-            <span style={{ color: '#fff' }}>Round {Math.min(roundNo, cfg.rounds)}/{cfg.rounds}</span>
-          </div>
-          <div
-            className={shieldLeft > 0 ? 'wb-shield' : undefined}
-            style={{
-              ...styles.status,
-              borderColor: shieldLeft > 0 ? 'rgba(127,182,255,0.6)' : 'rgba(255,255,255,0.14)',
-              opacity: shieldLeft > 0 ? 1 : 0.45,
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={shieldLeft > 0 ? COLORS.skyLt : 'rgba(255,255,255,0.5)'}
-              strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
-            </svg>
-            <span style={{ color: shieldLeft > 0 ? COLORS.skyLt : 'rgba(255,255,255,0.5)' }}>
-              {shieldLeft > 0 ? 'Term Shield' : 'Shield used'}
-            </span>
-          </div>
-          {streak >= 1 && pending > 0 && (
-            <div style={{ ...styles.status, borderColor: 'rgba(74,222,128,0.55)' }}>
-              <span style={{ color: COLORS.greenLt }}>Compound +{pending}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Round result card ----------------------------------------- */}
-        {card && !over && (
-          <div key={card.id} style={styles.cardWrap} className="wb-card">
-            <div style={{
-              ...styles.card,
-              background: card.kind === 'bank'
-                ? 'linear-gradient(180deg, rgba(255,200,69,0.95), rgba(176,123,18,0.95))'
-                : card.kind === 'shield'
-                  ? 'linear-gradient(180deg, rgba(30,107,224,0.95), rgba(0,45,120,0.95))'
-                  : 'linear-gradient(180deg, rgba(239,68,68,0.95), rgba(120,18,18,0.95))',
-            }}>
-              <span style={styles.cardLabel}>
-                {card.kind === 'bank'
-                  ? `Banked at ${card.seconds.toFixed(2)}s`
-                  : card.kind === 'shield'
-                    ? 'Term Shield absorbed it'
-                    : card.cause === 'needle' ? 'Needle drone' : 'Burst'}
-              </span>
-              <span style={styles.cardValue}>
-                {card.total > 0 ? `+${card.total}` : '0'}
-              </span>
-              {card.bonus > 0 && (
-                <span style={styles.cardSub}>{card.banked} + {card.bonus} compound</span>
+        {/* Coach — three prompts, each cleared by doing the thing ---------- */}
+        {coach < 3 && !over && !paused && (
+          <div style={styles.coachWrap} className="wb-coach" key={coach}>
+            <div style={styles.coach}>
+              {coach === 0 && (
+                <><strong style={{ color: COLORS.gold }}>Hold</strong> a balloon to fund it</>
               )}
-              {card.kind === 'shield' && (
-                <span style={styles.cardSub}>half of {card.atBurst} rescued</span>
+              {coach === 1 && (
+                <>Fill past the <strong style={{ color: '#fff' }}>dashed ring</strong> before its timer ends</>
               )}
-              {card.kind === 'burst' && (
-                <span style={styles.cardSub}>compounding streak reset</span>
+              {coach === 2 && (
+                <><strong style={{ color: COLORS.dangerLt }}>Red number</strong> bigger than{' '}
+                  <strong style={{ color: COLORS.skyLt }}>{cfg.cover.premium}</strong>? Tap COVER</>
               )}
             </div>
           </div>
         )}
 
-        {/* First-run hint -------------------------------------------- */}
-        {hint && !over && (
-          <div style={styles.hintWrap} className="wb-hint">
-            <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>Hold</strong> anywhere to inflate ·{' '}
-              <strong style={{ color: COLORS.orangeLt }}>Let go</strong> to bank
-            </div>
-          </div>
-        )}
-
-        {/* Auto-pause veil ------------------------------------------- */}
-        {paused && !over && (
+        {/* Auto-pause veil + re-acquire countdown -------------------------- */}
+        {(paused || resumeIn > 0) && !over && (
           <div style={styles.pauseVeil}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-              <rect x="6" y="4" width="4" height="16" rx="1.5" />
-              <rect x="14" y="4" width="4" height="16" rx="1.5" />
-            </svg>
-            <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Paused</div>
-            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
-              Your timer is safe. Come back and keep inflating.
-            </div>
+            {paused ? (
+              <>
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+                  <rect x="6" y="4" width="4" height="16" rx="1.5" />
+                  <rect x="14" y="4" width="4" height="16" rx="1.5" />
+                </svg>
+                <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Paused</div>
+                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', maxWidth: 250 }}>
+                  Your timer is safe. Come back and keep funding.
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ color: COLORS.gold, fontWeight: 900, fontSize: 52, lineHeight: 1 }}>
+                  {resumeIn}
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>Back in…</div>
+              </>
+            )}
           </div>
         )}
 
-        {/* Mute ------------------------------------------------------- */}
         <button
           type="button"
           onClick={toggleMute}
@@ -983,12 +790,12 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
           style={styles.muteBtn}
         >
           {muted ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
               <line x1="2" y1="2" x2="22" y2="22" />
               <path d="M11 5 6 9H2v6h4l5 4z" />
             </svg>
           ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
               <path d="M11 5 6 9H2v6h4l5 4z" />
               <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
             </svg>
@@ -999,50 +806,45 @@ export default function WealthBalloonGame({ config, onWin, onLose }) {
   );
 }
 
+/** Cover button rect for a slot. One definition, used to draw AND to hit-test. */
+function coverRect(l, i) {
+  const w = Math.min(l.colW - 16, 104);
+  return { x: l.colW * (i + 0.5) - w / 2, y: l.btnY, w, h: l.btnH };
+}
+
 /* ─── Styles ─────────────────────────────────────────────── */
 const CSS = `
 @keyframes wbIn { from { opacity: 0; transform: scale(0.965) translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes wbPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.75; } }
-@keyframes wbCard {
-  0%   { opacity: 0; transform: translateY(16px) scale(0.86); }
-  18%  { opacity: 1; transform: translateY(0) scale(1.07); }
-  30%  { transform: translateY(0) scale(1); }
-  82%  { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-14px) scale(0.96); }
-}
-@keyframes wbHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
-@keyframes wbShield { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes wbCoach { 0% { opacity: 0; transform: translateY(8px); } 12% { opacity: 1; transform: none; } 100% { opacity: 1; } }
 .wb-stage { animation: wbIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
-.wb-card { animation: wbCard 1.5s ease-out both; }
-.wb-hint { animation: wbHint 1.6s ease-in-out infinite; }
-.wb-shield { animation: wbShield 1.8s ease-in-out infinite; }
+.wb-coach { animation: wbCoach 600ms ease-out both; }
 @media (prefers-reduced-motion: reduce) {
-  .wb-stage, .wb-card, .wb-hint, .wb-shield { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+  .wb-stage, .wb-coach { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
 }
 `;
 
 const glass = {
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  backdropFilter: 'blur(12px)',
-  WebkitBackdropFilter: 'blur(12px)',
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.14)',
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
 };
 
 const styles = {
   root: {
-    position: 'relative',
     width: '100%',
     height: '100%',
     maxWidth: 430,
-    margin: '0 auto',
     display: 'flex',
-    padding: 10,
+    flexDirection: 'column',
+    padding: 8,
     boxSizing: 'border-box',
   },
   stage: {
     position: 'relative',
     flex: 1,
-    minHeight: 420,
+    minHeight: 400,
     borderRadius: 20,
     overflow: 'hidden',
     background: COLORS.bgDark,
@@ -1053,7 +855,7 @@ const styles = {
   canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
   hudTop: {
     position: 'absolute',
-    top: 10,
+    top: 8,
     left: 10,
     right: 10,
     display: 'flex',
@@ -1067,8 +869,8 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     borderRadius: 12,
-    padding: '5px 12px',
-    minWidth: 78,
+    padding: '4px 11px',
+    minWidth: 72,
   },
   pillLabel: {
     fontSize: 8,
@@ -1078,7 +880,7 @@ const styles = {
     color: 'rgba(255,255,255,0.55)',
   },
   pillValue: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: 900,
     color: '#fff',
     lineHeight: 1.15,
@@ -1087,7 +889,7 @@ const styles = {
   },
   progressWrap: {
     position: 'absolute',
-    top: 62,
+    top: 54,
     left: 10,
     right: 10,
     display: 'flex',
@@ -1095,16 +897,16 @@ const styles = {
     pointerEvents: 'none',
     zIndex: 4,
   },
-  progressPill: { ...glass, borderRadius: 12, padding: '6px 14px 7px', minWidth: 186, textAlign: 'center' },
+  progressPill: { ...glass, borderRadius: 12, padding: '5px 14px 6px', minWidth: 168, textAlign: 'center' },
   progressText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: 800,
     color: '#fff',
     letterSpacing: '0.04em',
     fontVariantNumeric: 'tabular-nums',
   },
   track: {
-    marginTop: 5,
+    marginTop: 4,
     height: 5,
     borderRadius: 3,
     background: 'rgba(255,255,255,0.14)',
@@ -1117,88 +919,23 @@ const styles = {
     background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.greenLt})`,
     transition: 'width 180ms linear',
   },
-  dots: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: 5,
-    marginTop: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    display: 'inline-block',
-    transition: 'background 240ms ease, box-shadow 240ms ease',
-  },
-  statusWrap: {
+  coachWrap: {
     position: 'absolute',
-    top: 140,
-    left: 10,
-    right: 10,
-    display: 'flex',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    pointerEvents: 'none',
-    zIndex: 4,
-  },
-  status: {
-    ...glass,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 999,
-    padding: '4px 10px',
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-  },
-  cardWrap: {
-    position: 'absolute',
-    bottom: '18%',
-    left: 0,
-    right: 0,
+    left: 8,
+    right: 8,
+    top: 98,
     display: 'flex',
     justifyContent: 'center',
     pointerEvents: 'none',
     zIndex: 6,
   },
-  card: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 2,
-    padding: '10px 24px 12px',
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.28)',
-    boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
-    minWidth: 178,
-  },
-  cardLabel: {
-    fontSize: 8,
-    fontWeight: 900,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.9)',
-  },
-  cardValue: { fontSize: 26, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 },
-  cardSub: { fontSize: 10.5, fontWeight: 800, color: 'rgba(255,255,255,0.82)' },
-  hintWrap: {
-    position: 'absolute',
-    bottom: 66,
-    left: 12,
-    right: 12,
-    display: 'flex',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-    zIndex: 5,
-  },
-  hint: {
+  coach: {
     ...glass,
-    borderRadius: 999,
-    padding: '9px 16px',
-    fontSize: 12,
+    background: 'rgba(11,18,33,0.82)',
+    borderRadius: 12,
+    padding: '7px 12px',
+    fontSize: 11.5,
+    lineHeight: 1.35,
     fontWeight: 700,
     color: 'rgba(255,255,255,0.92)',
     textAlign: 'center',
@@ -1218,12 +955,13 @@ const styles = {
   },
   muteBtn: {
     position: 'absolute',
-    right: 10,
-    bottom: 10,
+    left: '50%',
+    top: 8,
+    transform: 'translateX(-50%)',
     width: 44,
     height: 44,
     borderRadius: 14,
-    background: 'rgba(11,18,33,0.6)',
+    background: 'rgba(11,18,33,0.55)',
     border: '1px solid rgba(255,255,255,0.16)',
     color: '#fff',
     display: 'flex',

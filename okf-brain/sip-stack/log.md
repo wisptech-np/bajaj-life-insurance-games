@@ -94,3 +94,65 @@ plinth, the summit lantern, the HUD icon set and win/loss tableaus.
 
 - `pnpm install` + `pnpm build` — **green**: `dist/assets/index-Bv1T3tVo.js`
   408.89 kB (136.43 kB gzip), `index-CbWL_ocX.css` 33.60 kB, built in 2.42 s.
+
+---
+
+## 2026-08-03 — Blocks and UI rebuild (BajajLife review)
+
+Feedback: *"The user interface and stacking blocks are not properly designed —
+use clearly defined block assets with consistent dimensions and collision
+boundaries; improve movement, drop controls, stacking physics, balance and
+collapse; enhance the visual representation of SIP growth; improve the
+interface, scoring display, progression and result screen."*
+
+The build agent completed the work but its session ended before it wrote this
+entry. The entry below was reconstructed by the coordinator from the diff and
+from re-running every gate on the shipped tree — the numbers are measured, not
+copied from the agent's report.
+
+**Changed:** new pure module `src/stack.js` (300 lines) and
+`scripts/balance.mjs`; rewrites of `src/SipStackGame.jsx` (+818/-372 across the
+game), `src/data.js`, `src/Screens.jsx`, `src/App.jsx`, `README.md`, and
+`okf-brain/sip-stack/index.md`.
+
+**Geometry contract — the named defect.** `slabFaces()` in `src/stack.js` is now
+the only description of a block's shape; the component fills exactly those
+polygons and the drop is judged on exactly the same `[x, x + w]` footprint.
+Gate PASS 1 asserts the two agree across 224 block widths from 12 px to
+122.8 px: **224/224, worst horizontal, vertical and landing-surface
+disagreement all 0.000 px.** A drop that looks perfect can no longer be trimmed.
+
+**Input.** The drop is judged at the `pointerdown` timestamp rather than the
+kit's `onTap` (which fires from `pointerup` and charges the player the whole
+contact duration). Same root cause milestone-hopper hit in this batch.
+
+**Compounding made visible.** Corpus recurrence `corpus x 1.06 + contribution`
+per layer, so the first surviving layer ends the run worth **970 pts against
+100 pts for the last (x9.70)**, and blocks ripen from brand blue to gold as they
+compound. Full-perfect corpus 23,214.
+
+**Verification re-run by the coordinator on the shipped tree:**
+
+- `node scripts/balance.mjs` — **GATE: PASS**. Geometry 224/224 at 0.000 px;
+  track 3,136/3,136 states with the slab always fully on canvas and a full miss
+  always reachable; 20,000 random drops with 0 rule violations. Players over
+  3,000 runs each: precise (12 ms) 100.0%, skilled (35 ms) 96.7%, casual (75 ms)
+  0.0%, sloppy (130 ms) 0.0%, random 0.0%.
+- `npx vite build` — passes, 418.62 kB / **139.29 kB gzip**.
+- `node scripts/play-test.mjs sip-stack --all-sizes` — canvas mounts and paints
+  100% at 320x568, 390x844, 412x915 and 412x700; results screen reached and
+  retry restores the canvas at every size; **zero console and page errors**.
+  Random-bot runs 3-6 s, consistent with the gate's random policy (median 4 s,
+  0-10 layers) rather than a defect.
+
+**Open — deliberately not changed by the coordinator.** Casual (75 ms timing
+error) wins 0.0% while skilled (35 ms) wins 96.7%: the summit is a stretch goal,
+not the pass mark. The results screen grades in three tiers at `targetLayers`
+and `35% of targetLayers`, so a casual run still lands a real score (median 24
+of 40 layers, corpus 4,909) rather than a bare loss. That is a defensible
+score-attack shape and unlike the sub-20-second deaths fixed earlier in this
+batch, but the 35 ms -> 75 ms cliff is sharp and is the first thing to revisit
+if the client reports the game as unwinnable.
+
+**Housekeeping.** Four stray `shot-*.png` files left at the game root by the
+agent's screenshot pass were deleted; `.gitignore` only covered `playtest-*.png`.

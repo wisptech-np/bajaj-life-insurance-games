@@ -571,12 +571,38 @@ export function HowToPlayScreen({ onPlay }) {
             <rect x="10.5" y="14" width="5" height="10" rx="2.5" fill="#F3F7FF" />
             <rect x="8" y="19" width="10" height="6" rx="3" fill="#D7E3F5" />
           </Cue>
-          <Cue tint={BLUE_LT} label="Bank cover">
-            <path d="M13 3 l8 3 l0 7 c0 5.4 -3.4 9.4 -8 11.4 c-4.6 -2 -8 -6 -8 -11.4 l0 -7 z"
-              fill={BLUE_LT} stroke="#A6D0FF" strokeWidth="1.4" />
-            <path d="M9.4 12.6 l2.6 2.6 l4.8 -5.4" fill="none" stroke="#fff" strokeWidth="2.2"
-              strokeLinecap="round" strokeLinejoin="round" />
+          <Cue tint={BLUE_LT} label="Pick your zone">
+            <path d="M3 20 A 11 11 0 0 1 23 20 Z" fill="rgba(30,107,224,0.28)" stroke={BLUE_LT} strokeWidth="1.4" />
+            <path d="M13 20 L13 5M13 20 L4.2 14.6M13 20 L21.8 14.6" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2" />
+            <circle cx="13" cy="20" r="2.4" fill="#fff" />
           </Cue>
+        </div>
+
+        {/* The four zones, in the same left-to-right order as the tap lanes. */}
+        <div style={{ display: 'flex', gap: 5, marginBottom: 14 }}>
+          {GAME_CONFIG.zones.map((z) => (
+            <div key={z.key} style={{
+              flex: 1,
+              borderRadius: 10,
+              padding: '6px 2px 5px',
+              background: `${z.color}1F`,
+              border: `1px solid ${z.color}66`,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+            }}>
+              <span style={{
+                fontSize: 7.5, fontWeight: 900, letterSpacing: '0.05em',
+                textTransform: 'uppercase', color: 'rgba(255,255,255,0.72)', lineHeight: 1.1,
+              }}>
+                {z.short}
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 900, color: z.colorLt, lineHeight: 1 }}>
+                {z.runs.perfect}
+              </span>
+              <span style={{ fontSize: 6.5, fontWeight: 800, color: 'rgba(255,255,255,0.5)', lineHeight: 1.1 }}>
+                {z.grantsShield ? 'BANKS A SHIELD' : z.catch.good ? `${Math.round(z.catch.good * 100)}% CAUGHT` : 'NO RISK'}
+              </span>
+            </div>
+          ))}
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
@@ -584,14 +610,14 @@ export function HowToPlayScreen({ onPlay }) {
             onClick={onPlay}
             style={{
               width: '100%', height: 52, border: 'none', borderRadius: 12,
-              fontSize: 18, fontWeight: 900, color: '#fff',
-              textTransform: 'uppercase', letterSpacing: '0.05em',
+              fontSize: 17, fontWeight: 900, color: '#fff',
+              textTransform: 'uppercase', letterSpacing: '0.04em',
               background: `linear-gradient(180deg, ${BLUE_LT} 0%, ${BLUE} 100%)`,
               boxShadow: '0 4px 16px rgba(0,61,166,0.45)',
               cursor: 'pointer',
             }}
           >
-            Take Strike
+            Got it! Start Game
           </button>
         </motion.div>
       </div>
@@ -620,12 +646,130 @@ function StatTile({ label, value, accent }) {
   );
 }
 
+/**
+ * Score & bonus summary table (GAME_DESIGN_SYSTEM section 4.D.4).
+ *
+ * Every run in this game was banked in one of four insurance zones, so the
+ * breakdown is not decoration — it is the record of the financial choices the
+ * player made under a rising required rate.
+ */
+function ZoneTable({ zoneRuns, total, shieldSaves }) {
+  const rows = GAME_CONFIG.zones.map((z) => ({ z, v: zoneRuns?.[z.key] || 0 }));
+  const max = Math.max(1, ...rows.map((r) => r.v));
+  return (
+    <div style={{
+      width: '100%', maxWidth: 360, marginBottom: 12, zIndex: 2,
+      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)',
+      borderRadius: 16, padding: '12px 14px',
+    }}>
+      <div style={{
+        fontSize: 8, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.45)', marginBottom: 9,
+      }}>
+        Where your runs came from
+      </div>
+      {rows.map(({ z, v }) => (
+        <div key={z.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: 2, background: z.color, flexShrink: 0,
+          }} />
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.82)', flexShrink: 0, width: 82,
+          }}>
+            {z.short}
+          </span>
+          <span style={{ flex: 1, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.08)' }}>
+            <span style={{
+              display: 'block', height: '100%', borderRadius: 3,
+              width: `${(v / max) * 100}%`, background: z.colorLt,
+              transition: 'width 0.8s ease-out',
+            }} />
+          </span>
+          <span style={{
+            fontSize: 12, fontWeight: 900, color: v > 0 ? z.colorLt : 'rgba(255,255,255,0.3)',
+            fontVariantNumeric: 'tabular-nums', width: 22, textAlign: 'right',
+          }}>
+            {v}
+          </span>
+        </div>
+      ))}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', marginTop: 9, paddingTop: 8,
+        borderTop: '1px solid rgba(255,255,255,0.10)',
+      }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.55)' }}>
+          {shieldSaves > 0
+            ? `Cover absorbed ${shieldSaves} dismissal${shieldSaves === 1 ? '' : 's'}`
+            : 'Cover absorbed nothing'}
+        </span>
+        <span style={{ fontSize: 10, fontWeight: 900, color: '#fff' }}>
+          {total} total
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Financial Goal Insight Box (GAME_DESIGN_SYSTEM section 4.D.4). */
+function InsightBox({ zoneRuns, runs, wickets, won, shieldSaves }) {
+  const top = GAME_CONFIG.zones
+    .map((z) => ({ z, v: zoneRuns?.[z.key] || 0 }))
+    .sort((a, b) => b.v - a.v)[0];
+
+  let headline;
+  let body;
+  if (!runs) {
+    headline = 'You never got started';
+    body = 'A plan you never begin protects nothing. The first premium matters more than the perfect one.';
+  } else if (wickets >= GAME_CONFIG.chase.wickets) {
+    headline = 'Chasing cost you the innings';
+    body = shieldSaves > 0
+      ? 'Your cover absorbed a blow before the end — that is exactly what protection is for. Without more of it, one bad ball finished the chase.'
+      : 'Every run came with risk and none of it was covered. Protection is what keeps a bad year from ending the plan.';
+  } else if (top.z.key === 'income' && top.v >= runs * 0.5) {
+    headline = 'You played it safe';
+    body = 'Guaranteed Income never got you out — and never got you there either. Safety alone rarely reaches a goal with a deadline.';
+  } else if (top.z.key === 'retirement') {
+    headline = 'You chased growth';
+    body = 'Retirement Corner paid the most and risked the most. Real portfolios need that engine, but they need a floor under it too.';
+  } else if (top.z.key === 'protection') {
+    headline = 'You bought cover first';
+    body = 'Protection pays fewer runs and buys survival. It is the least exciting line in a plan and the one that keeps the rest of it standing.';
+  } else {
+    headline = won ? 'You balanced it well' : 'You were close';
+    body = 'Goals, growth and cover in the same innings — that mix is what a real financial plan looks like.';
+  }
+
+  return (
+    <div style={{
+      width: '100%', maxWidth: 360, marginBottom: 16, zIndex: 2,
+      background: 'linear-gradient(180deg, rgba(0,163,224,0.14) 0%, rgba(0,61,166,0.10) 100%)',
+      border: '1px solid rgba(0,163,224,0.28)', borderRadius: 16, padding: '12px 14px',
+      display: 'flex', gap: 10, alignItems: 'flex-start', textAlign: 'left',
+    }}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={GOLD}
+        strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+        aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
+        <path d="M9 18h6M10 22h4" />
+        <path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
+      </svg>
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 900, color: '#fff', marginBottom: 3 }}>{headline}</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', lineHeight: 1.4 }}>
+          {body}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLabel }) {
-  // The {runs, boundaries, wickets, perfects} contract, and nothing else.
   const runs = stats?.runs || 0;
   const boundaries = stats?.boundaries || 0;
   const wickets = stats?.wickets || 0;
   const perfects = stats?.perfects || 0;
+  const shieldSaves = stats?.shieldSaves || 0;
+  const zoneRuns = stats?.zoneRuns || {};
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
@@ -746,12 +890,18 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         </div>
       </div>
 
-      {/* Run stats — the {runs, boundaries, wickets, perfects} contract */}
-      <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2 }}>
+      {/* Run stats */}
+      <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 360, marginBottom: 12, zIndex: 2 }}>
         <StatTile label="Boundaries" value={boundaries} accent={GOLD} />
-        <StatTile label="Perfect timing" value={perfects} accent={GREEN_LT} />
+        <StatTile label="Middled" value={perfects} accent={GREEN_LT} />
         <StatTile label="Wickets lost" value={`${wickets}/${GAME_CONFIG.chase.wickets}`} accent={DANGER} />
       </div>
+
+      {/* Score summary table — where the runs actually came from */}
+      <ZoneTable zoneRuns={zoneRuns} total={runs} shieldSaves={shieldSaves} />
+
+      {/* Financial goal insight — the takeaway that links the score to planning */}
+      <InsightBox zoneRuns={zoneRuns} runs={runs} wickets={wickets} won={won} shieldSaves={shieldSaves} />
 
       <button
         onClick={handleShare}

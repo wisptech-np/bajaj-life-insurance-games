@@ -19,281 +19,42 @@
 // effects, audio and device profiling.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { COLORS, GAME_CONFIG } from './data.js';
+import {
+  COLORS, GAME_CONFIG, MILESTONE_BY_ROW, TOTAL_CORPUS, formatCorpus, formatMult,
+} from './data.js';
 import { BALANCE } from './kit/config.js';
 import { createGameLoop } from './kit/loop.js';
 import { createInput } from './kit/input.js';
 import { createEffects, damp } from './kit/effects.js';
 import { createAudio } from './kit/audio.js';
 import { detectTier, effectBudget, fitCanvas, haptic } from './kit/device.js';
-
-/* ─── Math ───────────────────────────────────────────────── */
-const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
-const lerp = (a, b, t) => a + (b - a) * t;
-
-/** Small deterministic PRNG so a course can be reproduced from one seed. */
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function rand() {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Difficulty segment for a row, 0..5. Segment 6 (row 48) reuses the last ramp. */
-const segOf = (row) => clamp(Math.floor(row / 8), 0, 5);
-
-/* ─── Course generation ──────────────────────────────────── */
-
-/**
- * Cells of row r-1 the player can actually stand on, given the cells they can
- * land on. Sideways hops are free within a row, so a landing cell spreads left
- * and right until a blocked cell stops it. Two linear passes, no allocation
- * beyond the result.
- */
-function spreadStandable(reach, open, cols) {
-  const stand = new Uint8Array(cols);
-  for (let c = 0; c < cols; c++) if (reach[c]) stand[c] = 1;
-  for (let c = 1; c < cols; c++) if (stand[c - 1] && open[c]) stand[c] = 1;
-  for (let c = cols - 2; c >= 0; c--) if (stand[c + 1] && open[c]) stand[c] = 1;
-  return stand;
-}
-
-function pickTreeCount(cfg, rand) {
-  const table = cfg.rows.treeChance;
-  const roll = rand();
-  let acc = 0;
-  for (let i = 0; i < table.length; i++) {
-    acc += table[i];
-    if (roll < acc) return i;
-  }
-  return 0;
-}
-
-/** One expense lane: debt weights evenly spaced around a wrap cycle, one way. */
-function makeRoadLane(cfg, rand, seg, spanCells, loCell) {
-  const t = clamp(seg / 5, 0, 1);
-  const base = lerp(cfg.roads.minSpeed, cfg.roads.maxSpeed, t);
-  const speedPx = clamp(
-    base * (0.85 + rand() * 0.3),
-    cfg.roads.minSpeed * 0.8,
-    cfg.roads.maxSpeed,
-  );
-  const speed = speedPx / cfg.roads.refCellPx; // cells per second
-
-  // Two floors on the spacing: the authored minimum in cells, and whatever this
-  // lane's speed needs for the player to have `gapSeconds` of standing room in
-  // the widest part of the gap. Deriving spacing from the binding floor is what
-  // keeps every lane crossable at every difficulty (see README).
-  const stand = lerp(cfg.roads.gapSeconds[0], cfg.roads.gapSeconds[1], t);
-  let gap = Math.max(cfg.roads.minGapCells, speed * stand + cfg.roads.hitCells * 2);
-
-  // Weight count ramps with the segment for visual density, but never below
-  // what it takes for the wrap cycle to outrun the visible span — otherwise a
-  // lane would show two copies of the same weight.
-  const design = Math.round(lerp(2, cfg.roads.maxWeights, t));
-  const count = clamp(
-    Math.max(design, Math.ceil((spanCells + 1) / gap)),
-    1,
-    cfg.roads.maxWeights,
-  );
-  if (count * gap < spanCells + 1) gap = (spanCells + 1) / count;
-  const cycle = count * gap;
-
-  const xs = new Float32Array(count);
-  const phases = new Float32Array(count);
-  const phase = rand() * gap;
-  for (let i = 0; i < count; i++) {
-    xs[i] = loCell + phase + i * gap;
-    phases[i] = rand() * Math.PI * 2;
-  }
-  return { dir: rand() < 0.5 ? -1 : 1, speed, xs, phases, gap, cycle };
-}
-
-/**
- * One river lane: coverage platforms laid out around a wrap cycle. Platforms get
- * narrower and gaps wider with the segment, which is the river's difficulty ramp.
- */
-function makeRiverLane(cfg, rand, seg, spanCells, loCell) {
-  const t = clamp(seg / 5, 0, 1);
-  const speedPx = lerp(cfg.rivers.platformSpeed[0], cfg.rivers.platformSpeed[1], t)
-    * (0.85 + rand() * 0.3);
-  const speed = speedPx / cfg.roads.refCellPx;
-  const wideBias = lerp(0.72, 0.24, t);
-  const wNarrow = cfg.rivers.platformCells[0];
-  const wWide = cfg.rivers.platformCells[1];
-
-  const plats = [];
-  // The cycle has to outrun the visible span plus one platform, otherwise two
-  // copies of the same platform can be on screen at once.
-  const minCycle = spanCells + 4;
-  let cursor = loCell;
-  let cycle = 0;
-  while (cycle < minCycle) {
-    const w = rand() < wideBias ? wWide : wNarrow;
-    const g = lerp(
-      cfg.rivers.gapCells[0],
-      cfg.rivers.gapCells[1],
-      clamp(t * 0.6 + rand() * 0.55, 0, 1),
-    );
-    plats.push({ x: cursor, w, phase: rand() * Math.PI * 2 });
-    cursor += w + g;
-    cycle += w + g;
-  }
-  return { dir: rand() < 0.5 ? -1 : 1, speed, plats, cycle };
-}
-
-/**
- * Build the whole course once per mount.
- *
- * Lane types come first so the river bank rule can rewrite neighbours, then the
- * per-row contents. Safe rows get 0-2 blocking planters, and every safe row is
- * checked against the previous row's standable set: a row whose open cells are
- * all unreachable is regenerated, and failing that, cleared. A course that
- * cannot be walked is not a difficulty spike, it is a bug.
- */
-function buildCourse(cfg, rand) {
-  const N = cfg.totalRows;
-  const cols = cfg.cols;
-  const loCell = -cfg.roads.spawnMarginCells;
-  const spanCells = cols - 1 + cfg.roads.spawnMarginCells * 2;
-
-  /* -- 1. lane types --------------------------------------------------- */
-  const types = new Array(N + 1);
-  types[0] = 'safe';
-  let riverRun = 0;
-  let roadRun = 0;
-  for (let r = 1; r <= N; r++) {
-    if (cfg.milestoneRows[r]) { types[r] = 'goal'; riverRun = 0; roadRun = 0; continue; }
-    if (r <= cfg.rows.clearUntilRow) { types[r] = 'safe'; riverRun = 0; roadRun = 0; continue; }
-    const t = clamp(segOf(r) / 5, 0, 1);
-    // A road run that has hit its cap gets a safe island whatever the roll says:
-    // the player has to have somewhere to stand and read the next lane from.
-    if (roadRun >= cfg.rows.maxRoadRun
-      || rand() < lerp(cfg.rows.safeChanceStart, cfg.rows.safeChanceEnd, t)) {
-      types[r] = 'safe';
-      riverRun = 0;
-      roadRun = 0;
-    } else if (
-      r > cfg.rivers.afterRow
-      && riverRun < cfg.rivers.maxConsecutive
-      && rand() < cfg.rivers.chance
-    ) {
-      types[r] = 'river';
-      riverRun += 1;
-      roadRun = 0;
-    } else {
-      types[r] = 'road';
-      riverRun = 0;
-      roadRun += 1;
-    }
-  }
-
-  // Rivers get banks. A road on either side of a crossing leaves the player
-  // nowhere safe to read the platform pattern from, and nowhere safe to land
-  // coming off one — and unlike a road, a river cannot be waited out in place.
-  for (let r = 1; r <= N; r++) {
-    if (types[r] !== 'river') continue;
-    if (r - 1 >= 1 && types[r - 1] === 'road') types[r - 1] = 'safe';
-    if (r + 1 <= N && types[r + 1] === 'road') types[r + 1] = 'safe';
-  }
-
-  /* -- 2. row contents + reachability ---------------------------------- */
-  const rows = new Array(N + 1);
-  const allOpen = () => {
-    const a = new Uint8Array(cols);
-    a.fill(1);
-    return a;
-  };
-
-  rows[0] = {
-    type: 'safe', open: allOpen(), trees: [], coins: new Uint8Array(cols), shield: -1,
-    road: null, river: null, label: null,
-  };
-  let standPrev = allOpen();
-
-  for (let r = 1; r <= N; r++) {
-    const type = types[r];
-    const seg = segOf(r);
-    const open = allOpen();
-    let trees = [];
-
-    if (type === 'safe' && r > cfg.rows.clearUntilRow) {
-      for (let attempt = 0; attempt < 6; attempt++) {
-        trees = [];
-        open.fill(1);
-        const n = pickTreeCount(cfg, rand);
-        for (let i = 0; i < n; i++) {
-          const c = Math.floor(rand() * cols);
-          if (!open[c]) continue;
-          open[c] = 0;
-          trees.push(c);
-        }
-        let reachable = false;
-        for (let c = 0; c < cols; c++) if (open[c] && standPrev[c]) { reachable = true; break; }
-        if (reachable) break;
-        if (attempt === 5) { trees = []; open.fill(1); }
-      }
-    }
-
-    const reach = new Uint8Array(cols);
-    for (let c = 0; c < cols; c++) if (open[c] && standPrev[c]) reach[c] = 1;
-
-    rows[r] = {
-      type,
-      open,
-      trees,
-      coins: new Uint8Array(cols),
-      shield: -1,
-      road: type === 'road' ? makeRoadLane(cfg, rand, seg, spanCells, loCell) : null,
-      river: type === 'river' ? makeRiverLane(cfg, rand, seg, spanCells, loCell) : null,
-      label: cfg.milestoneRows[r] || null,
-      banner: false,
-    };
-
-    standPrev = spreadStandable(reach, open, cols);
-  }
-
-  /* -- 3. pickups ------------------------------------------------------ */
-  // Coins sit on open cells of safe rows only: never under a planter, never on
-  // a lane, where the "reward" is a cell a debt weight is scheduled to occupy.
-  for (let r = 1; r <= N; r++) {
-    const row = rows[r];
-    if (row.type !== 'safe') continue;
-    for (let c = 0; c < cols; c++) {
-      if (row.open[c] && rand() < cfg.pickups.coinChance) row.coins[c] = 1;
-    }
-  }
-
-  // One shield token per 8-row segment, on a clear cell that is not a coin.
-  const segCount = Math.ceil(N / 8);
-  for (let sgi = 0; sgi < segCount; sgi++) {
-    const from = sgi * 8 + 1;
-    const to = Math.min(N, sgi * 8 + 8);
-    const picks = [];
-    for (let r = from; r <= to; r++) {
-      const row = rows[r];
-      if (row.type !== 'safe') continue;
-      for (let c = 0; c < cols; c++) if (row.open[c] && !row.coins[c]) picks.push(r * cols + c);
-    }
-    if (!picks.length) continue;
-    for (let k = 0; k < cfg.pickups.shieldPerSegment && picks.length; k++) {
-      const idx = Math.floor(rand() * picks.length);
-      const key = picks.splice(idx, 1)[0];
-      rows[Math.floor(key / cols)].shield = key % cols;
-    }
-  }
-
-  return { rows, spanCells, loCell };
-}
+// Course generation lives in its own pure module so scripts/balance.mjs can
+// import and measure the generator this component actually runs.
+import { buildCourse, clamp, lerp, mulberry32, segOf } from './course.js';
 
 /* ─── Offscreen pre-render ───────────────────────────────────
    Row slabs, planters, debt weights and platforms are static art drawn many times
    per frame. Building them once per resize and blitting keeps the hot loop free
    of path construction and gradient allocation. */
+
+/**
+ * Climate wash per 8-row life stage, applied over the top face of every band.
+ *
+ * The course used to be the same three blues and one maroon from row 0 to row
+ * 48, so forty-eight rows of progress looked like one row repeated. It now
+ * walks from a cold pre-dawn blue at Graduation, through neutral daylight in
+ * the middle years, to a warm gold dusk at Retirement. One low-alpha fillRect
+ * per visible row — no extra bitmaps, no extra memory — and it is the only cue
+ * in the frame that tells you where in a working life you are without words.
+ */
+const SEG_WASH = [
+  'rgba(28,58,140,0.30)',
+  'rgba(24,74,160,0.17)',
+  'rgba(22,92,172,0.06)',
+  'rgba(150,112,58,0.09)',
+  'rgba(190,120,48,0.16)',
+  'rgba(222,132,48,0.25)',
+];
 
 const SLAB_PAINT = {
   safe: { top: COLORS.rowSafeTop, bot: COLORS.rowSafeBot, front: COLORS.rowSafeFront },
@@ -476,111 +237,175 @@ function makePlanter({ cell, dpr }) {
 }
 
 /**
- * A DEBT WEIGHT — this game's hazard, and nothing like the spiky blobs used
- * elsewhere in the catalog. A squat cast-iron ingot: wide flat base, tapered
- * shoulders, a lifting bar over the top and a molten seam glowing through the
- * middle. The silhouette is deliberately bottom-heavy and horizontal, so it
- * reads as MASS sliding across the lane rather than something alive — it is the
- * cost of a missed payment, not a germ. Ember only; nothing green anywhere.
+ * The rupee mark, stroked from paths. Drawn rather than typeset so the canvas
+ * layer stays free of font dependencies and of non-ASCII codepoints, and so it
+ * scales with the sprite instead of with a font size. `r` is half its height.
  */
-function makeWeight({ cell, cellsWide, dpr, detail = true }) {
+function rupeeMark(c, r) {
+  // The minimal ₹ that survives 10 px: two horizontal bars, the short left stem
+  // that closes the head, and the leg descending to the right.
+  c.beginPath();
+  c.moveTo(-r * 0.5, -r * 0.76);
+  c.lineTo(r * 0.5, -r * 0.76);
+  c.moveTo(-r * 0.5, -r * 0.24);
+  c.lineTo(r * 0.5, -r * 0.24);
+  c.moveTo(-r * 0.5, -r * 0.76);
+  c.lineTo(-r * 0.5, -r * 0.24);
+  c.moveTo(-r * 0.42, -r * 0.24);
+  c.lineTo(r * 0.44, r * 0.86);
+  c.stroke();
+}
+
+/**
+ * A DEBT WEIGHT — this game's hazard.
+ *
+ * Rebuilt 2026-08-03. The previous silhouette was a trapezoid with an arched
+ * lifting bar over the top, which at handset size read unmistakably as a
+ * HANDBAG rather than as mass. The bar is gone. What is left is a chamfered
+ * cast-iron ledger block: wider than it is tall, flat-bottomed, corner rivets,
+ * a hot top rim, a dark undercut at the base and a recessed face plate carrying
+ * a stroked rupee mark. It reads as a bill you have to get out of the way of.
+ *
+ * `heavy` stacks a second, shorter block on top and widens the whole thing to
+ * ~2 cells: the EMI block, the lane's second obstacle type. Same palette, same
+ * rule, completely different silhouette at a glance.
+ */
+function makeWeight({ cell, cellsWide, topH, dpr, detail = true, heavy = false }) {
   const w = cell * cellsWide;
-  const barH = w * 0.2;
-  const bodyH = w * 0.46;
-  const pad = 9;
+  // Height comes from the BAND, not from the width. Deriving it from `w` made
+  // the ~2-cell heavy block 1.6x the height of the row it sits in, so two
+  // consecutive expense lanes merged on screen into one undifferentiated wall
+  // of ember — which is exactly what the review saw. Width says how much lane
+  // it occupies; the band says how tall anything standing in it may be.
+  const bodyH = topH * (heavy ? 0.5 : 0.62);
+  const capH = heavy ? topH * 0.3 : 0;
+  const pad = 10;
   const cw = w + pad * 2;
-  const ch = barH + bodyH + pad * 2 + 5;
+  const ch = bodyH + capH + pad * 2 + 6;
   const { cv, c } = offscreen(cw, ch, dpr);
   c.translate(pad, pad);
 
   const cx = w / 2;
-  const topY = barH;
-  const botY = barH + bodyH;
-  const halfTop = w * 0.32;
-  const halfBot = w * 0.5;
-
-  // Lifting bar over the shoulders.
-  c.strokeStyle = '#2A1008';
-  c.lineWidth = w * 0.085;
-  c.lineCap = 'round';
-  c.beginPath();
-  c.moveTo(cx - w * 0.2, topY + 1);
-  c.quadraticCurveTo(cx, -barH * 0.5, cx + w * 0.2, topY + 1);
-  c.stroke();
-  c.strokeStyle = 'rgba(255,180,120,0.45)';
-  c.lineWidth = w * 0.028;
-  c.beginPath();
-  c.moveTo(cx - w * 0.19, topY);
-  c.quadraticCurveTo(cx, -barH * 0.42, cx + w * 0.19, topY);
-  c.stroke();
-
-  // Ingot body — one trapezoid, corners rounded by a same-colour stroke.
-  const bodyPath = () => {
-    c.beginPath();
-    c.moveTo(cx - halfTop, topY);
-    c.lineTo(cx + halfTop, topY);
-    c.lineTo(cx + halfBot, botY);
-    c.lineTo(cx - halfBot, botY);
-    c.closePath();
-  };
+  const topY = capH;
+  const botY = capH + bodyH;
+  const chamfer = bodyH * 0.22;
 
   const g = c.createLinearGradient(0, topY, 0, botY);
   g.addColorStop(0, COLORS.debtLt);
-  g.addColorStop(0.34, COLORS.debt);
+  g.addColorStop(0.3, COLORS.debt);
   g.addColorStop(1, COLORS.debtDeep);
 
   c.lineJoin = 'round';
+  c.lineCap = 'round';
+
+  // Upper stacked block (heavy only) — drawn first so the main slab overlaps it
+  // at the seam and the two read as one stack rather than two sprites.
+  if (heavy) {
+    const uw = w * 0.62;
+    const ug = c.createLinearGradient(0, 0, 0, capH);
+    ug.addColorStop(0, COLORS.debtHot);
+    ug.addColorStop(0.4, COLORS.debtLt);
+    ug.addColorStop(1, COLORS.debt);
+    c.fillStyle = ug;
+    c.beginPath();
+    c.roundRect(cx - uw / 2, 0.5, uw, capH + chamfer, chamfer * 0.6);
+    c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.42)';
+    c.lineWidth = 1.4;
+    c.stroke();
+  }
+
+  // Main slab.
   c.shadowColor = COLORS.debtGlow;
-  c.shadowBlur = detail ? 12 : 0;
+  c.shadowBlur = detail ? 13 : 0;
   c.fillStyle = g;
-  c.strokeStyle = g;
-  c.lineWidth = w * 0.07;
-  bodyPath();
+  c.beginPath();
+  c.roundRect(0.5, topY, w - 1, bodyH, chamfer);
   c.fill();
-  c.stroke();
   c.shadowBlur = 0;
 
-  // Rim light along the lit top edge, and a dark undercut on the base.
+  // Hot top rim and dark undercut: the two strokes that give a flat slab depth.
   c.strokeStyle = COLORS.debtHot;
-  c.lineWidth = 1.8;
+  c.lineWidth = 2;
   c.beginPath();
-  c.moveTo(cx - halfTop + 2, topY + 0.5);
-  c.lineTo(cx + halfTop - 2, topY + 0.5);
+  c.moveTo(chamfer + 1, topY + 1.2);
+  c.lineTo(w - chamfer - 1, topY + 1.2);
   c.stroke();
-  c.fillStyle = 'rgba(0,0,0,0.4)';
-  c.fillRect(cx - halfBot + 2, botY - 3, halfBot * 2 - 4, 3);
+  c.fillStyle = 'rgba(0,0,0,0.46)';
+  c.fillRect(chamfer * 0.6, botY - 3.5, w - chamfer * 1.2, 3.5);
 
-  // Recessed centre plate with a molten seam and two down-chevrons: the hazard
-  // chevron points BACK down the course, the exact inverse of the gold gate
-  // chevrons, so direction alone tells you which markings help you.
-  const plateH = bodyH * 0.46;
-  const plateY = topY + bodyH * 0.28;
-  c.fillStyle = 'rgba(24,6,2,0.72)';
-  c.beginPath();
-  c.roundRect(cx - w * 0.26, plateY, w * 0.52, plateH, plateH * 0.35);
-  c.fill();
-
+  // Corner rivets — cast iron, not plastic.
   if (detail) {
-    c.strokeStyle = 'rgba(255,180,110,0.72)';
-    c.lineWidth = 1.7;
-    c.lineCap = 'round';
-    for (let i = 0; i < 2; i++) {
-      const yy = plateY + plateH * (0.3 + i * 0.38);
-      c.beginPath();
-      c.moveTo(cx - w * 0.11, yy - plateH * 0.14);
-      c.lineTo(cx, yy + plateH * 0.14);
-      c.lineTo(cx + w * 0.11, yy - plateH * 0.14);
-      c.stroke();
+    c.fillStyle = 'rgba(255,196,140,0.72)';
+    const rr = Math.max(1.2, w * 0.022);
+    for (const sx of [chamfer * 0.85, w - chamfer * 0.85]) {
+      for (const sy of [topY + bodyH * 0.26, topY + bodyH * 0.76]) {
+        c.beginPath();
+        c.arc(sx, sy, rr, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+  }
+
+  // Recessed face plate carrying the rupee mark — the read that this is money
+  // owed, not scenery.
+  const plateH = bodyH * 0.6;
+  const plateW = heavy ? w * 0.46 : w * 0.5;
+  const plateY = topY + bodyH * 0.2;
+  c.fillStyle = 'rgba(22,5,2,0.78)';
+  c.beginPath();
+  c.roundRect(cx - plateW / 2, plateY, plateW, plateH, plateH * 0.28);
+  c.fill();
+  c.strokeStyle = 'rgba(255,150,90,0.4)';
+  c.lineWidth = 1;
+  c.stroke();
+
+  /* Face marking: inverted chevrons, pointing BACK down-course — the exact
+     opposite of the gold gate, platform and hopper chevrons, so direction alone
+     separates help from harm.
+
+     A rupee mark was tried here and cut: the plate is ~10-13 px tall at handset
+     size, and a four-stroke ₹ at that size smears into an arrow. The mark lives
+     where it survives — on the coins, in the gate pills, in the HUD. */
+  c.save();
+  c.translate(cx, plateY + plateH * 0.5);
+  c.strokeStyle = 'rgba(255,198,150,0.92)';
+  c.lineWidth = Math.max(1.5, plateH * 0.14);
+  const marks = heavy ? 3 : 2;
+  const chw = Math.min(plateW * 0.18, plateH * 0.5);
+  for (let i = 0; i < marks; i++) {
+    const yy = (i - (marks - 1) / 2) * plateH * (heavy ? 0.3 : 0.42);
+    c.beginPath();
+    c.moveTo(-chw, yy - plateH * 0.12);
+    c.lineTo(0, yy + plateH * 0.12);
+    c.lineTo(chw, yy - plateH * 0.12);
+    c.stroke();
+  }
+  c.restore();
+
+  // Instalment tally beside the plate on the heavy block: three ember bars, the
+  // payments still due.
+  if (heavy && detail) {
+    c.strokeStyle = 'rgba(255,170,105,0.6)';
+    c.lineWidth = Math.max(1.4, bodyH * 0.07);
+    for (let i = 0; i < 3; i++) {
+      const yy = plateY + plateH * (0.22 + i * 0.28);
+      for (const sx of [-1, 1]) {
+        c.beginPath();
+        c.moveTo(cx + sx * (plateW * 0.62), yy);
+        c.lineTo(cx + sx * (plateW * 0.62 + w * 0.09), yy);
+        c.stroke();
+      }
     }
   }
 
   // Ground contact shadow, baked in so the weight sits on the lane.
-  c.fillStyle = 'rgba(0,0,0,0.34)';
+  c.fillStyle = 'rgba(0,0,0,0.36)';
   c.beginPath();
-  c.ellipse(cx, botY + 3, halfBot * 0.96, 3.4, 0, 0, Math.PI * 2);
+  c.ellipse(cx, botY + 3, w * 0.48, 3.6, 0, 0, Math.PI * 2);
   c.fill();
 
-  return { cv, cw, ch, w };
+  return { cv, cw, ch, w, heavy };
 }
 
 /** A coverage platform: glowing glass slab with a rim light, `w` cells wide. */
@@ -705,6 +530,12 @@ function buildPaints(ctx, cfg, W, H, cell) {
 
 /* ─── Entity draw functions (all programmatic — no emoji, no images) ── */
 
+/**
+ * A savings coin — an SIP instalment. Spins on its vertical axis and carries a
+ * stroked rupee mark that stays legible through the spin (it squashes with the
+ * face, which is what sells the rotation), so the pickup reads as money going
+ * into the corpus rather than as a generic arcade token.
+ */
 function drawCoin(ctx, paints, cell, x, y, time, phase) {
   const r = cell * 0.2;
   const spin = Math.abs(Math.cos(time * 2.2 + phase)) * 0.82 + 0.18;
@@ -716,11 +547,19 @@ function drawCoin(ctx, paints, cell, x, y, time, phase) {
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.lineWidth = 1.3;
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.62, 0, Math.PI * 2);
+  ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2);
   ctx.stroke();
+  // Face mark. Below ~0.35 of the spin the face is edge-on and the strokes would
+  // pile into a smear, so it is dropped for those frames.
+  if (spin > 0.35) {
+    ctx.strokeStyle = 'rgba(92,52,4,0.9)';
+    ctx.lineWidth = Math.max(1.1, r * 0.16);
+    ctx.lineCap = 'round';
+    rupeeMark(ctx, r * 0.5);
+  }
   ctx.restore();
 }
 
@@ -824,7 +663,7 @@ function drawGuardian(ctx, paints, cfg, s, gx, gy, lift, cell, time) {
   const capH = w * 0.34;
 
   // Contact shadow shrinks and fades with the hop arc.
-  const liftK = clamp(lift / Math.max(1, cfg.hop.arcHeight), 0, 1);
+  const liftK = clamp(lift / Math.max(1, s.arcPx), 0, 1);
   ctx.save();
   ctx.globalAlpha = 0.34 * (1 - liftK * 0.55);
   ctx.fillStyle = '#000';
@@ -867,10 +706,16 @@ function drawGuardian(ctx, paints, cfg, s, gx, gy, lift, cell, time) {
   ctx.closePath();
   ctx.fill();
 
-  // Front face.
-  ctx.fillStyle = paints.body;
+  // Front face, with a dark separation ring under it. The hopper is blue on a
+  // blue pavement: without a hard edge of its own it dissolves into the band at
+  // handset size, and "where am I" is not a question a hopper should ever ask.
+  ctx.strokeStyle = 'rgba(2,8,22,0.85)';
+  ctx.lineWidth = Math.max(2.4, w * 0.11);
+  ctx.lineJoin = 'round';
   ctx.beginPath();
   ctx.roundRect(-w / 2, -bodyH, w, bodyH, w * 0.26);
+  ctx.stroke();
+  ctx.fillStyle = paints.body;
   ctx.fill();
 
   // Rim light down the key side and a dark contact edge down the shadow side.
@@ -925,45 +770,137 @@ function drawGuardian(ctx, paints, cfg, s, gx, gy, lift, cell, time) {
 }
 
 /**
- * A milestone gate: the life-stage name flanked by gold chevrons, which brighten
- * to green once the gate has been passed. The chevrons are what make the row
- * read as a gate rather than as decorative text on a green band.
+ * A MILESTONE GATE.
+ *
+ * Was: the life-stage name in white on a green band. That is a checkpoint with
+ * a caption, which is exactly why the theme read as a skin. It is now a built
+ * gate — a post at each screen edge, a gold arch spanning between them, the
+ * life goal's name, and the rupee corpus it banks carried in a pill beside it.
+ * Reached, the whole structure turns green and the pill gets a tick: the gate
+ * itself is the receipt.
+ *
+ * Everything is drawn INSIDE the row band. A gate that rose above its band would
+ * occlude the two rows past it, which are live gameplay the player is reading.
+ *
+ * @param approach 0..1 — how close the player is; drives a gold wash and a
+ *                 brighter pulse so the next gate advertises itself.
  */
-function drawGoalLabel(ctx, label, W, y, topH, font, hit, time) {
-  const text = label.toUpperCase();
-  const ty = y + topH * 0.5;
+function drawGate(ctx, gate, W, y, topH, cell, font, smallFont, hit, time, approach) {
+  const midY = y + topH * 0.5;
   const tint = hit ? COLORS.greenLt : COLORS.goldLt;
+  const deep = hit ? '#0B3B1D' : COLORS.goldDeep;
+  const pulse = hit ? 1 : 0.6 + 0.4 * Math.abs(Math.sin(time * (2.2 + approach * 1.8)));
 
   ctx.save();
-  ctx.font = font;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  const halfText = ctx.measureText(text).width / 2;
-  const pulse = hit ? 1 : 0.55 + 0.45 * Math.abs(Math.sin(time * 2.2));
-  const size = topH * 0.24;
-
-  ctx.strokeStyle = tint;
-  ctx.globalAlpha = pulse;
-  ctx.lineWidth = 2.4;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  for (let s = -1; s <= 1; s += 2) {
-    for (let i = 0; i < 2; i++) {
-      const cx = W / 2 + s * (halfText + 12 + i * 9);
-      ctx.beginPath();
-      ctx.moveTo(cx - size * 0.55, ty + size * 0.42);
-      ctx.lineTo(cx, ty - size * 0.42);
-      ctx.lineTo(cx + size * 0.55, ty + size * 0.42);
-      ctx.stroke();
-    }
-  }
-  ctx.globalAlpha = 1;
 
-  ctx.fillStyle = 'rgba(4,26,12,0.6)';
-  ctx.fillText(text, W / 2, ty + 1.5);
-  ctx.fillStyle = hit ? COLORS.greenLt : '#FFFFFF';
-  ctx.fillText(text, W / 2, ty);
+  // Approach wash — the gate brightens as you close on it.
+  if (approach > 0 && !hit) {
+    ctx.fillStyle = `rgba(255,200,69,${0.05 + approach * 0.13 * pulse})`;
+    ctx.fillRect(0, y, W, topH);
+  }
+
+  // Gate posts at both screen edges, inside the band.
+  const pw = Math.min(cell * 0.4, W * 0.085);
+  const pTop = y + topH * 0.1;
+  const pH = topH * 0.84;
+  for (const sx of [0, W - pw]) {
+    ctx.fillStyle = deep;
+    ctx.beginPath();
+    ctx.roundRect(sx, pTop, pw, pH, pw * 0.22);
+    ctx.fill();
+    ctx.fillStyle = tint;
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.roundRect(sx + pw * 0.18, pTop + pH * 0.08, pw * 0.34, pH * 0.84, pw * 0.16);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Arch spanning post to post. Two strokes: a dark backing so it stays legible
+  // over the band, and the tinted arch itself.
+  const drawArch = (lw, style, alpha) => {
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = style;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(pw * 0.5, pTop + pH * 0.62);
+    // Peak kept just inside the band top: an arch that rose above it would
+    // paint over the two rows past the gate, which are live gameplay.
+    ctx.quadraticCurveTo(W / 2, y - topH * 0.14, W - pw * 0.5, pTop + pH * 0.62);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  };
+  drawArch(6, 'rgba(4,14,7,0.62)', 1);
+  drawArch(3.4, tint, pulse);
+  drawArch(1.2, hit ? '#DFFFE9' : '#FFF3CC', pulse * 0.8);
+
+  /* Label + corpus pill, laid out on one line and centred as a unit. The band
+     is only ~0.6 of a cell tall, so two stacked lines do not fit — and the
+     corpus is the point, so it gets a pill of its own rather than parentheses. */
+  const text = gate.label.toUpperCase();
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.font = font;
+  const tw = ctx.measureText(text).width;
+  ctx.font = smallFont;
+  const vw = ctx.measureText(gate.corpusLabel).width;
+
+  const padX = topH * 0.17;
+  const tickW = hit ? topH * 0.3 : 0;
+  const pillW = vw + padX * 2 + tickW;
+  const pillH = topH * 0.46;
+  const gapX = topH * 0.18;
+  let x = (W - (tw + gapX + pillW)) / 2;
+
+  ctx.font = font;
+  ctx.fillStyle = 'rgba(4,20,10,0.7)';
+  ctx.fillText(text, x, midY + 1.4);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(text, x, midY);
+  x += tw + gapX;
+
+  ctx.fillStyle = tint;
+  ctx.beginPath();
+  ctx.roundRect(x, midY - pillH / 2, pillW, pillH, pillH * 0.5);
+  ctx.fill();
+  if (hit) {
+    ctx.strokeStyle = '#06280F';
+    ctx.lineWidth = Math.max(1.6, pillH * 0.14);
+    ctx.beginPath();
+    ctx.moveTo(x + padX * 0.7, midY);
+    ctx.lineTo(x + padX * 0.7 + tickW * 0.32, midY + tickW * 0.28);
+    ctx.lineTo(x + padX * 0.7 + tickW * 0.85, midY - tickW * 0.34);
+    ctx.stroke();
+  }
+  ctx.font = smallFont;
+  ctx.fillStyle = hit ? '#06280F' : '#3A2400';
+  ctx.fillText(gate.corpusLabel, x + padX + tickW, midY + 0.5);
+
+  ctx.restore();
+}
+
+/**
+ * The shockwave a gate throws out as it banks. One expanding ellipse in the
+ * pseudo-3D plane, so it reads as flat on the ground rather than as a bubble.
+ */
+function drawGateRing(ctx, W, y, topH, t) {
+  const k = 1 - t; // t counts down
+  const r = W * (0.08 + k * 0.72);
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, t) * 0.85;
+  ctx.strokeStyle = COLORS.goldLt;
+  ctx.lineWidth = 3.5 * Math.max(0.25, t);
+  ctx.beginPath();
+  ctx.ellipse(W / 2, y + topH * 0.55, r, r * 0.3, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = Math.max(0, t) * 0.4;
+  ctx.strokeStyle = COLORS.greenLt;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(W / 2, y + topH * 0.55, r * 0.66, r * 0.2, 0, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -1009,20 +946,11 @@ function drawTide(ctx, paints, cfg, W, H, topY, time, shadows) {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(tilt);
+    // Same chamfered ledger block as the lane hazard, so the tide is legibly
+    // "more of what already killed you" rather than a second unrelated shape.
     ctx.beginPath();
-    ctx.moveTo(-r * 0.62, -r * 0.42);
-    ctx.lineTo(r * 0.62, -r * 0.42);
-    ctx.lineTo(r, r * 0.42);
-    ctx.lineTo(-r, r * 0.42);
-    ctx.closePath();
+    ctx.roundRect(-r, -r * 0.44, r * 2, r * 0.88, r * 0.2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(58,12,4,0.62)';
-    ctx.lineWidth = r * 0.2;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.36, -r * 0.42);
-    ctx.quadraticCurveTo(0, -r * 1.05, r * 0.36, -r * 0.42);
-    ctx.stroke();
     ctx.restore();
   }
   ctx.restore();
@@ -1081,6 +1009,11 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
   const scoreElRef = useRef(null);
   const rowElRef = useRef(null);
   const barElRef = useRef(null);
+  const corpusElRef = useRef(null);
+  const multElRef = useRef(null);
+  // Guards the one-shot setHint(false) so a pointerdown per hop does not queue a
+  // React render on every input.
+  const hintRef = useRef(true);
 
   const [timeLeft, setTimeLeft] = useState(cfg.sessionSeconds);
   const [paused, setPaused] = useState(false);
@@ -1112,10 +1045,20 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       topH: 35,
       baseY: 512,
       camRow: -3,
+      arcPx: 26,
       score: 0,
       scoreShown: 0,
       coins: 0,
       milestones: 0,
+      // Progression: rupee corpus banked at the gates, and the compounding
+      // multiplier every gate leaves behind on rows and coins.
+      corpus: 0,
+      corpusShown: 0,
+      mult: 1,
+      shownCorpus: -1,
+      shownMult: -1,
+      gateRing: 0,
+      gateRingRow: 0,
       furthest: 0,
       tideRow: 0,
       shielded: false,
@@ -1143,6 +1086,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       effects: null,
       audio: null,
       shadows: true,
+      trail: 2,
       player: {
         row: 0,
         col: 3,
@@ -1152,7 +1096,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         fromCol: 3,
         toRow: 0,
         toCol: 3,
-        queued: null,
+        queue: [],
         carry: null,
         carryOffset: 0,
       },
@@ -1183,11 +1127,17 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
     s.effects = fx;
     s.audio = audio;
     s.shadows = budget.shadows;
+    // Reduced motion and low-end tiers zero the trail budget; honour it.
+    s.trail = budget.trailPoints > 0 ? 2 : 0;
 
     /* --- course ---------------------------------------------------------- */
     const course = buildCourse(cfg, mulberry32((Math.random() * 0xffffffff) >>> 0));
     s.course = course;
     s.tideRow = cfg.tide.startRow;
+    if (cfg.pickups.startWithCover) {
+      s.shielded = true;
+      setShieldOn(true);
+    }
     s.player.col = clamp(cfg.player.startCol, 0, cfg.cols - 1);
     s.player.toCol = s.player.col;
     s.player.fromCol = s.player.col;
@@ -1215,6 +1165,10 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       s.frontH = s.rowH * cfg.view.frontFrac;
       s.topH = s.rowH - s.frontH;
       s.baseY = h * cfg.camera.anchorFrac;
+      // Arc height in px, derived from the cell. Authored as an absolute 14 px
+      // it was 30% of a cell on a 320 px handset and 24% on a 412 px one — the
+      // same hop read as a jump on one phone and a slide on the other.
+      s.arcPx = s.cell * cfg.hop.arcCellFrac;
       s.paints = buildPaints(ctx, cfg, w, h, s.cell);
 
       const slabArgs = {
@@ -1231,14 +1185,24 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       s.weight = makeWeight({
         cell: s.cell,
         cellsWide: cfg.roads.weightCells,
+        topH: s.topH,
         dpr: s.dpr,
         detail: tier !== 'low',
+      });
+      s.weightHeavy = makeWeight({
+        cell: s.cell,
+        cellsWide: cfg.roads.heavyCells,
+        topH: s.topH,
+        dpr: s.dpr,
+        detail: tier !== 'low',
+        heavy: true,
       });
       s.platforms = {};
       for (let pw = cfg.rivers.platformCells[0]; pw <= cfg.rivers.platformCells[1]; pw++) {
         s.platforms[pw] = makePlatform({ w: pw, cell: s.cell, topH: s.topH, dpr: s.dpr });
       }
-      s.fontGoal = `900 ${Math.round(s.cell * 0.3)}px 'Plus Jakarta Sans', system-ui, sans-serif`;
+      s.fontGoal = `900 ${Math.round(s.cell * 0.27)}px 'Plus Jakarta Sans', system-ui, sans-serif`;
+      s.fontGoalSm = `900 ${Math.round(s.cell * 0.21)}px 'Plus Jakarta Sans', system-ui, sans-serif`;
     };
     fit();
     s.camRow = -cfg.camera.leadRows;
@@ -1272,6 +1236,8 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         rows: s.furthest,
         coins: s.coins,
         milestones: s.milestones,
+        corpus: s.corpus,
+        multiplier: s.mult,
       };
 
       // Deliberately NOT loop.setPaused(true): a paused loop skips update(),
@@ -1291,7 +1257,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
           x: bx, y: by - 20, count: cfg.fx.winParticles, color: COLORS.greenLt,
           speed: 230, spread: Math.PI * 2, size: 4, life: 1.2, gravity: 400, drag: 0.94,
         });
-        fx.floatText(bx, Math.max(34, by - 52), 'RETIREMENT', COLORS.goldLt, 18);
+        fx.floatText(bx, Math.max(34, by - 52), `${formatCorpus(s.corpus)} SECURED`, COLORS.goldLt, 18);
       } else {
         audio.failure();
         haptic('failure');
@@ -1317,8 +1283,15 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       }, cfg.hud.endBeatMs);
     };
 
-    const showBanner = (label) => {
-      setBanner({ id: s.milestones, label });
+    const showBanner = (gate, coverGiven) => {
+      setBanner({
+        id: s.milestones,
+        label: gate.label,
+        goal: gate.goal,
+        corpusLabel: gate.corpusLabel,
+        mult: s.mult,
+        cover: coverGiven,
+      });
       clearTimeout(bannerTimerRef.current);
       bannerTimerRef.current = setTimeout(() => setBanner(null), cfg.fx.bannerSeconds * 1000);
     };
@@ -1338,7 +1311,11 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       const p = s.player;
       if (s.ended) return;
       if (p.hopping) {
-        if (cfg.hop.bufferOne && !p.queued) p.queued = dir;
+        // Buffer, newest-intent-wins. One slot dropped the second tap of a
+        // double-tap, which is the input a player makes precisely when they
+        // most need it — crossing a lane in one committed move.
+        if (p.queue.length >= cfg.hop.bufferDepth) p.queue.shift();
+        p.queue.push(dir);
         return;
       }
 
@@ -1354,6 +1331,33 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
 
       if (tr < 0 || tr > N || tc < 0 || tc >= cols) { blockedHop(dir); return; }
       if (!course.rows[tr].open[tc]) { blockedHop(dir); return; }
+
+      /* Landing inside a debt weight is rejected, not fatal.
+         ------------------------------------------------------------------
+         A blind forward hop onto an expense lane had a ~35% chance of landing
+         the guardian directly inside a weight that was already sitting there.
+         That death has no counterplay: at the moment the input is committed
+         there is nothing to react to and nothing to time — you simply arrive
+         inside it. Measured on the headless random bot that single case was
+         ending runs in two to five seconds.
+
+         The lane still kills you the way a lane should: by something arriving
+         while you stand there, which you can see coming and hop away from. But
+         a hop that would put you inside a weight now bumps, exactly like a hop
+         into a planter, using the feedback the game already has.
+
+         The test is done at LANDING time, not now: a weight that will have slid
+         clear by the time you arrive should not block the hop. */
+      const dest = course.rows[tr].road;
+      if (dest) {
+        const travel = dest.dir * dest.speed * cfg.hop.seconds;
+        for (let i = 0; i < dest.xs.length; i++) {
+          let x = dest.xs[i] + travel;
+          if (x >= course.loCell + dest.cycle) x -= dest.cycle;
+          else if (x < course.loCell) x += dest.cycle;
+          if (Math.abs(x - tc) < dest.hit) { blockedHop(dir); return; }
+        }
+      }
 
       p.hopping = true;
       p.hopT = 0;
@@ -1401,7 +1405,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       });
 
       if (p.row > s.furthest) {
-        s.score += (p.row - s.furthest) * cfg.scoring.row;
+        s.score += (p.row - s.furthest) * cfg.scoring.row * s.mult;
         s.furthest = p.row;
       }
 
@@ -1424,14 +1428,15 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       if (row.coins[p.col]) {
         row.coins[p.col] = 0;
         s.coins += 1;
-        s.score += cfg.scoring.coin;
+        const gain = Math.round(cfg.scoring.coin * s.mult);
+        s.score += gain;
         audio.coin();
         fx.burst({
           x: colX(p.col), y: groundY(p.row) - s.cell * 0.2, count: cfg.fx.coinParticles,
           color: COLORS.gold, speed: 180, spread: Math.PI * 2, size: 3.2,
           life: 0.5, gravity: 380, drag: 0.9,
         });
-        fx.floatText(colX(p.col), groundY(p.row) - s.cell * 0.5, `+${cfg.scoring.coin}`, COLORS.goldLt, 14);
+        fx.floatText(colX(p.col), groundY(p.row) - s.cell * 0.5, `+${gain}`, COLORS.goldLt, 14);
       }
 
       if (row.shield === p.col) {
@@ -1448,22 +1453,57 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         fx.floatText(colX(p.col), groundY(p.row) - s.cell * 0.6, 'COVER', '#9FCCFF', 15);
       }
 
-      if (row.label && !row.banner) {
+      /* ---- MILESTONE GATE: bank the goal, pay the rewards ----------------
+         A gate is not a checkpoint with a label on it. It banks a named life
+         goal's rupee corpus, renews your cover, buys back session time, and
+         raises the compounding multiplier on everything you earn afterwards.
+         That is the whole progression system and the whole insurance concept in
+         one event, which is what the review asked for. */
+      const gate = MILESTONE_BY_ROW[p.row];
+      if (gate && !row.banner) {
         row.banner = true;
         s.milestones += 1;
+        s.corpus += gate.corpus;
         s.score += cfg.scoring.milestone;
+        s.mult = 1 + s.milestones * cfg.rewards.multiplierPerMilestone;
+        s.gateRing = cfg.fx.gateRingSeconds;
+        s.gateRingRow = p.row;
         setMilestonesHit(s.milestones);
+
+        // Reward 1 — cover renews at every life stage.
+        const coverGiven = cfg.rewards.coverOnMilestone && !s.shielded;
+        if (coverGiven) {
+          s.shielded = true;
+          s.invuln = Math.max(s.invuln, cfg.pickups.shieldInvulnSeconds * 0.5);
+          setShieldOn(true);
+        }
+        // Reward 2 — protection buys back time.
+        if (cfg.rewards.timeSeconds > 0) loop?.adjustRemaining(cfg.rewards.timeSeconds);
+
         audio.powerUp();
         audio.combo(s.milestones);
         haptic('success');
-        showBanner(row.label);
+        showBanner(gate, coverGiven);
+
+        const gx = colX(p.col);
+        const gy = groundY(p.row);
         fx.burst({
-          x: colX(p.col), y: groundY(p.row), count: cfg.fx.milestoneParticles,
+          x: gx, y: gy, count: cfg.fx.milestoneParticles,
           color: COLORS.gold, speed: 250, spread: Math.PI * 2, size: 3.6,
           life: 0.8, gravity: 320, drag: 0.92,
         });
-        fx.floatText(colX(p.col), groundY(p.row) - s.cell * 0.7,
-          `+${cfg.scoring.milestone}`, COLORS.greenLt, 16);
+        fx.burst({
+          x: gx, y: gy - s.cell * 0.2, count: Math.round(cfg.fx.milestoneParticles * 0.6),
+          color: COLORS.greenLt, speed: 170, spread: Math.PI * 2, size: 3,
+          life: 1, gravity: 180, drag: 0.94,
+        });
+        // The three floats stagger up the screen so each reward is legible on
+        // its own rather than as one pile of numbers.
+        fx.floatText(gx, gy - s.cell * 0.55, `${gate.corpusLabel} SECURED`, COLORS.goldLt, 17);
+        fx.floatText(gx, gy - s.cell * 1.05, `+${cfg.scoring.milestone}  ×${formatMult(s.mult)}`, COLORS.greenLt, 14);
+        fx.floatText(gx, gy - s.cell * 1.5,
+          coverGiven ? `+${cfg.rewards.timeSeconds}s  COVER RENEWED` : `+${cfg.rewards.timeSeconds}s`,
+          '#9FCCFF', 13);
       }
 
       if (p.row >= N) endRun(true, 'win');
@@ -1482,6 +1522,19 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       const p = s.player;
       if (!p.hopping) return p.col;
       return p.hopT < 0.5 ? p.fromCol : p.toCol;
+    };
+
+    /**
+     * Coyote grace, tide edition. The tide measures you at the FURTHER of the
+     * two cells while you are airborne, so a hop that was legal at the frame it
+     * started is never retro-killed by the tide arriving in the cell you have
+     * already left. Without it the last-moment escape hop — the single most
+     * satisfying input in the game — dies half the time it is made.
+     */
+    const tideRowOf = () => {
+      const p = s.player;
+      if (!p.hopping || !cfg.hop.coyoteRows) return p.row;
+      return Math.max(p.fromRow, p.toRow);
     };
 
     const advanceLanes = (dt) => {
@@ -1537,11 +1590,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       p.col = p.toCol;
       land();
       if (s.ended) return;
-      if (p.queued) {
-        const q = p.queued;
-        p.queued = null;
-        startHop(q);
-      }
+      if (p.queue.length) startHop(p.queue.shift());
     };
 
     const carryPlayer = () => {
@@ -1563,7 +1612,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       const c = effCol();
       const xs = lane.xs;
       for (let i = 0; i < xs.length; i++) {
-        if (Math.abs(xs[i] - c) >= cfg.roads.hitCells) continue;
+        if (Math.abs(xs[i] - c) >= lane.hit) continue;
 
         const hx = colX(xs[i]);
         const hy = groundY(r);
@@ -1602,7 +1651,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         s.shownTideNear = near;
         setTideNear(near);
       }
-      if (r <= s.tideRow) endRun(false, 'tide');
+      if (tideRowOf() <= s.tideRow) endRun(false, 'tide');
     };
 
     const update = (dt) => {
@@ -1611,6 +1660,8 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
 
       s.time += dt;
       s.scoreShown = damp(s.scoreShown, s.score, BALANCE.scoring.counterLerpPerSecond, dt);
+      s.corpusShown = damp(s.corpusShown, s.corpus, cfg.hud.corpusLerpPerSecond, dt);
+      if (s.gateRing > 0) s.gateRing = Math.max(0, s.gateRing - dt);
       if (s.invuln > 0) s.invuln = Math.max(0, s.invuln - dt);
       if (s.hurtFlash > 0) s.hurtFlash = Math.max(0, s.hurtFlash - dt);
       if (s.landT > 0) s.landT = Math.max(0, s.landT - dt);
@@ -1669,16 +1720,23 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
 
       if (row.type === 'road') {
         const lane = row.road;
+        const sprite = lane.heavy ? s.weightHeavy : s.weight;
         for (let i = 0; i < lane.xs.length; i++) {
           const x = lane.xs[i];
-          if (x < -1.6 || x > cols + 0.6) continue;
-          drawWeight(ctx, s.weight, colX(x), midY, time, lane.phases[i], lane.dir, s.shadows);
+          if (x < -2.4 || x > cols + 1.2) continue;
+          drawWeight(ctx, sprite, colX(x), midY, time, lane.phases[i], lane.dir, s.shadows);
         }
         return;
       }
 
       if (row.type === 'goal') {
-        drawGoalLabel(ctx, row.label, s.W, y, s.topH, s.fontGoal, row.banner, time);
+        const gate = MILESTONE_BY_ROW[r];
+        // Only the NEXT unreached gate advertises itself, and only once the
+        // player is inside the approach window.
+        const approach = row.banner ? 0
+          : clamp(1 - (r - Math.max(s.player.row, s.furthest)) / cfg.fx.gateGlowRows, 0, 1);
+        drawGate(ctx, gate, s.W, y, s.topH, s.cell, s.fontGoal, s.fontGoalSm,
+          row.banner, time, approach);
         return;
       }
 
@@ -1715,7 +1773,7 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       const vRow = p.hopping ? lerp(p.fromRow, p.toRow, p.hopT) : p.row;
       const vCol = p.hopping ? lerp(p.fromCol, p.toCol, p.hopT) : p.col;
       const lift = p.hopping
-        ? Math.sin(Math.PI * p.hopT) * cfg.hop.arcHeight
+        ? Math.sin(Math.PI * p.hopT) * s.arcPx
         : Math.abs(Math.sin(time * 2.4)) * cfg.player.idleBobPx;
       // Draw the guardian in the pass of whichever row it is visually nearest.
       // Painter order runs far to near, so drawing it in the row it *left* would
@@ -1723,20 +1781,58 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       const drawRow = Math.round(vRow);
       let drewPlayer = false;
 
+      const guardianAt = (gy) => {
+        // Air trail: two analytic ghosts at earlier points on the same arc. No
+        // history buffer and no allocation — the arc is a pure function of
+        // hopT, so an earlier frame can simply be evaluated.
+        if (p.hopping && s.trail > 0) {
+          for (let i = 1; i <= s.trail; i++) {
+            const tt = p.hopT - i * 0.13;
+            if (tt <= 0.02) break;
+            const tr = lerp(p.fromRow, p.toRow, tt);
+            const tc = lerp(p.fromCol, p.toCol, tt);
+            const tl = Math.sin(Math.PI * tt) * s.arcPx;
+            const ty = s.baseY - (tr - s.camRow) * rowH + s.topH * cfg.view.groundFrac - tl;
+            ctx.save();
+            ctx.globalAlpha = 0.2 / i;
+            ctx.fillStyle = COLORS.brandBlueLt;
+            ctx.beginPath();
+            ctx.roundRect(
+              colX(tc) - s.cell * cfg.player.cubeFrac * 0.4,
+              ty - s.cell * cfg.player.cubeFrac * 0.72,
+              s.cell * cfg.player.cubeFrac * 0.8,
+              s.cell * cfg.player.cubeFrac * 0.72,
+              s.cell * 0.14,
+            );
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+        drawGuardian(ctx, paints, cfg, s, colX(vCol), gy, lift, s.cell, time);
+      };
+
       for (let r = topRow; r >= botRow; r--) {
         const y = s.baseY - (r - s.camRow) * rowH;
         if (y > H + rowH || y + rowH < -rowH) continue;
         ctx.drawImage(slabFor(r), 0, y, W, rowH);
+        // Life-stage climate wash over the top face only; the front faces keep
+        // their contrast so the pseudo-3D read survives.
+        ctx.fillStyle = SEG_WASH[segOf(r)];
+        ctx.fillRect(0, y, W, s.topH);
         if (r >= 0 && r <= N) drawRowContents(r, y, time);
         if (r === drawRow) {
-          const gy = s.baseY - (vRow - s.camRow) * rowH + s.topH * cfg.view.groundFrac;
-          drawGuardian(ctx, paints, cfg, s, colX(vCol), gy, lift, s.cell, time);
+          guardianAt(s.baseY - (vRow - s.camRow) * rowH + s.topH * cfg.view.groundFrac);
           drewPlayer = true;
         }
       }
       if (!drewPlayer) {
-        const gy = s.baseY - (vRow - s.camRow) * rowH + s.topH * cfg.view.groundFrac;
-        drawGuardian(ctx, paints, cfg, s, colX(vCol), gy, lift, s.cell, time);
+        guardianAt(s.baseY - (vRow - s.camRow) * rowH + s.topH * cfg.view.groundFrac);
+      }
+
+      // Gate shockwave, over the bands but under the tide.
+      if (s.gateRing > 0) {
+        drawGateRing(ctx, W, s.baseY - (s.gateRingRow - s.camRow) * rowH, s.topH,
+          s.gateRing / cfg.fx.gateRingSeconds);
       }
 
       drawTide(ctx, paints, cfg, W, H, s.baseY - (s.tideRow - s.camRow) * rowH, time, s.shadows);
@@ -1759,6 +1855,18 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
         s.shownScore = shown;
         scoreElRef.current.textContent = shown.toLocaleString();
       }
+      // Corpus counts up in rupee steps; the multiplier chip only exists once a
+      // gate has raised it above 1.
+      const corp = formatCorpus(Math.round(s.corpusShown / 100000) * 100000);
+      if (corp !== s.shownCorpus && corpusElRef.current) {
+        s.shownCorpus = corp;
+        corpusElRef.current.textContent = s.corpus > 0 ? corp : '₹0';
+      }
+      if (s.mult !== s.shownMult && multElRef.current) {
+        s.shownMult = s.mult;
+        multElRef.current.textContent = s.mult > 1 ? `×${formatMult(s.mult)}` : '';
+        multElRef.current.style.display = s.mult > 1 ? 'inline-flex' : 'none';
+      }
       if (s.furthest !== s.shownRow) {
         s.shownRow = s.furthest;
         if (rowElRef.current) rowElRef.current.textContent = String(s.furthest);
@@ -1766,14 +1874,36 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
       }
     };
 
-    /* --- input ------------------------------------------------------------ */
+    /* --- input ------------------------------------------------------------
+       Direction is resolved on POINTER DOWN, from where the thumb landed.
+       The kit's `onTap` fires out of its pointerUP handler, so binding the hop
+       to it charged every single input in the game the full duration of the
+       finger being in contact — 60-150 ms of dead air before anything moved.
+       That was the whole "unresponsive" complaint: the hop tween itself is
+       115 ms, so more than half the perceived latency was the input contract.
+
+       The zones make the direction unambiguous at the instant of contact, so
+       nothing has to wait for a gesture to disambiguate: the outer
+       `sideZoneFrac` of the width on each side hops sideways, the middle hops
+       forward.
+
+       `onSwipe` is deliberately NOT wired. It fires from pointerup, so with a
+       pointerdown hop already committed a single thumb gesture produced TWO
+       hops — measured on the headless bot, that halved survival time, and for
+       a human it means any tap with a little drag in it moves you two rows.
+       One gesture, one hop.
+
+       The cost is the backwards hop, which swipe-down used to carry. It is not
+       missed: the course only scrolls forward, the arrears tide is behind you,
+       and no situation in the game is improved by retreating into it. */
     const input = createInput(canvas, {
-      onDown: () => {
+      onDown: (p) => {
         audio.unlock();
-        if (!s.ended) setHint(false);
+        if (s.ended) return;
+        if (hintRef.current) { hintRef.current = false; setHint(false); }
+        const side = s.W * cfg.input.sideZoneFrac;
+        startHop(p.x < side ? 'left' : p.x > s.W - side ? 'right' : 'up');
       },
-      onTap: () => { if (!s.ended) startHop('up'); },
-      onSwipe: (dir) => { if (!s.ended) startHop(dir); },
     });
 
     /* --- loop -------------------------------------------------------------- */
@@ -1823,6 +1953,8 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
           <div style={styles.chip}>
             <ChevronMark size={13} color={COLORS.goldLt} />
             <span ref={scoreElRef} style={styles.chipValue}>0</span>
+            {/* Compounding multiplier — hidden until a gate raises it. */}
+            <span ref={multElRef} style={{ ...styles.multChip, display: 'none' }} />
           </div>
           <div style={styles.chip}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -1862,6 +1994,19 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
           <span ref={rowElRef} style={styles.srOnly}>0</span>
         </div>
 
+        {/* Corpus secured — the run's headline financial number, centred under
+            the milestone rail so it sits with the progression it comes from. */}
+        <div style={styles.corpusWrap}>
+          <div style={styles.corpusChip} title="Goal cover secured so far">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={COLORS.goldLt}
+              strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
+            </svg>
+            <span ref={corpusElRef} style={styles.corpusValue}>₹0</span>
+            <span style={styles.corpusOf}>of {formatCorpus(TOTAL_CORPUS)}</span>
+          </div>
+        </div>
+
         {/* Status badges — icon only --------------------------------- */}
         <div style={styles.statusWrap}>
           {shieldOn && (
@@ -1885,13 +2030,24 @@ export default function MilestoneHopperGame({ config, onWin, onLose }) {
           )}
         </div>
 
-        {/* Milestone banner — slim gold gate pill --------------------- */}
+        {/* Milestone banner — the gate's receipt: the life goal it secured, the
+            corpus it banked, and the rewards it paid. ------------------ */}
         {banner && (
           <div key={banner.id} style={styles.bannerWrap} className="mh-banner">
             <div style={styles.banner}>
-              <ChevronMark size={13} color={COLORS.goldLt} />
-              <span style={styles.bannerTitle}>{banner.label}</span>
-              <ChevronMark size={13} color={COLORS.goldLt} />
+              <div style={styles.bannerHead}>
+                <ChevronMark size={12} color={COLORS.goldLt} />
+                <span style={styles.bannerTitle}>{banner.label}</span>
+                <span style={styles.bannerCorpus}>{banner.corpusLabel}</span>
+              </div>
+              <div style={styles.bannerGoal}>{banner.goal} secured</div>
+              <div style={styles.bannerRewards}>
+                {banner.cover && <span style={styles.rewardPill}>Cover renewed</span>}
+                <span style={styles.rewardPill}>+{cfg.rewards.timeSeconds}s</span>
+                <span style={{ ...styles.rewardPill, color: COLORS.greenLt, borderColor: 'rgba(74,222,128,0.45)' }}>
+                  ×{formatMult(banner.mult)} earnings
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -1963,7 +2119,7 @@ const CSS = `
 @keyframes mhHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
 @keyframes mhWarn { 0%,100% { opacity: 0.55; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
 .mh-stage { animation: mhIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
-.mh-banner { animation: mhBanner 1.8s ease-out both; }
+.mh-banner { animation: mhBanner 2.2s ease-out both; }
 .mh-hint { animation: mhHint 1.6s ease-in-out infinite; }
 .mh-warn { animation: mhWarn 0.9s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
@@ -2075,9 +2231,61 @@ const styles = {
     clip: 'rect(0 0 0 0)',
     whiteSpace: 'nowrap',
   },
+  multChip: {
+    fontSize: 11,
+    fontWeight: 900,
+    lineHeight: 1,
+    color: COLORS.greenLt,
+    background: 'rgba(40,167,69,0.2)',
+    border: '1px solid rgba(74,222,128,0.45)',
+    borderRadius: 999,
+    padding: '3px 6px',
+    marginLeft: 2,
+    alignItems: 'center',
+    fontVariantNumeric: 'tabular-nums',
+  },
+  // Corpus secured — the headline financial readout. Sits directly under the
+  // milestone rail because it is the number that rail is filling towards.
+  corpusWrap: {
+    position: 'absolute',
+    top: 58,
+    left: 10,
+    right: 10,
+    display: 'flex',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+    zIndex: 4,
+  },
+  corpusChip: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 5,
+    borderRadius: 999,
+    padding: '4px 11px',
+    height: 24,
+    background: 'linear-gradient(180deg, rgba(58,42,6,0.82), rgba(24,16,2,0.86))',
+    border: '1px solid rgba(255,200,69,0.42)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    boxShadow: '0 0 14px rgba(255,200,69,0.18)',
+  },
+  corpusValue: {
+    fontSize: 14,
+    fontWeight: 900,
+    color: COLORS.goldLt,
+    lineHeight: 1,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  corpusOf: {
+    fontSize: 9,
+    fontWeight: 800,
+    color: 'rgba(255,227,138,0.6)',
+    lineHeight: 1,
+    letterSpacing: '0.04em',
+  },
   statusWrap: {
     position: 'absolute',
-    top: 62,
+    top: 90,
     left: 10,
     right: 10,
     display: 'flex',
@@ -2109,20 +2317,60 @@ const styles = {
   },
   banner: {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: 8,
-    padding: '7px 16px',
-    borderRadius: 999,
-    background: 'linear-gradient(180deg, rgba(20,44,86,0.95), rgba(6,18,40,0.95))',
+    gap: 4,
+    padding: '9px 18px 10px',
+    borderRadius: 18,
+    background: 'linear-gradient(180deg, rgba(20,44,86,0.96), rgba(6,18,40,0.96))',
     border: `1px solid ${COLORS.gold}`,
-    boxShadow: '0 10px 26px rgba(0,0,0,0.5), 0 0 18px rgba(255,200,69,0.28)',
+    boxShadow: '0 10px 26px rgba(0,0,0,0.5), 0 0 22px rgba(255,200,69,0.3)',
+  },
+  bannerHead: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
   },
   bannerTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 900,
     color: '#fff',
     letterSpacing: '0.02em',
     textTransform: 'uppercase',
+  },
+  bannerCorpus: {
+    fontSize: 13,
+    fontWeight: 900,
+    color: '#3A2400',
+    background: COLORS.goldLt,
+    borderRadius: 999,
+    padding: '2px 8px',
+    lineHeight: 1.25,
+  },
+  bannerGoal: {
+    fontSize: 10,
+    fontWeight: 800,
+    color: 'rgba(255,255,255,0.66)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+  },
+  bannerRewards: {
+    display: 'flex',
+    gap: 5,
+    marginTop: 2,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  rewardPill: {
+    fontSize: 9.5,
+    fontWeight: 900,
+    color: '#9FCCFF',
+    border: '1px solid rgba(126,184,255,0.45)',
+    borderRadius: 999,
+    padding: '2px 7px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    whiteSpace: 'nowrap',
   },
   hintWrap: {
     position: 'absolute',

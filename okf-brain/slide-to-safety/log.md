@@ -348,3 +348,284 @@ the breakthrough effect, the route trail, the HUD icon set and win/loss tableaus
 - `node scripts/balance.mjs` — **GATE: PASS** (all 5 boards solvable at published
   par, every coin inside par+2, no reachable dead ends, bot completion 44.3%).
   Harness unmodified.
+
+---
+
+## 2026-08-03 — Review round 2: controls, collision proof, safe zones, UI
+
+Client review: *"Both the user interface and gameplay mechanics need improvement.
+Redesign the player controls and sliding mechanics. Improve obstacle placement,
+collision detection, movement smoothness, and difficulty progression. Add better
+visual feedback and insurance-themed safe zones. Upgrade the complete user
+interface and environmental assets."*
+
+Scope: `slide-to-safety/` and `okf-brain/slide-to-safety/` only. `src/kit/*.js`
+re-verified byte-identical to `shared/game-kit/*.js` (7/7) — untouched.
+
+### Root cause 1 — the control scheme was blind, so control was never felt
+
+**Evidence.** The old input was a single kit `onSwipe` callback. The player
+flicked and *then* found out what happened: `resolveSlide()` was called only on
+commit, and nothing about the outcome was on screen before it. On a board whose
+whole skill is routing, that is the wrong way round — the difficulty was reading
+the board from memory, not choosing between routes. Worse, the tempting wrong
+swipe is usually the one that ends on thin ice, so the punishment for a bad guess
+was a retry, and the player had no way to distinguish "I chose wrong" from "I did
+not know". The old swipe-hint chevrons said *that* you could swipe, never *what a
+swipe would do*.
+
+There was also no commitment point at all. A flick was atomic: down and up were
+the same gesture, so there was no moment at which input stopped mattering that
+the player could see.
+
+**Fix — press, drag, release.** `SlideToSafetyGame.jsx` now drives the kit input
+through `onDown` / `onMove` / `onUp` instead of `onSwipe`:
+
+- `beginAim()` resolves **all four** directions up front (`s.routes`), so
+  re-aiming during a drag costs nothing and allocates nothing per frame.
+- `moveAim()` arms whichever direction the drag vector points at past
+  `controls.aimDeadzonePx` (14 px). Ghost routes for the other three stay on
+  screen with a ring on the cell they would stop in, so **all four outcomes are
+  visible at once while the thumb is still choosing.**
+- `releaseAim()` is the *only* path to `trySwipe()`. Lift with no direction and
+  nothing happens.
+- Keyboard mirrors it exactly: `keydown` aims, `keyup` commits.
+
+**The commitment point is stated three ways simultaneously**, because one way is
+deniable and three are not:
+
+1. the route dock reads `READY` → `AIMING` → `COMMITTED`;
+2. the route goes ghost → solid marching orange → a trail the shield eats;
+3. an orange ring closes on the shield the instant the thumb lifts
+   (`fx.lockSeconds`).
+
+The armed route also names its own outcome in words — *"Stops at the rock ·
+4 cells · +25"*, *"Thin ice gives way"*, *"Reaches a cover point"* — plus rings on
+the coins it will sweep, amber boxes on the fractures it will deepen and a red X
+on the crack that would drown it (`drawRoute` / `drawRouteMarks`).
+
+Mid-glide flicks are still buffered for `BALANCE.physics.inputBufferSeconds`, so
+a player swiping in rhythm keeps their cadence.
+
+### Root cause 2 — the collision was correct but unproven, and the motion was a lerp
+
+**Evidence.** The old glide interpolated `u * span` inline in `update()` and fired
+crossing events with a `while (a.idx < i)` catch-up loop. That is in fact
+tunnel-proof by construction — but the proof lived in the component, where
+`scripts/balance.mjs` could not reach it, and the gate asserted nothing about
+motion at all. The motion itself was a straight lerp: constant speed from rest to
+impact, which reads as a token being dragged rather than a shield being shoved.
+
+**Fix — resolve, then follow, in a module the gate drives.** The glide sampler is
+now three pure exports in `src/slide.js`:
+
+- `glideEase(u, launch)` — the speed profile. `timing.glideLaunch` (0.22) of the
+  move is spent coming up to speed and the rest holds it into the impact, so the
+  **mid-glide speed is 1.124x the average** (`glidePeakFactor`). Nothing
+  decelerates: every slide in this game ends by hitting something, and the
+  rebound is the renderer's job.
+- `createGlide(timing, res)` / `advanceGlide(g, dt, launch)` — position is
+  interpolated **along the resolved polyline** and the cell index is `floor` of
+  the same eased parameter, so the two cannot disagree at any `dt`.
+  `advanceGlide` returns how many new path cells were entered, and the caller
+  fires their events in order however large the frame was.
+
+`scripts/balance.mjs` gate 7 now sweeps that shipped sampler over **every slide
+out of every reachable movement state**, at 120/60/30/15 Hz and again at 4x slide
+speed, walking the trajectory covered by each frame at 1/8-cell resolution.
+
+The first run of that gate found a real thing: sampling the **chord** between two
+rendered frames put 9 samples off the resolved path. Those are gust corners — a
+straight line between two frames cuts the corner of a deflection. The token does
+not travel along that chord, it travels along the polyline, so the check was
+wrong rather than the game; the sweep now walks the trajectory and reports the
+chord deviation (0.860 cells at worst) as a diagnostic instead.
+
+Impact feel was added on top, presentation only: a directional squash along the
+travel axis, an elastic rebound of `timing.impactRecoilCells` off whatever
+stopped the shield, a snow-spray burst at the contact point and
+`fx.impactShake`. The committed cell is always `res.stop`.
+
+### Safe zones — cover points, and what they actually do
+
+`P` in `src/levels.js` is a **cover point**, and it is load-bearing three ways
+rather than decorated:
+
+1. **It is sticky.** The safe zone catches the shield, so it creates a stop where
+   the open ice had none. This is why flattening the cover points to plain ice
+   drops board 4 from par 11 to 10 and board 5 from 13 to 12 — measured by gate 5,
+   which fails the build if either is unchanged.
+2. **It banks the board.** `state.anchorC/anchorR` becomes that cell, and
+   `restartLevel()` respawns there. A fall after cover costs a retry instead of
+   the whole board — which is the insurance argument stated as a rule rather than
+   as copy.
+3. **It restores the ice.** `res.refreeze` re-freezes every fracture already
+   deepened on that board, re-opening corridors the player had spent. This is the
+   "opens a route" half, and the solver models it (`maskAfter()` returns 0 on a
+   refreeze), so it is inside the par, the dead-end and the coin proofs.
+
+Plus `scoring.coverBonus` (60) the first time each is reached, once per board —
+not restocked by a retry, the same anti-farm rule coins already had.
+
+Feedback on arrival: an expanding ice-blue ring off the tile, a frost wash
+sweeping back across every crack it restores, a burst per restored fracture, the
+`+60` float, a banner that names the count re-frozen, and a green pennant that
+moves to the new respawn cell and stays there.
+
+### Obstacle placement and the difficulty ramp
+
+Cover-point placements were **searched, not guessed**: a scratch script tried
+every plain-ice and thin-ice cell on each board and kept only placements that
+stayed solvable, produced zero reachable dead ends, and changed the BFS optimum.
+Board 3 (`crosswind`) admits no such cell at all — it has only 10 reachable
+movement states and a sticky tile strands the player almost anywhere — so cover
+was introduced on board 4 instead of forcing it in.
+
+Boards now read: `first-steps` (the verb) → `thin-ice` (the hazard) →
+`crosswind` (the deflection) → `cover-point` (the tool, was `cold-snap`) →
+`bring-them-home` (all three, two cover points at (4,3) and (1,7)).
+Pars 6 / 8 / 9 / 11 / 13, total par 45 → 47.
+
+Gate 6 asserts par strictly increases, **no board introduces two new mechanics at
+once**, the final board carries all of them and is the densest, and board 1 is
+hazard-free — then checks it behaviourally against the skilled bot.
+
+The behavioural assertion was **loosened after it failed at seed 12345**, and the
+reason it failed is worth keeping: board 4 is *safer per attempt* than board 3
+(0.87 vs 0.96 falls) despite being two moves longer, because the cover point on
+it banks and re-freezes. That is the mechanic working, not a hole in the ramp.
+The gate therefore asserts what survives every seed — board 1 never drowns the
+bot, and the back half of the run costs more falls than the front half (0.92 vs
+0.37 at the default seed, and the same ordering at every seed tried) — rather than "each board is deadlier than the last", which is false and
+should be.
+
+### UI and environmental assets
+
+- **HUD** collapsed from three stacked cards (~260 px of an 822 px stage) into one
+  glass bar (~56 px): level chip, timer, score, coins, retry pips, moves/par and
+  the par track. Mute moved *into* that bar — at 320 px the sky band is only
+  ~34 px tall and the old floating button landed on the board. Its 44 px WCAG
+  target is made with padding and taken back with a negative margin.
+- **Route dock** at the foot of the stage: the state chip, the outcome sentence,
+  the detail line and the armed direction chevron.
+- **Interactive tutorial** runs *through that dock* rather than as a separate
+  card — three steps (`STEP 1` press and hold → `STEP 2` pick a direction →
+  `STEP 3` let go to commit), driven by real input state, dismissed by doing it.
+  A first-visit card was built first and cut: at 320x568 it overlapped the last
+  row of the board, and coaching the player in the place the game will keep
+  talking to them is better teaching anyway.
+- **Per-board tips** on first load of each new mechanic (thin ice, gust, cover).
+- **Environment** — the old build left ~215 px of empty navy above the board and
+  ~170 px below. That is now a scene: a night sky with three aurora ribbons, a
+  star field and a fir treeline (`paintSky`), three layered snow drifts on the
+  near shore (`paintShore`), a packed snow bank framing the ice field, and 46
+  drifting flakes over the lake. All programmatic, all pre-rendered into the
+  static board bitmap except the snow.
+- **Ice** got a quiet checkerboard so the grid the puzzle is counted in is
+  legible without a drawn gridline, plus a per-tile frost bloom.
+- **Home** gained the three-chip feature card the design system asks for and a
+  cover point in the hero board; the hero grew from 232 to 276 px.
+- **How to play** replays the real control loop — thumb down, preview draws,
+  thumb lifts, shield moves — three times, and carries the `READY → AIMING →
+  COMMITTED` strip explicitly.
+- **Results** carries a fourth stat tile (cover points reached) and the stats
+  contract grew to `{ score, levels, coins, covers, moves }`.
+- `LeadCaptureModal` subtitle was "To see your rescue score" — copy from another
+  game. Now "To see your route home". Fields remain **Name + Mobile only**; no
+  email field was added.
+- 13 → 17 Nano Banana prompts in `asset-from-here.md`: `tile-cover-point` (two
+  states), `overlay-route-preview` (four stop markers), `scene-sky-aurora`,
+  `scene-near-shore`.
+
+### Verification
+
+- `node scripts/balance.mjs --runs 300` → **GATE: PASS**.
+  - pars 6 / 8 / 9 / 11 / 13, all matching the BFS optimum; 0 reachable dead ends
+    on all five boards (24 / 9 / 10 / 13 / 22 reachable movement states).
+  - every coin and cover point inside par+2; cover depths 4 (L4) and 5, 9 (L5).
+  - load-bearing: cover points flattened → par 11→10 and 13→12; gust cells
+    flattened → family tile UNREACHABLE on both gust boards.
+  - **anti-tunnelling: 1600 slides swept, 19757 sub-steps, 0 cells skipped,
+    0 out of order, 0 bad landings, 0 rock penetrations, 0 off-path, 0 off-board.**
+    Worst-case unchecked travel 3.90 cells/frame; measured max swept step 3.745
+    cells — i.e. a naive per-frame point test would have missed up to three whole
+    cells, and the resolve-then-follow model misses none.
+  - skilled bot 48.7 % (146/300), random-input bot 0.0 % (0/500).
+  - Re-run at 1000 runs x seeds 12345 / 999 / 0x511de5a1 / 77777:
+    **50.5 % / 50.7 % / 49.4 % / 47.7 %** skilled, **0.0 %** random on all four.
+- `npx vite build` → 525 modules, `built in 4.14s`,
+  `index-CScngnx9.js` 448.54 kB (**148.59 kB gzip**),
+  `index-v4scUYR6.css` 33.00 kB (6.77 kB gzip), `index.html` 0.84 kB (0.44 kB gzip).
+  Before this round: 424.61 kB (141.27 kB gzip) JS, same CSS, same html.
+  **Total gzip 148.48 → 155.80 kB (+7.32 kB)** for the preview renderer, the
+  cover-point art, the scene and the dock.
+- Emoji scan over `src/`: exactly one codepoint in the emoji ranges, U+2713 in
+  the `LeadCaptureModal` checkbox, which GAME_STANDARD §8.3 permits.
+- `src/kit/*.js` vs `shared/game-kit/*.js` — byte-identical, 7/7.
+- No files written outside `slide-to-safety/` and `okf-brain/slide-to-safety/`.
+
+### Play-test on the built `dist/`
+
+`node scripts/play-test.mjs slide-to-safety --all-sizes` — **ok at all four sizes**,
+no console or page errors at any of them:
+
+| viewport | canvas | painted | random-input bot | retry |
+|---|---|---|---|---|
+| iPhone SE 320x568 | 302x550 | 100.0 % of sampled pixels | ran the full 120 s clock | Try again -> canvas back |
+| iPhone 12 390x844 | 372x826 | 100.0 % | ran the full 120 s clock | Try again -> canvas back |
+| Pixel 7 412x915 | 394x897 | 100.0 % | ran the full 120 s clock | Try again -> canvas back |
+| chrome open 412x700 | 394x682 | 100.0 % | ran the full 120 s clock | Try again -> canvas back |
+
+The random bot never ends the run early — it survives the whole clock and loses
+to it, which is the right failure for a puzzle: it cannot drown itself faster
+than it runs out of time, and it never wins.
+
+That bot only proves the game does not fall over. To prove it can be *finished*,
+a second harness (`sts-solve.mjs`, scratch) drives the gate's own optimal lines
+through the real UI with real touch input. It clears all five boards, at both
+320x568 and 390x844, with **no console or page errors**, ending on
+"EVERYONE HOME" with 77-82 s left of the 120 s clock — the same ~40 s a run
+costs in the balance model. Every mechanic was observed working on screen along
+the way: the route preview and its stop markers, the `COMMITTED` lock, the
+"Cover point reached / Board banked - 3 fractures re-frozen" banner with the
+frost sweep and the anchor pennant moving, and "Board 4 clear / Par 11 - perfect
+route".
+
+### Screenshots reviewed
+
+Every screen was read back at every size — home, how to play, first board, mid-aim,
+post-commit, mid-run, board 4 (cover point), board 5 (two cover points and the
+gust lane), lead capture and results, at 320x568 / 390x844 / 412x700 / 412x915.
+Four defects were found by looking rather than by measuring, and fixed:
+
+1. the anchor pennant was drawn *above* the cell it marked, so it read as a flag
+   floating between two tiles - now pinned inside the tile's top-right;
+2. the mute button floated over the board at 320 px where the sky band is only
+   ~34 px tall - now inside the HUD bar;
+3. the first-run coach card overlapped the board's bottom row at 320x568 - cut,
+   and the three steps moved into the route dock;
+4. **intact thin ice was too quiet.** At 0.26 alpha over pale ice it was easy to
+   miss at a glance, and on a board where stopping on it is the only thing that
+   ends a run, "easy to miss" is a defect. It now reads as a distinctly colder
+   plate with a warm hairline rim.
+
+Plus two smaller passes: the aurora and the near-shore drifts were too faint to
+register as scenery, and the ghost routes for the three directions not being
+aimed at were nearly invisible on bright ice.
+
+### Not fixed
+
+- **Auto-pause is still exploitable in principle.** The kit's visibility handler
+  stops the clock when the tab is hidden, so a player could pause to think. Left
+  alone: the clock is not the binding constraint here (0 % of skilled-bot losses
+  are to the clock, and a winning run uses 49 s of 120 s), the known repo-wide
+  fix is scoped to reaction games, and adding a re-acquire countdown to a puzzle
+  would punish an interruption rather than an exploit.
+- **Board 3 has no cover point.** Every single placement on `crosswind` either
+  strands the player, makes the family tile unreachable, or collapses par from 9
+  to 2. The board is too tight for a sticky tile. Re-authoring it around one was
+  out of scope for this round; cover appears on 2 of 5 boards.
+- **The play-test harness never swipes up.** `scripts/play-test.mjs` draws
+  `dy = 0 or +80`, so its random bot cannot produce an upward slide. That is a
+  harness limitation, not a game one — the game's own gate exercises all four
+  directions exhaustively — and the file is outside this task's scope.

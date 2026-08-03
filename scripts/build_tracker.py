@@ -30,7 +30,7 @@ CATALOG_NOTE = [
      "coverage-archer (archery), tightrope-protection (balance runner), "
      "swing-to-secure (rope-swing traversal), milestone-hopper (lane-hopper), "
      "portfolio-fit (1010 block fit — restored after sign-off), spiral-sprint (helix jump), "
-     "wealth-drop (plinko), ripple-shield (chain reaction), steady-tower (jenga de-risk), "
+     "wealth-drop (plinko), steady-tower (jenga de-risk), "
      "goal-orbit (orbit hop), risk-strike (flick bowling), "
      "premium-pinball (pinball flippers), cover-drive (cricket batting timing), "
      "goal-keeper (penalty-save reaction), wealth-carrom (carrom flick-pocket), "
@@ -38,16 +38,15 @@ CATALOG_NOTE = [
      "smart-sorter (conveyor swipe-sorting), safe-crossing (traffic-control tap go/stop), "
      "slide-to-safety (ice-slide pathing), perfect-premium (stop-the-marker precision), "
      "steady-wings (one-tap impulse flight), premium-pulse (beat-synced rhythm tapping), "
-     "smart-recall (Simon serial sequence recall), goal-juggler (tap-to-bounce juggling keep-ups), "
+     "smart-recall (Simon serial sequence recall), "
      "life-rush (rapid-fire microgame rush). "
      "Approved but not yet scaffolded: balance-block-journey, shield-cascade"),
     ("This repo (proposed, pending sign-off)", "Batch 6 (2026-07-29): guardian-arena (Archero-style arena survivor), "
      "premium-tiles (piano-tiles melody lane tapper), wealth-merge (suika drop-merge collector), "
      "risk-slash (swipe slicer with protect-the-shield rule; note game-store has fruit-slice), "
      "sip-stack (stack timing tower with SIP framing; note game-store has stacking). "
-     "Batch 7 (2026-07-30): legacy-echo (time-loop past-self co-op), time-shield (time moves only when you move), "
-     "ring-fence (Qix territory capture), risk-radar (darkness + sonar pulse navigation), "
-     "dual-cover (Duet twin-orbit dodger)"),
+     "Batch 7 (2026-07-30): legacy-echo (time-loop past-self co-op), "
+     "ring-fence (Qix territory capture), risk-radar (darkness + sonar pulse navigation)"),
     ("Removed from repo", "Dropped by feedback: Compound Quest (compound-merge), Shield Spin (shield-spin) — "
      "'Already taken'. Removed for lacking BajajLife sign-off: life-goals-bubble-shooter, stackibility-stack, "
      "retire-rich-clicker, edurise-jumper, tax-save-maze, she-shield-protector, safe-stride-balancer, "
@@ -57,7 +56,9 @@ CATALOG_NOTE = [
      "jigsaw x2, minesweeper, racing, tube-sorting, quiz x3, bubble shooter, peg solitaire, stacking, "
      "memory-flip, tower defense, snakes & ladders, arcade dodger"),
     ("Dropped by feedback", "Wealth Current (physics orb), Path to Legacy (line drawing), "
-     "Launch to Protection (hedgehog launch), Secure Foundations (falling sand)"),
+     "Launch to Protection (hedgehog launch), Secure Foundations (falling sand). "
+     "2026-08-03 review: Dual Cover, Goal Juggler, Ripple Shield, Time Shield — directories deleted, "
+     "ports 5079 / 5068 / 5046 / 5076 retired"),
 ]
 
 

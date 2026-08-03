@@ -512,7 +512,7 @@ function DemoDefs() {
   );
 }
 
-export function HowToPlayScreen({ onPlay }) {
+export function HowToPlayScreen({ onPlay, difficulty, onDifficulty }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -693,6 +693,49 @@ export function HowToPlayScreen({ onPlay }) {
           ))}
         </div>
 
+        {/* Who you are playing. The three rungs and their labels come straight
+            out of GAME_CONFIG.bot.levels, so retuning the opponent never means
+            editing this screen. */}
+        <div style={{ margin: '2px 0 10px' }}>
+          <div style={{
+            fontSize: 8, fontWeight: 900, letterSpacing: '0.16em',
+            textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 5,
+          }}>
+            You vs {GAME_CONFIG.match.opponentName}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }} role="radiogroup" aria-label="Opponent difficulty">
+            {Object.entries(GAME_CONFIG.bot.levels).map(([key, lv]) => {
+              const on = key === difficulty;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => onDifficulty?.(key)}
+                  style={{
+                    flex: 1,
+                    minHeight: 44,
+                    padding: '6px 4px',
+                    borderRadius: 11,
+                    cursor: 'pointer',
+                    border: `1px solid ${on ? ORANGE : 'rgba(255,255,255,0.16)'}`,
+                    background: on ? 'rgba(242,101,34,0.16)' : 'rgba(255,255,255,0.05)',
+                    color: on ? '#fff' : 'rgba(255,255,255,0.66)',
+                    boxShadow: on ? `0 0 0 1px ${ORANGE}44` : 'none',
+                    transition: 'all 180ms ease',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.03em' }}>{lv.label}</div>
+                  <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.62 }}>
+                    {key}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button
             onClick={onPlay}
@@ -705,7 +748,7 @@ export function HowToPlayScreen({ onPlay }) {
               cursor: 'pointer',
             }}
           >
-            Play Game
+            Play Match
           </button>
         </motion.div>
       </div>
@@ -740,7 +783,15 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   const coins = stats?.coins || 0;
   const queenCovered = !!stats?.queenCovered;
   const fouls = stats?.fouls || 0;
-  const equiv = coins + (queenCovered ? GAME_CONFIG.scoring.queenCoinEquivalent : 0);
+  const equiv = stats?.equiv ?? (coins + (queenCovered ? GAME_CONFIG.scoring.queenCoinEquivalent : 0));
+  // Head-to-head. `draw` is rare but real: both sides level on coins, score,
+  // fouls, best strike AND strikes used.
+  const oppName = stats?.opponentName || GAME_CONFIG.match.opponentName;
+  const oppScore = stats?.opponentScore || 0;
+  const oppCoins = stats?.opponentCoins || 0;
+  const oppEquiv = stats?.opponentEquiv || 0;
+  const draw = !!stats?.draw;
+  const cause = stats?.cause;
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
@@ -822,12 +873,16 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         }}>
           {won ? <TrophyIcon size={20} /> : <ShortfallIcon size={20} />}
           <span style={{ fontSize: 13, fontWeight: 900, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {won ? 'Board cleared' : 'Short of target'}
+            {won ? `You beat ${oppName}` : draw ? 'Dead level' : `${oppName} took it`}
           </span>
         </div>
         <p style={{ color: '#fff', fontSize: 21, fontWeight: 900, lineHeight: 1.25, margin: 0 }}>
           Hi <span style={{ color: BLUE_LT }}>{leadName || 'Friend'}!</span>{' '}
-          <span style={{ color: 'rgba(255,255,255,0.85)' }}>Here&rsquo;s your board.</span>
+          <span style={{ color: 'rgba(255,255,255,0.85)' }}>
+            {cause === 'fouls'
+              ? (won ? `${oppName} fouled out.` : 'Three fouls ended it.')
+              : cause === 'timeout' ? 'Time ran out.' : 'Here’s your board.'}
+          </span>
         </p>
       </div>
 
@@ -859,6 +914,50 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Head-to-head: the match is a race, so the final scoreline is the
+          headline number, not your score in isolation. */}
+      <div style={{
+        display: 'flex', alignItems: 'stretch', gap: 8, width: '100%', maxWidth: 360,
+        marginBottom: 10, zIndex: 2,
+      }}>
+        {[
+          { name: 'You', v: score, e: equiv, c: coins, win: won, accent: ORANGE_LT },
+          { name: oppName, v: oppScore, e: oppEquiv, c: oppCoins, win: !won && !draw, accent: QUEEN_LT },
+        ].map((sd) => (
+          <div key={sd.name} style={{
+            flex: 1,
+            padding: '9px 8px',
+            borderRadius: 14,
+            background: sd.win ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${sd.win ? sd.accent : 'rgba(255,255,255,0.12)'}`,
+            textAlign: 'center',
+          }}>
+            <div style={{
+              fontSize: 8, fontWeight: 900, letterSpacing: '0.14em',
+              textTransform: 'uppercase', color: sd.accent,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {sd.name}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>
+              {sd.v.toLocaleString()}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 3, marginTop: 4 }}>
+              {Array.from({ length: RESULT_TARGET_COINS }).map((_, i) => (
+                <span key={i} style={{
+                  width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
+                  background: i < sd.e ? GOLD : 'rgba(255,255,255,0.16)',
+                  boxShadow: i < sd.e ? `0 0 5px ${GOLD}` : 'none',
+                }} />
+              ))}
+            </div>
+            <div style={{ fontSize: 8, fontWeight: 800, color: 'rgba(255,255,255,0.42)', marginTop: 4 }}>
+              {sd.c} coin{sd.c === 1 ? '' : 's'}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Run stats — the {score, coins, queenCovered, fouls} contract */}

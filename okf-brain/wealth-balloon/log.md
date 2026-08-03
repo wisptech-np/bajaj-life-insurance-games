@@ -308,3 +308,268 @@ wobble tell timing, HUD layout, `ResultsScreen`, `HomeScreen`, canvas artwork,
 
 **Build:** `pnpm install && pnpm build` — exit 0, `✓ built in 2.15s`
 (`dist/assets/index-B8aCTYwv.js 421.44 kB │ gzip: 139.71 kB`).
+
+## [2026-08-03] Mechanic REPLACED — press-your-luck out, goal-funding triage in
+
+Review finding: *"The selected game format does not provide meaningful value.
+Reconsider whether the balloon mechanic supports the intended financial or
+insurance concept. Replace the mechanic if it does not create an engaging
+learning experience. Avoid retaining a game format only for visual variety."*
+
+### The decision: REPLACE. The reasoning, and the number that settled it.
+
+The honest case FOR keeping press-your-luck is real. Risk appetite, the cost of
+greed and knowing when to bank a gain are genuine financial ideas, and
+press-your-luck models them natively. The previous build took that case
+seriously and did the work: an honest tell that provably precedes every burst, a
+measured compounding term that prices consistency over nerve, and a drone
+schedule tuned against a headless gate. It was not a lazy game.
+
+It still had to go, for two reasons.
+
+**1. There was not enough skill in it, and the old gate's own numbers say so.**
+The previous build measured `disciplined` (reads every warning, releases on it)
+at **38.5%** and `blind70` (a fixed 2.38 s release that never looks at the
+balloon at all) at **21.1%**. A bot with *zero* information scored 55% of the
+skilled bot's win rate. That is the ceiling of the format rather than a tuning
+miss: hold-and-release has exactly one degree of freedom per round, so either
+the optimum is knowable — in which case the game is a reaction test against a
+known target — or it is not, in which case it is a coin flip. There is no third
+option and no amount of retuning produces one.
+
+**2. The message was wrong for the client.** A wealth balloon that pops at a
+hidden random threshold says: your money evaporates at a moment nobody could
+have known, and cover gives you half of one round back as a consolation prize.
+That is fatalism with a Term Shield stapled on. An insurer's actual claim is the
+opposite — risk is assessable, exposure is sizeable, and cover is a decision you
+make in advance with numbers in front of you.
+
+### Anti-duplication check (done before choosing, not after)
+
+`bajaj-game-store/GAMES_CATALOG.md` (33 deployed) and `scripts/games-manifest.json`
+(37 + 2 revamps) were read in full. Mechanics already spoken for: snake, word,
+match-3, tetris, slice, endless runner, shooter (top-down / bomberman / galaga /
+crowd), sudoku, whack-a-mole, breakout, jigsaw, minesweeper, racing, sorting,
+quiz, bubble shooter, peg solitaire, stacking, memory, tower defense, bloxorz,
+triple-match, arrow-slide, gliding, cannon destruction, rope swing, Crossy Road,
+1010!, helix jump, plinko, Jenga, orbit timing, flick bowling, pinball, cricket
+timing, penalty save, carrom, pipe routing, conveyor sorting, traffic go/stop,
+ice-slide pathing, stop-the-marker, flappy gates, rhythm tapping, Simon recall,
+WarioWare microgames, arena survivor, piano tiles, Suika merge, fruit-ninja
+slice, Ketchapp stack, time-loop ghosts, Qix territory, sonar navigation.
+
+**Nothing in either list is a multi-target resource-triage game**, and nothing in
+either list makes an insurance purchase a computable in-game decision. Closest
+neighbours checked and rejected as collisions: `portfolio-fit` (1010! block
+placement — spatial packing, not allocation over time), `tower-defense` (place
+and forget, no per-shock economics), `smart-sorter` (conveyor swipe-sorting, one
+correct answer per item, no budget), `guardian-shelter` (physics placement).
+
+### What ships
+
+Three life goals inflate side by side. Each shows its funding **target** as a
+dashed ring, its **deadline** as a bar, and what it currently holds as a number.
+HOLD a balloon to pour income into it; slide the thumb to switch. Income refills
+at 24/s and drains at 76/s. Shocks are **forecast 4 s ahead** on a named goal
+with the exact money they will take at that goal's present value printed on the
+badge. One tap buys cover for a **fixed premium of 28**, which absorbs one shock
+in full and then is spent, or lapses after 10 s unused. 90 s, win at 1000.
+
+**Nothing is hidden.** There is no threshold, no unseen trigger, no coin flip.
+The only randomness is which goal a shock lands on and how hard, and both are
+announced four seconds before they matter.
+
+**The insurance idea is load-bearing, not a skin.** The premium is fixed and the
+exposure is a percentage of the position, so the same 28 is obviously right
+against a balloon holding 180 (saves 99) and obviously wrong against one holding
+30 (saves 16). The player does that comparison from two numbers already on
+screen. And because the drain is 3x the refill, buying cover costs the premium
+*and* the second of funding surrendered to have the premium in hand — a player
+who funds flat out is uninsurable by construction, which is the truest sentence
+in the build.
+
+### Files
+
+- **New** `src/goals.js` — the whole rule set as a pure module (`createSim`,
+  `step`, `buyCover`, `exposureOf`, `isWin`, `stats`) plus three judgement
+  helpers (`coverIsWorthIt`, `shouldSaveForCover`, `bestFeed`) that the in-game
+  coach AND the balance bots both call, so the advice the tutorial gives is
+  provably the advice that wins. No React/canvas/DOM/browser API.
+- **Deleted** `src/rounds.js` — the press-your-luck model.
+- **Rewritten** `src/data.js`, `src/WealthBalloonGame.jsx`, `scripts/balance.mjs`,
+  `README.md`, `okf-brain/wealth-balloon/index.md`.
+- **Patched** `src/Screens.jsx` — new home hero, new 7 s how-to-play loop, results
+  tiles moved to the new `{score, goals, missed, bestGoal}` contract, share copy.
+- **Untouched**: `App.jsx`, `LeadCaptureModal.jsx` (still Name + Mobile only, no
+  email), `SlotBookingModal.jsx`, `ThankYouScreen.jsx`, `api.js`,
+  `services/playCount.js`, `utils/`, `src/kit/`, `index.css`, `index.html`,
+  `vite.config.js`, `package.json`. Screen flow, LMS integration, `playCount`,
+  `LEAD_NO_KEY` and the slot-booking remark string are all unchanged.
+
+### Two design bugs found and fixed by measurement
+
+**1. Cover was unaffordable to anyone playing well.** First measured run:
+`skilled` and `always-cover` scored *identically* (845 each) and both bought
+0.6 premiums per run. Cause: the fill drain is 3x the refill, so a bot feeding
+optimally sits at zero income permanently and `buyCover` always refused. The fix
+was not to make the premium cheaper — it was to make holding income back an
+explicit, shared decision (`shouldSaveForCover`) and let the tempo cost stand.
+That turned the premium from a rounding error into the second-largest decision in
+the game.
+
+**2. The game had almost no run-to-run variance.** Targets and deadlines were
+deterministic, so `always-cover` returned p25 = p50 = p75 = 1224 across 1,500
+different seeds and `skilled` won 100%. Added ±16% target jitter and ±10% window
+jitter, then re-tightened income (26 → 24/s) and target growth (8 → 12 per spawn).
+
+### The win line
+
+`--sweep` over 1,500 runs, choosing the line where the skilled bot clears 60%
+and the casual bot lands inside 25–60%:
+
+```
+  win line   skilled    casual    random      idle
+       900     90.4%     37.8%      0.0%      0.0%
+      1000     86.8%     32.9%      0.0%      0.0%   <- chosen
+      1050     74.4%     24.4%      0.0%      0.0%   (casual 0.6pp under band)
+      1100     62.4%     12.9%      0.0%      0.0%
+```
+
+1000 sits in the middle of the usable window and is a readable number on a HUD.
+
+### Gate result — the test this game exists to pass
+
+`node scripts/balance.mjs --runs 6000`, seed `0xba110032`:
+
+```
+  bot            win%     mean    p25    p50    p75  funded  missed  premium   lost  saved  lapsed
+  skilled       87.5%     1212   1052   1257   1343     7.6     4.1      225     57    576     0.0
+  casual        31.9%      845    651    819   1041     6.1     5.5      177    116    458     0.0
+  random         0.0%       30      0      0      0     1.7    10.0       14    678      7     0.3
+  idle           0.0%        0      0      0      0     0.0    11.7        0      0      0     0.0
+  spread         0.0%      107     85    106    131     3.0     8.7      289    110    546     0.0
+  never-cover   10.0%      606    385    597    818     4.9     6.7        0    559      0     0.0
+  always-cover  44.0%      944    799    975   1058     6.6     5.1      433      0    616     0.0
+
+  gate: skilled 87.5% >= 60% — OK
+  gate: casual 31.9% in 25-60% — OK
+  gate: random 0.0% <= 8% — OK
+  gate: idle 0.0% == 0% — OK
+  gate: SKILL GAP skilled - random = 87.5pp >= 50pp — OK
+  gate: FOCUS spread 107 < 90% of skilled 1212 — OK
+  gate: COVER MATTERS never-cover 606 < skilled 1212 — OK
+  gate: JUDGEMENT always-cover 944 < skilled 1212 — OK
+```
+
+Against the old build's 38.5% vs 21.1% (a 17.4 pp skill gap), this is **87.5 pp**.
+The `random` bot is the same agent `scripts/play-test.mjs` drives in the browser,
+and it scores 30 against 1212 — a 40x gap.
+
+The last three gates are the ones that stop cover being a skin. Ordering:
+**skilled 1212 > always-cover 944 > casual 845 > never-cover 606 > spread 107 >
+random 30 > idle 0.** Going bare costs 606 points; blanket-covering everything
+recovers 338 of that; choosing *which* shocks to cover recovers the remaining
+268.
+
+Seed robustness, 2,000 runs each at seeds 1 / 7 / 12345 / 999983 / 424242:
+skilled 87.4 / 87.0 / 88.0 / 87.6 / 87.9%, casual 30.3 / 32.4 / 32.3 / 30.6 /
+30.4%, random 0.0% throughout, idle 0.0% throughout.
+
+### Tutorial (client asks for one on every game)
+
+Three coach prompts inside the live game, each cleared by **doing the thing**
+rather than by a timer:
+
+1. *Hold a balloon to fund it* — clears after 1.1 s of actual funding.
+2. *Fill past the dashed ring before its timer ends* — clears when the first
+   shock is forecast.
+3. *Shock coming. Is the red number bigger than 28? Then cover it* — clears when
+   cover is bought.
+
+The How to Play screen plays the same three beats first as a 7 s animated SVG
+loop: hold the due goal, a `-96 / 55% in 2.4s` badge appears, the finger taps
+`COVER 28`, the shock is absorbed with `SAVED 96`, funding resumes and the goal
+lands `+180`. The comparison 96 > 28 is on screen the whole time, so no sentence
+has to explain it.
+
+### Pause-scum
+
+Returning from a background pause now holds the session clock for a 3-second
+re-acquire countdown (`hud.resumeCountdown`) and ignores input during it. This is
+the repo-wide auto-pause exploit; in a game whose whole point is deciding under a
+clock, backgrounding the tab was otherwise a free think.
+
+### What looking at the screenshots changed
+
+Six defects that every green check missed. The build passed, the gate passed and
+the play-test reported `ok` through all of them.
+
+1. **The coach line clipped the progress bar.** The DOM HUD's progress pill
+   measures ~40 px, not the 34 assumed, so the coach strip cut across its track.
+   Coach moved to `top: 98`, canvas `top` floor raised 136 → 142.
+2. **The balloons were spheres.** The neck taper was too weak to read and the
+   path was near-circular. Taper strengthened to `1 - 0.26·sin(a)^1.5` and a
+   1.3 height/width `ASPECT` added, so a balloon now reads as a balloon and
+   fills more of a narrow column. Target rings became ellipses to match.
+3. **Tall handsets were mostly empty panel.** The column panel stretched
+   `colTop → btnY`, which at 412×915 is ~650 px of glass around a 265 px stack.
+   The panel is now sized to its contents and sunk to 62% of the slack, so the
+   board sits inside the thumb arc and the space it cannot use reads as sky.
+4. **`INCOME 0` was invisible.** The label is dark ink on the gold fill; at low
+   income the fill no longer reaches it and it was dark-on-dark at exactly the
+   moment income matters most. Now measures the label and flips to light ink.
+5. **`-0` badges.** A shock on a goal holding nothing correctly costs nothing,
+   but a red `-0` reads as a bug. Badges are now RED only when the money at risk
+   beats the premium and slate otherwise, and a zero loss prints `NO LOSS`. The
+   colour is the lesson: red means worth protecting.
+6. **Floating text landed on the balloon.** `SAVED 114` in sky-blue over a green
+   balloon was unreadable. All float text now spawns above the balloon's crown.
+
+Also hoisted two per-frame gradient allocations out of the hot loop: the three
+balloon fills are unit-space radial gradients built once per resize (the context
+is scaled instead), and the income bar's linear gradient has fixed geometry so it
+is built in `fit()`. That is 4 fewer allocations per frame.
+
+### Verification
+
+- **Gate** — `node scripts/balance.mjs --runs 6000`, exit 0, all 8 gates OK
+  (table above). Plus 2,000 runs at each of seeds 1 / 7 / 12345 / 999983 /
+  424242: skilled 87.0–88.0%, casual 30.3–32.4%, random 0.0%, idle 0.0%.
+- **Build** — `cd wealth-balloon && npx vite build`, exit 0, 524 modules,
+  `dist/assets/index-BfLstUb1.js 415.98 kB │ gzip 138.80 kB`, CSS 33.00 kB │
+  gzip 6.77 kB, built in 3.23 s.
+- **Play-test** — `node scripts/play-test.mjs wealth-balloon --all-sizes`
+  against the shipped build, exit 0, **all four viewports `ok`**:
+
+```
+  320x568   canvas 302x550   painted 100.0%   run ended after 90s at "try again"   canvas back after retry: true
+  390x844   canvas 372x826   painted 100.0%   run ended after 90s at "try again"   canvas back after retry: true
+  412x915   canvas 394x897   painted 100.0%   run ended after 90s at "try again"   canvas back after retry: true
+  412x700   canvas 394x682   painted 100.0%   run ended after 90s at "try again"   canvas back after retry: true
+```
+
+  Zero console or page errors at any size. Every run lasted the **full 90 s** —
+  the random bot never ends the session early because there is no way to lose
+  early; the clock is the only terminator. That is the opposite of the 11 s and
+  18 s failures the play-test harness was written to catch.
+- **Screenshots** — read at all four sizes across five iterations (home,
+  how-to-play, funding, forecast, covered, late-run, lead modal, results,
+  results-scrolled). The six defects above came out of that pass and were fixed
+  and re-shot. A driven run also confirms the whole loop end to end in the
+  browser: buying cover before a shock produced `SAVED 114` on screen with the
+  blue term ring and `COVERED 9.3s` on the button.
+- **Lead capture** — screenshotted: **Name + Mobile + T&C only, no email field**.
+  Validation fires correctly when T&C is unticked.
+- **Scope** — `git status` confirms only `wealth-balloon/` and
+  `okf-brain/wealth-balloon/` changed. `wealth-balloon/src/kit/`, `shared/` and
+  every `scripts/*` file are untouched by this work.
+
+### For the coordinator
+
+`scripts/games-manifest.json` still describes this game as *"Press-your-luck
+inflate (hold to grow, release to bank)"*. It should now read:
+
+> **Goal-funding triage with forecast shocks and a fixed-premium cover decision**
+> (three goals, one rate-limited income, hold to fund, tap to insure)
+
+Directory name and port 5059 are unchanged, as are the LMS strings.

@@ -8,6 +8,32 @@ misses ends it. Survive all twelve with a shield still held and you win.
 
 Dev server on port **5069**.
 
+## The persistent frame (2026-08-03)
+
+A rush is unreadable unless the things that never change are drawn in the same
+place every time. Four elements are always on screen, in fixed positions from
+`GAME_CONFIG.hud`, drawn **after** the banner / breather / SPEED UP overlays so
+nothing can dim them:
+
+- **Progress track** — twelve segments across the top: green cleared, red failed,
+  pulsing orange the one you are on, dim still to come.
+- **Action window** — the countdown bar, hatched while the microgame is locked
+  and draining once the cue lands. It used to be painted at `y=12` underneath the
+  HUD pills, i.e. occluded on every handset; the frame now owns the top 116 px
+  outright and nothing overlaps anything.
+- **HUD row** — Score / Shields (captioned, and red reading "Last shield" at one)
+  / Moment n/12.
+- **Instruction strip** — the verb chip, the microgame's ask, and its money
+  moment, for the *whole* window. The chip reads **WAIT** in slate until the cue
+  and flips to the orange verb the instant the microgame opens, which is the only
+  visible statement of the cue rule the game has.
+
+**The input grammar is four gestures and that is the whole list: TAP, DRAG,
+SWIPE, HOLD** (`GRAMMAR` in `src/data.js`; TOP-UP! is `TAP x2`, still the tap
+family). The content varies every two seconds; the way you answer never does.
+`scripts/balance.mjs` asserts every microgame has a verb in the grammar, a money
+moment, and a hint short enough to fit a 320 px handset.
+
 ## Concept
 
 Life does not announce which problem is arriving next, and it does not wait
@@ -21,24 +47,28 @@ from three difficulty bands, so nine of the fourteen change between runs.
 
 ## Financial hook
 
-Each microgame is one financial reflex, and the failure states are the argument:
+Each microgame is one financial reflex, and the failure states are the argument.
+Since 2026-08-03 each also carries a **money moment** (`MOMENTS` in `data.js`)
+shown above the command word on the banner, kept on the instruction strip for the
+whole window, and listed back on the results screen — so the link is made by the
+game rather than asserted by the marketing copy underneath it.
 
-| Microgame | The reflex | What failing it means |
-|---|---|---|
-| **PAY!** | Pay the premium before the due-date stamp lands | A missed date is a lapsed policy |
-| **PICK!** | Choose the cover that matches the claim | The wrong cover is no cover |
-| **CATCH!** | Catch the piggy bank before it passes the shelf | Savings you did not reach for |
-| **GIFT!** | Drag the bonus into the retirement box | A windfall that was never allocated |
-| **SIGN!** | Sign along the dotted line | Paperwork left unfinished |
-| **SWAT!** | Swipe the scam call away | The thing that gets you when you are busy |
-| **SHIELD!** | Hold the umbrella over the family until the rain lands | Protection has to be in place *before*, and still there |
-| **GROW!** | Hold the SIP fill, release inside the goal band | Under-invest or overshoot — both miss the plan |
-| **TOP-UP!** | Double-tap the health cover | Enough, and not more than enough |
-| **SNOOZE!** | Close the impulse-buy ad | The small X your thumb keeps missing |
-| **STAMP!** | Stamp the claim square in the seal | Approval is a moment, not a mood |
-| **SPLIT!** | Drop the salary coin in NEEDS or WANTS | Every rupee is one or the other |
-| **LOCK!** | Tap the vault dial on the green notch | Locking it in has a window |
-| **WAKE!** | Tap the alarm exactly on the 9 | The premium date comes round once |
+| Microgame | Money moment | The reflex | What failing it means |
+|---|---|---|---|
+| **PAY!** | PREMIUM DAY | Pay the premium before the due-date stamp lands | A missed date is a lapsed policy |
+| **PICK!** | THE RIGHT COVER | Choose the cover that matches the claim | The wrong cover is no cover |
+| **CATCH!** | SAVINGS SLIPPING | Catch the piggy bank before it passes the shelf | Savings you did not reach for |
+| **GIFT!** | BONUS DAY | Drag the bonus into the retirement box | A windfall that was never allocated |
+| **SIGN!** | THE PAPERWORK | Sign along the dotted line | Paperwork left unfinished |
+| **SWAT!** | SCAM CALL | Swipe the scam call away | The thing that gets you when you are busy |
+| **SHIELD!** | RAINY DAY | Hold the umbrella over the family until the rain lands | Protection has to be in place *before*, and still there |
+| **GROW!** | YOUR SIP | Hold the SIP fill, release inside the goal band | Under-invest or overshoot — both miss the plan |
+| **TOP-UP!** | TOP UP THE COVER | Double-tap the health cover | Enough, and not more than enough |
+| **SNOOZE!** | IMPULSE BUY | Close the impulse-buy ad | The small X your thumb keeps missing |
+| **STAMP!** | CLAIM APPROVAL | Stamp the claim square in the seal | Approval is a moment, not a mood |
+| **SPLIT!** | NEEDS OR WANTS | Drop the salary coin in NEEDS or WANTS | Every rupee is one or the other |
+| **LOCK!** | LOCK THE PLAN | Tap the vault dial on the green notch | Locking it in has a window |
+| **WAKE!** | DUE BY THE 9th | Tap the alarm exactly on the 9 | The premium date comes round once |
 
 ## The cue rule
 
@@ -55,6 +85,11 @@ just hammers the glass clears the entire pool. The balance gate carries a spam
 bot precisely to keep that shut — it wins 0.0% of runs.
 
 ## Controls
+
+The player is shown one of **four** verbs on the instruction chip — TAP, DRAG,
+SWIPE, HOLD (TOP-UP! reads `TAP x2`). The table below is how each is *judged*,
+which is an implementation detail: SHIELD!'s "sustained drag" is a DRAG chip that
+additionally has to still be held when the rain lands.
 
 | Verb | Microgames | Judged on |
 |---|---|---|
@@ -106,8 +141,10 @@ arithmetic bound 3,000). The Results ring closes at 2,200
 - `src/LifeRushGame.jsx` — the orchestrator: beats, HUD, particles, stings. It
   contains no gameplay rules at all.
 - `src/Screens.jsx` — Home (the game's own frame with command words slamming
-  through), How to Play (3 CSS-animated SVG beats), Results (score ring,
-  cleared / streak / perfects tiles, Book a Slot).
+  through), How to Play (the objective in words + 3 CSS-animated SVG beats, each
+  banner showing the glyph and the verb word the in-game chip uses), Results
+  (score ring, cleared / streak / perfects tiles, the **moment recap** naming
+  every money moment the run served and whether it was cleared, Book a Slot).
 - `src/kit/` — byte-identical copy of `shared/game-kit`, never edited in place.
 - `scripts/balance.mjs` + `scripts/policies.mjs` — the balance gate; not part of
   the bundle.

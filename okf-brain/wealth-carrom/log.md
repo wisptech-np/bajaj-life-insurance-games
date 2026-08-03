@@ -331,3 +331,205 @@ layout, `ResultsScreen`, `HomeScreen`, canvas artwork, `data.js`, `api.js`,
 
 **Build:** `pnpm install && pnpm build` — exit 0, `✓ built in 4.95s`
 (`dist/assets/index-BNWUgJr8.js 433.06 kB │ gzip: 143.18 kB`).
+
+## [2026-08-03] Review round: AI opponent, match rules, board/UI redesign
+
+Review feedback: *"The carrom design is not visually strong. There is no bot
+opponent. A proper sliding or flicking control is unavailable."* Two of those
+three were already built and shipping; the third was real and was the bulk of
+this round.
+
+### What was actually missing
+
+**The bot.** The game was a solo score-attack against a clock. There was a
+ghost-ball planner in `scripts/bot.mjs`, but it existed only to drive the balance
+sim — nothing in the shipped bundle imported it and the player never faced an
+opponent. That is the finding the review is really about, and fixing it meant
+rebuilding the match, not adding an actor.
+
+**The controls were already there** (place on the baseline, pull back from the
+striker, release; aim ray, power ring, power meter, `pointercancel` abort) and
+the **physics were already fixed-step with substepping**. Both were re-verified
+rather than rewritten. The one genuine control defect found: the aim ray was
+drawn at a length derived from power alone and ran straight off the board at
+shallow angles, pointing at somewhere the striker cannot reach.
+
+### 1. Physics — verified, one invariant added
+
+Unchanged model: friction as a half-life (`v = v0·e^(-kt)`, k = ln2/0.45s), so
+speed falls off linearly with distance and the power meter stays honest;
+equal-restitution disc impulses at 0.92 with a 1.55x striker mass; cushions at
+0.62; fixed 1/120 s step with substeps capped at 0.3 of a disc radius and a 1.6x
+safety factor on the substep count.
+
+What is new is that the gate now *proves* the anti-tunnelling claim instead of
+asserting it. A tick-level **swept closest-approach** test runs on every pair:
+two discs that cross and separate inside one tick are simply "apart" when it
+ends, so an end-state overlap check cannot see them. Measured: **880
+maximum-power strikes, 452,813 ticks, 4 canvas sizes — 0 pass-throughs, 0 cushion
+escapes, 0 ticks ending deeply overlapped**, worst per-tick travel 0.75 of a disc
+radius.
+
+Energy is asserted separately, with friction disabled so it cannot mask an
+impulse that adds energy: total kinetic energy must be monotonically
+non-increasing across every tick. **0 violations.**
+
+### 2. Controls — the aim ray now stops at the rail
+
+`drawAim` solves the ray against the four cushions (offset by the striker's own
+radius, which is where it actually stops) and ends at the nearest hit. The rig is
+otherwise as it was, and is now also used to render the OPPONENT's shot in
+crimson rather than the player's orange — which is why its turn is animated at
+all rather than resolved instantly.
+
+Board geometry was re-laid so a full-power flick is physically performable: the
+striker rests ~48 px above the bottom rail and `maxPullFrac` pulls ~150 px
+straight back off the board, so `verticalBiasFrac` is 0.45 — chrome takes the
+band above, the gesture gets the room below.
+
+### 3. The bot — `src/bot.js`, a SHIPPED pure module
+
+`scripts/bot.mjs` was deleted; there is now one implementation, imported by both
+the game and the gate. It generates, simulates, ranks and picks:
+
+1. **Generate** — ghost-ball enumeration over sampled placements × target pieces
+   × pockets, rejecting blocked corridors, thin cuts and off-felt ghosts. Break
+   shots always appended so it is never without a move.
+2. **Simulate** — the best candidates by geometric cost are each run to rest on a
+   *clone* using the shipped `stepWorld()`, at `bot.simStep` = 1/60 (stepWorld
+   sizes substeps from dt, so a coarser step traces the same path for half the
+   tick cost). Outcomes read with the shipped `tallyPocketed()`.
+3. **Rank** — scored with the `data.js` scoring numbers, plus a keep-the-turn
+   bonus and a positional term.
+4. **Pick by skill.**
+
+Difficulty is four levers in `GAME_CONFIG.bot.levels`, and only one is aim:
+`rollouts` (how many shots it even looks at), `pickFrom` (it picks at random from
+its own top N, so a weak bot chooses the wrong shot rather than merely aiming
+badly), aim/power sigma, and `foulBlindness` (probability it prices the shot with
+the foul penalty at zero — which is what actually makes a novice pot their own
+striker).
+
+| Level | rollouts | pickFrom | aim σ | power σ | foulBlind |
+| --- | --- | --- | --- | --- | --- |
+| Cautious (easy) | 5 | 3 | 7.5° | 22% | 0.50 |
+| Balanced (normal) | 12 | 2 | 4.0° | 12% | 0.18 |
+| Aggressive (hard) | 26 | 1 | 1.8° | 6% | 0.04 |
+
+Selectable on the how-to-play screen, which reads the labels from `data.js`.
+
+### 4. Match rules — `src/rules.js` rewritten
+
+Was a single-player run machine; is now a two-sided match. You and The Market
+strike at ONE shared rosette.
+
+- **Turns** are classic carrom continuation, not alternate-every-shot: pot a gold
+  coin or the Queen and commit no foul, and you keep the strike. 62% of strikes
+  keep the turn in the measured sample, which is what makes a break worth setting
+  up and lets a strong bot run several coins.
+- **Fouls** — striker or risk disc pocketed: −150 and the turn passes. Three
+  fouls forfeits the match.
+- **Queen cover is per side.** She is worth 500 and two coins toward the target,
+  but only if covered by a gold coin on the same strike or that side's very next
+  one; otherwise she returns to the centre spot unpaid.
+- **Completion** — first to six coin-equivalent; or a forfeit on fouls; or the
+  board runs out of coins / 12 strikes a side / the 120 s clock, decided on a
+  **tiebreak ladder**: coin-equivalent, score, fewer fouls, best single strike,
+  fewer strikes used.
+
+**The target moved 6 → 5 → 6.** Five was tried first because with nine coins a
+4-4 split is impossible, so five is *guaranteed* decisive before the board
+empties. Measured, it was too quick: 29.1 s of match against a 120 s session and
+only 5.5 strikes at the top rung, and it collapsed the difficulty spread
+(skilled beat normal 57.5% and hard 49.4% — eight points apart). Six measures
+**37.3 s, 8.9 strikes, and 71.9% / 55.0%**. Six is not guaranteed to be reached
+(5-4 empties the board), so that case is handled by the tiebreak ladder rather
+than avoided — 40 of 960 matches ended `cleared`, **0 draws**.
+
+### 5. Art and UI
+
+- **Board environment.** The stage was flat void above and below a square board —
+  the review's "not visually strong" in one glance. There is now a lit table: an
+  ellipse wider and taller than the board, a lamp pool over the felt, a contact
+  shadow under it and a vignette closing the corners. Measured effect: the
+  play-test's paint coverage went from **44.6–58.9% to 100.0%** of sampled pixels
+  at every size.
+- **Pockets rebuilt.** At `pocketInsetFrac` 0.16 the pocket centre sat almost on
+  the felt corner, so the clip threw away ~80% of the mouth and what remained
+  read as a dark smudge you could not aim at. Now 0.55, and each hole is four
+  passes: brass collar sunk into the felt, shaft darkening to true black,
+  occlusion on the near wall, specular arc on the far lip. This moves the capture
+  point, so the balance table was re-measured after the change.
+- **Scoreboard rebuilt** as two side-by-side panels — You and The Market — each
+  with score, six coin pips, three foul pips and a progress bar, the active side
+  outlined in its own colour. A race is unreadable if you cannot see the other
+  runner.
+- **Turn chip** ("Your strike" / "The Market is reading the board…") and a
+  **piece legend** (Coin +100 / Queen +500 / Risk −150) anchored to the board's
+  measured top edge rather than a fixed offset, and the legend is dropped
+  entirely when the band above the board is too short for it.
+- **HUD reserve is now a minimum pixel height** plus a small fraction, not a pure
+  fraction: the scoreboard is a fixed stack, so a pure fraction gave a 390×844
+  handset 189 px for 100 px of content and took the difference out of the board.
+- Results screen shows the head-to-head scoreline and both sides' pips; share
+  copy reports the match result. Lead form untouched — **Name + Mobile only**.
+
+### Verification
+
+**Headless gate** — `node scripts/balance.mjs`, driving the shipped modules:
+
+```
+A. 880 max-power strikes / 452,813 ticks / 4 canvas sizes
+   0 pass-throughs · 0 cushion escapes · 0 resting overlaps · max tick travel 0.75r
+B. frictionless kinetic energy non-increasing on every tick: 0 violations
+C. difficulty   skilled wins   random-flick wins   avg strikes
+   easy              89.4%             21.3%            8.2
+   normal            71.9%             11.3%            8.9
+   hard              55.0%              5.0%            7.7
+   960 matches / 9,185 strikes · settle mean 2.31 s, max 3.05 s · 0 watchdog · 0 escaped
+   6.80 coins, 0.44 risk, 0.46 striker pots, 0.78 queen pots (0.57 covered) per match
+   62% of strikes kept the turn · clock mean 37.3 s of 120 s
+   endings: target 861, fouls 50, cleared 40, strikes 8, timeout 1 · 0 draws
+GATE: PASS
+```
+
+Strictly ordered, none absolute: the reference beats every rung but never always,
+and random flicks beat every rung sometimes but never often.
+
+**Build** — `npx vite build`: pass, 527 modules, zero errors.
+`dist/assets/index-DWRa3hqC.js 449.26 kB │ gzip 148.51 kB`,
+`index-v4scUYR6.css 33.00 kB │ gzip 6.77 kB`.
+Before this round: `433.06 kB │ gzip 143.18 kB` JS, same CSS. **+5.33 kB gzip**
+for the bot, the match machine and the environment art.
+
+**Play-test** — `node scripts/play-test.mjs wealth-carrom --all-sizes`, real
+touch drags in headless Chrome:
+
+| Viewport | Canvas | Painted | Random-input run | Retry |
+| --- | --- | --- | --- | --- |
+| 320×568 | 298×546 | 100.0% | 22 s | ok |
+| 390×844 | 368×822 | 100.0% | 80 s | ok |
+| 412×915 | 390×893 | 100.0% | 46 s | ok |
+| 412×700 | 390×678 | 100.0% | 49 s | ok |
+
+Zero console or page errors at every size; canvas mounts, paints, and comes back
+after retry. Screenshots inspected at all four sizes: scoreboard, legend, turn
+chip, board, aim ray, power meter and mute button all fit at 320×568 with no
+clipping, and the aim ray now terminates at the rail.
+
+### Known issues / deferred
+
+- **`capturePocket` uses the piece centre, ignoring its radius**, so the striker
+  (1.24× a coin) is captured on the same centre-distance test as a coin. Carried
+  over from the previous round; making it radius-aware would shift the balance
+  table again and the measured effect is small (0.46 striker pots per match).
+- **The bot never plays for position deliberately.** Its positional term only
+  rewards leaving coins nearer a pocket; it does not model what it leaves the
+  OPPONENT. A snooker-style safety shot would be the next real step up in skill.
+- **The rollout search is synchronous on the main thread** (~26 clones × ~3 s of
+  sim at the top rung). It is hidden behind the "reading the board" indicator and
+  measured clean at every size, but a very low-end device would feel it. A web
+  worker is the fix if a device profile ever shows it.
+- The how-to-play demo animation still shows a single player's two strikes; it
+  teaches the gesture and the cover rule correctly but does not depict the
+  opponent. The "You vs The Market" difficulty picker sits directly beneath it.

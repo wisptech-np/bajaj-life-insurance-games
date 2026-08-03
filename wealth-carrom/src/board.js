@@ -21,8 +21,11 @@ export function buildBoard(cfg, W, H) {
   const b = cfg.board;
 
   const sideMargin = W * b.sideMarginFrac;
-  const topReserve = H * b.topReserveFrac;
-  const bottomReserve = H * b.bottomReserveFrac;
+  // Minimum pixels OR a share of the canvas, whichever is larger: the HUD is a
+  // fixed-height stack, so a pure fraction over-reserves on a tall phone and
+  // under-reserves on a short one.
+  const topReserve = Math.max(b.topReserveMinPx, H * b.topReserveFrac);
+  const bottomReserve = Math.max(b.bottomReserveMinPx, H * b.bottomReserveFrac);
 
   const availW = Math.max(80, W - sideMargin * 2);
   const availH = Math.max(80, H - topReserve - bottomReserve);

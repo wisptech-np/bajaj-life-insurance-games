@@ -463,3 +463,202 @@ for the risk step in the prompts exactly as it is in `data.js`.
 - `node scripts/balance.mjs` — **GATE: PASS** (generator clean over 252 000 plans,
   honest bot 27.6%–38.6%, sharp ≥ 98.6%, careful ≥ 98.4% with zero clock losses).
   Harness unmodified.
+
+---
+
+## 2026-08-03 — Review round 2: "the colours are too dull" (palette repaint)
+
+### The defect
+
+Reviewer: *"The colours are too dull. Introduce a brighter and more engaging
+colour palette. Improve contrast between cards, backgrounds, text and
+interactive states. Use stronger visual feedback for selected, matched,
+incorrect and completed states. Maintain accessibility and brand consistency."*
+
+The reviewer was describing a symptom; the cause was one line of the tile
+recipe. In `makeTileBitmap` a **resting** tile was painted as
+
+```
+rgba(255,255,255,0.10) → `${goal.colorDeep}D9` → rgba(6,18,41,0.92)
+```
+
+— each goal's hue at roughly 15% effective strength, alpha-composited over deep
+navy, on top of a `colorDeep` that was already near-black. Alpha-blending a hue
+over navy desaturates it, so nine deliberately-distinct goals collapsed into
+nine near-identical mud rectangles. The board's only real colour was the ~0.3 s
+playback flash. Every screenshot of the board confirmed it: at rest, Health and
+Wedding and Education were the same brown-grey card.
+
+Two smaller faults fell out of the same audit:
+
+* **Tile labels failed WCAG AA.** `rgba(255,255,255,0.52)` painted straight onto
+  the hue. On the light goals (Savings, Retirement) that measured under 4.5:1.
+* **The chrome was a second, dimmer copy of the palette.** `Screens.jsx`
+  re-declared `BLUE / ORANGE / GREEN_LT / GOLD / DANGER` inline instead of
+  importing them, so `data.js` was not actually the single source of colour it
+  claims to be, and the home / how-to screens could not be repainted from it.
+
+### What changed, and why
+
+**1. A fourth token per goal: `colorRest` (`src/data.js`).**
+An OPAQUE mid-tone of the goal's own hue, used for the resting face. Opaque is
+the load-bearing word — an alpha wash over navy cannot hold saturation, an
+opaque tone cannot lose it. `color` / `colorLt` were pushed up in chroma at the
+same time so the LIT state stays a real jump off the brighter rest.
+
+| goal | rest (was → is) | lit body (was → is) |
+|---|---|---|
+| health | `#7E1B2E` @85% → `#A32149` | `#FF4D6D` → `#FF3D71` |
+| home | `#123A75` @85% → `#1552A8` | `#2E7BE8` → `#2B8CFF` |
+| education | `#3D2378` @85% → `#5427BE` | `#8B5CF6` → `#A06BFF` |
+| retirement | `#6E4E0F` @85% → `#A06A00` | `#E3B23C` → `#FFC531` |
+| travel | `#0A5A64` @85% → `#067C8D` | `#17C3D4` → `#14D3E8` |
+| family | `#0F5029` @85% → `#0D7C3F` | `#2FB162` → `#24CC6F` |
+| savings | `#4F681A` @85% → `#6E9414` | `#B7DD3F` → `#C4F03A` |
+| wedding | `#71184A` @85% → `#A81C72` | `#EC5FA8` → `#FF5FB4` |
+| emergency | `#7A2C08` @85% → `#B2430C` | `#F26922` → `#FF7A2F` |
+
+Home stays a brightened Bajaj blue and Emergency a brightened Bajaj orange, so
+the two brand anchors are still the two loudest tiles on the board.
+
+Measured rest → lit jump is now **2.6x to 4.6x in luminance** on every goal,
+which is what makes the playback flash readable rather than the flash being the
+only colour on screen.
+
+**2. A label scrim, instead of nine hand-tuned label colours.**
+`COLORS.tileScrim` (`rgba(4,10,22,0.78)`) is a bottom-up gradient clipped to the
+tile, and the label sits on it at `rgba(255,255,255,0.95)` (was 0.52). One
+treatment fixes all nine hues at once. Worst measured label contrast went from
+sub-AA to **15.56:1**.
+
+**3. The stage moved the other way.** Cards got brighter, so the ground got
+deeper rather than brighter — otherwise the contrast gained on the cards is
+handed straight back. `boardTop #0A1E42 → #123A7D` (brand blue at the top),
+`boardLow #061229 → #050F28`, `bgDark #0B1221 → #081026`, well
+`rgba(38,102,196,0.30) → rgba(64,150,255,0.38)`. The board **plate** was
+inverted: it used to be a *lighter* rectangle (`rgba(255,255,255,0.035)`)
+competing with the tiles for the eye; it is now recessed
+(`platePaint rgba(3,10,26,0.42)`) with a bright brand-blue edge
+(`plateEdge rgba(120,190,255,0.34)`), so nine saturated keys read as raised.
+
+**4. Every hard-coded colour literal in the component moved into `COLORS`,**
+and `Screens.jsx` now imports the palette instead of re-declaring it. `data.js`
+is finally the only place a colour lives. New tokens: `boardWell`, `platePaint`,
+`plateEdge`, `tileRim`, `tileRimLit`, `tileScrim`, `labelInk`, `stepPending`.
+Dead ones deleted (`tileWell`, `tileEdge`, `tileShade`, `brandBlueGlow`,
+`dangerDeep`, `ink`). Raised in place: `glass 0.05 → 0.09`,
+`glassLine 0.12 → 0.26`, `inkDim 0.62 → 0.78`.
+
+### Stronger state feedback, and never colour alone
+
+| state | before | now |
+|---|---|---|
+| **selected / correct** | lit bitmap + squash + particles | + a **white-collared green tick badge** in the tile's top-right, + a `greenLt` ring around the tile, held solid for the first half of its life then faded (a straight linear fade meant the tick was already translucent in the frame the thumb lifts on) |
+| **matched** (step banked) | 5.2 px green dot | 6 px green dot; pending steps `0.22 → 0.40` white; the current step is an orange dot **inside a white ring** |
+| **incorrect / slip** | red dot on the rail, red wash + circle-slash + shake on the tile | rail draws an **X glyph** instead of a dot; wash brightened to `#FF3B30`; circle-slash stroke `0.075 → 0.085` of tile; a spent shield in the HUD is now **struck through** rather than merely dimmed |
+| **completed** (round cleared) | particles + float text | + the **board plate itself rings green** (`clearFlashSeconds 0.7`) |
+| **risk step** | red wash + circle-slash | same shapes, brighter (`#EF4444 → #FF3B30`) |
+
+Every one of those pairs colour with a **shape**: tick, X, circle-slash,
+strike-through, ring. Nothing in this game now depends on distinguishing red
+from green.
+
+### Two bugs found while repainting
+
+* **The idle countdown ring was drawn off the sides of the stage.** `layout()`
+  built it at `gap * 1.5` around the grid, but the visible board plate is at
+  `gap * 0.9`; on a 320 px stage the ring's left and right edges are past the
+  canvas, so the countdown rendered as a **stray orange line across the board**
+  rather than as a ring closing in on it. Both rings now trace the plate rect
+  (`plateX/Y/W/H/R`), which is also the rect `makeBoardBitmap` paints — they can
+  no longer drift apart. Brightening the palette made the stray line much more
+  obvious, which is how it surfaced.
+* **Floating `+score` was invisible.** It was drawn in the tapped tile's own
+  `colorLt`, on top of that same tile, and the kit fades floating text linearly
+  — so a half-faded pale tint sat on a full-chroma tile of nearly that colour.
+  Now `COLORS.goldLt` (the design system's value accent), started *above* the
+  tile rather than on it. Round-bonus text likewise moved above the plate
+  instead of across the top row of tiles.
+
+### Accessibility — measured, not asserted
+
+Floors held: **4.5:1 body text**, **3:1 icons and state indicators**.
+
+```
+tile label (white 0.95 on scrim), worst of 18 states .......... 15.56:1  PASS
+tile icon (colorLt on colorRest), worst of 9 ..................  3.82:1  PASS
+HUD pill label (inkDim on glass) ........... was 5.56 .........  9.69:1  PASS
+results captions (inkDim on screen bg) ..... was 4.99 ......... 10.19:1  PASS
+home tagline (#FF9A52 on stage) ...............................  7.67:1  PASS
+banner / pace body text, white on worst fill stop .............  4.57:1  PASS
+  (watch 4.58 - recall 4.66 - slip 4.70 - clear 4.57 - lose 5.85)
+correct-tap tick, white on #28A745 disc .......................  3.13:1  PASS
+correct-tap badge collar, white on worst tile (Savings) .......  3.55:1  PASS
+correct ring #5BF08D on board .................................  9.53:1  PASS
+round-clear ring #5BF08D on plate ............................. 11.34:1  PASS
+risk circle-slash, white on the red wash ......................  3.85:1  PASS
+slip X #FF3B30 on plate .......................................  4.70:1  PASS
+pending step dot (white 0.40 on plate) ........................  3.45:1  PASS
+```
+
+The banner and pace-chip fills are deliberately the *darkest* tone of each hue
+that still carries white at 4.5:1; the vivid end of each hue went onto the
+**border and the glow**, which are not text backgrounds and can be as loud as
+they like. That is how those chips got brighter without losing AA. The old
+`rgba(255,138,61,0.95)` recall banner measured 2.35:1 against its white title.
+
+**Known limitation, accepted deliberately.** Resting tile fill vs the board
+measures **1.61:1 (Education) to 3.94:1 (Savings)** — five of nine are under
+3:1. Lifting them all to 3:1 was tried and rejected: it collapses the rest → lit
+contrast to **1.33–1.76:1**, i.e. it makes the playback flash — the entire game
+— unreadable, and it drops icon contrast to ~3.0 at the same time. The tile
+boundary is not information the player needs; the icon (>= 3.82:1) and the label
+(>= 15.56:1) are, and both pass comfortably. The boundary is carried by the
+1.6 px `tileRim` and by the recessed plate. Retirement and Savings *were* lifted
+(to `#A06A00` / `#6E9414`) because those two were free — they clear 3:1 against
+the board *and* keep a >= 2.9x lit jump.
+
+### Not changed
+
+Screen flow, LMS integration, scoring, round table, playback timing, compliance
+copy. Lead form remains **Name + Mobile only** (no email), per the 2026-08-03
+client confirmation. `src/kit/` and `shared/game-kit/` untouched.
+
+### Verification
+
+- `npx vite build` — **PASS**: `dist/assets/index-CbCPeSy-.js` 431.24 kB
+  (143.29 kB gzip), `index-v4scUYR6.css` 33.00 kB, built in 8.08 s, 524 modules
+  transformed, zero errors.
+- `node scripts/balance.mjs` — **GATE: PASS**, and the numbers are *identical*
+  to the pre-change baseline run, as they must be: this change touches no
+  tunable the gate reads. Generator clean over 252 000 plans, min dark gap
+  140 ms, pace cliff 2.66 s/tap, worst-case wall 119.7 s <= 120 s, honest
+  27.6%–38.6%, sharp >= 98.6%, careful >= 98.4% with **zero clock losses**, idle
+  and spam lose every run. **Difficulty is unchanged** — no `GAME_CONFIG` value
+  the gate consumes was touched. The only additions under `fx` are two
+  presentation durations (`okSeconds 0.5`, `clearFlashSeconds 0.7`), which the
+  gate does not read.
+- `node scripts/play-test.mjs smart-recall --all-sizes` — **4/4 ok**, zero
+  console or page errors at every size:
+
+  | viewport | canvas | painted | random-bot run | retry |
+  |---|---|---|---|---|
+  | 320x568 | 298x546 | 100.0% | 6 s -> "try again" | canvas back yes |
+  | 390x844 | 368x822 | 100.0% | 5 s -> "try again" | canvas back yes |
+  | 412x915 | 390x893 | 100.0% | 6 s -> "try again" | canvas back yes |
+  | 412x700 | 390x678 | 100.0% | 9 s -> "try again" | canvas back yes |
+
+  The sub-20 s random-bot runs are the harness's `check balance.mjs` smell, not
+  a defect, and the gate above is the authority: the `spam` bot is *supposed* to
+  lose (0/200 wins, dies at 12.1 s), while `careful` at 2.2 s/tap wins 98.4%+.
+  Identical to the pre-change baseline run of the same harness.
+- **Screenshots reviewed by eye** at 320x568, 390x844, 412x915 and 412x700 —
+  home, how-to, resting board, playback-lit, correct-tap, slip rail, round
+  cleared and results. The play-test's own screenshot lands on the lead modal,
+  so a scripted bot was written that reads the playback back off the canvas
+  (sampling the nine tile-centre corners with hysteresis, so two identical steps
+  in a row do not merge) and replays it, in order to actually reach and
+  photograph the lit / correct / cleared states rather than to guess at them.
+  Not photographed: the in-game risk step, which first appears in round 4 and is
+  past the reading bot's reliability; its treatment is structurally unchanged
+  from the version already reviewed and is visible on the how-to screen.

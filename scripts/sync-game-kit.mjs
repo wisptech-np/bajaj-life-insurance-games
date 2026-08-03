@@ -26,7 +26,6 @@ const GAMES = [
   'portfolio-fit',
   'spiral-sprint',
   'wealth-drop',
-  'ripple-shield',
   'steady-tower',
   'goal-orbit',
   'risk-strike',
@@ -45,7 +44,6 @@ const GAMES = [
   'steady-wings',
   'premium-pulse',
   'smart-recall',
-  'goal-juggler',
   'life-rush',
   'guardian-arena',
   'premium-tiles',
@@ -53,10 +51,8 @@ const GAMES = [
   'risk-slash',
   'sip-stack',
   'legacy-echo',
-  'time-shield',
   'ring-fence',
   'risk-radar',
-  'dual-cover',
 ];
 
 const checkOnly = process.argv.includes('--check');

@@ -4,14 +4,22 @@
 // rather than a photograph so the game ships with zero binary assets.
 import React from 'react';
 import { motion } from 'framer-motion';
-import { COLORS, GAME_CONFIG } from './data.js';
+import { ART, COLORS, GAME_CONFIG } from './data.js';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
 
+// Every screen sits on the same plot sheet the field is drawn on: a measured
+// graph rule at two weights, lit unevenly from beneath. It is what makes the
+// home screen, the how-to and the results read as one object with the game
+// instead of three unrelated gradients.
 const SCREEN_BG = [
-  'radial-gradient(ellipse 120% 55% at 50% 0%, rgba(30,107,224,0.30), rgba(4,10,25,0) 70%)',
-  'radial-gradient(ellipse 130% 45% at 50% 100%, rgba(40,167,69,0.16), rgba(4,10,25,0) 72%)',
-  'linear-gradient(180deg, #0A1730 0%, #0B1221 55%, #060D1C 100%)',
+  `repeating-linear-gradient(90deg, ${ART.screen.major} 0 1px, transparent 1px 60px)`,
+  `repeating-linear-gradient(0deg, ${ART.screen.major} 0 1px, transparent 1px 60px)`,
+  `repeating-linear-gradient(90deg, ${ART.screen.minor} 0 1px, transparent 1px 12px)`,
+  `repeating-linear-gradient(0deg, ${ART.screen.minor} 0 1px, transparent 1px 12px)`,
+  'radial-gradient(ellipse 120% 55% at 50% 0%, rgba(30,107,224,0.26), rgba(4,10,25,0) 70%)',
+  `radial-gradient(ellipse 130% 50% at 50% 96%, ${ART.sheet.lightbox}, rgba(4,10,25,0) 72%)`,
+  `linear-gradient(180deg, ${ART.sheet.top} 0%, ${ART.sheet.base} 55%, ${ART.sheet.bottom} 100%)`,
 ].join(', ');
 
 /* ─── Inline icons ─────────────────────────────────────── */
@@ -94,19 +102,36 @@ function Confetti() {
 /* ─── Hero vector — the family estate ring-fenced, risks outside ─ */
 function HeroArt() {
   return (
-    <svg width="250" height="250" viewBox="0 0 200 200" style={{ overflow: 'visible' }}>
-      <rect x="8" y="8" width="184" height="184" rx="30" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
+    <svg width="100%" height="100%" viewBox="0 0 200 200" style={{ overflow: 'visible' }}>
+      {/* The plot sheet */}
+      <rect x="8" y="8" width="184" height="184" rx="8" fill="rgba(4,11,26,0.62)" stroke="rgba(127,192,255,0.2)" strokeWidth="1"
+        style={{ filter: 'drop-shadow(0 10px 22px rgba(0,0,0,0.5))' }} />
+      <g clipPath="url(#rfSheetClip)" stroke="rgba(127,192,255,0.12)" strokeWidth="0.6">
+        {Array.from({ length: 11 }).map((_, i) => (
+          <path key={`v${i}`} d={`M${8 + i * 16.8} 8 V192`} />
+        ))}
+        {Array.from({ length: 11 }).map((_, i) => (
+          <path key={`h${i}`} d={`M8 ${8 + i * 16.8} H192`} />
+        ))}
+      </g>
 
-      {/* Open-field dot grid */}
-      {Array.from({ length: 5 }).map((_, r) => (
-        Array.from({ length: 5 }).map((__, c) => (
-          <circle key={`${r}-${c}`} cx={36 + c * 32} cy={36 + r * 32} r="1.4" fill="rgba(127,192,255,0.22)" />
-        ))
-      ))}
-
-      {/* The glowing ring-fence */}
-      <rect x="52" y="52" width="96" height="96" rx="14" fill="rgba(18,51,111,0.75)" stroke="#3B8DD4" strokeWidth="3.5" style={{ filter: 'drop-shadow(0 0 8px rgba(88,160,255,0.85))' }} />
-      <rect x="52" y="52" width="96" height="96" rx="14" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
+      {/* The ring-fence: hatched ownership inside a surveyed boundary */}
+      <rect x="52" y="52" width="96" height="96" rx="2" fill="rgba(13,42,92,0.9)" />
+      <rect x="52" y="52" width="96" height="96" rx="2" fill="url(#rfHatch)" />
+      <rect x="52" y="52" width="96" height="96" rx="2" fill="none" stroke="#3B8DD4" strokeWidth="3"
+        style={{ filter: 'drop-shadow(0 0 7px rgba(88,160,255,0.7))' }} />
+      <rect x="53.2" y="53.2" width="93.6" height="93.6" rx="1.5" fill="none" stroke="#7FC0FF" strokeWidth="0.9" />
+      {/* Dimension ticks stepping round the boundary */}
+      <g stroke="rgba(127,192,255,0.55)" strokeWidth="0.8">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <g key={i}>
+            <path d={`M${64 + i * 16} 56 v4`} />
+            <path d={`M${64 + i * 16} 144 v-4`} />
+            <path d={`M56 ${64 + i * 16} h4`} />
+            <path d={`M144 ${64 + i * 16} h-4`} />
+          </g>
+        ))}
+      </g>
 
       {/* Wealth inside: home + coin stack + family */}
       <g transform="translate(100, 88)">
@@ -149,6 +174,10 @@ function HeroArt() {
       </g>
 
       <defs>
+        <clipPath id="rfSheetClip"><rect x="8" y="8" width="184" height="184" rx="8" /></clipPath>
+        <pattern id="rfHatch" width="7" height="7" patternUnits="userSpaceOnUse">
+          <path d="M0 7 L7 0" stroke="rgba(140,195,255,0.22)" strokeWidth="0.8" />
+        </pattern>
         <linearGradient id="rfRoof" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#7FC0FF" />
           <stop offset="100%" stopColor="#1E6BE0" />
@@ -176,33 +205,46 @@ export function HomeScreen({ onStart }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '50px 24px 64px',
+        justifyContent: 'center',
+        // Rhythm scales with the viewport: a 568 px handset gets the same
+        // composition as a 915 px one, just tighter. Fixed gaps overflowed.
+        gap: 'clamp(12px, 3vh, 26px)',
+        padding: 'clamp(16px, 4vh, 32px) 24px clamp(20px, 4vh, 40px)',
         background: SCREEN_BG,
         overflow: 'hidden',
       }}
     >
       <div style={{ textAlign: 'center', zIndex: 2 }}>
+        <span style={{
+          display: 'block',
+          fontSize: 9,
+          fontWeight: 900,
+          letterSpacing: '0.34em',
+          textTransform: 'uppercase',
+          color: 'rgba(127,192,255,0.65)',
+          marginBottom: 10,
+        }}>
+          Bajaj Life
+        </span>
         <h1 style={{
-          fontSize: 34,
+          fontSize: 'clamp(30px, 9.5vw, 38px)',
           fontWeight: 900,
           color: '#fff',
           textTransform: 'uppercase',
-          letterSpacing: '-0.03em',
-          lineHeight: 1,
-          margin: '0 0 6px 0',
-          textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)',
+          letterSpacing: '-0.035em',
+          lineHeight: 0.95,
+          margin: '0 0 10px 0',
+          textShadow: '0 2px 12px rgba(0, 0, 0, 0.55)',
         }}>
           Ring-Fence
         </h1>
         <p style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: '#FF8A3D',
+          fontSize: 12,
+          fontWeight: 800,
+          color: COLORS.orangeBright,
           textTransform: 'uppercase',
-          letterSpacing: '0.12em',
+          letterSpacing: '0.15em',
           margin: 0,
-          textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
         }}>
           Wall the risks out of your wealth
         </p>
@@ -210,9 +252,9 @@ export function HomeScreen({ onStart }) {
 
       <div style={{
         position: 'relative',
-        width: 250,
-        height: 250,
-        margin: '0 auto',
+        width: 'min(276px, 78vw, 38vh)',
+        height: 'min(276px, 78vw, 38vh)',
+        flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -221,8 +263,30 @@ export function HomeScreen({ onStart }) {
         <HeroArt />
       </div>
 
+      {/* The brief, stated once, in numbers — hierarchy under the art. */}
+      <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 320, zIndex: 2 }}>
+        {[
+          { v: `${GAME_CONFIG.winPct}%`, l: 'to secure' },
+          { v: `${GAME_CONFIG.sessionSeconds}s`, l: 'on the clock' },
+          { v: `${GAME_CONFIG.lives}`, l: 'shields' },
+        ].map((it) => (
+          <div key={it.l} style={{
+            flex: 1,
+            textAlign: 'center',
+            padding: '9px 4px',
+            borderRadius: 4,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(127,192,255,0.16)',
+            boxShadow: 'inset 0 1px 0 rgba(127,192,255,0.28)',
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{it.v}</div>
+            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginTop: 5 }}>{it.l}</div>
+          </div>
+        ))}
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, type: 'spring', damping: 20, stiffness: 180 }}
         whileHover={{ scale: 1.03 }}
@@ -235,16 +299,16 @@ export function HomeScreen({ onStart }) {
           style={{
             width: '100%',
             maxWidth: 320,
-            height: 60,
+            height: 58,
             border: 'none',
             borderRadius: '12px',
-            fontSize: 20,
+            fontSize: 19,
             fontWeight: 900,
             color: '#fff',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: '0.06em',
             background: 'linear-gradient(180deg, #FF8A3D 0%, #F26522 100%)',
-            boxShadow: '0 6px 20px rgba(242, 101, 34, 0.4)',
+            boxShadow: '0 8px 24px rgba(242, 101, 34, 0.38), inset 0 1px 0 rgba(255,255,255,0.25)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -252,7 +316,7 @@ export function HomeScreen({ onStart }) {
             gap: 8,
           }}
         >
-          <PlayIcon size={20} />
+          <PlayIcon size={19} />
           <span>Start Game</span>
         </button>
       </motion.div>
@@ -364,21 +428,46 @@ function DemoField() {
           <stop offset="0%" stopColor="rgba(30,107,224,0.62)" />
           <stop offset="100%" stopColor="rgba(0,61,166,0.45)" />
         </linearGradient>
-        <clipPath id="rfClip"><rect x="4" y="4" width="172" height="192" rx="10" /></clipPath>
+        <clipPath id="rfClip"><rect x="4" y="4" width="172" height="192" rx="6" /></clipPath>
+        <pattern id="rfDemoHatch" width="8" height="8" patternUnits="userSpaceOnUse">
+          <path d="M0 8 L8 0" stroke="rgba(140,195,255,0.14)" strokeWidth="0.8" />
+        </pattern>
       </defs>
 
-      <rect x="4" y="4" width="172" height="192" rx="10" fill="rgba(6,18,41,0.75)" />
+      <rect x="4" y="4" width="172" height="192" rx="6" fill={ART.sheet.base} />
+      {/* The plot sheet's own graph rule */}
+      <g clipPath="url(#rfClip)" stroke="rgba(127,192,255,0.09)" strokeWidth="0.6">
+        {Array.from({ length: 12 }).map((_, i) => <path key={`v${i}`} d={`M${4 + i * 16} 4 V196`} />)}
+        {Array.from({ length: 13 }).map((_, i) => <path key={`h${i}`} d={`M4 ${4 + i * 16} H176`} />)}
+      </g>
 
       <g clipPath="url(#rfClip)">
-        {/* The safety wall: a claimed frame two cells thick */}
+        {/* The safety wall: a claimed frame two cells thick, hatched and ticked
+            exactly as the shipping field draws it */}
         <rect x="10" y="10" width="160" height="180" fill="none" stroke={COLORS.wall} strokeWidth="12"
-          opacity="0.55" />
-        <rect x="10" y="10" width="160" height="180" fill="none" stroke={COLORS.blueLt} strokeWidth="2"
-          opacity="0.9" style={{ filter: 'drop-shadow(0 0 4px rgba(127,192,255,0.7))' }} />
+          opacity="0.5" />
+        <rect x="10" y="10" width="160" height="180" fill="none" stroke="url(#rfDemoHatch)" strokeWidth="12" />
+        <rect x="10" y="10" width="160" height="180" fill="none" stroke={COLORS.blueLt} strokeWidth="1.6"
+          opacity="0.95" style={{ filter: 'drop-shadow(0 0 3px rgba(127,192,255,0.7))' }} />
+        <g stroke="rgba(127,192,255,0.45)" strokeWidth="0.8">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <g key={i}>
+              <path d={`M${26 + i * 20} 16 v3.5`} />
+              <path d={`M${26 + i * 20} 184 v-3.5`} />
+            </g>
+          ))}
+          {Array.from({ length: 9 }).map((_, i) => (
+            <g key={`s${i}`}>
+              <path d={`M16 ${26 + i * 20} h3.5`} />
+              <path d={`M164 ${26 + i * 20} h-3.5`} />
+            </g>
+          ))}
+        </g>
 
         {/* The pocket, flooding left to right at the seal */}
         <g className="rf-flood">
           <rect x="45" y="61" width="84" height="123" fill="url(#rfFloodGrad)" />
+          <rect x="45" y="61" width="84" height="123" fill="url(#rfDemoHatch)" />
         </g>
 
         {/* The cut, become wall */}
@@ -391,18 +480,13 @@ function DemoField() {
         <Orb className="rf-orb-a" />
         <Orb className="rf-orb-b" />
 
-        {/* The live trail */}
-        <g className="rf-trail-v1">
-          <rect x="42.5" y="60" width="3" height="130" fill={COLORS.orangeBright}
-            style={{ filter: 'drop-shadow(0 0 4px rgba(255,138,61,0.95))' }} />
-        </g>
-        <g className="rf-trail-h">
-          <rect x="44" y="58.5" width="86" height="3" fill={COLORS.orangeBright}
-            style={{ filter: 'drop-shadow(0 0 4px rgba(255,138,61,0.95))' }} />
-        </g>
-        <g className="rf-trail-v2">
-          <rect x="128.5" y="60" width="3" height="130" fill={COLORS.orangeBright}
-            style={{ filter: 'drop-shadow(0 0 4px rgba(255,138,61,0.95))' }} />
+        {/* The live trail — dashed, because it is a provisional construction
+            line until the guardian gets it home. Same read as the canvas. */}
+        <g stroke={COLORS.orangeBright} strokeWidth="3" strokeDasharray="7 4" strokeLinecap="round"
+          style={{ filter: 'drop-shadow(0 0 4px rgba(255,138,61,0.9))' }}>
+          <line className="rf-trail-v1" x1="44" y1="190" x2="44" y2="60" />
+          <line className="rf-trail-h" x1="44" y1="60" x2="130" y2="60" />
+          <line className="rf-trail-v2" x1="130" y1="60" x2="130" y2="190" />
         </g>
 
         {/* The finger, dragging the guardian off the wall and back to it */}
@@ -469,14 +553,15 @@ function OrbGlyph() {
 function Cue({ icon, word }) {
   return (
     <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-      padding: '9px 4px', borderRadius: 13,
-      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+      padding: '9px 2px', borderRadius: 4,
+      background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(127,192,255,0.16)',
+      boxShadow: 'inset 0 1px 0 rgba(127,192,255,0.22)',
     }}>
       {icon}
       <span style={{
-        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em',
-        color: 'rgba(255,255,255,0.82)', textAlign: 'center', lineHeight: 1.1,
+        fontSize: 8.5, fontWeight: 900, letterSpacing: '0.03em', whiteSpace: 'nowrap',
+        color: 'rgba(255,255,255,0.78)', textAlign: 'center', lineHeight: 1.1,
       }}>
         {word}
       </span>
@@ -506,28 +591,37 @@ export function HowToPlayScreen({ onPlay }) {
       <style dangerouslySetInnerHTML={{ __html: HTP_CSS }} />
 
       <div style={{
-        background: 'rgba(0, 30, 70, 0.65)',
-        border: '1px solid rgba(255, 255, 255, 0.14)',
-        borderRadius: 24,
+        background: 'rgba(6, 20, 45, 0.72)',
+        border: '1px solid rgba(127,192,255,0.18)',
+        borderRadius: 10,
         padding: '18px 16px 16px',
         width: '100%',
         maxWidth: 340,
-        boxShadow: '0 12px 36px rgba(0,0,0,0.4)',
+        boxShadow: '0 18px 44px rgba(0,0,0,0.5), inset 0 1px 0 rgba(127,192,255,0.24)',
         textAlign: 'center',
         WebkitBackdropFilter: 'blur(20px)',
         backdropFilter: 'blur(20px)',
       }}>
         <h2 style={{
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '-0.02em',
-          margin: '0 0 8px 0',
+          margin: '0 0 4px 0',
           color: '#fff',
-          textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           How to Play
         </h2>
+        <p style={{
+          fontSize: 8.5,
+          fontWeight: 900,
+          letterSpacing: '0.28em',
+          textTransform: 'uppercase',
+          color: 'rgba(127,192,255,0.65)',
+          margin: '0 0 6px 0',
+        }}>
+          One claim, start to finish
+        </p>
 
         <DemoField />
 
@@ -560,6 +654,32 @@ export function HowToPlayScreen({ onPlay }) {
         </motion.div>
       </div>
     </motion.div>
+  );
+}
+
+/* The two outcome marks from the asset sheet, as inline vectors: a draughtsman's
+   approval stamp for a closed plot, a broken perimeter with a struck cross for
+   one that never closed. No trophies, no skulls — this game is about a line
+   that either met itself or did not. */
+function OutcomeMark({ won }) {
+  const c = won ? COLORS.gold : COLORS.danger;
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+      {won ? (
+        <g fill="none" stroke={c} strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 7px ${c}66)` }}>
+          <path d="M32 5 55 18.5v27L32 59 9 45.5v-27z" strokeWidth="2.6" />
+          <path d="M32 11 50 21.5v21L32 53 14 42.5v-21z" strokeWidth="1" opacity="0.6" />
+          <path d="m22.5 32 7 7L43 25.5" stroke={COLORS.goldLt} strokeWidth="3.4" strokeLinecap="round" />
+        </g>
+      ) : (
+        <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 50V14h36v20" stroke={COLORS.orangeBright} strokeWidth="2.6" />
+          <path d="M50 40v10H32" stroke={COLORS.orangeBright} strokeWidth="2.2" strokeDasharray="4 5" opacity="0.75" />
+          <path d="M18 46h10M18 40h16M18 34h8" stroke="rgba(127,192,255,0.4)" strokeWidth="1.4" />
+          <path d="m26 44 10 10M36 44 26 54" stroke={c} strokeWidth="2.8" style={{ filter: `drop-shadow(0 0 6px ${c}66)` }} />
+        </g>
+      )}
+    </svg>
   );
 }
 
@@ -642,76 +762,109 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
     >
       {won && <Confetti />}
 
-      <div style={{ textAlign: 'center', marginBottom: 16, width: '100%', maxWidth: 360 }}>
-        <p style={{ color: '#fff', fontSize: 24, fontWeight: 900, lineHeight: 1.2, margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-          Hi <span style={{ color: '#3b82f6', fontWeight: 950 }}>{leadName || 'Friend'}!</span><br />
-          <span style={{ fontSize: 20, color: 'rgba(255, 255, 255, 0.85)', fontWeight: 800 }}>
-            {won ? 'Wealth ring-fenced!' : 'The fence gave way'}
-          </span>
+      <div style={{ textAlign: 'center', marginBottom: 14, width: '100%', maxWidth: 360, zIndex: 2 }}>
+        <OutcomeMark won={won} />
+        <p style={{
+          fontSize: 22,
+          fontWeight: 900,
+          color: won ? COLORS.goldLt : COLORS.dangerLt,
+          lineHeight: 1.1,
+          letterSpacing: '-0.02em',
+          margin: '6px 0 4px',
+        }}>
+          {won ? 'Wealth ring-fenced' : 'The fence gave way'}
+        </p>
+        <p style={{
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.55)',
+          margin: 0,
+        }}>
+          Surveyed by {leadName || 'Friend'}
         </p>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ width: 170, height: 170, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 14, zIndex: 2 }}>
+        <div style={{ width: 168, height: 168, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
           <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r={radius} fill="none" stroke="#0f172a" strokeWidth="10" />
-            <circle cx="100" cy="100" r={radius + 6} fill="none" stroke="#1e293b" strokeWidth="1" opacity="0.3" />
+            {/* Graduation ticks — the dial reads as an instrument, not a donut */}
+            <g stroke="rgba(127,192,255,0.28)" strokeWidth="1.5">
+              {Array.from({ length: 24 }).map((_, i) => {
+                const a = (i / 24) * Math.PI * 2;
+                const r0 = radius + 9;
+                const r1 = r0 + (i % 6 === 0 ? 6 : 3);
+                return (
+                  <path key={i} d={`M${100 + Math.cos(a) * r0} ${100 + Math.sin(a) * r0} L${100 + Math.cos(a) * r1} ${100 + Math.sin(a) * r1}`} />
+                );
+              })}
+            </g>
+            <circle cx="100" cy="100" r={radius} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="9" />
             <circle
               cx="100"
               cy="100"
               r={radius}
               fill="none"
               stroke={strokeColor}
-              strokeWidth="12"
+              strokeWidth="9"
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={circumference - progress}
               style={{
-                filter: `drop-shadow(0 0 8px ${glowColor})`,
+                filter: `drop-shadow(0 0 6px ${glowColor})`,
                 transition: 'stroke-dashoffset 1.2s ease-out',
               }}
             />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-            <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+            <span style={{ fontSize: 30, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.035em', fontVariantNumeric: 'tabular-nums' }}>
               {animatedScore.toLocaleString()}
             </span>
-            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255, 255, 255, 0.6)', marginTop: 4, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-              POINTS
+            <span style={{ fontSize: 8.5, fontWeight: 900, color: 'rgba(127,192,255,0.7)', marginTop: 6, letterSpacing: '0.24em', textTransform: 'uppercase' }}>
+              Points
             </span>
           </div>
         </div>
       </div>
 
-      {/* Run stats */}
+      {/* Run stats — one card per line of the survey */}
       <div style={{
         display: 'flex',
         gap: 8,
         width: '100%',
         maxWidth: 360,
         marginBottom: 18,
+        zIndex: 2,
       }}>
         {[
-          { label: 'Secured', value: `${pctClaimed}%` },
+          { label: 'Secured', value: `${pctClaimed}%`, lead: true },
           { label: 'Biggest cut', value: `${biggestCut}%` },
           { label: 'Shields left', value: `${livesLeft}` },
         ].map((it) => (
           <div key={it.label} style={{
             flex: 1,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 14,
-            padding: '10px 6px',
+            background: 'rgba(255,255,255,0.045)',
+            border: '1px solid rgba(127,192,255,0.16)',
+            boxShadow: `inset 0 1px 0 ${it.lead ? 'rgba(127,192,255,0.55)' : 'rgba(127,192,255,0.22)'}`,
+            borderRadius: 4,
+            padding: '11px 6px',
             textAlign: 'center',
           }}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>{it.value}</div>
-            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', marginTop: 3 }}>{it.label}</div>
+            <div style={{
+              fontSize: 19,
+              fontWeight: 900,
+              color: it.lead ? COLORS.blueLt : '#fff',
+              lineHeight: 1,
+              fontVariantNumeric: 'tabular-nums',
+            }}>{it.value}</div>
+            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginTop: 5 }}>{it.label}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: 20, padding: '0 16px' }}>
-        <h2 style={{ fontSize: 17, fontWeight: 900, color: '#fff', lineHeight: 1.35, margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+      <div style={{ textAlign: 'center', marginBottom: 20, padding: '0 16px', zIndex: 2 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, color: 'rgba(255,255,255,0.9)', lineHeight: 1.4, margin: 0 }}>
           Ring-fencing is real: the right cover walls your family's wealth off from life's risks.
         </h2>
       </div>

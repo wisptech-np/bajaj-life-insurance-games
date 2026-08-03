@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
 import { GAME_CONFIG } from './data.js';
+import { SIGNALS } from './signals.jsx';
 
 const GAME_TITLE = 'Risk Radar';
 
@@ -160,14 +161,20 @@ const SCREEN_CSS = `
   78%       { transform: translate(124px, 166px); }
   92%, 100% { transform: translate(145px, 120px); }
 }
+/* The finger presses the RADAR BUTTON first (bottom right), then goes into the
+   maze and HOLDS to walk. Two surfaces, two meanings — which is exactly the
+   interaction model the game now ships. */
 @keyframes rrhFinger {
-  0%, 4%    { transform: translate(60px, 176px);  opacity: 0; }
-  7%, 18%   { transform: translate(60px, 172px);  opacity: 1; }
-  32%       { transform: translate(64px, 168px);  opacity: 0.6; }
+  0%, 4%    { transform: translate(156px, 192px); opacity: 0; }
+  7%, 18%   { transform: translate(156px, 186px); opacity: 1; }
+  32%       { transform: translate(150px, 180px); opacity: 0.6; }
   42%       { transform: translate(104px, 74px);  opacity: 0.6; }
   46%, 84%  { transform: translate(108px, 70px);  opacity: 1; }
   91%, 100% { transform: translate(108px, 70px);  opacity: 0; }
 }
+/* Walls the ring has already swept keep a dim memory trace, as in game. */
+@keyframes rrhMem { 0%, 13% { opacity: 0; } 16%, 100% { opacity: 0.3; } }
+.rrh-mem { animation: rrhMem 5.6s ease-out infinite; }
 @keyframes rrhPress {
   0%, 6%    { transform: scale(0.4);  opacity: 0; }
   9%        { transform: scale(0.6);  opacity: 0.9; }
@@ -198,7 +205,7 @@ const SCREEN_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .rr-title, .rr-float, .rr-ping, .rr-ping-2, .rr-ping-sm, .rr-wall,
   .rr-exit, .rr-finger, .rr-lurk, .rrh-pulse, .rrh-near, .rrh-mid, .rrh-far,
-  .rrh-walk, .rrh-trail, .rrh-lurk, .rrh-finger, .rrh-press { animation: none !important; }
+  .rrh-walk, .rrh-trail, .rrh-lurk, .rrh-finger, .rrh-press, .rrh-mem { animation: none !important; }
 }
 `;
 
@@ -417,8 +424,13 @@ function DemoMaze() {
         <circle className="rrh-pulse" cx="60" cy="158" r="6" fill="none" stroke="rgba(255,255,255,0.75)"
           strokeWidth="1.1" style={{ animationDelay: '0.06s' }} />
 
-        {/* Walls, lit in the order the wavefront reaches them */}
-        <g fill="none" stroke="#E8F1FF" strokeWidth="2.4" strokeLinecap="round">
+        {/* Walls, lit in the order the wavefront reaches them — then held as a
+            dim memory, which is what makes the maze planable at all. */}
+        <g fill="none" stroke="#E8F1FF" strokeWidth="2.4" strokeLinecap="butt">
+          <path className="rrh-mem" d="M20 178 L110 178" />
+          <path className="rrh-mem" d="M20 178 L20 100" />
+          <path className="rrh-mem" d="M20 100 L96 100" />
+          <path className="rrh-mem" d="M110 178 L110 60" />
           <path className="rrh-near" d="M20 178 L110 178" />
           <path className="rrh-near" d="M20 178 L20 100" />
           <path className="rrh-mid"  d="M20 100 L96 100" />
@@ -474,7 +486,15 @@ function DemoMaze() {
           <circle cx="0" cy="0" r="7.5" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" />
         </g>
 
-        {/* The finger: taps once to pulse, then holds to walk the family to it */}
+        {/* The RADAR button, where the ping actually comes from */}
+        <g>
+          <circle cx="156" cy="182" r="13" fill="rgba(4,12,24,0.9)"
+            stroke="rgba(96,205,255,0.55)" strokeWidth="1.6" />
+          <circle cx="156" cy="182" r="4.6" fill="#60CDFF" />
+          <circle cx="156" cy="182" r="7.6" fill="none" stroke={CYAN} strokeWidth="1" opacity="0.6" />
+        </g>
+
+        {/* The finger: taps the RADAR button, then holds in the maze to walk */}
         <g className="rrh-finger">
           <g className="rrh-press">
             <circle cx="0" cy="0" r="13" fill="none" stroke="#fff" strokeWidth="2.2" />
@@ -507,13 +527,34 @@ function WalkGlyph() {
   );
 }
 
-function LurkerGlyph() {
+/**
+ * The signal key. Six things, six shapes — this is the answer to "what does
+ * each radar signal mean", shown BEFORE the first run. Full descriptions live
+ * behind the ? button in game; both render from src/signals.jsx.
+ */
+function SignalKey() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(170,178,196,0.55)" strokeWidth="1.4" />
-      <circle cx="12" cy="12" r="5.6" fill="#FF4D4D" />
-      <circle cx="12" cy="12" r="2.2" fill="#7A0F0F" />
-    </svg>
+    <div style={{
+      display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6,
+      margin: '8px 0 10px',
+    }}>
+      {SIGNALS.map(({ key, Glyph, name }) => (
+        <div key={key} style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+          padding: '6px 2px', borderRadius: 11,
+          background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+        }}>
+          <Glyph />
+          <span style={{
+            fontSize: 8.5, fontWeight: 900, letterSpacing: '0.04em',
+            color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 1.1,
+            textTransform: 'uppercase',
+          }}>
+            {name}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -578,11 +619,13 @@ export function HowToPlayScreen({ onPlay }) {
 
         <DemoMaze />
 
-        <div style={{ display: 'flex', gap: 7, margin: '8px 0 12px' }}>
-          <Cue icon={<PulseGlyph />} word="TAP TO PULSE" />
-          <Cue icon={<WalkGlyph />} word="HOLD TO WALK" />
-          <Cue icon={<LurkerGlyph />} word="NOISE DRAWS THEM" />
+        {/* Two controls. That is the whole interaction model. */}
+        <div style={{ display: 'flex', gap: 7, margin: '8px 0 0' }}>
+          <Cue icon={<PulseGlyph />} word="RADAR BUTTON = PING" />
+          <Cue icon={<WalkGlyph />} word="HOLD MAZE = WALK" />
         </div>
+
+        <SignalKey />
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button

@@ -276,6 +276,9 @@ export function buildWorld(cfg, seed, opts = {}) {
     chunkLitTime: new Float32Array(chunkCount).fill(-1e9),
     chunkStrength: new Float32Array(chunkCount),
     chunkHold: new Float32Array(chunkCount),
+    // Memory map: the dim floor a chunk settles to once it has been swept.
+    // Presentation-only (no rule reads it), wiped by beginPause.
+    chunkMemory: new Float32Array(chunkCount),
 
     // Wavefront slots: 0 = the player pulse, 1..3 = lurker gray rings.
     wavefronts: Array.from({ length: 1 + nLurk }, () => ({
@@ -487,6 +490,7 @@ export function beginPause(world) {
   // dark now and does NOT come back on resume.
   world.chunkLitTime.fill(-1e9);
   world.chunkStrength.fill(0);
+  world.chunkMemory.fill(0);
   world.hazSeenTime.fill(-1e9);
   world.orbSeenTime.fill(-1e9);
   world.gateSeenTime.fill(-1e9);
@@ -507,7 +511,9 @@ export function endPause(world, cfg) {
 
 /* ─── Internals ──────────────────────────────────────────── */
 
-function markChunk(world, i, now, strength, hold, fade) {
+function markChunk(world, cfg, i, now, strength, hold, fade) {
+  const mem = strength * cfg.reveal.memoryFloor;
+  if (mem > world.chunkMemory[i]) world.chunkMemory[i] = mem;
   const t = now - world.chunkLitTime[i];
   const cur = world.chunkStrength[i] *
     (t < world.chunkHold[i] ? 1 : Math.max(0, 1 - (t - world.chunkHold[i]) / fade));
@@ -614,7 +620,7 @@ function heartLoss(world, cfg, cause, srcIdx, telAge, victim, ev) {
 /**
  * Advance the world by dt seconds.
  * @param {object} ev optional presentation callbacks:
- *   onPulse, onFootstep, onRing, onShriek, onLunge, onCatch, onSpike,
+ *   onPulse, onFootstep, onRing, onHeard, onShriek, onLunge, onCatch, onSpike,
  *   onHeartLost, onRespawn, onOrb, onGate, onExitFound, onWin, onLose,
  *   onFollowerHome
  */
@@ -741,7 +747,7 @@ export function stepWorld(world, cfg, dt, ev = {}) {
           const ady = world.cmy[i] - world.py;
           if (ady > fr || ady < -fr) continue;
           if (adx * adx + ady * ady <= fr * fr) {
-            markChunk(world, i, now, cfg.reveal.footstepStrength, cfg.reveal.footstepHold, cfg.pulse.fadeSeconds);
+            markChunk(world, cfg, i, now, cfg.reveal.footstepStrength, cfg.reveal.footstepHold, cfg.pulse.fadeSeconds);
           }
         }
       }
@@ -765,7 +771,7 @@ export function stepWorld(world, cfg, dt, ev = {}) {
       for (let i = 0; i < world.chunkCount; i++) {
         const d = wf.dists[i] - R;
         if (d < wf.band && d > -wf.band) {
-          markChunk(world, i, now, wf.strength, wf.hold, cfg.pulse.fadeSeconds);
+          markChunk(world, cfg, i, now, wf.strength, wf.hold, cfg.pulse.fadeSeconds);
         }
       }
     }
@@ -798,6 +804,9 @@ export function stepWorld(world, cfg, dt, ev = {}) {
             L.stateLeft = cfg.noise.aggroSeconds;
             L.targetS = clamp(world.pulseOriginS, L.chaseLo, L.chaseHi);
             world.aggroEntries += 1;
+            // Presentation hook: the noise economy is the rule players miss, so
+            // the renderer gets told the moment a ping is overheard.
+            ev.onHeard?.(i, L.x, L.y);
           }
         }
       }
@@ -1056,21 +1065,34 @@ export function stepWorld(world, cfg, dt, ev = {}) {
 
 /* ─── Read-outs ──────────────────────────────────────────── */
 
-/** Reveal envelope for a chunk at render time: 1 through hold, then fade. */
+/**
+ * Reveal envelope for a chunk at render time: 1 through hold, then fade — but
+ * never back below the memory floor once the chunk has been swept. A chunk that
+ * has never been swept (memory 0) still renders at exactly nothing.
+ */
 export function chunkAlpha(world, cfg, i, now) {
   const t = now - world.chunkLitTime[i];
-  if (t < 0) return 0;
+  const mem = world.chunkMemory[i];
+  if (t < 0) return mem;
   const hold = world.chunkHold[i];
-  if (t < hold) return world.chunkStrength[i];
-  return world.chunkStrength[i] * Math.max(0, 1 - (t - hold) / cfg.pulse.fadeSeconds);
+  const live = t < hold
+    ? world.chunkStrength[i]
+    : world.chunkStrength[i] * Math.max(0, 1 - (t - hold) / cfg.pulse.fadeSeconds);
+  return live > mem ? live : mem;
 }
 
-/** Reveal envelope for an entity seen at `seenTime`. */
-export function seenAlpha(cfg, seenTime, now) {
+/**
+ * Reveal envelope for an entity seen at `seenTime`.
+ * `floor` is the memory level a STATIC landmark settles to; pass nothing (0)
+ * for anything alive, which must never leave a stale ghost behind.
+ */
+export function seenAlpha(cfg, seenTime, now, floor = 0) {
+  if (seenTime < -1e8) return 0; // never revealed (or wiped by a pause)
   const t = now - seenTime;
-  if (t < 0) return 0;
+  if (t < 0) return floor;
   if (t < cfg.pulse.holdSeconds) return 1;
-  return Math.max(0, 1 - (t - cfg.pulse.holdSeconds) / cfg.pulse.fadeSeconds);
+  const live = 1 - (t - cfg.pulse.holdSeconds) / cfg.pulse.fadeSeconds;
+  return live > floor ? live : floor;
 }
 
 /** Nearest lethal threat distance (lurkers not retreating + spike pools). */

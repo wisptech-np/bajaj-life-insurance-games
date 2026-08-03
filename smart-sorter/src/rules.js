@@ -155,12 +155,17 @@ export function endRun(run, cfg, cause = 'timeout') {
 }
 
 function registerMistake(run, cfg, item, cause, ev, dir) {
-  run.mistakes += 1;
+  // The opening cards are the tutorial. Getting one wrong still breaks the
+  // combo and still shows the red missort feedback, so the player learns what
+  // went wrong — it just does not spend a life. Without this the run can be
+  // decided before a single card has resolved on screen.
+  const grace = item.id <= (cfg.mistakes.graceItems || 0);
+  if (!grace) run.mistakes += 1;
   run.streak = 0;
   if (cause === 'missort') run.missorts += 1;
   else run.scrollPasts += 1;
-  ev.onMistake?.({ item, cause, dir, mistakes: run.mistakes });
-  if (run.mistakes >= cfg.mistakes.allowed) finish(run, cfg, 'mistakes');
+  ev.onMistake?.({ item, cause, dir, mistakes: run.mistakes, grace });
+  if (!grace && run.mistakes >= cfg.mistakes.allowed) finish(run, cfg, 'mistakes');
 }
 
 /**

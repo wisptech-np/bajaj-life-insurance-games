@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import { GAME_CONFIG, RESULT_TARGET_SCORE } from './data.js';
+import { GAME_CONFIG, MOMENTS, RESULT_TARGET_SCORE } from './data.js';
 
 const GAME_TITLE = 'Life Rush';
 
@@ -489,6 +489,20 @@ export function HowToPlayScreen({ onPlay }) {
           How to Play
         </h2>
 
+        {/* The objective, in words, before the demo shows the motion. The
+            animation alone taught the gestures and never said what the run was
+            for or how it ends — which is exactly what came back as "the
+            objective and mechanics are unclear". */}
+        <p style={{
+          fontSize: 11.5, fontWeight: 800, lineHeight: 1.45,
+          color: 'rgba(255,255,255,0.86)', margin: '0 0 12px 0',
+        }}>
+          <span style={{ color: GOLD_LT }}>Twelve money moments</span>, one gesture each.
+          <br />
+          Wait for the <span style={{ color: ORANGE_LT }}>orange chip</span> to light, then answer
+          before the bar empties.
+        </p>
+
         <div style={{
           position: 'relative',
           width: '100%',
@@ -512,10 +526,15 @@ export function HowToPlayScreen({ onPlay }) {
             <g className="lr-tut-scene">
               <g className="lr-tut-banner">
                 <rect x="20" y="34" width="260" height="26" rx="6" fill={ORANGE} opacity="0.92" />
-                <g transform="translate(150 47)" stroke="#fff" strokeWidth="2.6" fill="none">
+                {/* Glyph + verb word: the same pairing the in-game chip uses,
+                    so the screen that teaches the grammar and the frame that
+                    enforces it show the same thing. */}
+                <g transform="translate(122 47)" stroke="#fff" strokeWidth="2.6" fill="none">
                   <circle r="4.5" fill="#fff" stroke="none" />
                   <circle r="10" opacity="0.85" />
                 </g>
+                <text x="140" y="53" fill="#fff" fontSize="17" fontWeight="900"
+                  fontFamily="'Poppins', sans-serif">TAP</text>
               </g>
               <rect x="96" y="78" width="108" height="72" rx="10" fill="#1E6BE0" />
               <rect x="104" y="86" width="92" height="9" rx="4.5" fill="#F4F7FD" opacity="0.85" />
@@ -532,10 +551,12 @@ export function HowToPlayScreen({ onPlay }) {
             <g className="lr-tut-scene lr-d2">
               <g className="lr-tut-banner lr-d2">
                 <rect x="20" y="34" width="260" height="26" rx="6" fill={ORANGE} opacity="0.92" />
-                <g transform="translate(150 47)" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M-14 0 H12" />
-                  <path d="M5 -7 L12 0 L5 7" />
+                <g transform="translate(112 47)" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M-12 0 H10" />
+                  <path d="M3 -7 L10 0 L3 7" />
                 </g>
+                <text x="130" y="53" fill="#fff" fontSize="17" fontWeight="900"
+                  fontFamily="'Poppins', sans-serif">SWIPE</text>
               </g>
               <rect x="84" y="78" width="132" height="72" rx="8" fill="#F4F7FD" />
               <rect x="94" y="88" width="82" height="5" rx="2.5" fill="#CBD8EC" />
@@ -552,10 +573,12 @@ export function HowToPlayScreen({ onPlay }) {
             <g className="lr-tut-scene lr-d3">
               <g className="lr-tut-banner lr-d3">
                 <rect x="20" y="34" width="260" height="26" rx="6" fill={ORANGE} opacity="0.92" />
-                <g transform="translate(150 47)">
+                <g transform="translate(118 47)">
                   <circle r="5" fill="#fff" />
                   <circle r="10.5" fill="none" stroke="#fff" strokeWidth="2.4" strokeDasharray="4 3.4" />
                 </g>
+                <text x="136" y="53" fill="#fff" fontSize="17" fontWeight="900"
+                  fontFamily="'Poppins', sans-serif">HOLD</text>
               </g>
               <rect x="126" y="76" width="48" height="74" rx="9" fill="rgba(255,255,255,0.07)" stroke={GOLD} strokeWidth="1.8" />
               <rect className="lr-tut-grow lr-d3" x="130" y="80" width="40" height="66" rx="6" fill={GOLD} />
@@ -575,14 +598,14 @@ export function HowToPlayScreen({ onPlay }) {
               <circle cx="13" cy="13" r="9" stroke={ORANGE_LT} strokeWidth="2.2" />
               <path d="M20 6 L24 2 M6 20 L2 24" stroke={ORANGE_LT} strokeWidth="2.2" strokeLinecap="round" />
             </svg>
-          }>Tap, swipe or hold</TutLabel>
+          }>Tap swipe drag hold</TutLabel>
           <TutLabel icon={
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
               <circle cx="13" cy="15" r="9" stroke={GOLD} strokeWidth="2.2" />
               <path d="M9 2h8M13 2v3M13 15V9" stroke={GOLD} strokeWidth="2.2" strokeLinecap="round" />
               <path d="M13 15 L18 18" stroke={DANGER} strokeWidth="2.2" strokeLinecap="round" />
             </svg>
-          }>Beat the clock</TutLabel>
+          }>Survive all 12</TutLabel>
           <TutLabel icon={
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
               {[0, 1, 2].map((i) => (
@@ -591,7 +614,7 @@ export function HowToPlayScreen({ onPlay }) {
                   fill="rgba(30,107,224,0.9)" stroke="#A6D0FF" strokeWidth="1" />
               ))}
             </svg>
-          }>Three shields only</TutLabel>
+          }>3 misses ends it</TutLabel>
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
@@ -635,12 +658,71 @@ function StatTile({ label, value, accent }) {
   );
 }
 
+/**
+ * The run, said back in words.
+ *
+ * A microgame rush is a blur by design, and the previous results screen reported
+ * three numbers about a blur. This lists the money moments the player actually
+ * faced, in order, with the one they fumbled marked — so the run adds up to
+ * something they can describe, and so the link to cover is made by the game
+ * rather than asserted by the marketing copy underneath it.
+ */
+function MomentRecap({ moments, total }) {
+  if (!moments || !moments.length) return null;
+  const missed = total - moments.length;
+  return (
+    <div style={{
+      width: '100%', maxWidth: 360, marginBottom: 18, zIndex: 2,
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.12)',
+      borderRadius: 16, padding: '12px 12px 10px',
+    }}>
+      <div style={{
+        fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.5)', marginBottom: 8, textAlign: 'left',
+      }}>
+        The moments you faced
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+        {moments.map((m, i) => {
+          const info = MOMENTS[m.id] || { moment: m.id };
+          return (
+            <span key={`${m.id}-${i}`} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 8px', borderRadius: 999,
+              fontSize: 9.5, fontWeight: 800, letterSpacing: '0.02em',
+              color: m.cleared ? GREEN_LT : DANGER,
+              background: m.cleared ? 'rgba(40,167,69,0.14)' : 'rgba(239,68,68,0.14)',
+              border: `1px solid ${m.cleared ? 'rgba(40,167,69,0.4)' : 'rgba(239,68,68,0.4)'}`,
+            }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="4" strokeLinecap="round" aria-hidden="true">
+                {m.cleared ? <path d="M4 13l5 5L20 6" /> : <path d="M6 6l12 12M18 6L6 18" />}
+              </svg>
+              {info.moment}
+            </span>
+          );
+        })}
+      </div>
+      <p style={{
+        fontSize: 10, lineHeight: 1.45, color: 'rgba(255,255,255,0.62)',
+        margin: '10px 0 0 0', textAlign: 'left', fontWeight: 600,
+      }}>
+        {missed > 0
+          ? `${missed} more were still coming when the shields ran out. Real life keeps sending them either way — cover is what answers the ones you miss.`
+          : 'Every one of these is a decision real money makes for you in seconds. Cover is what answers them when you cannot.'}
+      </p>
+    </div>
+  );
+}
+
 export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLabel }) {
   const cfg = GAME_CONFIG;
   const score = stats?.score || 0;
   const cleared = stats?.cleared || 0;
   const bestStreak = stats?.bestStreak || 0;
   const perfects = stats?.perfects || 0;
+  const moments = stats?.moments || [];
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
@@ -767,6 +849,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         <StatTile label="Best streak" value={`x${bestStreak}`} accent={ORANGE_LT} />
         <StatTile label="Perfects" value={perfects} accent={GOLD} />
       </div>
+
+      <MomentRecap moments={moments} total={cfg.gamesPerRun} />
 
       <button
         onClick={handleShare}

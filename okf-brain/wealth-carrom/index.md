@@ -1,30 +1,37 @@
 ---
 type: project
 title: Wealth Carrom
-description: Top-down carrom flick-pocket game where nine gold wealth coins pay 100 each, two risk discs cost 150 and a foul, and the red Queen of Protection is worth 500 and two coins toward the target only if she is covered by a gold coin on the same or the very next strike.
+description: Head-to-head carrom against an AI opponent (The Market) on a shared rosette. Nine gold wealth coins pay 100 each, two risk discs cost 150 and a foul, and the red Queen of Protection is worth 500 and two coins toward the target only if she is covered by a gold coin on the same or the very next strike. First side to six coin-equivalent takes the match; pot without fouling and you keep the strike.
 resource: file:///c:/Users/Diwakar.Adhikari01/Desktop/bajaj-life-insurance-games/wealth-carrom
 tags:
   - game
   - carrom
   - physics
   - arcade
-timestamp: 2026-07-29
+  - ai-opponent
+timestamp: 2026-08-03
 ---
 
 # Wealth Carrom
 
-> Pocket every goal — and remember, the Queen of Protection only stays yours if
-> you cover her.
+> You versus The Market, one board, nine coins. The Queen of Protection is worth
+> double — but only if you cover her.
 
-Top-down carrom on a Bajaj-blue board with four corner pockets. Drag the striker
-along the baseline to place it, pull back from it to aim, release to flick.
-Twelve pieces open in a rosette: the Queen of Protection dead centre, an inner
-ring of six with the two dark risk discs at its top and bottom, and an outer ring
-of five gold coins. Eight strikes or 120 seconds, whichever runs out first.
+Top-down carrom on a Bajaj-blue board with four corner pockets, played as a
+head-to-head match against an AI opponent that strikes at the SAME rosette you
+do. Drag the striker along the baseline to place it, pull back from it to aim,
+release to flick. Twelve pieces open in a rosette: the Queen of Protection dead
+centre, an inner ring of six with the two dark risk discs at its top and bottom,
+and an outer ring of five gold coins.
+
+First side to six coin-equivalent wins (a covered Queen counts as two). Pocket a
+coin or the Queen without fouling and you KEEP the strike; miss or foul and it
+passes. Three fouls forfeits. 120 seconds.
 
 - **Port:** 5058 · **Dir:** `wealth-carrom/`
 - **CRM:** `LEAD_NO_KEY = 'wealthCarromLeadNo'`, `summaryDtls: 'Wealth Carrom Lead'`
-- **Stats contract:** `{score, coins, queenCovered, fouls}`
+- **Stats contract:** `{score, coins, queenCovered, fouls}` + match fields (`opponentScore`, `opponentEquiv`, `winner`, `cause`, `draw`)
+- **Opponent:** `src/bot.js` — generate / simulate / rank / pick, three difficulties in `GAME_CONFIG.bot.levels`
 
 ## The hook
 

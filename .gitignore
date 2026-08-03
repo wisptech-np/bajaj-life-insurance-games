@@ -5,6 +5,9 @@
 **/dist
 **/build
 
+# scripts/play-test.mjs screenshots
+**/playtest-*.png
+
 # Logs
 *.log
 npm-debug.log*

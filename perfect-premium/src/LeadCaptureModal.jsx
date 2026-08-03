@@ -72,7 +72,7 @@ export default function LeadCaptureModal({ score, onSubmitted }) {
               Enter Details
             </h2>
             <p className="sl-lead-sub">
-              To see your premium record
+              To see your cover record
             </p>
           </div>
 

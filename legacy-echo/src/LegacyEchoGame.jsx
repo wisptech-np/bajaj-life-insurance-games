@@ -1,11 +1,15 @@
 // LegacyEchoGame.jsx — time-loop past-self co-op.
 //
-// Five 18-second loops over one hand-authored vault map. Each loop the player
+// ONE SENTENCE: carry the gold chest up to the family vault; the gates in the
+// way open only while somebody stands on their green pads, and the only
+// somebody you have is the run you already finished.
+//
+// Five 12-second loops over one hand-authored vault map. Each loop the player
 // drags one glowing guardian body around; when the loop ends the world hard
-// resets, but the finished run replays as a live echo that still presses
-// plates, blocks the hazard beam and flips levers. The task: hold enough
-// plates across time that a final run can carry the policy chest through all
-// three vault doors into the family vault.
+// resets, but the finished run replays as a live echo that still stands on
+// the pad it was standing on. Three pads, two gates, one chest — no other
+// verbs, because the mechanic itself is the hard thing to understand and
+// everything else was noise on top of it.
 //
 // Structure mirrors GoalJugglerGame.jsx: one canvas component whose mutable
 // state lives in refs (never React state — a 120 Hz physics tick must not
@@ -14,7 +18,7 @@
 //
 // This component contains NO rules. It decides only what the simulation looks
 // and sounds like; src/rules.js owns movement, recording, ghost playback,
-// plates, doors, levers, the beam, scoring and the win/lose test, and
+// pads, gates, the objective, scoring and the win/lose test, and
 // legacy-echo/gate.mjs measures that same module headless.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -26,17 +30,19 @@ import { createAudio } from './kit/audio.js';
 import { detectTier, effectBudget, fitCanvas, haptic } from './kit/device.js';
 import { createEchoSynth } from './sound.js';
 import {
+  OBJ_CHEST,
+  OBJ_VAULT,
   PHASE_INTRO,
   PHASE_OVER,
   PHASE_PLAY,
   PHASE_REWIND,
-  beamOnAt,
   beginPause,
   clamp,
   clearTarget,
   createWorld,
   endPause,
   loopTimeLeft,
+  objectiveOf,
   setTarget,
   statsOf,
   stepWorld,
@@ -47,10 +53,15 @@ import {
 const GATE_LABELS = ['GATE 1', 'GATE 2', 'GATE 3'];
 const BADGE_LABELS = ['1', '2', '3', '4'];
 const ECHO_LABELS = ['ECHO 1', 'ECHO 2', 'ECHO 3', 'ECHO 4'];
-const HELD_LABELS = GAME_CONFIG.doors.map((d) => {
+// Gate chip: names the gate AND says what it wants, in words.
+const HELD_LABELS = GAME_CONFIG.doors.map((d, di) => {
   const n = d.plates.length;
+  const g = GATE_LABELS[di];
   const arr = [];
-  for (let k = 0; k <= n; k++) arr.push(`${k}/${n} ${n === 1 ? 'BODY' : 'BODIES'}`);
+  for (let k = 0; k < n; k++) {
+    arr.push(n === 1 ? `${g} · NEEDS 1 PAD` : `${g} · ${k} OF ${n} PADS`);
+  }
+  arr.push(`${g} · OPEN`);
   return arr;
 });
 
@@ -179,20 +190,35 @@ function makeBackdrop(cfg, px, shadows) {
   c.textBaseline = 'middle';
   c.fillText('FAMILY VAULT', cx, 70);
 
-  // Door frames: side housings on the walls.
+  // Wiring: every pad is drawn PHYSICALLY CONNECTED to the gate it opens.
+  // This one line per pad answers "what does this green circle do?" without
+  // a word of instruction, and the live layer relights it green when held.
   const ht = cfg.doorT / 2;
+  c.lineWidth = 2;
+  c.setLineDash([4, 5]);
+  for (let d = 0; d < cfg.doors.length; d++) {
+    for (const pl of cfg.doors[d].plates) {
+      const e = tetherEnd(cfg, pl, d);
+      c.strokeStyle = 'rgba(120,180,255,0.28)';
+      c.beginPath();
+      c.moveTo(pl.x, pl.y);
+      c.lineTo(e.x, pl.y);
+      c.lineTo(e.x, e.y);
+      c.stroke();
+    }
+  }
+  c.setLineDash([]);
+
+  // Gate frames: side housings on the walls. The gate's NAME lives on the
+  // live chip drawn above it, so nothing is stencilled here to collide with.
   for (let d = 0; d < cfg.doors.length; d++) {
     const dy = cfg.doors[d].y;
     c.fillStyle = COLORS.wallLit;
     c.fillRect(f.spineL - f.wallT - 3, dy - ht - 6, f.wallT + 6, cfg.doorT + 12);
     c.fillRect(f.spineR - 3, dy - ht - 6, f.wallT + 6, cfg.doorT + 12);
-    c.font = "900 8px 'Poppins', system-ui, sans-serif";
-    c.fillStyle = 'rgba(166,208,255,0.5)';
-    c.textAlign = 'left';
-    c.fillText(GATE_LABELS[d], f.spineL + 6, dy - ht - 10);
   }
 
-  // Plate sockets: dashed hold ring + socket disc + door tag.
+  // Pad sockets: dashed hold ring + socket disc + the gate it opens.
   for (let d = 0; d < cfg.doors.length; d++) {
     for (const pl of cfg.doors[d].plates) {
       c.strokeStyle = 'rgba(120,200,150,0.30)';
@@ -202,75 +228,63 @@ function makeBackdrop(cfg, px, shadows) {
       c.arc(pl.x, pl.y, cfg.plateR, 0, Math.PI * 2);
       c.stroke();
       c.setLineDash([]);
-      const sg = c.createRadialGradient(pl.x, pl.y, 3, pl.x, pl.y, 22);
+      const sg = c.createRadialGradient(pl.x, pl.y, 3, pl.x, pl.y, 24);
       sg.addColorStop(0, '#1D3B2C');
       sg.addColorStop(1, '#10231B');
       c.fillStyle = sg;
       c.beginPath();
-      c.arc(pl.x, pl.y, 22, 0, Math.PI * 2);
+      c.arc(pl.x, pl.y, 24, 0, Math.PI * 2);
       c.fill();
       c.strokeStyle = 'rgba(74,222,128,0.5)';
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(pl.x, pl.y, 22, 0, Math.PI * 2);
+      c.arc(pl.x, pl.y, 24, 0, Math.PI * 2);
       c.stroke();
-      c.font = "900 11px 'Poppins', system-ui, sans-serif";
-      c.fillStyle = 'rgba(74,222,128,0.85)';
+      c.font = "900 15px 'Poppins', system-ui, sans-serif";
+      c.fillStyle = 'rgba(74,222,128,0.92)';
       c.textAlign = 'center';
       c.fillText(String(d + 1), pl.x, pl.y + 0.5);
+      c.font = "900 8px 'Poppins', system-ui, sans-serif";
+      c.fillStyle = 'rgba(150,220,180,0.8)';
+      c.fillText(`OPENS ${GATE_LABELS[d]}`, pl.x, pl.y + 38);
     }
   }
 
-  // Lever housings.
-  for (const lv of cfg.levers) {
-    c.strokeStyle = 'rgba(255,138,61,0.35)';
-    c.lineWidth = 1.4;
-    c.setLineDash([4, 5]);
-    c.beginPath();
-    c.arc(lv.x, lv.y, cfg.leverR, 0, Math.PI * 2);
-    c.stroke();
-    c.setLineDash([]);
-    c.fillStyle = '#2B2417';
-    c.beginPath();
-    c.arc(lv.x, lv.y + 6, 11, 0, Math.PI * 2);
-    c.fill();
-    c.strokeStyle = 'rgba(255,200,69,0.6)';
-    c.lineWidth = 1.6;
-    c.beginPath();
-    c.arc(lv.x, lv.y + 6, 11, 0, Math.PI * 2);
-    c.stroke();
-  }
-
-  // Beam emitter housing + dashed flight path.
-  c.fillStyle = '#3A1220';
-  c.fillRect(f.spineL - f.wallT - 2, cfg.beam.y - 9, f.wallT + 4, 18);
-  c.strokeStyle = COLORS.danger;
-  c.lineWidth = 1.6;
-  c.strokeRect(f.spineL - f.wallT - 2, cfg.beam.y - 9, f.wallT + 4, 18);
-  c.strokeStyle = 'rgba(239,68,68,0.22)';
-  c.setLineDash([3, 7]);
+  // Chest podium + the road it has to travel: a gold dashed line straight up
+  // the spine from the chest to the vault mouth. Start and finish, visible in
+  // the same glance.
+  c.strokeStyle = 'rgba(255,200,69,0.22)';
+  c.lineWidth = 3;
+  c.setLineDash([2, 12]);
+  c.lineCap = 'round';
   c.beginPath();
-  c.moveTo(f.spineL, cfg.beam.y);
-  c.lineTo(f.spineR, cfg.beam.y);
+  c.moveTo(cx, cfg.chest.y - 26);
+  c.lineTo(cx, f.vaultY + 6);
   c.stroke();
   c.setLineDash([]);
-
-  // Chest podium.
-  c.strokeStyle = 'rgba(255,200,69,0.35)';
-  c.lineWidth = 1.6;
+  c.strokeStyle = 'rgba(255,200,69,0.45)';
+  c.lineWidth = 1.8;
   c.setLineDash([5, 5]);
   c.beginPath();
-  c.arc(cfg.chest.x, cfg.chest.y, 24, 0, Math.PI * 2);
+  c.arc(cfg.chest.x, cfg.chest.y, 26, 0, Math.PI * 2);
   c.stroke();
   c.setLineDash([]);
 
   return cv;
 }
 
+/** Where a pad's wire meets the gate it opens: the near wall, at gate height. */
+function tetherEnd(cfg, plate, d) {
+  const f = cfg.field;
+  return {
+    x: plate.x < (f.spineL + f.spineR) / 2 ? f.spineL - f.wallT : f.spineR + f.wallT,
+    y: cfg.doors[d].y,
+  };
+}
+
 /* ─── Paints (built once — no per-frame gradient allocation) ── */
 
 function buildPaints(ctx, cfg) {
-  const f = cfg.field;
   const r = cfg.body.r + 2;
 
   const bodyPaint = (lt, tint) => {
@@ -286,11 +300,6 @@ function buildPaints(ctx, cfg) {
   chest.addColorStop(0.45, '#FFC845');
   chest.addColorStop(1, '#B07B12');
 
-  const coin = ctx.createRadialGradient(-2, -3, 1, 0, 0, 9);
-  coin.addColorStop(0, '#FFE38A');
-  coin.addColorStop(0.7, '#FFC845');
-  coin.addColorStop(1, '#B07B12');
-
   const doors = [];
   for (let d = 0; d < cfg.doors.length; d++) {
     const dy = cfg.doors[d].y;
@@ -302,18 +311,11 @@ function buildPaints(ctx, cfg) {
     doors.push(g);
   }
 
-  const beam = ctx.createLinearGradient(f.spineL, 0, f.spineR, 0);
-  beam.addColorStop(0, 'rgba(255,180,150,0.95)');
-  beam.addColorStop(1, 'rgba(239,68,68,0.85)');
-
   return {
     player: bodyPaint('#FFD9B8', COLORS.orange),
-    stunned: bodyPaint(COLORS.dangerLt, COLORS.danger),
     ghosts: GHOST_TINTS.map((tn) => bodyPaint(tn.lt, tn.body)),
     chest,
-    coin,
     doors,
-    beam,
   };
 }
 
@@ -372,24 +374,32 @@ function drawChest(c, x, y, t, carried, shadows, paint) {
   c.restore();
 }
 
-function drawCoin(c, x, y, t, i, shadows, paint) {
-  const wob = Math.sin(t * 3 + i * 1.3);
+/**
+ * The objective marker: a pulsing ring plus a bouncing chevron over whatever
+ * the player should touch next. Paired with the objective line in the HUD it
+ * means a player who reads nothing still always has somewhere to go — this is
+ * the "show, don't tell" half of the tutorial and it never switches off.
+ */
+function drawGuide(c, x, y, t, kind) {
+  const pulse = 0.5 + 0.5 * Math.sin(t * 4.4);
+  const col = kind === OBJ_VAULT || kind === OBJ_CHEST ? '#FFE38A' : '#FFFFFF';
   c.save();
-  c.translate(x, y + Math.sin(t * 2 + i) * 2);
-  c.scale(0.55 + 0.45 * Math.abs(wob), 1);
-  if (shadows) {
-    c.shadowColor = 'rgba(255,200,69,0.6)';
-    c.shadowBlur = 10;
-  }
-  c.fillStyle = paint;
+  c.translate(x, y);
+  c.globalAlpha = 0.35 + 0.45 * pulse;
+  c.strokeStyle = col;
+  c.lineWidth = 2.6;
   c.beginPath();
-  c.arc(0, 0, 9, 0, Math.PI * 2);
-  c.fill();
-  c.shadowBlur = 0;
-  c.strokeStyle = 'rgba(138,92,6,0.8)';
-  c.lineWidth = 1.6;
+  c.arc(0, 0, 26 + pulse * 12, 0, Math.PI * 2);
+  c.stroke();
+  c.globalAlpha = 0.9;
+  c.lineWidth = 3.4;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  const dy = -44 - pulse * 5;
   c.beginPath();
-  c.arc(0, 0, 5.4, 0, Math.PI * 2);
+  c.moveTo(-9, dy + 9);
+  c.lineTo(0, dy);
+  c.lineTo(9, dy + 9);
   c.stroke();
   c.restore();
 }
@@ -408,7 +418,7 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
 
   const [loopNo, setLoopNo] = useState(1);
   const [timeLeft, setTimeLeft] = useState(cfg.loops.seconds);
-  const [coins, setCoins] = useState(0);
+  const [objective, setObjective] = useState('Stand on a green pad');
   const [carrying, setCarrying] = useState(false);
   const [phase, setPhase] = useState(PHASE_INTRO);
   const [banner, setBanner] = useState(null);
@@ -440,14 +450,16 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
       paints: null,
 
       doorOpenT: new Float32Array(cfg.doors.length),
+      doorDenyT: new Float32Array(cfg.doors.length), // red "shut" flash
       plateFlash: new Float32Array(16),
-      leverFlash: new Float32Array(cfg.levers.length),
-      gateOpenT: 0,
       echoFlashT: 0,
+      guide: { kind: 0, text: '', x: 0, y: 0 }, // reused scratch — see objectiveOf
+      guideLive: false,
+      taught: 0,          // bitmask of one-shot teaching beats already shown
 
       shownLoop: -1,
       shownTime: -1,
-      shownCoins: -1,
+      shownObjective: '',
       shownCarrying: false,
       shownPhase: -1,
       shownCount: -1,
@@ -493,7 +505,14 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
 
     const f = cfg.field;
 
-    /* --- canvas sizing: letterbox the 390x780 logical field -------------- */
+    /* --- canvas sizing: letterbox the 390x780 logical field --------------
+       The field is fitted BELOW the HUD stack, not behind it. The two things
+       a player must see are at the extreme ends of the map — the vault at
+       y=0 and the chest at y=660 — so a full-bleed fit puts the goal bar
+       straight over the destination on a short handset. Reserving the band
+       costs some scale and buys a field where nothing is ever hidden. */
+    const HUD_TOP = 114;  // goal bar + loop/time pills + objective chip
+    const HUD_BOTTOM = 14;
     const fit = () => {
       const w = Math.max(280, wrap.clientWidth || 390);
       const h = Math.max(420, wrap.clientHeight || 700);
@@ -501,9 +520,10 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
       s.viewW = w;
       s.viewH = h;
       s.dpr = fitCanvas(canvas, w, h, 2);
-      s.scale = Math.min(w / f.W, h / f.H);
+      const avail = Math.max(200, h - HUD_TOP - HUD_BOTTOM);
+      s.scale = Math.min(w / f.W, avail / f.H);
       s.offX = (w - f.W * s.scale) / 2;
-      s.offY = (h - f.H * s.scale) / 2;
+      s.offY = HUD_TOP + (avail - f.H * s.scale) / 2;
       s.backdrop = makeBackdrop(cfg, Math.min(s.dpr * s.scale, 2), s.shadows);
     };
     fit();
@@ -529,6 +549,19 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
       y: cfg.doors[d].y,
     });
 
+    /* Teaching beats: each fires ONCE per session, on the frame the player
+       has just watched the thing happen. Narrating what is already on screen
+       is the whole tutorial — there is no instruction screen to sit through
+       and no beat interrupts play. */
+    const TEACH_HOLD = 1;   // first time the live player latches a pad
+    const TEACH_ECHO = 2;   // first time an echo takes that pad over
+    const teach = (bit, kind, title, sub) => {
+      if (s.taught & bit) return false;
+      s.taught |= bit;
+      showBanner(kind, title, sub);
+      return true;
+    };
+
     const endRun = (won) => {
       if (s.ended) return;
       s.ended = true;
@@ -547,12 +580,12 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
         setPhase(PHASE_PLAY);
         s.echoFlashT = cfg.fx.echoFlashSeconds;
         if (loop === 1) {
-          showBanner('loop', 'LOOP 1', 'Stand on plates — your echo will repeat everything');
+          showBanner('loop', 'LOOP 1', 'Follow the arrow');
         } else {
           audio.powerUp();
           showBanner('loop', `LOOP ${loop}`, ghostCount === 1
-            ? '1 echo runs with you'
-            : `${ghostCount} echoes run with you`);
+            ? '1 echo is holding a pad for you'
+            : `${ghostCount} echoes are holding pads for you`);
         }
       },
 
@@ -566,26 +599,36 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
         void loop;
       },
 
+      // No banner here: the rewind card that follows a beat later already
+      // says "LOOP WASTED", and two of them on screen at once reads as noise.
       onBurn: () => {
         audio.hit();
-        showBanner('burn', 'LOOP BURNED', 'Barely moved — this echo is lost');
+        haptic('failure');
       },
 
-      onPlate: (i, held, occ) => {
+      /* CORRECT ACTION. A pad going green is the single most important
+         positive beat in the game, so it gets everything at once: a latch
+         thock, a green burst, a "HELD" float and its wire lighting up all
+         the way to the gate it opens (drawn in render). */
+      onPlate: (i, held, byGhost) => {
         const px = s.world.plateX[i];
         const py = s.world.plateY[i];
         if (held) {
           synth.latch();
+          haptic('light');
           s.plateFlash[i] = 1;
           fx.burst({
             x: px, y: py, count: cfg.fx.plateParticles, color: COLORS.greenLt,
-            speed: 90, spread: Math.PI * 2, size: 2.2, life: 0.4, gravity: 60, drag: 0.9,
+            speed: 90, spread: Math.PI * 2, size: 2.4, life: 0.45, gravity: 60, drag: 0.9,
           });
+          fx.floatText(px, py - 34, byGhost ? 'ECHO HOLDS IT' : 'HELD', COLORS.greenLt, 12);
+          if (byGhost) {
+            teach(TEACH_ECHO, 'echo', 'THAT IS YOUR LAST RUN',
+              'It holds the pad so you can walk through');
+          }
         } else {
           audio.tick();
-        }
-        if (held && occ > 1) {
-          fx.floatText(px, py - 30, 'STACKED', COLORS.orangeLt, 11);
+          fx.floatText(px, py - 30, 'RELEASED', COLORS.dangerLt, 11);
         }
       },
 
@@ -601,65 +644,36 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
             gravity: 220, drag: 0.92,
           });
           fx.floatText(dc.x, dc.y - 22, 'GATE OPEN', COLORS.greenLt, 13);
+          teach(TEACH_HOLD, 'chest', 'GATE OPEN',
+            'It stays open only while a pad is held');
+        } else {
+          fx.floatText(dc.x, dc.y - 22, 'GATE SHUT', COLORS.dangerLt, 12);
         }
       },
 
-      onLeverFlip: (l, x, y) => {
-        audio.tick();
-        s.leverFlash[l] = 1;
-        fx.burst({
-          x, y, count: cfg.fx.leverParticles, color: COLORS.orangeLt,
-          speed: 110, spread: Math.PI * 2, size: 2.2, life: 0.4, gravity: 100, drag: 0.9,
-        });
-      },
-
-      onLeverSync: () => {
-        audio.powerUp();
-        haptic('success');
-        showBanner('sync', 'TWIN LEVERS', 'Coin alcove open');
-        fx.burst({
-          x: (cfg.alcoveGate.x0 + cfg.alcoveGate.x1) / 2, y: cfg.alcoveGate.y,
-          count: 12, color: COLORS.goldLt, speed: 150, spread: Math.PI * 2,
-          size: 2.6, life: 0.6, gravity: 140, drag: 0.92,
-        });
-      },
-
-      onCoin: (i, x, y) => {
-        audio.coin();
-        haptic('light');
-        fx.burst({
-          x, y, count: cfg.fx.coinParticles, color: COLORS.gold,
-          speed: 140, spread: Math.PI * 2, size: 2.6, life: 0.55, gravity: 160, drag: 0.92,
-        });
-        fx.floatText(x, y - 20, `+${cfg.scoring.coin}`, COLORS.goldLt, 14);
-        void i;
+      /* WRONG ACTION. Walking into a shut gate is the only mistake left in
+         the game, so it now says so out loud instead of silently refusing
+         the move: red flash on that gate, a shake, and the count it wants. */
+      onGateBlocked: (d, held, need) => {
+        if (s.ended) return;
+        s.doorDenyT[d] = 1;
+        audio.hit();
+        haptic('failure');
+        fx.addShake(cfg.fx.blockShake);
+        const dc = doorCentre(d);
+        fx.floatText(dc.x, dc.y + 26,
+          need === 1 ? 'HOLD ITS PAD FIRST' : `NEEDS ${need} PADS — ${held} HELD`,
+          COLORS.dangerLt, 12);
       },
 
       onPickup: (x, y) => {
         audio.powerUp();
         haptic('light');
         fx.burst({
-          x, y, count: 10, color: COLORS.goldLt,
+          x, y, count: 12, color: COLORS.goldLt,
           speed: 130, spread: Math.PI * 2, size: 2.4, life: 0.5, gravity: 120, drag: 0.92,
         });
-        showBanner('chest', 'POLICY CHEST', 'Carry it up — slower while loaded');
-      },
-
-      onBeamHit: (x, y) => {
-        audio.hit();
-        haptic('failure');
-        fx.addShake(cfg.fx.beamShake);
-        fx.burst({
-          x, y, count: 12, color: COLORS.danger,
-          speed: 200, spread: Math.PI * 2, size: 3, life: 0.5, gravity: 300, drag: 0.9,
-        });
-        fx.floatText(x, y - 24, 'BEAM HIT', COLORS.dangerLt, 13);
-      },
-
-      onBeamBlock: (blocked, cutX) => {
-        if (blocked) {
-          fx.floatText(clamp(cutX, f.spineL + 24, f.spineR - 24), cfg.beam.y - 18, 'BLOCKED', '#B3E5FC', 11);
-        }
+        showBanner('chest', 'CHEST IN HAND', 'Take it up to the vault');
       },
 
       onDeliver: () => {
@@ -683,7 +697,7 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
         setPhase(PHASE_OVER);
         audio.failure();
         haptic('failure');
-        fx.addShake(cfg.fx.beamShake);
+        fx.addShake(cfg.fx.blockShake);
         const cx = (f.spineL + f.spineR) / 2;
         fx.floatText(cx, 300, 'OUT OF LOOPS', COLORS.dangerLt, 16);
         endRun(false);
@@ -701,18 +715,17 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
       // Presentation timers (never read by rules).
       for (let d = 0; d < cfg.doors.length; d++) {
         s.doorOpenT[d] = damp(s.doorOpenT[d], world.doorOpen[d], 10, dt);
+        if (s.doorDenyT[d] > 0) s.doorDenyT[d] = Math.max(0, s.doorDenyT[d] - dt * 1.8);
       }
-      s.gateOpenT = damp(s.gateOpenT, world.alcoveOpen ? 1 : 0, 10, dt);
       for (let i = 0; i < s.plateFlash.length; i++) {
         if (s.plateFlash[i] > 0) s.plateFlash[i] = Math.max(0, s.plateFlash[i] - dt * 2.4);
-      }
-      for (let i = 0; i < s.leverFlash.length; i++) {
-        if (s.leverFlash[i] > 0) s.leverFlash[i] = Math.max(0, s.leverFlash[i] - dt * 1.6);
       }
       if (s.echoFlashT > 0) s.echoFlashT = Math.max(0, s.echoFlashT - dt);
 
       if (s.ended) return;
       stepWorld(world, cfg, dt, events);
+      s.guideLive = world.phase === PHASE_PLAY;
+      if (s.guideLive) objectiveOf(cfg, world, s.guide);
     };
 
     /* --- rendering -------------------------------------------------------- */
@@ -732,8 +745,31 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
       ctx.drawImage(s.backdrop, 0, 0, f.W, f.H);
 
       const t = s.time;
+      const midX = (f.spineL + f.spineR) / 2;
 
-      /* -- plates (dynamic glow) -- */
+      /* -- live pad wires: a held pad lights its whole run to its gate.
+            "This green circle opens THAT gate" is then impossible to miss. -- */
+      ctx.save();
+      ctx.lineWidth = 2.6;
+      ctx.setLineDash([4, 5]);
+      ctx.lineDashOffset = -t * 26;
+      for (let i = 0; i < world.nPlates; i++) {
+        if (!world.plateHeld[i]) continue;
+        const d = world.plateDoor[i];
+        const ex = world.plateX[i] < midX ? f.spineL - f.wallT : f.spineR + f.wallT;
+        ctx.globalAlpha = 0.55 + 0.35 * Math.sin(t * 6);
+        ctx.strokeStyle = COLORS.greenLt;
+        ctx.beginPath();
+        ctx.moveTo(world.plateX[i], world.plateY[i]);
+        ctx.lineTo(ex, world.plateY[i]);
+        ctx.lineTo(ex, cfg.doors[d].y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
+      ctx.restore();
+
+      /* -- pads (dynamic glow) -- */
       for (let i = 0; i < world.nPlates; i++) {
         const px = world.plateX[i];
         const py = world.plateY[i];
@@ -749,58 +785,20 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
           }
           ctx.fillStyle = COLORS.greenLt;
           ctx.beginPath();
-          ctx.arc(px, py, 22, 0, Math.PI * 2);
+          ctx.arc(px, py, 24, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
           ctx.globalAlpha = a * (0.4 + 0.2 * Math.sin(t * 6));
           ctx.strokeStyle = COLORS.greenLt;
           ctx.lineWidth = 2.4;
           ctx.beginPath();
-          ctx.arc(px, py, 30 + flash * 8, 0, Math.PI * 2);
+          ctx.arc(px, py, 32 + flash * 8, 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
         }
       }
 
-      /* -- lever sticks -- */
-      for (let l = 0; l < cfg.levers.length; l++) {
-        const lv = cfg.levers[l];
-        const flipped = world.leverFlipAt[l] >= 0;
-        const flash = s.leverFlash[l];
-        ctx.save();
-        ctx.translate(lv.x, lv.y + 6);
-        ctx.rotate(flipped ? 0.62 : -0.62);
-        ctx.strokeStyle = flipped || flash > 0 ? COLORS.goldLt : 'rgba(255,200,69,0.6)';
-        ctx.lineWidth = 3.4;
-        ctx.lineCap = 'round';
-        if (s.shadows && (flipped || flash > 0)) {
-          ctx.shadowColor = 'rgba(255,200,69,0.8)';
-          ctx.shadowBlur = 10;
-        }
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, -17);
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = flipped ? COLORS.goldLt : '#B07B12';
-        ctx.beginPath();
-        ctx.arc(0, -17, 3.6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      /* -- alcove gate -- */
-      if (s.gateOpenT < 0.98) {
-        const g = cfg.alcoveGate;
-        const w = (g.x1 - g.x0) * (1 - s.gateOpenT);
-        ctx.fillStyle = '#3A2C12';
-        ctx.fillRect(g.x1 - w, g.y - cfg.doorT / 2, w, cfg.doorT);
-        ctx.strokeStyle = 'rgba(255,200,69,0.5)';
-        ctx.lineWidth = 1.4;
-        ctx.strokeRect(g.x1 - w, g.y - cfg.doorT / 2, w, cfg.doorT);
-      }
-
-      /* -- doors -- */
+      /* -- gates -- */
       const ht = cfg.doorT / 2;
       for (let d = 0; d < cfg.doors.length; d++) {
         const dy = cfg.doors[d].y;
@@ -831,69 +829,80 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
           ctx.setLineDash([]);
           ctx.restore();
         }
-        // Counterweight chip: held-plate count.
+        // Refused: the gate you just walked into flares red for ~0.5 s.
+        const deny = s.doorDenyT[d];
+        if (deny > 0) {
+          ctx.save();
+          ctx.globalAlpha = deny * 0.85;
+          if (s.shadows) {
+            ctx.shadowColor = 'rgba(239,68,68,0.9)';
+            ctx.shadowBlur = 16;
+          }
+          ctx.fillStyle = COLORS.danger;
+          ctx.fillRect(f.spineL, dy - ht, f.spineR - f.spineL, cfg.doorT);
+          ctx.restore();
+        }
+
+        // Chip on the gate: what it wants, in words.
         const label = HELD_LABELS[d][world.doorHeldCount[d]];
-        const lx = (f.spineL + f.spineR) / 2;
         const full = world.doorHeldCount[d] === cfg.doors[d].plates.length;
         ctx.save();
-        ctx.globalAlpha = 0.92;
-        ctx.fillStyle = full ? 'rgba(24,64,40,0.85)' : 'rgba(10,20,42,0.85)';
-        const cw = 62;
-        ctx.fillRect(lx - cw / 2, dy - ht - 20, cw, 15);
-        ctx.strokeStyle = full ? 'rgba(74,222,128,0.7)' : 'rgba(140,180,255,0.35)';
+        ctx.globalAlpha = 0.94;
+        ctx.fillStyle = full ? 'rgba(24,64,40,0.9)'
+          : deny > 0 ? 'rgba(80,16,16,0.9)' : 'rgba(10,20,42,0.9)';
+        const cw = 118;
+        ctx.fillRect(midX - cw / 2, dy - ht - 21, cw, 16);
+        ctx.strokeStyle = full ? 'rgba(74,222,128,0.75)'
+          : deny > 0 ? 'rgba(239,68,68,0.9)' : 'rgba(140,180,255,0.4)';
         ctx.lineWidth = 1.2;
-        ctx.strokeRect(lx - cw / 2, dy - ht - 20, cw, 15);
+        ctx.strokeRect(midX - cw / 2, dy - ht - 21, cw, 16);
         ctx.font = "900 8.5px 'Poppins', system-ui, sans-serif";
-        ctx.fillStyle = full ? COLORS.greenLt : 'rgba(200,220,255,0.85)';
+        ctx.fillStyle = full ? COLORS.greenLt : deny > 0 ? COLORS.dangerLt : 'rgba(200,220,255,0.9)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(label, lx, dy - ht - 12);
+        ctx.fillText(label, midX, dy - ht - 12.5);
         ctx.restore();
       }
 
-      /* -- beam -- */
-      const preWarn = !world.beamOn && world.phase === PHASE_PLAY
-        && beamOnAt(cfg, world, world.loopTime + 0.3);
-      if (world.beamOn || preWarn) {
+      /* -- while carrying, the wings really are walls: show it -- */
+      if (world.carrying) {
         ctx.save();
-        const endX = world.beamOn ? world.beamCutX : f.spineR;
-        if (world.beamOn) {
-          if (s.shadows) {
-            ctx.shadowColor = 'rgba(239,68,68,0.9)';
-            ctx.shadowBlur = 14;
-          }
-          ctx.fillStyle = s.paints.beam;
-          ctx.fillRect(f.spineL, cfg.beam.y - cfg.beam.halfW, endX - f.spineL, cfg.beam.halfW * 2);
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = 'rgba(255,255,255,0.85)';
-          ctx.fillRect(f.spineL, cfg.beam.y - 1.4, endX - f.spineL, 2.8);
-          if (world.beamCutX < f.spineR) {
-            ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 22);
-            ctx.fillStyle = '#B3E5FC';
-            ctx.beginPath();
-            ctx.arc(world.beamCutX, cfg.beam.y, 7, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
-          }
-        } else {
-          ctx.globalAlpha = 0.3 + 0.3 * Math.sin(t * 30);
-          ctx.strokeStyle = COLORS.danger;
-          ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(6,10,24,0.55)';
+        ctx.fillRect(0, 0, f.spineL - f.wallT, f.wallBottomY);
+        ctx.fillRect(f.spineR + f.wallT, 0, f.W - f.spineR - f.wallT, f.wallBottomY);
+        ctx.restore();
+      }
+
+      /* -- chest: dark and chained until the echoes have opened the road,
+            gold and haloed the moment it can actually be picked up -- */
+      if (!world.won) {
+        const ready = world.chestReady;
+        ctx.save();
+        if (!ready) {
+          ctx.globalAlpha = 0.4;
+        } else if (!world.carrying) {
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = COLORS.goldLt;
+          ctx.lineWidth = 2.4;
+          ctx.globalAlpha = 0.35 + 0.4 * Math.sin(t * 4);
           ctx.beginPath();
-          ctx.moveTo(f.spineL, cfg.beam.y);
-          ctx.lineTo(f.spineR, cfg.beam.y);
+          ctx.arc(world.chestX, world.chestY, 30 + 4 * Math.sin(t * 4), 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        drawChest(ctx, world.chestX, world.chestY, t, world.carrying, s.shadows && ready, s.paints.chest);
+        if (!ready) {
+          ctx.globalAlpha = 0.85;
+          ctx.strokeStyle = COLORS.wallLit;
+          ctx.lineWidth = 3.4;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(world.chestX - 17, world.chestY - 10);
+          ctx.lineTo(world.chestX + 17, world.chestY + 10);
           ctx.stroke();
         }
         ctx.restore();
       }
-
-      /* -- coins -- */
-      for (let i = 0; i < cfg.coins.length; i++) {
-        if (!world.coinTaken[i]) drawCoin(ctx, cfg.coins[i].x, cfg.coins[i].y, t, i, s.shadows, s.paints.coin);
-      }
-
-      /* -- chest -- */
-      if (!world.won) drawChest(ctx, world.chestX, world.chestY, t, world.carrying, s.shadows, s.paints.chest);
 
       /* -- ghosts (echoes) -- */
       const alpha = cfg.ghosts.alpha;
@@ -979,12 +988,9 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
           ctx.setLineDash([]);
           ctx.restore();
         }
-        const stunned = world.stun > 0;
         drawBody(
           ctx, world.px, world.py, cfg.body.r + 1.5,
-          stunned ? s.paints.stunned : s.paints.player,
-          stunned ? 'rgba(239,68,68,0.65)' : 'rgba(242,101,34,0.65)',
-          1, s.shadows, true,
+          s.paints.player, 'rgba(242,101,34,0.65)', 1, s.shadows, true,
         );
         if (world.carrying) {
           ctx.save();
@@ -996,6 +1002,11 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
           ctx.stroke();
           ctx.restore();
         }
+      }
+
+      /* -- the objective marker: always over the next thing to touch -- */
+      if (s.guideLive && !s.ended) {
+        drawGuide(ctx, s.guide.x, s.guide.y, t, s.guide.kind);
       }
 
       fx.draw(ctx);
@@ -1042,9 +1053,9 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
         s.shownBarPct = pct;
         timeBarRef.current.style.width = `${pct}%`;
       }
-      if (world2.coins !== s.shownCoins) {
-        s.shownCoins = world2.coins;
-        setCoins(world2.coins);
+      if (s.guideLive && s.guide.text !== s.shownObjective) {
+        s.shownObjective = s.guide.text;
+        setObjective(s.guide.text);
       }
       if (world2.carrying !== s.shownCarrying) {
         s.shownCarrying = world2.carrying;
@@ -1140,6 +1151,12 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
         <canvas ref={canvasRef} style={styles.canvas} />
 
         {/* HUD ------------------------------------------------------- */}
+        {/* The permanent goal line. It sits above everything, never moves,
+            and always names the whole point of the game in six words. */}
+        <div style={styles.goalBar}>
+          <span style={styles.goalText}>Get the chest to the vault</span>
+        </div>
+
         <div style={styles.hudTop}>
           <div style={styles.pill}>
             <span style={styles.pillLabel}>Loop</span>
@@ -1148,7 +1165,7 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
 
           <div style={styles.timelineWrap}>
             <span style={styles.timelineLabel}>
-              {carrying ? 'CARRYING — SLOWED' : 'LOOP TIMELINE'}
+              {carrying ? 'CARRYING — SLOWED' : 'LOOP RESETS IN'}
             </span>
             <div style={styles.track}>
               <div ref={timeBarRef} style={styles.trackFill} />
@@ -1167,12 +1184,15 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
           </div>
         </div>
 
-        <div style={styles.coinRow}>
-          <div style={styles.coinChip}>
-            <span style={styles.coinDot} />
-            <span style={styles.coinText}>{coins}/{cfg.coins.length} coins</span>
+        {/* The live objective — matches the arrow on the field exactly. */}
+        {phase === PHASE_PLAY && !over && (
+          <div style={styles.objectiveRow}>
+            <div key={objective} style={styles.objectiveChip} className="le-obj">
+              <span style={styles.objectiveArrow}>▸</span>
+              <span style={styles.objectiveText}>{objective}</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Outcome banner -------------------------------------------- */}
         {banner && (
@@ -1181,9 +1201,11 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
               ...styles.banner,
               background: banner.kind === 'burn'
                 ? 'linear-gradient(180deg, rgba(239,68,68,0.95), rgba(120,18,18,0.95))'
-                : banner.kind === 'sync' || banner.kind === 'chest'
+                : banner.kind === 'chest'
                   ? 'linear-gradient(180deg, rgba(255,200,69,0.96), rgba(176,123,18,0.96))'
-                  : 'linear-gradient(180deg, rgba(30,107,224,0.95), rgba(0,45,120,0.95))',
+                  : banner.kind === 'echo'
+                    ? 'linear-gradient(180deg, rgba(79,195,247,0.96), rgba(12,84,140,0.96))'
+                    : 'linear-gradient(180deg, rgba(30,107,224,0.95), rgba(0,45,120,0.95))',
             }}>
               <span style={styles.bannerTitle}>{banner.title}</span>
               <span style={styles.bannerSub}>{banner.sub}</span>
@@ -1195,9 +1217,7 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
         {hint && !over && (
           <div style={styles.hintWrap} className="le-hint">
             <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>Drag</strong> to move ·
-              stand on <strong style={{ color: COLORS.greenLt }}>plates</strong> —
-              your echo will replay this run
+              <strong style={{ color: COLORS.orangeLt }}>Drag</strong> the orange dot
             </div>
           </div>
         )}
@@ -1206,16 +1226,18 @@ export default function LegacyEchoGame({ config, onWin, onLose }) {
         {phase === PHASE_INTRO && (
           <div style={styles.cardVeil}>
             <div className="le-card" style={styles.loopCard}>LOOP 1</div>
-            <div style={styles.loopCardSub}>Your runs echo forward. Build the relay.</div>
+            <div style={styles.loopCardSub}>Every 12 s the world resets — but you come back as a helper</div>
           </div>
         )}
         {phase === PHASE_REWIND && (
           <div style={styles.rewindVeil}>
             <div className="le-card" style={styles.rewindText}>
-              {lastBurned ? 'LOOP BURNED' : 'REWINDING'}
+              {lastBurned ? 'LOOP WASTED' : 'REWINDING'}
             </div>
             <div style={styles.loopCardSub}>
-              {lastBurned ? 'That echo did nothing and is lost' : 'Your run joins the cast as an echo'}
+              {lastBurned
+                ? 'You barely moved — no echo from that loop'
+                : 'Watch: that run comes back as your echo'}
             </div>
           </div>
         )}
@@ -1282,6 +1304,8 @@ const CSS = `
   100% { opacity: 0; transform: translateY(-14px) scale(0.96); }
 }
 @keyframes leHint { 0%,100% { opacity: 0.62; } 50% { opacity: 1; } }
+@keyframes leObj { from { opacity: 0; transform: translateY(-8px) scale(0.9); } to { opacity: 1; transform: none; } }
+.le-obj { animation: leObj 300ms cubic-bezier(0.22,1,0.36,1) both; }
 @keyframes leCard { from { opacity: 0; transform: scale(1.4); letter-spacing: 0.3em; } to { opacity: 1; transform: scale(1); letter-spacing: 0.08em; } }
 @keyframes leCount { from { opacity: 0; transform: scale(1.55); } 55% { opacity: 1; transform: scale(1); } to { opacity: 0.85; transform: scale(1); } }
 .le-count  { animation: leCount 460ms cubic-bezier(0.22,1,0.36,1) both; }
@@ -1290,7 +1314,7 @@ const CSS = `
 .le-hint   { animation: leHint 1.6s ease-in-out infinite; }
 .le-card   { animation: leCard 420ms cubic-bezier(0.22,1,0.36,1) both; }
 @media (prefers-reduced-motion: reduce) {
-  .le-stage, .le-banner, .le-hint, .le-card, .le-count {
+  .le-stage, .le-banner, .le-hint, .le-card, .le-count, .le-obj {
     animation-duration: 1ms !important; animation-iteration-count: 1 !important;
   }
 }
@@ -1328,7 +1352,7 @@ const styles = {
   canvas: { display: 'block', width: '100%', height: '100%', touchAction: 'none' },
   hudTop: {
     position: 'absolute',
-    top: 10,
+    top: 30, // clears the permanent goal bar
     left: 10,
     right: 10,
     display: 'flex',
@@ -1389,38 +1413,61 @@ const styles = {
     background: `linear-gradient(90deg, ${COLORS.brandBlueLt}, ${COLORS.orangeLt})`,
     transition: 'width 180ms linear',
   },
-  coinRow: {
+  goalBar: {
     position: 'absolute',
-    top: 58,
+    top: 0,
+    left: 0,
+    right: 0,
+    padding: '7px 10px 6px',
+    textAlign: 'center',
+    background: 'linear-gradient(180deg, rgba(0,61,166,0.92), rgba(0,61,166,0))',
+    pointerEvents: 'none',
+    zIndex: 3,
+  },
+  goalText: {
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    color: '#fff',
+    textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+  },
+  objectiveRow: {
+    // Directly under the pills, inside the reserved HUD band — the field
+    // starts below it, so it can never cover the vault or the chest.
+    position: 'absolute',
+    top: 78,
     left: 10,
     right: 10,
     display: 'flex',
     justifyContent: 'center',
     pointerEvents: 'none',
-    zIndex: 4,
+    zIndex: 5,
   },
-  coinChip: {
-    ...glass,
+  objectiveChip: {
     display: 'flex',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
     borderRadius: 999,
-    padding: '4px 12px',
+    padding: '7px 16px',
+    maxWidth: '100%',
+    background: 'linear-gradient(180deg, rgba(255,138,61,0.96), rgba(242,101,34,0.96))',
+    border: '1px solid rgba(255,255,255,0.35)',
+    boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
   },
-  coinDot: {
-    width: 10,
-    height: 10,
-    borderRadius: '50%',
-    background: 'radial-gradient(circle at 35% 30%, #FFE38A, #B07B12)',
-    boxShadow: '0 0 6px rgba(255,200,69,0.7)',
-    display: 'inline-block',
-  },
-  coinText: {
-    fontSize: 10,
+  objectiveArrow: {
+    fontSize: 13,
     fontWeight: 900,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(255,255,255,0.9)',
+    lineHeight: 1,
+  },
+  objectiveText: {
+    fontSize: 12.5,
+    fontWeight: 900,
+    letterSpacing: '0.02em',
+    color: '#fff',
+    lineHeight: 1.15,
+    textAlign: 'center',
   },
   bannerWrap: {
     position: 'absolute',
@@ -1452,9 +1499,9 @@ const styles = {
   },
   hintWrap: {
     position: 'absolute',
-    bottom: 64,
+    bottom: 12,
     left: 12,
-    right: 12,
+    right: 66, // clear of the mute button
     display: 'flex',
     justifyContent: 'center',
     pointerEvents: 'none',

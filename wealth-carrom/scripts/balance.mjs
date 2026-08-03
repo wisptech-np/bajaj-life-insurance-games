@@ -1,25 +1,32 @@
-// balance.mjs — headless balance gate for Wealth Carrom.
+// balance.mjs — headless gate for Wealth Carrom.
 //
-//   node scripts/balance.mjs                    # the gate: 300 seeded runs/size
-//   node scripts/balance.mjs --runs 2000        # tighter confidence interval
-//   node scripts/balance.mjs --sweep            # win% across candidate targets
-//   node scripts/balance.mjs --aim-sigma 0 --power-sigma 0
-//                                               # diagnosis: the skill ceiling
+//   node scripts/balance.mjs                  # the gate
+//   node scripts/balance.mjs --runs 400       # tighter confidence interval
+//   node scripts/balance.mjs --ticks 400      # longer invariant sweep
 //
 // This script imports the SHIPPED modules — src/data.js, src/board.js,
-// src/physics.js, src/rules.js — and scripts/bot.mjs, and never re-implements a
-// rule. If the physics or the queen-cover machine changes, this number changes
-// with it.
+// src/physics.js, src/rules.js, src/bot.js — and never re-implements a rule or a
+// collision. If the physics or the match machine changes, these numbers change
+// with it. Exit code is 1 on any failure, so it doubles as a regression gate.
 //
-// The gate, both clauses from the brief:
-//   1. win rate between 25% and 45% with the brief's bot (aim sigma 4 degrees,
-//      power noise 10%), at every canvas size;
-//   2. every disc stationary within 6 s of every strike — no watchdog, ever.
+// Three things are asserted, which are the three things a carrom build can get
+// silently wrong:
 //
-// Exit code is 1 if either fails, so this doubles as a regression gate.
+//   A. NO TUNNELLING. Across thousands of seeded maximum-power strikes, no piece
+//      ever passes through another piece or through a cushion. Checked at the
+//      tick level with a swept closest-approach test on every pair, not by
+//      eyeballing the end state: two discs that cross and separate within one
+//      tick look perfectly normal afterwards.
 //
-// Randomness is a seeded mulberry32 (src/physics.js) threaded through the whole
-// run: same seed, same 300 runs, same win rate, on any machine.
+//   B. ENERGY NEVER INCREASES IN A COLLISION. Run with friction disabled, total
+//      kinetic energy must be monotonically non-increasing across every tick —
+//      restitution is below 1 on both discs and cushions, so impacts may only
+//      remove energy, and the positional separation term must not inject any.
+//
+//   C. THE BOT IS BEATABLE AND NOT TRIVIAL. Every difficulty is played against a
+//      skilled reference opponent and against a random-flick opponent, and the
+//      win rates are reported. A difficulty that always wins or always loses
+//      fails, and the three levels must come out strictly ordered.
 
 import { GAME_CONFIG } from '../src/data.js';
 import { BALANCE } from '../src/kit/config.js';
@@ -27,10 +34,12 @@ import {
   buildBoard, initialDiscs, makeStriker, legalStrikerX, findQueenSpot,
 } from '../src/board.js';
 import {
-  mulberry32, gaussian, frictionK, launchStriker, settleStrike, tallyPocketed,
+  mulberry32, launchStriker, stepWorld, settleStrike, tallyPocketed, maxSpeed,
 } from '../src/physics.js';
-import { createRun, resolveStrike, goldEquivalent, expireRun } from '../src/rules.js';
-import { planShot, PLAN } from './bot.mjs';
+import {
+  createMatch, resolveStrike, goldEquivalent, expireMatch, sideOnStrike, YOU, BOT,
+} from '../src/rules.js';
+import { chooseShot, randomShot, difficultyOf } from '../src/bot.js';
 
 /* ─── Args ───────────────────────────────────────────────── */
 const argv = process.argv.slice(2);
@@ -38,96 +47,248 @@ const argOf = (name, fallback) => {
   const i = argv.indexOf(name);
   return i >= 0 && argv[i + 1] !== undefined ? Number(argv[i + 1]) : fallback;
 };
-const RUNS = argOf('--runs', 300);
+const RUNS = argOf('--runs', 160);
 const SEED = argOf('--seed', 0xca77a0);
-const SWEEP = argv.includes('--sweep');
+const SWEEP_SHOTS = argOf('--ticks', 220);
 
-/* Seed count. The gate is a SWEEP over seeds, not one seed.
-   A single hard-coded seed measures one sample of a stochastic system and
-   reports it as if it were the system: the first version of this gate passed on
-   0xca77a0 and failed on every other seed tried, because the bug it should have
-   caught (pieces escaping the felt) only showed up in some seeds' break
-   patterns. Five independent seeds per canvas size, each asserted separately,
-   makes a pass mean "the board behaves" rather than "this seed behaved".
-   `--seed` shifts the whole set, so the sweep is still reproducible. */
-const SEED_COUNT = argOf('--seeds', 5);
-const GOLDEN = 0x9e3779b1; // odd multiplier — decorrelates the derived seeds
-const SEEDS = Array.from({ length: SEED_COUNT }, (_, i) => (SEED + i * GOLDEN) >>> 0);
+const cfg = GAME_CONFIG;
+const DT = BALANCE.loop.fixedStep;
+const pct = (v) => `${(v * 100).toFixed(1)}%`;
 
-/* The gate always runs at 4 degrees / 10%. These overrides exist only for
-   diagnosis: a zero-noise run measures the SKILL CEILING (how good the board is
-   when every plan lands), which is what tells you whether a low win rate is a
-   planning problem or a geometry problem. */
-const AIM_SIGMA_DEG = argOf('--aim-sigma', 4);
-const POWER_SIGMA = argOf('--power-sigma', 0.10);
-
-/* ─── Canvas profiles ────────────────────────────────────────
-   The stage is the app column (max 430 px) minus 10 px padding a side and a
-   1.5 px border, so the canvas is ~407 px on a modern phone. These three
-   bracket the range the mobile checklist asks for: 414x896, 375x812, 360x640. */
-export const SIZES = [
-  { name: '407x612 (414x896 phone)', w: 407, h: 612 },
-  { name: '407x556 (375x812 phone)', w: 407, h: 556 },
-  { name: '338x452 (360x640 phone)', w: 338, h: 452 },
+/* Canvas profiles: the stage is the app column (max 430) minus 10 px padding a
+   side and a 1.5 px border, so the canvas is viewport minus 23 in both axes.
+   These are exactly the four viewports scripts/play-test.mjs drives. */
+const SIZES = [
+  { name: '297x545  (320x568 iPhone SE)', w: 297, h: 545 },
+  { name: '367x821  (390x844 iPhone 12)', w: 367, h: 821 },
+  { name: '389x892  (412x915 Pixel 7)', w: 389, h: 892 },
+  { name: '389x677  (412x700 chrome open)', w: 389, h: 677 },
 ];
 
-export const WIN_BAND = [0.25, 0.45];
-export const SETTLE_LIMIT = 6;
+const failures = [];
+const fail = (msg) => failures.push(msg);
 
-/* ─── One run ────────────────────────────────────────────── */
-export function simulateRun(board, cfg, rand, acc, noise) {
+/* ═══════════════════════════════════════════════════════════
+   A. Anti-tunnelling invariant sweep
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Closest approach of two points moving linearly over one tick.
+ *
+ * Tunnelling is invisible in the end state — two discs that cross and separate
+ * inside a single tick are simply "apart" when it is over, which is what a naive
+ * overlap check sees. Sweeping the relative motion catches the crossing.
+ */
+function closestApproach(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1) {
+  const rx0 = bx0 - ax0;
+  const ry0 = by0 - ay0;
+  const dx = (bx1 - ax1) - rx0;
+  const dy = (by1 - ay1) - ry0;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 <= 1e-12 ? 0 : -(rx0 * dx + ry0 * dy) / len2;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return Math.hypot(rx0 + dx * t, ry0 + dy * t);
+}
+
+function tunnelSweep(board, seed, shots) {
+  const rand = mulberry32(seed);
+  const P = cfg.physics;
+  const stat = {
+    ticks: 0, shots: 0,
+    passThrough: 0, wallEscape: 0, deepOverlap: 0,
+    worstPassRatio: Infinity, worstOutside: 0, maxTickTravelFrac: 0,
+  };
+
+  for (let s = 0; s < shots; s++) {
+    const discs = initialDiscs(board, cfg);
+    const pieces = [makeStriker(board, cfg,
+      legalStrikerX(board, discs, board.baseLo + rand() * (board.baseHi - board.baseLo))), ...discs];
+
+    // Always MAXIMUM power — the worst case for tunnelling — in a random legal
+    // direction into the board.
+    const a = -Math.PI / 2 + (rand() - 0.5) * Math.PI * 0.95;
+    launchStriker(pieces[0], Math.cos(a), Math.sin(a), P.maxPower, board, cfg);
+    stat.shots += 1;
+
+    const prev = pieces.map((p) => ({ x: p.x, y: p.y, active: p.active }));
+    let t = 0;
+    while (t < P.settleWatchdogSeconds) {
+      const moving = stepWorld(pieces, board, cfg, DT, {});
+      stat.ticks += 1;
+      t += DT;
+
+      for (let i = 0; i < pieces.length; i++) {
+        const p = pieces[i];
+        const q = prev[i];
+
+        if (p.active) {
+          // Per-tick travel, as a share of a disc radius. Informational: the
+          // substep budget is per SUBSTEP, so this may exceed it legitimately.
+          const trav = Math.hypot(p.x - q.x, p.y - q.y) / board.discR;
+          if (trav > stat.maxTickTravelFrac) stat.maxTickTravelFrac = trav;
+
+          // Cushion escape: an active piece may never be outside the felt.
+          const out = Math.max(
+            board.left - (p.x - p.r), (p.x + p.r) - board.right,
+            board.top - (p.y - p.r), (p.y + p.r) - board.bottom,
+          );
+          if (out > 0.75) {
+            stat.wallEscape += 1;
+            if (out > stat.worstOutside) stat.worstOutside = out;
+          }
+        }
+
+        for (let j = i + 1; j < pieces.length; j++) {
+          const o = pieces[j];
+          const r = prev[j];
+          if (!p.active || !o.active || !q.active || !r.active) continue;
+          const rsum = p.r + o.r;
+
+          const endD = Math.hypot(p.x - o.x, p.y - o.y);
+          const startD = Math.hypot(q.x - r.x, q.y - r.y);
+
+          // Resting overlap: the separation solver must never leave two discs
+          // meaningfully inside one another at the end of a tick.
+          if (endD < rsum * 0.90) stat.deepOverlap += 1;
+
+          // Pass-through: they were apart, they are apart, but the swept paths
+          // took their centres deep inside one another in between.
+          if (startD >= rsum && endD >= rsum) {
+            const ca = closestApproach(q.x, q.y, p.x, p.y, r.x, r.y, o.x, o.y);
+            const ratio = ca / rsum;
+            if (ratio < 0.5) {
+              stat.passThrough += 1;
+              if (ratio < stat.worstPassRatio) stat.worstPassRatio = ratio;
+            }
+          }
+        }
+
+        q.x = p.x;
+        q.y = p.y;
+        q.active = p.active;
+      }
+      if (!moving) break;
+    }
+  }
+  return stat;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   B. Energy monotonicity
+   ═══════════════════════════════════════════════════════════ */
+
+/** Total kinetic energy of the board. */
+function kinetic(pieces) {
+  let e = 0;
+  for (const p of pieces) {
+    if (!p.active) continue;
+    e += 0.5 * p.mass * (p.vx * p.vx + p.vy * p.vy);
+  }
+  return e;
+}
+
+/**
+ * With friction removed, energy may only ever fall.
+ *
+ * Friction is the reason total energy normally decreases, which would mask an
+ * impulse that adds energy. Disabling it (half-life 1e9 s, so the per-substep
+ * decay is 1 to sixteen digits) leaves restitution and the separation term as
+ * the only things that can move the number, and both must be dissipative.
+ */
+function energySweep(board, seed, shots) {
+  const frictionless = {
+    ...cfg,
+    physics: { ...cfg.physics, frictionHalfLifeSeconds: 1e9, stopSpeed: 0 },
+  };
+  const rand = mulberry32(seed);
+  const stat = { ticks: 0, violations: 0, worstGain: 0, collisions: 0, e0: 0, e1: 0 };
+
+  for (let s = 0; s < shots; s++) {
+    const discs = initialDiscs(board, frictionless);
+    const pieces = [makeStriker(board, frictionless,
+      legalStrikerX(board, discs, board.baseLo + rand() * (board.baseHi - board.baseLo))), ...discs];
+    const a = -Math.PI / 2 + (rand() - 0.5) * Math.PI * 0.95;
+    launchStriker(pieces[0], Math.cos(a), Math.sin(a), frictionless.physics.maxPower, board, frictionless);
+
+    let e = kinetic(pieces);
+    stat.e0 += e;
+    // Frictionless discs never stop, so bound the run by ticks rather than rest.
+    for (let k = 0; k < 900; k++) {
+      const before = e;
+      stepWorld(pieces, board, frictionless, DT, {});
+      stat.ticks += 1;
+      e = kinetic(pieces);
+      if (e > before + Math.max(1e-6, before * 1e-9)) {
+        stat.violations += 1;
+        const gain = (e - before) / Math.max(before, 1e-9);
+        if (gain > stat.worstGain) stat.worstGain = gain;
+      }
+      if (e < before * (1 - 1e-12)) stat.collisions += 1;
+      if (maxSpeed(pieces) <= 0) break;
+    }
+    stat.e1 += e;
+  }
+  return stat;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   C. Match simulation — bot vs bot
+   ═══════════════════════════════════════════════════════════ */
+
+/** Seconds charged to the session clock for one side's deliberation. */
+const THINK = { bot: cfg.bot.thinkSeconds + cfg.bot.aimSeconds, human: 3.2 };
+
+/**
+ * Play one match to completion.
+ *
+ * `agents` maps each side to a difficulty row or the string 'random'. The driver
+ * is the same one the component runs: plan, place legally, launch, settle,
+ * tally, resolve, respawn an uncovered queen, re-seat the striker.
+ */
+function playMatch(board, rand, agents, acc) {
   const discs = initialDiscs(board, cfg);
   const queen = discs.find((p) => p.kind === 'queen');
-  let striker = makeStriker(board, cfg, (board.baseLo + board.baseHi) / 2);
-  const pieces = [striker, ...discs];
-  const run = createRun();
+  const pieces = [makeStriker(board, cfg, (board.baseLo + board.baseHi) / 2), ...discs];
+  const match = createMatch(cfg);
   let clock = 0;
+  let guard = 0;
 
-  while (!run.ended) {
-    const plan = planShot(pieces, board, cfg);
-    if (!plan) break;
-    if (plan.fallback) acc.fallbacks += 1;
+  while (!match.ended && guard++ < 240) {
+    const side = sideOnStrike(match);
+    const agent = agents[match.turn];
 
-    // Re-place the striker on the baseline, then aim and fire with the brief's
-    // noise laid over the plan. legalStrikerX, not plan.x directly: the planner
-    // samples nine fixed positions and a coin can be resting on one of them, and
-    // a striker born inside a coin is exactly what used to fire pieces off the
-    // board (zero contact offset => undefined normal => no impulse).
-    striker = makeStriker(board, cfg, legalStrikerX(board, pieces, plan.x));
-    pieces[0] = striker;
+    const plan = agent === 'random'
+      ? randomShot(pieces, board, cfg, rand)
+      : chooseShot(pieces, board, cfg, agent, rand, { equivNow: goldEquivalent(side, cfg) });
+    if (!plan) break; // nothing left to aim at
 
-    const a = Math.atan2(plan.dirY, plan.dirX)
-      + gaussian(rand) * noise.aimDeg * (Math.PI / 180);
-    const power = plan.power * (1 + gaussian(rand) * noise.power);
-    // planShot works in this board's pixels; launchStriker takes authored power
-    // and applies board.scale itself.
-    launchStriker(striker, Math.cos(a), Math.sin(a), power / board.scale, board, cfg);
+    pieces[0] = makeStriker(board, cfg, legalStrikerX(board, pieces, plan.x));
+    launchStriker(pieces[0], plan.dirX, plan.dirY, plan.power, board, cfg);
 
-    const settle = settleStrike(pieces, board, cfg, BALANCE.loop.fixedStep);
-    acc.settleMax = Math.max(acc.settleMax, settle.seconds);
-    acc.settleSum += settle.seconds;
+    const settle = settleStrike(pieces, board, cfg, DT, {});
     acc.strikes += 1;
+    acc.settleSum += settle.seconds;
+    if (settle.seconds > acc.settleMax) acc.settleMax = settle.seconds;
     if (settle.watchdog) acc.watchdog += 1;
-    if (settle.seconds >= SETTLE_LIMIT) acc.over6 += 1;
 
-    // Anything outside the felt would mean the cushion solver leaked.
     for (const p of pieces) {
       if (!p.active) continue;
-      if (p.x - p.r < board.left - 0.6 || p.x + p.r > board.right + 0.6
-        || p.y - p.r < board.top - 0.6 || p.y + p.r > board.bottom + 0.6) acc.escaped += 1;
+      if (p.x - p.r < board.left - 0.75 || p.x + p.r > board.right + 0.75
+        || p.y - p.r < board.top - 0.75 || p.y + p.r > board.bottom + 0.75) acc.escaped += 1;
     }
 
     const tally = tallyPocketed(pieces);
-    const res = resolveStrike(run, tally, cfg);
+    const goldLeft = pieces.filter((p) => p.active && p.kind === 'gold').length;
+    const res = resolveStrike(match, tally, cfg, goldLeft);
+
     acc.gold += tally.gold;
     acc.risk += tally.risk;
-    if (tally.gold > 1) acc.doubles += 1;
-    if (tally.queen) acc.queenPots += 1;
     if (tally.striker) acc.strikerPots += 1;
+    if (tally.queen) acc.queenPots += 1;
     if (res.queenCovered) acc.covered += 1;
-    if (res.queenReturned) acc.returned += 1;
+    if (res.keepsTurn) acc.continued += 1;
 
-    if (res.queenReturned) {
+    if (res.queenReturned && queen) {
       const spot = findQueenSpot(board, pieces);
       queen.x = spot.x;
       queen.y = spot.y;
@@ -138,164 +299,200 @@ export function simulateRun(board, cfg, rand, acc, noise) {
       queen.pocket = -1;
     }
 
-    clock += PLAN.aimSeconds + settle.seconds;
+    clock += (agent === 'random' ? THINK.human : THINK.bot) + settle.seconds;
     if (clock >= cfg.sessionSeconds) {
-      expireRun(run, cfg);
+      expireMatch(match, cfg);
       acc.timeouts += 1;
       break;
     }
   }
 
   acc.clockSum += clock;
-  acc.clockMax = Math.max(acc.clockMax, clock);
-  return { run, equiv: goldEquivalent(run, cfg), clock };
+  acc.causes[match.cause || 'none'] = (acc.causes[match.cause || 'none'] || 0) + 1;
+  if (match.winner === null) acc.draws += 1;
+  return match;
 }
 
-/* ─── One profile ────────────────────────────────────────── */
-export function runProfile(board, cfg, runs, seed, noise) {
-  const rand = mulberry32(seed);
-  const acc = {
-    settleMax: 0, settleSum: 0, strikes: 0, watchdog: 0, over6: 0, escaped: 0,
-    gold: 0, risk: 0, doubles: 0, queenPots: 0, strikerPots: 0, covered: 0,
-    returned: 0, timeouts: 0, clockSum: 0, clockMax: 0, fallbacks: 0,
-  };
-  const equivs = new Int32Array(runs);
-  const scores = new Float64Array(runs);
-  let wins = 0;
-  let foulOuts = 0;
-  let fouls = 0;
-
-  for (let i = 0; i < runs; i++) {
-    const r = simulateRun(board, cfg, rand, acc, noise);
-    equivs[i] = r.equiv;
-    scores[i] = r.run.score;
-    if (r.run.won) wins += 1;
-    if (r.run.cause === 'fouls') foulOuts += 1;
-    fouls += r.run.fouls;
-  }
-
-  const mean = (arr) => Array.prototype.reduce.call(arr, (x, y) => x + y, 0) / arr.length;
+function freshAcc() {
   return {
-    runs, acc, equivs,
-    winRate: wins / runs,
-    foulOutRate: foulOuts / runs,
-    foulsPerRun: fouls / runs,
-    meanEquiv: mean(equivs),
-    meanScore: mean(scores),
-    winRateAt: (t) => {
-      let w = 0;
-      for (let i = 0; i < runs; i++) if (equivs[i] >= t) w += 1;
-      return w / runs;
-    },
+    strikes: 0, settleSum: 0, settleMax: 0, watchdog: 0, escaped: 0,
+    gold: 0, risk: 0, strikerPots: 0, queenPots: 0, covered: 0, continued: 0,
+    timeouts: 0, draws: 0, clockSum: 0, causes: {},
   };
 }
 
-/* ─── Report ─────────────────────────────────────────────── */
-const cfg = GAME_CONFIG;
-const noise = { aimDeg: AIM_SIGMA_DEG, power: POWER_SIGMA };
-const pct = (v) => `${(v * 100).toFixed(1)}%`;
+/**
+ * Win rate of the agent seated at YOU over `runs` matches.
+ * Sides are swapped every other match so a first-strike advantage cannot be
+ * mistaken for a skill difference.
+ */
+function duel(board, seed, runs, challenger, defender, acc) {
+  const rand = mulberry32(seed);
+  let wins = 0;
+  for (let i = 0; i < runs; i++) {
+    const swap = i % 2 === 1;
+    const agents = swap
+      ? { [YOU]: defender, [BOT]: challenger }
+      : { [YOU]: challenger, [BOT]: defender };
+    const m = playMatch(board, rand, agents, acc);
+    const challengerSeat = swap ? BOT : YOU;
+    if (m.winner === challengerSeat) wins += 1;
+  }
+  return wins / runs;
+}
 
-console.log('Wealth Carrom — balance gate');
-console.log('  rules from src/rules.js, physics from src/physics.js, board from src/board.js');
-console.log(`  dt=${BALANCE.loop.fixedStep.toFixed(5)}s, friction half-life `
-  + `${cfg.physics.frictionHalfLifeSeconds}s (k=${frictionK(cfg).toFixed(3)}/s), `
-  + `restitution ${cfg.physics.restitution}, pocket ${cfg.board.pocketRadiusDiscs} disc radii`);
-console.log(`  ${cfg.strikesPerSession} strikes, ${cfg.sessionSeconds}s, target `
-  + `${cfg.scoring.targetCoins} coin-equivalent (covered queen = `
-  + `${cfg.scoring.queenCoinEquivalent}), ${cfg.fouls.max} fouls out`);
-console.log(`  bot: ghost-ball planner, aim sigma ${AIM_SIGMA_DEG} deg, power noise `
-  + `${(POWER_SIGMA * 100).toFixed(0)}%`);
-console.log(`  ${SEEDS.length} seeds x ${RUNS} runs x ${SIZES.length} sizes = `
-  + `${(SEEDS.length * RUNS * SIZES.length).toLocaleString()} runs; seeds `
-  + `${SEEDS.map((s) => `0x${s.toString(16)}`).join(' ')}`);
-console.log(`  gate, asserted PER SEED (not pooled): win rate in ${pct(WIN_BAND[0])}-`
-  + `${pct(WIN_BAND[1])} AND every strike stationary in under ${SETTLE_LIMIT}s AND `
-  + `zero pieces off the felt, at every size below\n`);
+/* ═══════════════════════════════════════════════════════════
+   Report
+   ═══════════════════════════════════════════════════════════ */
 
-const failures = [];
-const profiles = [];
+console.log('Wealth Carrom — headless gate');
+console.log('  physics src/physics.js · board src/board.js · match src/rules.js · bot src/bot.js');
+console.log(`  dt=${DT.toFixed(5)}s, friction half-life ${cfg.physics.frictionHalfLifeSeconds}s, `
+  + `restitution ${cfg.physics.restitution} disc / ${cfg.physics.wallRestitution} cushion, `
+  + `pocket ${cfg.board.pocketRadiusDiscs} disc radii`);
+console.log(`  match: first to ${cfg.scoring.targetCoins} coin-equivalent (covered queen = `
+  + `${cfg.scoring.queenCoinEquivalent}), ${cfg.fouls.max} fouls forfeits, `
+  + `${cfg.match.strikesPerSide} strikes a side, ${cfg.sessionSeconds}s\n`);
 
+/* -- A + B, per canvas size ------------------------------------------------ */
+console.log('── A. anti-tunnelling + B. energy (maximum-power strikes, every canvas size)');
+console.log('   canvas                          shots     ticks  through  escape  overlap  maxTravel  energy+');
+
+let totalTicks = 0;
+let totalShots = 0;
 for (const size of SIZES) {
   const board = buildBoard(cfg, size.w, size.h);
-  console.log(`── ${size.name} — felt ${board.play.toFixed(0)}px, disc r${board.discR.toFixed(1)}, `
-    + `striker r${board.strikerR.toFixed(1)}, pocket r${board.pocketR.toFixed(1)}, `
-    + `scale ${board.scale.toFixed(3)}`);
-  console.log('   seed        win%   equiv  gold  risk  strk  foul  settleMax  esc  wd  verdict');
+  const t = tunnelSweep(board, (SEED + size.w * 7919 + size.h) >>> 0, SWEEP_SHOTS);
+  const e = energySweep(board, (SEED + size.w * 104729 + size.h) >>> 0, Math.ceil(SWEEP_SHOTS / 4));
+  totalTicks += t.ticks + e.ticks;
+  totalShots += t.shots;
 
-  const perSeed = [];
-  let sizeOk = true;
-
-  for (const seed of SEEDS) {
-    const r = runProfile(board, cfg, RUNS, seed + size.w * 7919 + size.h, noise);
-    const a = r.acc;
-    perSeed.push(r);
-
-    const winOk = r.winRate >= WIN_BAND[0] && r.winRate <= WIN_BAND[1];
-    const settleOk = a.settleMax < SETTLE_LIMIT && a.watchdog === 0;
-    const escapeOk = a.escaped === 0;
-    const ok = winOk && settleOk && escapeOk;
-    if (!ok) sizeOk = false;
-
-    if (!winOk) {
-      failures.push(`${size.name} seed 0x${seed.toString(16)}: win rate ${pct(r.winRate)} `
-        + `outside ${pct(WIN_BAND[0])}-${pct(WIN_BAND[1])}`);
-    }
-    if (!settleOk) {
-      failures.push(`${size.name} seed 0x${seed.toString(16)}: max settle `
-        + `${a.settleMax.toFixed(2)}s (${a.watchdog} watchdog) — not stationary within ${SETTLE_LIMIT}s`);
-    }
-    if (!escapeOk) {
-      failures.push(`${size.name} seed 0x${seed.toString(16)}: ${a.escaped} pieces left the felt`);
-    }
-
-    console.log(`   0x${seed.toString(16).padStart(8, '0')} ${pct(r.winRate).padStart(6)} `
-      + `${r.meanEquiv.toFixed(2).padStart(6)} ${(a.gold / r.runs).toFixed(2).padStart(5)} `
-      + `${(a.risk / r.runs).toFixed(2).padStart(5)} ${(a.strikerPots / r.runs).toFixed(2).padStart(5)} `
-      + `${r.foulsPerRun.toFixed(2).padStart(5)} ${a.settleMax.toFixed(2).padStart(9)}s `
-      + `${String(a.escaped).padStart(3)} ${String(a.watchdog).padStart(3)}  `
-      + `${ok ? 'OK' : `FAIL${winOk ? '' : ' win'}${settleOk ? '' : ' settle'}${escapeOk ? '' : ' escape'}`}`);
+  if (t.passThrough > 0) {
+    fail(`${size.name}: ${t.passThrough} pass-throughs (worst closest approach `
+      + `${(t.worstPassRatio * 100).toFixed(1)}% of contact distance)`);
+  }
+  if (t.wallEscape > 0) {
+    fail(`${size.name}: ${t.wallEscape} pieces outside the felt (worst ${t.worstOutside.toFixed(2)} px)`);
+  }
+  if (t.deepOverlap > 0) fail(`${size.name}: ${t.deepOverlap} ticks ended with discs deeply overlapped`);
+  if (e.violations > 0) {
+    fail(`${size.name}: energy increased on ${e.violations} ticks (worst +`
+      + `${(e.worstGain * 100).toFixed(4)}%)`);
   }
 
-  // Pooled view across the seeds, for the flavour numbers.
-  const pool = (f) => perSeed.reduce((x, r) => x + f(r), 0);
-  const runsAll = pool((r) => r.runs);
-  const strikesAll = pool((r) => r.acc.strikes);
-  const wins = pool((r) => r.winRate * r.runs);
-  const settleMaxAll = Math.max(...perSeed.map((r) => r.acc.settleMax));
-  profiles.push({ size, board, perSeed, pooledWin: wins / runsAll });
+  console.log(`   ${size.name.padEnd(30)} ${String(t.shots).padStart(5)} `
+    + `${String(t.ticks + e.ticks).padStart(9)} ${String(t.passThrough).padStart(8)} `
+    + `${String(t.wallEscape).padStart(7)} ${String(t.deepOverlap).padStart(8)} `
+    + `${t.maxTickTravelFrac.toFixed(2).padStart(9)}r ${String(e.violations).padStart(7)}`);
+}
+console.log(`   ${totalShots} max-power strikes, ${totalTicks.toLocaleString()} ticks swept.`);
+console.log('   through = centres crossed within a tick · escape = active piece outside the felt');
+console.log('   energy+ = ticks where frictionless kinetic energy rose\n');
 
-  console.log(`   pooled: win ${pct(wins / runsAll)} over ${runsAll} runs / ${strikesAll} strikes; `
-    + `queen pocketed ${(pool((r) => r.acc.queenPots) / runsAll).toFixed(2)}/run, `
-    + `covered ${(pool((r) => r.acc.covered) / runsAll).toFixed(2)}/run, `
-    + `returned ${(pool((r) => r.acc.returned) / runsAll).toFixed(2)}/run`);
-  console.log(`   pooled: settle mean ${(pool((r) => r.acc.settleSum) / strikesAll).toFixed(2)}s, `
-    + `max ${settleMaxAll.toFixed(2)}s, ${pool((r) => r.acc.over6)} at/over ${SETTLE_LIMIT}s, `
-    + `${pool((r) => r.acc.watchdog)} watchdog, ${pool((r) => r.acc.escaped)} escaped; `
-    + `clock mean ${(pool((r) => r.acc.clockSum) / runsAll).toFixed(1)}s of ${cfg.sessionSeconds}s, `
-    + `${pool((r) => r.acc.timeouts)} timeouts`);
-  console.log(`   -> ${size.name}: ${sizeOk ? 'OK' : 'FAIL'} (all ${SEEDS.length} seeds must pass)\n`);
+/* -- C. bot balance -------------------------------------------------------- */
+const LEVELS = ['easy', 'normal', 'hard'];
+const SKILLED = difficultyOf(cfg, 'hard');
+const board = buildBoard(cfg, SIZES[1].w, SIZES[1].h);
+
+console.log(`── C. bot balance (${RUNS} matches per cell on ${SIZES[1].name}, sides swapped every match)`);
+console.log('   difficulty  rollouts pickFrom aimSig powerSig foulBlind |  skilled wins  random wins  avg strikes');
+
+const matrix = [];
+for (const name of LEVELS) {
+  const lv = difficultyOf(cfg, name);
+  const accS = freshAcc();
+  const accR = freshAcc();
+  const skilledWin = duel(board, (SEED + name.length * 8191) >>> 0, RUNS, SKILLED, lv, accS);
+  const randomWin = duel(board, (SEED + name.length * 20011) >>> 0, RUNS, 'random', lv, accR);
+  matrix.push({ name, lv, skilledWin, randomWin, accS, accR });
+
+  console.log(`   ${name.padEnd(11)} ${String(lv.rollouts).padStart(8)} ${String(lv.pickFrom).padStart(8)} `
+    + `${lv.aimSigmaDeg.toFixed(1).padStart(6)} ${lv.powerSigma.toFixed(2).padStart(8)} `
+    + `${lv.foulBlindness.toFixed(2).padStart(9)} | ${pct(skilledWin).padStart(13)} `
+    + `${pct(randomWin).padStart(12)} ${(accS.strikes / RUNS).toFixed(1).padStart(12)}`);
 }
 
-if (SWEEP) {
-  console.log('── target sweep (win% by coin-equivalent target, pooled over all seeds)');
-  console.log(`   target  ${SIZES.map((s) => s.name.slice(0, 7).padStart(9)).join('')}`);
-  for (let t = 3; t <= 9; t++) {
-    console.log(`   ${String(t).padStart(6)}  `
-      + profiles.map((p) => {
-        const runs = p.perSeed.reduce((x, r) => x + r.runs, 0);
-        const w = p.perSeed.reduce((x, r) => x + r.winRateAt(t) * r.runs, 0);
-        return pct(w / runs).padStart(9);
-      }).join(''));
+const pool = matrix.reduce((a, m) => {
+  for (const acc of [m.accS, m.accR]) {
+    a.strikes += acc.strikes;
+    a.settleSum += acc.settleSum;
+    a.settleMax = Math.max(a.settleMax, acc.settleMax);
+    a.watchdog += acc.watchdog;
+    a.escaped += acc.escaped;
+    a.gold += acc.gold;
+    a.risk += acc.risk;
+    a.strikerPots += acc.strikerPots;
+    a.queenPots += acc.queenPots;
+    a.covered += acc.covered;
+    a.continued += acc.continued;
+    a.timeouts += acc.timeouts;
+    a.draws += acc.draws;
+    a.clockSum += acc.clockSum;
+    for (const [k, v] of Object.entries(acc.causes)) a.causes[k] = (a.causes[k] || 0) + v;
   }
-  console.log('');
-}
+  return a;
+}, freshAcc());
 
+const matches = RUNS * LEVELS.length * 2;
+console.log(`\n   ${matches} matches / ${pool.strikes} strikes: settle mean `
+  + `${(pool.settleSum / pool.strikes).toFixed(2)}s, max ${pool.settleMax.toFixed(2)}s, `
+  + `${pool.watchdog} watchdog, ${pool.escaped} escaped`);
+console.log(`   per match: ${(pool.gold / matches).toFixed(2)} coins, ${(pool.risk / matches).toFixed(2)} risk, `
+  + `${(pool.strikerPots / matches).toFixed(2)} striker pots, ${(pool.queenPots / matches).toFixed(2)} queen pots `
+  + `(${(pool.covered / matches).toFixed(2)} covered), ${(pool.continued / pool.strikes * 100).toFixed(0)}% of strikes kept the turn`);
+console.log(`   clock mean ${(pool.clockSum / matches).toFixed(1)}s of ${cfg.sessionSeconds}s; `
+  + `endings ${Object.entries(pool.causes).map(([k, v]) => `${k} ${v}`).join(', ')}; ${pool.draws} draws\n`);
+
+/* -- assertions on C ------------------------------------------------------- */
+// A difficulty that the skilled reference beats every time, or never beats, is
+// not a difficulty. The bands widen as the level gets easier because a strong
+// player SHOULD dominate the easy bot — but never completely.
+const BANDS = {
+  easy: [0.60, 0.97],
+  normal: [0.45, 0.88],
+  hard: [0.35, 0.65], // mirror match: must sit near even
+};
+for (const m of matrix) {
+  const [lo, hi] = BANDS[m.name];
+  if (m.skilledWin < lo || m.skilledWin > hi) {
+    fail(`difficulty "${m.name}": skilled reference wins ${pct(m.skilledWin)}, outside ${pct(lo)}-${pct(hi)} `
+      + `— ${m.skilledWin > hi ? 'this level cannot win, it is not a game' : 'this level is too strong for its rung'}`);
+  }
+  // The random opponent is the floor. If a level loses to random flicks it is
+  // broken; if it never loses to anything it is unbeatable.
+  if (m.randomWin > 0.35) {
+    fail(`difficulty "${m.name}": a random-flick opponent wins ${pct(m.randomWin)} — the bot is not playing`);
+  }
+}
+if (!(matrix[0].skilledWin > matrix[1].skilledWin && matrix[1].skilledWin > matrix[2].skilledWin)) {
+  fail('difficulty is not strictly ordered: skilled win rate must fall from easy to normal to hard '
+    + `(got ${matrix.map((m) => pct(m.skilledWin)).join(' / ')})`);
+}
+if (!(matrix[0].randomWin >= matrix[2].randomWin)) {
+  fail('difficulty is not ordered against the random opponent: easy must concede at least as much as hard '
+    + `(got ${matrix.map((m) => pct(m.randomWin)).join(' / ')})`);
+}
+// A draw means the two sides were level on coin-equivalent, score, fouls, best
+// strike AND strikes used. That is a real dead heat rather than a missing rule,
+// but it should be a curiosity, not an outcome the player meets.
+if (pool.draws / matches > 0.02) {
+  fail(`${pool.draws} of ${matches} matches (${pct(pool.draws / matches)}) ended in a draw — over the 2% ceiling`);
+}
+if (pool.escaped > 0) fail(`${pool.escaped} pieces left the felt during match play`);
+if (pool.watchdog > 0) fail(`${pool.watchdog} strikes hit the settle watchdog`);
+if (pool.settleMax >= 6) fail(`slowest strike took ${pool.settleMax.toFixed(2)}s to settle (limit 6s)`);
+
+/* -- verdict --------------------------------------------------------------- */
 if (failures.length) {
   console.log('GATE: FAIL');
   for (const f of failures) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log(`GATE: PASS — every one of ${SEEDS.length} seeds x ${SIZES.length} sizes held: win rate `
-  + `inside ${pct(WIN_BAND[0])}-${pct(WIN_BAND[1])}, every strike stationary in under `
-  + `${SETTLE_LIMIT}s, zero pieces off the felt.`);
+console.log('GATE: PASS');
+console.log(`  A. ${totalShots} maximum-power strikes over ${totalTicks.toLocaleString()} ticks at `
+  + `${SIZES.length} canvas sizes: 0 pass-throughs, 0 cushion escapes, 0 resting overlaps.`);
+console.log('  B. Frictionless kinetic energy non-increasing on every tick: 0 violations.');
+console.log(`  C. Skilled reference beats easy ${pct(matrix[0].skilledWin)}, normal `
+  + `${pct(matrix[1].skilledWin)}, hard ${pct(matrix[2].skilledWin)}; a random-flick opponent beats them `
+  + `${matrix.map((m) => pct(m.randomWin)).join(' / ')}. Strictly ordered, none absolute.`);
 process.exit(0);

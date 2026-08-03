@@ -594,3 +594,236 @@ reachable from it.
 
 **Build:** `pnpm install` + `pnpm build` exit 0 —
 `dist/assets/index-SVgnWzrH.js` 430.53 kB / 143.06 kB gzip, built in 2.25 s.
+
+---
+
+## 2026-08-03 — ground-up rebuild: penalty-save reaction to cover-span defence
+
+The client raised this game twice in the same review, under two names. Both notes
+are handled here as one job.
+
+> **Goal Keeper** — "The entire game concept and execution are incorrect."
+> Rebuild the gameplay from the ground up. Clearly define the player objective
+> and controls. Improve movement, ball physics, scoring and difficulty
+> progression. Introduce a meaningful insurance-related concept instead of
+> adding insurance only as surface-level branding.
+
+> **Goal Area** — "The game looks completely AI-generated and lacks visual
+> identity." Replace the assets and environment. More polished and intentional
+> art direction. Improve character design, backgrounds, animations, UI and
+> overall game flow.
+
+### What was wrong
+
+The old build was a penalty-save reaction game: ten penalties, a 400 ms telegraph
+that lied on one shot in five, swipe to dive into one of six zones, six saves to
+win. Two things were fatal.
+
+**The concept was a guessing game wearing a policy.** The keeper had gloves and a
+shield power-up and the banners behind the net read CHILD'S EDUCATION, but the
+insurance was entirely nominal: strip the labels off and it is a penalty
+shootout. A player made one decision per shot — which corner — and the answer was
+hidden from them 20% of the time on purpose. Nothing in the rules resembled
+buying cover, holding cover, or being caught without it. The client's phrase for
+this was "surface-level branding" and it was accurate.
+
+**The art was generic-dark-game.** Centred composition, gradients and glows
+wherever a shape needed emphasis, no consistent light direction (the keeper lit
+from the front, the posts from nowhere, the ball carrying a radial highlight
+pointing a third way), a five-hue palette in which every colour competed for the
+same attention, and a type scale running 8 px to 34 px with no system. The old
+asset sheet had a strong motif written down (silk-screened match poster) that the
+renderer never implemented.
+
+### The concept, and why it is insurance rather than branding
+
+**Cover the goal line.** The goal mouth is the interval u in [0,1]. The player
+owns a SPAN on it — a bar of light whose HALF-WIDTH is their sum assured — and
+steers it with a drag. A ball inside the span is saved; a ball outside it goes
+past into whichever of the family's three goals owns that third of the mouth.
+
+The span cannot be earned by playing well. It only narrows: the term runs down
+every second (decayPerSec 0.015 to 0.033 across the phases), and every claim paid
+draws it down (claimCost 0.014). The only way back is RENEW, which costs a
+premium — three held, one arriving every 2.5 s. Let it reach zero and it has
+LAPSED: restarting costs two premiums, not one, because a lapsed policy is
+re-underwritten rather than simply paid up.
+
+And the rule the whole thing rests on: **renewal is LOCKED once any ball is past
+55% of its flight.** Steering is untouched — reacting is skill — but you cannot
+buy cover for a claim that is already in the air.
+
+Full cover spans 44% of the mouth and volleys are generated wider than that, so
+under-insurance is geometry rather than a difficulty setting. Loss is per goal:
+six funding pips each, and losing every pip on any ONE goal ends the match, so
+"which goal can I afford to leave open" is a decision the player makes over and
+over rather than once.
+
+That is the difference from the old build. There, insurance was a label on the
+banners. Here every rule in src/cover.js is an insurance rule, and the balance
+gate measures each one instead of asserting it:
+
+| Claim | Measured, 300 seeds |
+|---|---|
+| Cover is bought before the event or not at all | the lock blocks a constantly-tapping bot 1,813.7x/run and a modelled casual player 6.4x/run |
+| Cover lapses if you do not renew | perfect positioning + never renewing wins 0.0%; identical positioning with renewals wins 99.3% |
+| A lapsed policy pays nothing | isCovered requires half > 0 (see below) |
+| A lapse costs more to restart | lapse-only probe bot: 100% of its 9.2 renewals/run charged at x2 |
+| You cannot insure everything | full span 44% of the mouth vs volley spread to 48% |
+
+One finding worth recording. The first tuned build measured a **41% win rate for
+a bot that never bought any cover at all**. isCovered was `|u - centre| <= half`,
+and a bot that steers exactly at each ball makes that true even at `half === 0`.
+Standing in precisely the right place is not insurance, and the fix —
+`world.half > 0 &&` — dropped that strategy to 0.0%. It is the single line that
+makes the premium economy load-bearing rather than decorative, and the gate now
+fails if the never-renews bot ever matches skilled again.
+
+### Anti-duplication check
+
+Run against `C:/Users/Diwakar.Adhikari01/Desktop/bajaj-game-store/GAMES_CATALOG.md`
+(33 deployed) and `scripts/games-manifest.json` (37 new + 2 revamps) before
+committing to the design. No row anywhere uses a **resource-managed cover span
+with a renewal economy**. Nearest neighbours, and why each is genuinely different:
+
+- `guardian-shelter` — place shields, press GO, watch a storm. Static
+  pre-placement physics; this is continuous real-time control plus an economy.
+- `health-shield` — Breakout. A fixed-size paddle breaking bricks; here the
+  paddle's WIDTH is the scarce resource, bought with premiums and consumed by
+  claims, and simultaneous volleys make width rather than position the decision.
+- `perfect-premium` — stop-the-marker timing. One axis, no spatial defence.
+- `cover-drive` — the repo's other sports title (cricket timing). Different
+  mechanic, and its art direction (broadcast realism) is deliberately not this
+  one's.
+- The old `goal-keeper` row (penalty-save, swipe-to-dive) is replaced, not
+  duplicated; its manifest entry needs updating by the coordinator.
+
+### Art direction
+
+Flat silk-screened match poster, this time actually implemented rather than only
+written down, and enforced as three rules:
+
+1. **ONE light source.** A floodlight pylon high and to the LEFT, drawn in the
+   scene. Every lit face in GoalKeeperGame.jsx is the left face; every contact
+   shadow (striker, ball, banner plate) is offset down and to the right. No rim
+   light, no second key, and the only gradients in the game are the sky, the
+   turf, the flood cone and the cover bar's own body.
+2. **Five hues, one job each.** CYAN #00A3E0 is cover and nothing else — the
+   span, its column of light, the premium pips. CRIMSON #EF4444 is risk and
+   nothing else — strikers, crosshairs, tracers, a goal conceded. GREEN is a
+   save. GOLD is the family's goals. WHITE INK is structure. Brand orange
+   #F26522 was RETIRED from this game: it sat two steps from the crimson risk
+   hue and made the one colour a player must read instantly ambiguous.
+3. **A composition with a fixed vertical rhythm**, not a centred pile: sky and
+   pylon (5.8%), stand (9.4%), a brand-blue hoarding with a printed chevron
+   rhythm (3.8%), a long deliberately empty pitch, the goal line at 67.2% as the
+   single hard horizontal in the frame, the net band with the family's banners,
+   and the control strip under the thumb. Touchlines and mown stripes converge on
+   one vanishing point. Three type steps, one family.
+
+The hero element is the cover span itself: a cyan bar with square bracket ends (a
+dimension marker, not a glow) throwing a translucent column up the pitch to the
+lock line, so a player can SEE whether an incoming ball is inside their policy.
+The Home hero and the How-to-Play demo are rebuilt from the same construction, so
+both screens preview the game rather than illustrate it. asset-from-here.md was
+rewritten from scratch to match — the old sheet described a keeper, a shield
+glove and a six-zone grid that no longer exist.
+
+Three art passes were driven by reading the play-test screenshots rather than by
+assertion. Pass 1 exposed 22% of the canvas as dead black stand and float text
+piling into unreadable soup. Pass 2 fixed the vertical rhythm and added the pylon
+and hoarding but left a 21% dead band between the net and the strip. Pass 3
+closed that, put the score text on a rolling three-row cycle so three impacts
+inside one 0.85 s window never share a baseline, and dropped the concede label
+entirely (the pip going out, the banner flash and the shake already point at the
+goal that was hit).
+
+### Tutorial
+
+Two layers, per the client's standing request:
+
+1. **How to Play** — one 4.8 s SVG loop of the real game in the order it happens:
+   the meter runs down, a tap renews it, crosshairs appear, the thumb drags the
+   span across, the lock line turns crimson, the covered shot is saved. Three
+   icon-led cues of four words or fewer.
+2. **In-game coach marks** — three, each fired once and each tied to the moment
+   its rule first matters: "DRAG TO MOVE YOUR COVER" during the kickoff beat
+   (with a moving finger), "TAP TO RENEW" the first time the policy drops below
+   55%, "TOO LATE TO COVER" the first time a renewal is blocked by the lock.
+
+### Files
+
+Rewritten: src/data.js, src/rules.js, src/GoalKeeperGame.jsx, src/Screens.jsx,
+scripts/balance.mjs, README.md, asset-from-here.md, okf-brain/goal-keeper/index.md.
+Added: src/cover.js. Deleted: src/shots.js. Touched: src/App.jsx (theme colours),
+src/index.css (body background), index.html (theme-color),
+src/LeadCaptureModal.jsx (one line of copy that still read "To see your shelter
+score" — inherited from guardian-shelter and never updated).
+
+Untouched: src/kit/, src/api.js, src/services/, src/utils/,
+src/SlotBookingModal.jsx, src/ThankYouScreen.jsx, the screen flow, the LMS
+integration and playCount. Lead form remains Name + Mobile only.
+
+### Verification
+
+`node scripts/balance.mjs --runs 300 --sweep` — seed 0x60a1c0de, 8.33 ms fixed
+step (the shipped step from kit/config.js), driving the shipped cover.js /
+rules.js / data.js. Exit 0, **GATE PASSED**.
+
+```
+  MATCH PLAN
+    waves 10283  balls 14827   1-ball 6003  2-ball 4016  3-ball 264
+    balls outside the mouth 0 · inside the edge inset 0 · waves past the cap 0
+    plan ends at 77.0-79.2s (mean 78.0s) against an 84s cap
+
+  COVER GEOMETRY
+    full span covers 44% of the mouth
+    slew 0.72/s · premium every 2.5s, 3 held · lapse restart costs 2
+    WARM UP    warning 1.80s -> reach 130% of the mouth  policy zero in 14.7s  save rate 100.0%
+    PRESSURE   warning 1.58s -> reach 114%               policy zero in 10.7s  save rate  99.5%
+    SQUEEZE    warning 1.43s -> reach 103%               policy zero in  8.8s  save rate  91.7%
+    VOLLEY     warning 1.29s -> reach  93%               policy zero in  7.6s  save rate  83.2%
+    FULL TIME  warning 1.17s -> reach  84%               policy zero in  6.8s  save rate  73.2%
+
+  BOTS
+    skilled        win  99.3%   score 8085-13685 (p50 10560)  conceded mean 6.5   renewals 33.3/run
+    casual         win  61.3%   score 3880-13355 (p50  8175)  conceded mean 10.0  blocked by lock 6.4/run
+    idle           win   0.0%   dead at 29.0s mean (16.5-41.9s), 0.7 saves/run
+    lock-ignoring  win  99.3%   blocked by lock 1813.7/run
+    never-renews   win   0.0%   identical positioning to skilled, no premiums spent
+    lapse-only     win  36.7%   9.2 renewals/run, all 9.2 charged the lapse restart cost
+
+  RESULT RING   target 9000 vs best skilled score 13685
+
+  REACTION SENSITIVITY (casual bot, 120 runs each)
+    150ms 69.2%   220ms 60.0%   300ms 65.0%   380ms 65.0%   460ms 60.8%   560ms 58.3%
+```
+
+Gates: skilled >= 90% pass · casual 35-70% pass · idle 0% and never reaches full
+time pass · plan inside the session cap pass · ring target reachable pass ·
+premium economy and renewal lock both measurably load-bearing pass · lapse
+restart charged pass.
+
+The reaction sweep is deliberately flat (58-69% across 150-560 ms). This is not a
+reflex game: the telegraph is honest and the span is slew-limited, so a slower
+thumb loses a little positioning quality and no information at all. What
+separates players is the cover economy, not their reaction time — the correct
+shape for a marketing-funnel title, and exactly what the concept claims.
+
+`npx vite build` (mode uat) — exit 0. dist/assets/index-C8ycMH31.js **427.02 kB /
+141.78 kB gzip**, css 33.60 kB / 6.90 kB gzip, built in 4.5 s.
+
+`node scripts/play-test.mjs goal-keeper --all-sizes` — **4/4 ok, zero console or
+page errors at any size.**
+
+```
+320x568  canvas 320x521  painted 100.0%  run ended after 31s  retry ok, canvas back
+390x844  canvas 390x797  painted 100.0%  run ended after 44s  retry ok, canvas back
+412x915  canvas 412x868  painted 100.0%  run ended after 42s  retry ok, canvas back
+412x700  canvas 412x653  painted 100.0%  run ended after 37s  retry ok, canvas back
+```
+
+The random-input bot survives 31-44 s — comfortably past the 20 s smell threshold
+and consistent with the casual band: swiping at random keeps the span roughly
+where the shots are but never renews on purpose, so it dies to a lapsed policy in
+the back half rather than instantly.

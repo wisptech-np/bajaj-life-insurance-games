@@ -41,7 +41,6 @@ Only BajajLife-approved concepts are kept in this repository.
 | `milestone-hopper/` | Milestone Hopper | 5038 |
 | `wealth-drop/` | Wealth Drop | 5039 |
 | `portfolio-fit/` | Portfolio Fit | 5044 |
-| `ripple-shield/` | Ripple Shield | 5046 |
 | `steady-tower/` | Steady Tower | 5047 |
 | `spiral-sprint/` | Spiral Sprint | 5048 |
 | `goal-orbit/` | Goal Orbit | 5050 |
@@ -59,7 +58,6 @@ Only BajajLife-approved concepts are kept in this repository.
 | `steady-wings/` | Steady Wings | 5065 |
 | `premium-pulse/` | Premium Pulse | 5066 |
 | `smart-recall/` | Smart Recall | 5067 |
-| `goal-juggler/` | Goal Juggler | 5068 |
 | `life-rush/` | Life Rush | 5069 |
 | `guardian-arena/` | Guardian Arena | 5070 |
 | `premium-tiles/` | Premium Tiles | 5071 |
@@ -67,10 +65,8 @@ Only BajajLife-approved concepts are kept in this repository.
 | `risk-slash/` | Risk Slash | 5073 |
 | `sip-stack/` | SIP Stack | 5074 |
 | `legacy-echo/` | Legacy Echo | 5075 |
-| `time-shield/` | Time Shield | 5076 |
 | `ring-fence/` | Ring-Fence | 5077 |
 | `risk-radar/` | Risk Radar | 5078 |
-| `dual-cover/` | Dual Cover | 5079 |
 
 Approved but not yet scaffolded: `balance-block-journey` (5031), `shield-cascade` (5036).
 
@@ -78,10 +74,13 @@ Batch 6 (`guardian-arena` through `sip-stack`, ports 5070–5074) is **proposed 
 BajajLife sign-off** — viral-genre concepts (arena survivor, piano tiles, drop-merge, slicer,
 stack tower) built to the full GAME_STANDARD scaffold.
 
-Batch 7 (`legacy-echo` through `dual-cover`, ports 5075–5079) is **proposed and pending
-BajajLife sign-off** — rare-mechanic concepts (time-loop ghost co-op, SUPERHOT time rule,
-Qix territory capture, sonar darkness navigation, twin-orbit dodger), each with a headless
-`gate.mjs` fairness/solvability proof.
+Batch 7 (`legacy-echo`, `ring-fence`, `risk-radar`; ports 5075, 5077, 5078) is **proposed and
+pending BajajLife sign-off** — rare-mechanic concepts (time-loop ghost co-op, Qix territory
+capture, sonar darkness navigation), each with a headless `gate.mjs` fairness/solvability proof.
+
+Dropped by the 2026-08-03 review and deleted from the repo: `dual-cover` (5079),
+`goal-juggler` (5068), `ripple-shield` (5046), `time-shield` (5076). Their ports are retired,
+not reused.
 
 ## Project Structure
 
@@ -109,6 +108,24 @@ Edit `shared/game-kit/` — never a game's `src/kit/` copy.
 
 `shared/game-kit/config.js` is the central balance configuration: physics, difficulty, scoring
 weights and effect intensity all live there.
+
+## Play-testing a game
+
+Each game's own `scripts/balance.mjs` proves the **rules** are fair, headlessly. It cannot tell
+you whether the thing a reviewer opens on a phone actually plays — both games reported as "not
+working" in the 2026-08-03 review built clean and passed their balance gates, then ended the run
+in eleven and eighteen seconds. `scripts/play-test.mjs` is the check for that:
+
+    npm i --no-save puppeteer-core            # once, at the repo root
+    cd <game> && npx vite build && cd ..
+    node scripts/play-test.mjs <game>                 # one handset
+    node scripts/play-test.mjs <game> --all-sizes     # 320x568 through 412x915
+
+It serves the production `dist/`, drives real touch input in headless Chrome, and reports console
+and page errors, whether the canvas mounted and painted, how long a random-input bot survives,
+and whether the results screen and retry path work. Screenshots land in the game folder
+(gitignored). Exit code is non-zero only for a hard failure — a thrown error or a canvas that
+never mounted; a short run is flagged as a smell to check against `balance.mjs`, not a failure.
 
 ## Documentation
 

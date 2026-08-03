@@ -91,27 +91,59 @@ export const GAME_CONFIG = {
   sessionSeconds: 120,
   cols: 7,
   totalRows: 48,
-  milestoneRows: {
-    8: 'Graduation',
-    16: 'First Job',
-    24: 'Marriage',
-    32: 'Home',
-    40: 'Child',
-    48: 'Retirement',
+
+  /* Milestone gates. Each one is a named life goal that BANKS a rupee corpus and
+     pays a reward, so progression and the insurance concept are the same thing
+     rather than a label on a green band. `milestoneRows` is derived below and
+     kept only because generation and rendering index gates by row. */
+  milestones: [
+    { row: 8, label: 'Graduation', goal: 'Education fund', corpus: 500000, corpusLabel: '₹5 L' },
+    { row: 16, label: 'First Job', goal: 'First term cover', corpus: 1000000, corpusLabel: '₹10 L' },
+    { row: 24, label: 'Marriage', goal: 'Family cover', corpus: 2500000, corpusLabel: '₹25 L' },
+    { row: 32, label: 'Home', goal: 'Home loan cover', corpus: 5000000, corpusLabel: '₹50 L' },
+    { row: 40, label: 'Child', goal: 'Child education', corpus: 7500000, corpusLabel: '₹75 L' },
+    { row: 48, label: 'Retirement', goal: 'Retirement corpus', corpus: 10000000, corpusLabel: '₹1 Cr' },
+  ],
+
+  /* What a gate PAYS, over and above the score. All three are on-theme: your
+     cover renews at every life stage, protection buys back time, and a secured
+     goal compounds everything you earn after it. */
+  rewards: {
+    // Every gate hands back an active cover token (a spent one is restored).
+    coverOnMilestone: true,
+    // Seconds added to the session clock per gate.
+    timeSeconds: 8,
+    // Row and coin score multiply by 1 + gatesReached * this.
+    multiplierPerMilestone: 0.25,
   },
 
   hop: {
-    seconds: 0.12,
-    arcHeight: 14,
-    // One buffered input while airborne. Chaining buffered hops is deliberately
-    // allowed — the from/to occupancy switch at t=0.5 (see the component) means
-    // a chained hopper still occupies a cell every frame, so it cannot phase
-    // through a road untouched.
-    bufferOne: true,
+    // 115 ms of commitment. Short enough that the third tap of a chain is never
+    // waiting on the first, long enough for the arc to read as a hop.
+    seconds: 0.115,
+    // Arc height as a FRACTION OF A CELL, not absolute px. The old 14 px was
+    // 30% of a cell on a 320 px handset and 24% on a 412 px one: the same hop
+    // read differently per device, and on the large one it read as a slide.
+    arcCellFrac: 0.5,
+    // How many inputs can be held while airborne. One was not enough: a player
+    // double-tapping to cross a lane lost the second tap, which is exactly the
+    // moment they most need it. The most recent input always survives.
+    bufferDepth: 2,
     // Blocked-hop bump: how far the guardian leans into the obstacle, and for
     // how long, before springing back.
     bumpPx: 7,
     bumpSeconds: 0.16,
+    // Tide forgiveness while airborne (see component `tideRowOf`). A hop that
+    // was legal when it started is not retro-killed by the tide reaching the
+    // cell you have already left.
+    coyoteRows: true,
+  },
+
+  input: {
+    // Direction is resolved on POINTER DOWN from where the thumb landed, so a
+    // hop never waits for the finger to lift. Outer `sideZoneFrac` of the canvas
+    // width on each side hops sideways; everything between hops forward.
+    sideZoneFrac: 0.24,
   },
 
   roads: {
@@ -119,6 +151,16 @@ export const GAME_CONFIG = {
     maxSpeed: 220,
     minGapCells: 2.2,
     maxWeights: 4,
+
+    // -- second obstacle: the HEAVY lane -----------------------------------
+    // A share of expense lanes carry one wide, slow EMI block instead of a
+    // stream of small weights. Same colour grammar, completely different dodge:
+    // a small weight is a timing gap, a heavy block is a wall you go around.
+    heavyChance: 0.34,
+    heavyCells: 1.95,
+    heavySpeedFactor: 0.6,
+    heavyHitCells: 0.95,
+    heavyMaxCount: 2,
 
     // -- derived spacing guard rails (CORRECTION) --------------------------
     // Lane speeds are authored in px/s at this reference cell width, then
@@ -204,6 +246,13 @@ export const GAME_CONFIG = {
   pickups: {
     coinChance: 0.15,
     shieldPerSegment: 1,
+    // The run begins with cover already in force. It is the single cheapest
+    // thing that fixes the first-timer experience — a blind first hop onto an
+    // expense lane used to end the session in about three seconds, which is a
+    // terrible first impression for a funnel game — and it is exactly the point
+    // the game is making: you start covered, debt spends that cover, and every
+    // life milestone renews it.
+    startWithCover: true,
     // A shield that only absorbs the hit leaves the guardian standing on the
     // weight that just spent it, so the next frame kills them anyway. The
     // invulnerability window is what makes the token a save rather than a stay
@@ -248,22 +297,55 @@ export const GAME_CONFIG = {
     hitParticles: 18,
     milestoneParticles: 22,
     winParticles: 40,
-    bannerSeconds: 1.8,
+    bannerSeconds: 2.2,
+    // Gold shockwave ring thrown out of a gate as it banks.
+    gateRingSeconds: 0.7,
+    // How long the gate-approach glow builds over, in rows.
+    gateGlowRows: 4,
   },
 
   hud: {
     // Beat between the run ending on screen and the results screen appearing.
     endBeatMs: 600,
     lowTimeSeconds: 15,
+    // Corpus counter lerp — same feel as the score counter.
+    corpusLerpPerSecond: 7,
   },
 };
 
-/** Milestones as an ordered list — the shape the Results screen wants. */
-export const MILESTONE_LIST = Object.keys(GAME_CONFIG.milestoneRows)
-  .map((row) => ({ row: Number(row), label: GAME_CONFIG.milestoneRows[row] }))
-  .sort((a, b) => a.row - b.row);
+/** Milestones as an ordered list — the shape the Screens want. */
+export const MILESTONE_LIST = GAME_CONFIG.milestones;
+
+/** row -> label, the index generation and rendering use. Derived so the gate
+    table has exactly one source of truth. */
+GAME_CONFIG.milestoneRows = Object.fromEntries(
+  GAME_CONFIG.milestones.map((m) => [m.row, m.label]),
+);
+
+/** row -> full gate record, for the reward payout at landing. */
+export const MILESTONE_BY_ROW = Object.fromEntries(
+  GAME_CONFIG.milestones.map((m) => [m.row, m]),
+);
+
+/** Total corpus a complete run banks: ₹2.65 Cr. */
+export const TOTAL_CORPUS = GAME_CONFIG.milestones.reduce((a, m) => a + m.corpus, 0);
+
+/** Multiplier label with no trailing zeros: 1 -> "1", 1.5 -> "1.5", 1.25 -> "1.25". */
+export const formatMult = (m) => String(Number(m.toFixed(2)));
+
+/** Short ₹ label for a rupee amount — L above a lakh, Cr above a crore. */
+export function formatCorpus(n) {
+  if (n >= 10000000) {
+    const v = n / 10000000;
+    return `₹${v % 1 === 0 ? v : v.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')} Cr`;
+  }
+  if (n >= 100000) return `₹${Math.round(n / 100000)} L`;
+  if (n >= 1000) return `₹${Math.round(n / 1000)} K`;
+  return `₹${n}`;
+}
 
 /** Score the Results ring treats as a full circle.
-    A completed run measures ~2,750: 480 (48 rows) + 1,800 (6 milestones)
-    + ~200 (coins) + ~270 (time bonus). See README "Balance notes". */
-export const RESULT_TARGET_SCORE = 2800;
+    A completed run with the compounding multiplier measures ~3,900:
+    ~1,000 (48 rows, compounded) + 1,800 (6 gates) + ~450 (coins, compounded)
+    + ~650 (time bonus, now boosted by the +8 s per gate). See README. */
+export const RESULT_TARGET_SCORE = 3900;
