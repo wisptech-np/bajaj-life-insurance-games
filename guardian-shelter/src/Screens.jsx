@@ -192,17 +192,13 @@ export function HomeScreen({ onStart }) {
           {/* Storm Clouds at the top */}
           <path d="M 40 45 a 15 15 0 0 1 20 -5 a 22 22 0 0 1 35 -10 a 22 22 0 0 1 35 10 a 15 15 0 0 1 20 5 L 150 55 L 50 55 Z" fill="rgba(255,255,255,0.15)" />
           
-          {/* Falling virus particles */}
+          {/* Falling acid rain droplets */}
           <g transform="translate(60, 68)">
-            <circle cx="0" cy="0" r="10" fill="#49E24B" />
-            <path d="M-13,0 L13,0 M0,-13 L0,13 M-9,-9 L9,9 M-9,9 L9,-9" stroke="#49E24B" strokeWidth="2.5" />
-            <circle cx="0" cy="0" r="6" fill="#0E5C1D" />
+            <path d="M0,-12 C5,-5 8,0 8,5 A 8 8 0 0 1 -8,5 C-8,0 -5,-5 0,-12 Z" fill="#49E24B" />
           </g>
 
           <g transform="translate(140, 75)">
-            <circle cx="0" cy="0" r="7" fill="#49E24B" />
-            <path d="M-9,0 L9,0 M0,-9 L0,9 M-6,-6 L6,6 M-6,6 L6,-6" stroke="#49E24B" strokeWidth="2" />
-            <circle cx="0" cy="0" r="4" fill="#0E5C1D" />
+            <path d="M0,-9 C4,-4 6,0 6,4 A 6 6 0 0 1 -6,4 C-6,0 -4,-4 0,-9 Z" fill="#49E24B" />
           </g>
 
           {/* Protective Umbrella (Blue, Glossy) */}
@@ -363,7 +359,7 @@ export function HowToPlayScreen({ onPlay }) {
               24%, 46%  { opacity: 0.85; }
               52%, 100% { opacity: 0; }
             }
-            @keyframes gsVirus {
+            @keyframes gsRaindrop {
               0%, 56%   { transform: translate(-4px, -74px); opacity: 0; }
               60%       { transform: translate(-4px, -68px); opacity: 1; }
               76%       { transform: translate(0px, 0px);    opacity: 1; }
@@ -465,14 +461,12 @@ export function HowToPlayScreen({ onPlay }) {
           <div style={{
             position: 'absolute', bottom: 98, left: 'calc(50% - 9px)',
             width: 18, height: 18,
-            animation: 'gsVirus 4.2s ease-in-out infinite',
+            animation: 'gsRaindrop 4.2s ease-in-out infinite',
             filter: 'drop-shadow(0 0 5px rgba(73,226,75,0.9))',
             zIndex: 4
           }}>
             <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M1,8 L15,8 M8,1 L8,15 M3,3 L13,13 M3,13 L13,3" stroke="#49E24B" strokeWidth="1.8" />
-              <circle cx="8" cy="8" r="5.5" fill="#49E24B" />
-              <circle cx="8" cy="8" r="3" fill="#0E5C1D" />
+              <path d="M8,1 C11,6 13,10 13,12 A 5 5 0 0 1 3,12 C3,10 5,6 8,1 Z" fill="#49E24B" />
             </svg>
           </div>
         </div>
@@ -512,8 +506,8 @@ export function HowToPlayScreen({ onPlay }) {
               label: 'DEFLECT',
               icon: (
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="8" cy="8" r="4" fill="rgba(73,226,75,0.3)" />
-                  <path d="M4 8h8M8 4v8M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" />
+                  <path d="M8,2 C10,5 11,7 11,8 A 3 3 0 0 1 5,8 C5,7 6,5 8,2 Z" fill="rgba(73,226,75,0.3)" />
+                  <path d="M4 12h8M8 8v8" />
                   <path d="M13 15l7 6M20 13l-7 8" />
                 </svg>
               ),

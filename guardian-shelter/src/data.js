@@ -7,8 +7,8 @@ export const COLORS = {
   orange: '#F26522',
   orangeBright: '#FF8A3D',
   green: '#28A745',
-  virus: '#49E24B',
-  virusDeep: '#0E5C1D',
+  acid: '#49E24B',
+  acidDeep: '#0E5C1D',
   bgTop: '#051a3a',
   bgMid: '#0e3a74',
 };
@@ -24,10 +24,10 @@ export const GAME_CONFIG = {
 
   // Physics (logical px/s)
   gravity: 1500,
-  virusRadius: 9,
-  virusRestitution: 0.5,
-  virusMaxBounces: 4,
-  virusLifeSeconds: 4.5,
+  acidRadius: 9,
+  acidRestitution: 0.5,
+  acidMaxBounces: 4,
+  acidLifeSeconds: 4.5,
 
   // Playfield geometry (logical units)
   fieldWidth: 400,
@@ -38,9 +38,9 @@ export const GAME_CONFIG = {
 };
 
 // Shield archetypes — collision boxes are AABB for support/stacking.
-// Umbrella additionally deflects viruses with its dome circle for satisfying bounces.
+// Umbrella additionally deflects acid drops with its dome circle for satisfying bounces.
 export const SHIELD_TYPES = {
-  umbrella: { w: 74, h: 64, domeR: 37, label: 'Umbrella' },
+  umbrella: { w: 90, h: 64, domeR: 45, label: 'Umbrella' },
   crate:    { w: 52, h: 52, label: 'Crate' },
   barrel:   { w: 46, h: 56, label: 'Barrel' },
 };
@@ -71,7 +71,7 @@ export const LEVELS = [
       { type: 'mom', x: 108, on: 'ground' },
       { type: 'dad', x: 292, on: 'ground' },
     ],
-    platforms: [],
+    platforms: [{ x: 200, y: 380, w: 32, h: 64 }],
     shields: ['umbrella', 'umbrella'],
     storm: { passes: 1, speed: 130, spawnEvery: 0.19, drift: 20 },
   },
@@ -81,7 +81,10 @@ export const LEVELS = [
       { type: 'kid', x: 96, on: 'ground' },
       { type: 'dad', x: 300, on: 0 },
     ],
-    platforms: [{ x: 238, y: 356, w: 126, h: 18 }],
+    platforms: [
+      { x: 238, y: 356, w: 126, h: 18 },
+      { x: 120, y: 180, w: 80, h: 14 }
+    ],
     shields: ['umbrella', 'crate'],
     storm: { passes: 1, speed: 130, spawnEvery: 0.17, drift: 30 },
   },
@@ -92,7 +95,10 @@ export const LEVELS = [
       { type: 'kid', x: 202, on: 'ground' },
       { type: 'mom', x: 338, on: 'ground' },
     ],
-    platforms: [],
+    platforms: [
+      { x: 200, y: 430, w: 40, h: 64 },
+      { x: 110, y: 380, w: 50, h: 16 }
+    ],
     shields: ['umbrella', 'crate', 'barrel'],
     storm: { passes: 1, speed: 140, spawnEvery: 0.15, drift: 45 },
   },
@@ -103,7 +109,10 @@ export const LEVELS = [
       { type: 'grandpa', x: 210, on: 'ground' },
       { type: 'dad', x: 330, on: 'ground' },
     ],
-    platforms: [{ x: 40, y: 338, w: 118, h: 18 }],
+    platforms: [
+      { x: 40, y: 338, w: 118, h: 18 },
+      { x: 200, y: 160, w: 60, h: 16 }
+    ],
     shields: ['umbrella', 'umbrella', 'crate'],
     storm: { passes: 2, speed: 165, spawnEvery: 0.15, drift: 55 },
   },
@@ -115,7 +124,12 @@ export const LEVELS = [
       { type: 'mom', x: 252, on: 0 },
       { type: 'grandpa', x: 344, on: 'ground' },
     ],
-    platforms: [{ x: 196, y: 350, w: 116, h: 18 }],
+    platforms: [
+      { x: 196, y: 350, w: 116, h: 18 },
+      { x: 80, y: 350, w: 60, h: 16 },
+      { x: 320, y: 350, w: 60, h: 16 },
+      { x: 200, y: 220, w: 120, h: 16 }
+    ],
     shields: ['umbrella', 'umbrella', 'crate', 'barrel'],
     storm: { passes: 2, speed: 175, spawnEvery: 0.125, drift: 70 },
   },

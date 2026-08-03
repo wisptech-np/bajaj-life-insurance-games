@@ -1,5 +1,5 @@
 // GuardianShelterGame.jsx — Preemptive risk protection physics gameplay.
-// 2D physics engine: gravity, AABB/circle collisions, stacking, bouncing virus storm.
+// 2D physics engine: gravity, AABB/circle collisions, stacking, bouncing acid storm.
 import React, { useRef, useEffect, useState } from 'react';
 import { COLORS, GAME_CONFIG, SHIELD_TYPES, MEMBER_TYPES, LEVELS } from './data.js';
 import { createGameLoop } from './kit/loop.js';
@@ -151,7 +151,7 @@ function playSound(type) {
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.18);
-    } else if (type === 'virus_bounce') {
+    } else if (type === 'acid_bounce') {
       // High-pitched bounce
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -285,7 +285,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     score: 0,
     timeLeft: GAME_CONFIG.sessionSeconds,
     shields: [],       // placed shields { x, y, w, h, type, settled, drop }
-    viruses: [],       // active viruses { x, y, vx, vy, bounces, life }
+    acidDrops: [],     // active acid drops { x, y, vx, vy, bounces, life }
     particles: [],     // cosmetic particles { x, y, vx, vy, color, size, life, maxLife }
     family: [],        // family members { type, x, y, r, status }
     emitter: { x: -20, y: GAME_CONFIG.emitterY, vx: 0, active: false, timer: 0, passes: 1 },
@@ -354,7 +354,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     const lvl = LEVELS[idx];
     const ref = stateRef.current;
     ref.shields = [];
-    ref.viruses = [];
+    ref.acidDrops = [];
     ref.particles = [];
     ref.dragState = null;
     ref.emitter = {
@@ -407,6 +407,12 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     let surface = GAME_CONFIG.groundY;
     lvl.platforms.forEach((p) => {
       if (overlaps(p.x, p.w)) surface = Math.min(surface, platformTop(p));
+    });
+    // Character Hitbox for Shield Stacking
+    ref.family.forEach((m) => {
+      if (overlaps(m.x, m.r * 2)) {
+        surface = Math.min(surface, m.y - m.r);
+      }
     });
     ref.shields.forEach((s) => {
       if (overlaps(s.x, s.w)) surface = Math.min(surface, s.y - s.h / 2);
@@ -483,16 +489,16 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ref.emitter.timer += dt;
 
       if (ref.emitter.timer >= lvl.storm.spawnEvery) {
-        // Spawn virus particle
+        // Spawn acid rain particle
         const vx = (Math.random() - 0.5) * 50 + lvl.storm.drift;
         const vy = 60 + Math.random() * 50;
-        ref.viruses.push({
+        ref.acidDrops.push({
           x: ref.emitter.x,
           y: ref.emitter.y,
           vx,
           vy,
           bounces: 0,
-          life: GAME_CONFIG.virusLifeSeconds,
+          life: GAME_CONFIG.acidLifeSeconds,
         });
         ref.emitter.timer = 0;
       }
@@ -515,8 +521,8 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       }
     }
 
-    // 3. Update active viruses & collisions
-    ref.viruses.forEach((v, vIdx) => {
+    // 3. Update active acid drops & collisions
+    ref.acidDrops.forEach((v, vIdx) => {
       v.vy += GAME_CONFIG.gravity * dt;
       v.x += v.vx * dt;
       v.y += v.vy * dt;
@@ -525,20 +531,20 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       let bounced = false;
 
       // Left/Right Wall Bounces
-      if (v.x - GAME_CONFIG.virusRadius < 0) {
-        v.x = GAME_CONFIG.virusRadius;
-        v.vx = -v.vx * GAME_CONFIG.virusRestitution;
+      if (v.x - GAME_CONFIG.acidRadius < 0) {
+        v.x = GAME_CONFIG.acidRadius;
+        v.vx = -v.vx * GAME_CONFIG.acidRestitution;
         bounced = true;
-      } else if (v.x + GAME_CONFIG.virusRadius > GAME_CONFIG.fieldWidth) {
-        v.x = GAME_CONFIG.fieldWidth - GAME_CONFIG.virusRadius;
-        v.vx = -v.vx * GAME_CONFIG.virusRestitution;
+      } else if (v.x + GAME_CONFIG.acidRadius > GAME_CONFIG.fieldWidth) {
+        v.x = GAME_CONFIG.fieldWidth - GAME_CONFIG.acidRadius;
+        v.vx = -v.vx * GAME_CONFIG.acidRestitution;
         bounced = true;
       }
 
       // Ground Bounce
-      if (v.y + GAME_CONFIG.virusRadius >= GAME_CONFIG.groundY) {
-        v.y = GAME_CONFIG.groundY - GAME_CONFIG.virusRadius;
-        v.vy = -v.vy * GAME_CONFIG.virusRestitution;
+      if (v.y + GAME_CONFIG.acidRadius >= GAME_CONFIG.groundY) {
+        v.y = GAME_CONFIG.groundY - GAME_CONFIG.acidRadius;
+        v.vy = -v.vy * GAME_CONFIG.acidRestitution;
         v.vx *= 0.95; // Ground friction
         v.bounces += 1;
         bounced = true;
@@ -559,7 +565,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
             // Umbrella dome (Circle top half)
             const domeCenterX = s.x;
             const domeCenterY = s.y - s.h/2 + SHIELD_TYPES.umbrella.domeR;
-            const rSum = GAME_CONFIG.virusRadius + SHIELD_TYPES.umbrella.domeR;
+            const rSum = GAME_CONFIG.acidRadius + SHIELD_TYPES.umbrella.domeR;
             const dx = v.x - domeCenterX;
             const dy = v.y - domeCenterY;
             const distSq = dx*dx + dy*dy;
@@ -572,17 +578,20 @@ export default function GuardianShelterGame({ onWin, onLose }) {
               v.y = domeCenterY + ny * rSum;
               const vn = v.vx * nx + v.vy * ny;
               if (vn < 0) {
-                v.vx = v.vx - (1 + GAME_CONFIG.virusRestitution) * vn * nx;
-                v.vy = v.vy - (1 + GAME_CONFIG.virusRestitution) * vn * ny;
+                v.vx = v.vx - (1 + GAME_CONFIG.acidRestitution) * vn * nx;
+                v.vy = v.vy - (1 + GAME_CONFIG.acidRestitution) * vn * ny;
               }
+              // Push droplet horizontally and vertically away from the center to clear character underneath
+              v.vx += nx * 140;
+              v.vy = Math.min(v.vy, -150);
               v.bounces += 1;
               bounced = true;
             } else {
-              // Stem check (AABB bottom half)
+              // Stem check (AABB bottom half) - Narrow collision box
               const stem = {
                 x: s.x,
                 y: s.y + 16,
-                w: s.w,
+                w: 12,
                 h: s.h - SHIELD_TYPES.umbrella.domeR
               };
               if (resolveCircleAABB(v, stem)) {
@@ -602,8 +611,8 @@ export default function GuardianShelterGame({ onWin, onLose }) {
 
       // Play sound on bounce
       if (bounced && !ref.soundMuted) {
-        playSound('virus_bounce');
-        spawnParticles(v.x, v.y, '#49E24B', 3, 0.4);
+        playSound('acid_bounce');
+        spawnParticles(v.x, v.y, COLORS.acid, 3, 0.4);
       }
 
       // Family Member Hits (Circle vs Circle)
@@ -612,20 +621,20 @@ export default function GuardianShelterGame({ onWin, onLose }) {
           const dx = v.x - m.x;
           const dy = v.y - m.y;
           const distSq = dx*dx + dy*dy;
-          const rSum = GAME_CONFIG.virusRadius + m.r;
+          const rSum = GAME_CONFIG.acidRadius + m.r;
           if (distSq < rSum * rSum) {
-            m.status = 'infected';
+            m.status = 'hit';
             if (!ref.soundMuted) playSound('hit');
             spawnParticles(m.x, m.y, '#EF4444', 15, 1.2);
-            // Remove virus on direct impact
+            // Remove drop on direct impact
             v.life = 0;
           }
         }
       });
     });
 
-    // Remove expired or fallen viruses
-    ref.viruses = ref.viruses.filter(v => v.life > 0 && v.bounces < GAME_CONFIG.virusMaxBounces && v.y < GAME_CONFIG.fieldHeight);
+    // Remove expired or fallen acid drops
+    ref.acidDrops = ref.acidDrops.filter(v => v.life > 0 && v.bounces < GAME_CONFIG.acidMaxBounces && v.y < GAME_CONFIG.fieldHeight);
 
     // 4. Update particles
     ref.particles.forEach((p) => {
@@ -636,9 +645,9 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     ref.particles = ref.particles.filter(p => p.life > 0);
 
     // 5. Check Storm Completion
-    if (ref.gameState === 'storm' && !ref.emitter.active && ref.viruses.length === 0) {
-      const infected = ref.family.some(m => m.status === 'infected');
-      if (infected) {
+    if (ref.gameState === 'storm' && !ref.emitter.active && ref.acidDrops.length === 0) {
+      const hit = ref.family.some(m => m.status === 'hit');
+      if (hit) {
         ref.gameState = 'failed';
         setGameState('failed');
         if (!ref.soundMuted) playSound('lose');
@@ -670,7 +679,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
     const dx = circle.x - cx;
     const dy = circle.y - cy;
     const distSq = dx*dx + dy*dy;
-    const r = GAME_CONFIG.virusRadius;
+    const r = GAME_CONFIG.acidRadius;
 
     if (distSq < r*r) {
       const dist = Math.sqrt(distSq);
@@ -695,8 +704,8 @@ export default function GuardianShelterGame({ onWin, onLose }) {
 
       const vn = circle.vx * nx + circle.vy * ny;
       if (vn < 0) {
-        circle.vx = circle.vx - (1 + GAME_CONFIG.virusRestitution) * vn * nx;
-        circle.vy = circle.vy - (1 + GAME_CONFIG.virusRestitution) * vn * ny;
+        circle.vx = circle.vx - (1 + GAME_CONFIG.acidRestitution) * vn * nx;
+        circle.vy = circle.vy - (1 + GAME_CONFIG.acidRestitution) * vn * ny;
       }
       return true;
     }
@@ -767,6 +776,25 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ctx.shadowBlur = 0; // reset
     });
 
+    // Draw Ground
+    const groundGrad = ctx.createLinearGradient(0, GAME_CONFIG.groundY, 0, GAME_CONFIG.fieldHeight);
+    groundGrad.addColorStop(0, '#0a2a5a');
+    groundGrad.addColorStop(1, '#021028');
+    ctx.fillStyle = groundGrad;
+    ctx.strokeStyle = '#005BAC';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.rect(0, GAME_CONFIG.groundY, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight - GAME_CONFIG.groundY);
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw Family Members. After the ground so their contact shadow and floor
+    // ring land on top of it rather than being sliced in half by it.
+    const nowSec = performance.now() / 1000;
+    ref.family.forEach((m) => {
+      drawFamilyMember(ctx, m, nowSec);
+    });
+
     // Draw Placed Shields (with their drop-in animation, if still running)
     ref.shields.forEach((s) => {
       const d = s.drop;
@@ -813,9 +841,12 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       // Landing footprint — exactly w x h at the resting centre
       ctx.strokeStyle = 'rgba(255, 200, 69, 0.85)';
       ctx.lineWidth = 2;
-      ctx.strokeRect(drag.x - typeInfo.w / 2, drag.restY - typeInfo.h / 2, typeInfo.w, typeInfo.h);
-      ctx.setLineDash([]); // reset
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.roundRect(drag.x - typeInfo.w / 2, drag.restY - typeInfo.h / 2, typeInfo.w, typeInfo.h, 10);
+      ctx.stroke();
 
+      // Semitransparent preview piece resting in the footprint
       ctx.save();
       ctx.globalAlpha = 0.3;
       drawShield(ctx, { x: drag.x, y: drag.restY, w: typeInfo.w, h: typeInfo.h, type: drag.type });
@@ -828,56 +859,39 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ctx.restore();
     }
 
-    // Draw Ground
-    const groundGrad = ctx.createLinearGradient(0, GAME_CONFIG.groundY, 0, GAME_CONFIG.fieldHeight);
-    groundGrad.addColorStop(0, '#0a2a5a');
-    groundGrad.addColorStop(1, '#021028');
-    ctx.fillStyle = groundGrad;
-    ctx.strokeStyle = '#005BAC';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.rect(0, GAME_CONFIG.groundY, GAME_CONFIG.fieldWidth, GAME_CONFIG.fieldHeight - GAME_CONFIG.groundY);
-    ctx.fill();
-    ctx.stroke();
-
-    // Draw Family Members. After the ground so their contact shadow and floor
-    // ring land on top of it rather than being sliced in half by it.
-    const nowSec = performance.now() / 1000;
-    ref.family.forEach((m) => {
-      drawFamilyMember(ctx, m, nowSec);
-    });
-
-    // Draw Viruses
-    ref.viruses.forEach((v) => {
+    // Draw Acid Rain Drops
+    ref.acidDrops.forEach((v) => {
+      const angle = Math.atan2(v.vy, v.vx) - Math.PI / 2;
       ctx.save();
+      ctx.translate(v.x, v.y);
+      ctx.rotate(angle);
+
+      const r = GAME_CONFIG.acidRadius;
+
       // Glowing aura
-      ctx.shadowColor = '#49E24B';
+      ctx.shadowColor = COLORS.acid;
       ctx.shadowBlur = 12;
 
-      ctx.fillStyle = '#49E24B';
+      // Gradient fill (light neon green to dark green)
+      const grad = ctx.createLinearGradient(0, -r * 1.6, 0, r);
+      grad.addColorStop(0, '#A3F9B9');
+      grad.addColorStop(0.5, COLORS.acid);
+      grad.addColorStop(1, COLORS.acidDeep);
+      ctx.fillStyle = grad;
+
       ctx.beginPath();
-      ctx.arc(v.x, v.y, GAME_CONFIG.virusRadius, 0, Math.PI * 2);
+      ctx.moveTo(0, -r * 1.6);
+      ctx.bezierCurveTo(r * 1.2, -r * 0.6, r * 1.2, r, 0, r);
+      ctx.bezierCurveTo(-r * 1.2, r, -r * 1.2, -r * 0.6, 0, -r * 1.6);
+      ctx.closePath();
       ctx.fill();
 
-      // Outer Spikes (PROGRAMMATIC drawing, no emojis!)
-      ctx.strokeStyle = '#49E24B';
-      ctx.lineWidth = 2.5;
-      const spikes = 10;
-      for (let i = 0; i < spikes; i++) {
-        const angle = (i / spikes) * Math.PI * 2;
-        const startR = GAME_CONFIG.virusRadius - 2;
-        const endR = GAME_CONFIG.virusRadius + 4;
-        ctx.beginPath();
-        ctx.moveTo(v.x + Math.cos(angle) * startR, v.y + Math.sin(angle) * startR);
-        ctx.lineTo(v.x + Math.cos(angle) * endR, v.y + Math.sin(angle) * endR);
-        ctx.stroke();
-      }
-
-      // Inner Core
-      ctx.fillStyle = '#0E5C1D';
+      // Tiny highlight gloss inside drop
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
       ctx.beginPath();
-      ctx.arc(v.x, v.y, GAME_CONFIG.virusRadius - 4, 0, Math.PI * 2);
+      ctx.arc(-r * 0.3, 0, r * 0.22, 0, Math.PI * 2);
       ctx.fill();
+
       ctx.restore();
     });
 
@@ -904,7 +918,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ctx.fill();
 
       // Inner glowing core of cloud
-      ctx.fillStyle = '#49E24B';
+      ctx.fillStyle = COLORS.acid;
       ctx.beginPath();
       ctx.arc(ref.emitter.x, ref.emitter.y, 6, 0, Math.PI*2);
       ctx.fill();
@@ -996,7 +1010,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ctx.lineWidth = 3.5;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(s.x, s.y);
+      ctx.moveTo(s.x, cy);
       ctx.lineTo(s.x, s.y + s.h/2 - 6);
       ctx.arc(s.x + 6, s.y + s.h/2 - 6, 6, Math.PI, Math.PI/2, true); // Hook
       ctx.stroke();
@@ -1015,13 +1029,14 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       canopyGrad.addColorStop(1, '#001B5A');
       ctx.fillStyle = canopyGrad;
 
-      // Draw scalloped canopy path
+      // Draw scalloped canopy path dynamically
       ctx.beginPath();
       ctx.arc(cx, cy + 5, domeR, Math.PI, 0); // main arc
-      // 3 bottom scallops curving inwards
-      ctx.quadraticCurveTo(s.x + 24, cy - 2, s.x + 12, cy + 5);
-      ctx.quadraticCurveTo(s.x, cy - 2, s.x - 12, cy + 5);
-      ctx.quadraticCurveTo(s.x - 24, cy - 2, s.x - 37, cy + 5);
+      // 3 bottom scallops curving inwards dynamically
+      const wScallop = (2 * domeR) / 3;
+      ctx.quadraticCurveTo(s.x + domeR - wScallop / 2, cy - 2, s.x + domeR - wScallop, cy + 5);
+      ctx.quadraticCurveTo(s.x, cy - 2, s.x - domeR + wScallop, cy + 5);
+      ctx.quadraticCurveTo(s.x - domeR + wScallop / 2, cy - 2, s.x - domeR, cy + 5);
       ctx.fill();
 
       // Top highlighted rim
@@ -1193,7 +1208,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       );
       ctx.restore();
 
-      // If infected, mark them clearly
+      // If hit, mark them clearly
       if (!safe) {
         ctx.strokeStyle = '#EF4444';
         ctx.lineWidth = 4;
@@ -1206,8 +1221,8 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       }
     } else {
       // Fallback to original vector code
-      if (m.status === 'infected') {
-        // Sick/infected look
+      if (m.status === 'hit') {
+        // Melted/hit look
         ctx.fillStyle = '#64748B';
         ctx.beginPath();
         ctx.arc(cx, cy, m.r, 0, Math.PI * 2);
@@ -1699,7 +1714,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
               boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
               animation: 'blink 1.2s infinite'
             }}>
-              WARNING: VIRUS STORM ACTIVE
+              WARNING: ACID RAIN ACTIVE
             </div>
           </div>
         )}
@@ -1799,7 +1814,7 @@ export default function GuardianShelterGame({ onWin, onLose }) {
                 Shelter Failed
               </div>
               <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 1.4, margin: '0 0 24px 0' }}>
-                A family member was infected! Adjust your shield placement and try again.
+                A family member was hit by acid rain! Adjust your shield placement and try again.
               </p>
 
               <button
