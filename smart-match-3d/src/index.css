@@ -47,8 +47,11 @@ body,
   height: 100dvh;
   font-family: var(--ls-font);
   background:
-    radial-gradient(ellipse at 50% 30%, rgba(14, 79, 148, 0.55), rgba(5, 26, 58, 0.85) 70%),
-    #051a3a;
+    linear-gradient(rgba(5, 26, 58, 0.5), rgba(5, 26, 58, 0.5)),
+    url('./assets/ambient_game_bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   color: var(--ls-white);
   overflow: hidden;
   user-select: none;

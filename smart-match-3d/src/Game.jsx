@@ -453,9 +453,9 @@ export default function SmartMatchGame({ config = GAME_CONFIG, onWin, onLose }) 
       SFX.merge(st.combo);
       const mid = trio[1];
       spawnBurst(st, mid.x, mid.y - st.S * 0.2, goal, 16);
-      // Feedback at the point of action: a floating +N and a pulse on the freed slots.
-      addFloat(st, mid.x, mid.y - st.S * 0.85, `+${gained}`, '#FFD97A', 20);
-      if (st.combo > 1) addFloat(st, mid.x, mid.y - st.S * 1.35, `×${st.combo}`, '#FF9D5C', 15);
+      // Feedback at the point of action: a floating secured goal name in its glow color
+      addFloat(st, mid.x, mid.y - st.S * 0.85, `✓ ${goal.label}`, goal.glow, 20);
+      if (st.combo > 1) addFloat(st, mid.x, mid.y - st.S * 1.35, `Combo ×${st.combo}`, '#FF9D5C', 15);
       trio.forEach((t, i) => {
         const slot = st.tray.indexOf(t);
         if (slot >= 0) st.slotPulses.push({ i: slot, t: 0, color: goal.glow });
@@ -969,8 +969,8 @@ export default function SmartMatchGame({ config = GAME_CONFIG, onWin, onLose }) 
           <div className="sm3-collect-ticks" aria-hidden="true" />
         </div>
 
-        <span key={hud.score} className="sm3-score">
-          {hud.score.toLocaleString()}
+        <span key={hud.matches} className="sm3-score" style={{ minWidth: 60 }}>
+          {hud.matches} / {config.totalTriplets}
         </span>
       </div>
 

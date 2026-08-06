@@ -283,35 +283,35 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
   const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
-  const [animatedScore, setAnimatedScore] = React.useState(0);
+  const [animatedMatches, setAnimatedMatches] = React.useState(0);
 
   React.useEffect(() => {
     let start = 0;
-    const end = score;
+    const end = matches;
     if (start === end) {
-      setAnimatedScore(end);
+      setAnimatedMatches(end);
       return;
     }
-    const duration = 1200;
+    const duration = 1000;
     const stepTime = 16;
     const steps = duration / stepTime;
     const increment = end / steps;
     const timer = setInterval(() => {
       start += increment;
       if (start >= end) {
-        setAnimatedScore(end);
+        setAnimatedMatches(end);
         clearInterval(timer);
       } else {
-        setAnimatedScore(Math.round(start));
+        setAnimatedMatches(Math.round(start));
       }
     }, stepTime);
     return () => clearInterval(timer);
-  }, [score]);
+  }, [matches]);
 
   async function handleShare() {
     const rawShareUrl = buildShareUrl() || window.location.href;
     const shareUrl = await shortenUrl(rawShareUrl);
-    const shareMessage = `Hi,\nI scored ${score} points matching life goals in Smart Match 3D.\nIt really makes you think about how many goals a family has to protect — try it here: ${shareUrl}`.trim();
+    const shareMessage = `Hi,\nI secured ${matches}/${totalTriplets} life goals in Smart Match 3D.\nIt really makes you think about how many goals a family has to protect — try it here: ${shareUrl}`.trim();
 
     if (navigator.share) {
       try {
@@ -330,12 +330,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
 
   const radius = 75;
   const circumference = 2 * Math.PI * radius;
-  const targetScore = 3000;
-  const progress = (Math.min(score, targetScore) / targetScore) * circumference;
-  const strokeColor = won ? '#22c55e' : score < 600 ? '#ef4444' : '#f59e0b';
+  const progress = (matches / totalTriplets) * circumference;
+  const strokeColor = won ? '#22c55e' : matches < 8 ? '#ef4444' : '#f59e0b';
   const glowColor = won
     ? 'rgba(34, 197, 94, 0.4)'
-    : score < 600
+    : matches < 8
       ? 'rgba(239, 68, 68, 0.4)'
       : 'rgba(245, 158, 11, 0.4)';
 
@@ -398,11 +397,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
             />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-            <span style={{ fontSize: 26, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-              {animatedScore.toLocaleString()}
+            <span style={{ fontSize: 32, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+              {animatedMatches} / {totalTriplets}
             </span>
-            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255, 255, 255, 0.6)', marginTop: 4, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-              POINTS
+            <span style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255, 255, 255, 0.6)', marginTop: 6, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              GOALS SECURED
             </span>
           </div>
         </div>
@@ -411,8 +410,8 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
       {/* Round stats */}
       <div className="sm3-stats-row" style={{ zIndex: 2 }}>
         <div className="sm3-stat">
-          <div className="sm3-stat-value">{matches}/{totalTriplets}</div>
-          <div className="sm3-stat-label">Goals matched</div>
+          <div className="sm3-stat-value">{score.toLocaleString()}</div>
+          <div className="sm3-stat-label">Final score</div>
         </div>
         <div className="sm3-stat">
           <div className="sm3-stat-value">x{Math.max(bestCombo, 1)}</div>

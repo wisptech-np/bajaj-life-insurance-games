@@ -1,5 +1,28 @@
 # Smart Match 3D — Build Log
 
+## 2026-08-06 — Redesign: Minimalist Thematic Scoring Display
+
+### In-Game HUD Minimalist Scoring
+- Replaced the large points counter in the in-game HUD with a minimalist fraction of secured goals: `{matches} / {totalTriplets}` (e.g., `12 / 20` goals matched).
+- Updated the inline-floating text when merging a triplet: instead of points delta `+100` / `+125` floating in gold, it now floats `✓ {Goal Name}` (e.g. `✓ Shield`) in the goal's unique glow color, reinforcing the goal-secured concept.
+- Combo indicator now displays `Combo ×{combo}` minimally below the goal confirmation float.
+
+### Results Screen Layout Update
+- Set the hero progress circle ring to represent matched goals progress ratio (`matches / totalTriplets`) instead of points.
+- Shrunk circular inner score label to display the fractional goals count: `{matches} / {totalTriplets}` with the subtitle `GOALS SECURED` below it.
+- Added a count-up animation for the matches count (`animatedMatches`) within the circle.
+- Relocated the final points score to the bottom stats row (labeled "Final score"), keeping it as a secondary metric for leaderboard ranking and LMS tracking.
+- Shorten message updated to include the fractional matched goals count instead of arbitrary points.
+
+### Premium Ambient Background
+- Generated a subtle abstract dark blue/indigo background image with a vertical aspect ratio.
+- Configured Vite to resolve and bundle `src/assets/ambient_game_bg.png` relative to both the CSS index stylesheet and inline imports.
+- Updated `html, body, #root` in `index.css` to render this ambient background image.
+- Updated the parent mobile layout container in `App.jsx` to load `ambientBg` and render it with a cohesive, dark semi-transparent blue mask (`linear-gradient(rgba(5, 26, 58, 0.55), rgba(5, 26, 58, 0.55))`). This ensures the background renders inside the mobile shell frame (behind the game canvas) and remains subtle and non-intrusive.
+
+### Build
+- `pnpm install && pnpm build` passes with zero errors.
+
 ## 2026-07-09 — Initial build
 
 - Completed the interrupted scaffold: verified existing `package.json`, `vite.config.js`

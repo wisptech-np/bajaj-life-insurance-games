@@ -8,6 +8,7 @@ import SlotBookingModal from './SlotBookingModal.jsx';
 import ThankYouScreen from './ThankYouScreen.jsx';
 import { LEAD_NO_KEY } from './api.js';
 import { GAME_CONFIG } from './data.js';
+import ambientBg from './assets/ambient_game_bg.png';
 
 export default function App() {
   const [screen, setScreen] = useState('home'); // home | howtoplay | game | results | thankyou
@@ -74,8 +75,10 @@ export default function App() {
         maxWidth: 430,
         margin: '0 auto',
         overflow: 'hidden',
-        background:
-          'radial-gradient(ellipse at 50% 25%, rgba(14, 79, 148, 0.6), rgba(5, 26, 58, 0.9) 72%), #051a3a',
+        background: `linear-gradient(rgba(5, 26, 58, 0.55), rgba(5, 26, 58, 0.55)), url(${ambientBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
       }}
     >
       {screen === 'home' && <HomeScreen onStart={showHowToPlay} />}
