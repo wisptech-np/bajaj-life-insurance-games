@@ -1,5 +1,32 @@
 # Secure Journey — Change Log
 
+## 2026-08-06 — Redesign: Compact Results Screen, Variant Obstacles with Projectiles, Improved Difficulty Balancing
+
+### Redesigned results screen layout
+- Shrunk circular progress ring from 150px to 120px to save vertical space.
+- Compacted the round stats section (Risks Cleared, Shields Kept, Final Health) into a tighter horizontal layout with reduced paddings/margins.
+- Reduced margins and paddings globally on Results Screen to fit portrait viewports without excessive scrolling.
+
+### Visual damage indicator for escaped hazards
+- Tracked when a hazard touches the bottom (end) of the screen (`y >= height - radius`).
+- Triggered screen shake (`shakeIntensity = 8`), hurt sound, red particles at the bottom, and set a new `bottomFlashTimer` to `0.55`.
+- Drawn a red gradient overlay at the bottom of the screen (`height - 70` to `height`) representing damage taken, which decays smoothly over time.
+- Instantly destroyed/popped the hazard (`v.hp = 0`) when it hits the bottom edge of the screen so that it reacts immediately rather than slipping past completely.
+
+### Variant obstacles
+- Spawner updated to randomly spawn three types of hazards:
+  - **Standard Barricade** (60%): Chevron arrowhead shape, Orange/Crimson, moves straight.
+  - **Seeker Barricade** (22%): Diamond shape, Magenta/Purple, drifts towards player's current lane with a smooth, sluggish lagging motion (`v.x += (playerX.current - v.x) * 1.8 * dt`) to avoid locking on instantly.
+  - **Shooter Barricade** (22%, only after progress > 0.2): Hexagon shape, Amber/Gold, flashes white to charge and fires projectile bullets straight down every 1.8 seconds.
+- Added custom rendering logic for diamond (Seeker) and hexagon with charging core (Shooter) shapes on canvas.
+
+### Boss difficulty balancing & projectiles
+- Aggressive/quadratic HP scaling for boss `Inflation Storm-Front`: `const bossHp = Math.ceil(bossBaseHp * (1 + shieldCount * 1.2) + bossHpPerPower * Math.pow(shieldCount, 1.8))` preventing boss from dying too fast when player is overpowered.
+- Boss fires 3 spread projectiles downward every 2 seconds.
+
+### Build
+- `pnpm install && pnpm build` passes with zero errors.
+
 ## 2026-07-31 — Revamp: HUD, antagonist, difficulty, end-of-run bug
 
 ### Fixed: run never ended after the boss (root cause)

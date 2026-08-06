@@ -254,6 +254,8 @@ const HAZARD_TONE = {
   small:  { hi: '#FFC46B', lo: '#D98211', glow: 'rgba(240, 168, 48, 0.75)' },
   medium: { hi: '#FF9C5B', lo: '#C43F16', glow: 'rgba(242, 101, 34, 0.8)' },
   large:  { hi: '#FF7361', lo: '#7E1710', glow: 'rgba(190, 40, 28, 0.85)' },
+  seeker: { hi: '#E879F9', lo: '#A21CAF', glow: 'rgba(232, 121, 249, 0.8)' },
+  shooter: { hi: '#FBBF24', lo: '#B45309', glow: 'rgba(251, 191, 36, 0.8)' },
 };
 const HAZARD_DEBRIS = '#F26522';
 const SPARK = '#FFD37A';
@@ -324,6 +326,7 @@ export default function SecureJourney({ config, onWin, onLose }) {
   const bolts = useRef([]);
   const hazards = useRef([]);
   const shields = useRef([]);
+  const enemyProjectiles = useRef([]);
   const particles = useRef([]);
   const floatingTexts = useRef([]);
   const waterRipples = useRef([]);
@@ -336,6 +339,7 @@ export default function SecureJourney({ config, onWin, onLose }) {
   const scrollOffset = useRef(0);
   const shakeIntensity = useRef(0);
   const flashTimer = useRef(0); // white overlay flash on shield pickup
+  const bottomFlashTimer = useRef(0); // red warning flash on bottom on escape
 
   // Muzzle flash indicator
   const muzzleFlash = useRef(null); // { x, y, duration }
@@ -637,6 +641,23 @@ export default function SecureJourney({ config, onWin, onLose }) {
               dmg = contactDamage.large;
             }
 
+            // Decide variant
+            let type = 'standard';
+            const typeRoll = Math.random();
+            if (p >= 0.20 && typeRoll < 0.22) {
+              type = 'shooter';
+              size = 'medium';
+              radius = 18;
+              hpVal = 4;
+              dmg = 15;
+            } else if (typeRoll >= 0.22 && typeRoll < 0.44) {
+              type = 'seeker';
+              size = 'medium';
+              radius = 18;
+              hpVal = 2;
+              dmg = 12;
+            }
+
             // Toughen hazards according to progress & shield level
             const hpMult = 1 + hpRampMax * p + hpPerPower * shieldCount.current;
             const finalHp = Math.ceil(hpVal * hpMult);
@@ -645,6 +666,7 @@ export default function SecureJourney({ config, onWin, onLose }) {
               x: layout.laneCenters[laneIdx],
               y: -50,
               lane: laneIdx,
+              type,
               size,
               radius,
               maxHp: finalHp,
@@ -652,7 +674,9 @@ export default function SecureJourney({ config, onWin, onLose }) {
               damage: dmg,
               speed: (hazardSpeedStart + (hazardSpeedEnd - hazardSpeedStart) * p) * height,
               wobble: Math.random() * Math.PI * 2,
-              wobbleSpeed: 1.6 + Math.random() * 1.4
+              wobbleSpeed: 1.6 + Math.random() * 1.4,
+              shootTimer: Math.random() * 1.8,
+              escaped: false
             });
           });
         }
@@ -663,7 +687,7 @@ export default function SecureJourney({ config, onWin, onLose }) {
         bossSpawned.current = true;
         bossActive.current = true;
 
-        const bossHp = Math.ceil(bossBaseHp + bossHpPerPower * shieldCount.current);
+        const bossHp = Math.ceil(bossBaseHp * (1 + shieldCount.current * 1.2) + bossHpPerPower * Math.pow(shieldCount.current, 1.8));
         bossObj.current = {
           x: width / 2,
           y: -80,
@@ -673,7 +697,8 @@ export default function SecureJourney({ config, onWin, onLose }) {
           hp: bossHp,
           speed: bossSpeed * height,
           boltPhase: 0,
-          floatTime: 0
+          floatTime: 0,
+          shootTimer: 0
         };
 
         playBossRoar();
@@ -740,6 +765,10 @@ export default function SecureJourney({ config, onWin, onLose }) {
         flashTimer.current = Math.max(0, flashTimer.current - 3 * dt);
       }
 
+      if (bottomFlashTimer.current > 0) {
+        bottomFlashTimer.current = Math.max(0, bottomFlashTimer.current - 3.5 * dt);
+      }
+
       // Player Movement Lerp
       if (!playerControlLocked.current) {
         playerX.current += (playerTargetX.current - playerX.current) * steerLerp * dt;
@@ -790,6 +819,27 @@ export default function SecureJourney({ config, onWin, onLose }) {
         v.y += v.speed * dt;
         v.wobble += v.wobbleSpeed * dt;
 
+        // Seeker drifts toward playerX.current with a sluggish lagging motion
+        if (v.type === 'seeker') {
+          v.x += (playerX.current - v.x) * 1.8 * dt;
+        }
+
+        // Shooter shoots periodically
+        if (v.type === 'shooter') {
+          v.shootTimer += dt;
+          if (v.shootTimer >= 1.8) {
+            v.shootTimer = 0;
+            enemyProjectiles.current.push({
+              x: v.x,
+              y: v.y + v.radius,
+              speed: 0.35 * height,
+              damage: 10,
+              radius: 5
+            });
+            playHit();
+          }
+        }
+
         const dx = v.x - playerX.current;
         const dy = v.y - height * 0.8;
         if (Math.sqrt(dx * dx + dy * dy) < 18 + v.radius) {
@@ -799,19 +849,42 @@ export default function SecureJourney({ config, onWin, onLose }) {
           spawnParticles(playerX.current, height * 0.8 - 10, '#EF4444', 12, 1.2);
           spawnFloatingText(playerX.current, height * 0.76, `-${v.damage}`, '#FF8A7A');
           v.hp = 0; // mark for deletion
+        } else if (v.y >= height - v.radius) {
+          // Touches the bottom (end) of the screen!
+          hp.current = Math.max(0, hp.current - gapPenalty);
+          shakeIntensity.current = 8;
+          bottomFlashTimer.current = 0.55;
+          playHurt();
+          spawnParticles(v.x, height - v.radius, '#EF4444', 8, 1.0);
+          spawnFloatingText(v.x, height - 20, `-${gapPenalty}`, '#FFB199');
+          v.hp = 0; // instantly destroy/pop it!
         }
       });
       // Remove destroyed / escaped barricades
-      hazards.current = hazards.current.filter((v) => {
-        if (v.hp <= 0) return false;
-        if (v.y > height + 40) {
-          // An unblocked risk still costs you
-          hp.current = Math.max(0, hp.current - gapPenalty);
-          spawnFloatingText(v.x, height - 14, `-${gapPenalty}`, '#FFB199');
-          return false;
+      hazards.current = hazards.current.filter((v) => v.hp > 0);
+
+      // Update Enemy Projectiles
+      enemyProjectiles.current.forEach((ep) => {
+        if (ep.vx !== undefined && ep.vy !== undefined) {
+          ep.x += ep.vx * dt;
+          ep.y += ep.vy * dt;
+        } else {
+          ep.y += ep.speed * dt;
         }
-        return true;
+
+        // Check collision with player
+        const dx = ep.x - playerX.current;
+        const dy = ep.y - height * 0.8;
+        if (Math.sqrt(dx * dx + dy * dy) < 18 + ep.radius) {
+          hp.current = Math.max(0, hp.current - ep.damage);
+          shakeIntensity.current = 10;
+          playHurt();
+          spawnParticles(playerX.current, height * 0.8 - 10, '#EF4444', 8, 1.0);
+          spawnFloatingText(playerX.current, height * 0.76, `-${ep.damage}`, '#FF8A7A');
+          ep.hit = true;
+        }
       });
+      enemyProjectiles.current = enemyProjectiles.current.filter((ep) => !ep.hit && ep.y < height + 20);
 
       // Update Inflation Storm-Front — a wide wall that sweeps and presses down
       if (bossActive.current && bossObj.current) {
@@ -827,6 +900,26 @@ export default function SecureJourney({ config, onWin, onLose }) {
         }
         b.floatTime += dt;
         b.x = width / 2 + Math.sin(b.floatTime * (1.6 + (1 - hpRatio) * 1.4)) * (layout.bridgeWidth * 0.30);
+
+        // Boss fires projectiles
+        if (!b.shootTimer) b.shootTimer = 0;
+        b.shootTimer += dt;
+        if (b.shootTimer >= 2.0) {
+          b.shootTimer = 0;
+          const angles = [-0.15, 0, 0.15];
+          angles.forEach((angle) => {
+            enemyProjectiles.current.push({
+              x: b.x + angle * b.halfW,
+              y: b.y + b.halfH,
+              speed: 0.30 * height,
+              vx: Math.sin(angle) * (0.15 * height),
+              vy: Math.cos(angle) * (0.30 * height),
+              damage: 12,
+              radius: 6
+            });
+          });
+          playHit();
+        }
 
         // Boss-Player Collision — box, not circle (the boss is a wall)
         if (Math.abs(b.x - playerX.current) < b.halfW + 14 &&
@@ -1184,7 +1277,7 @@ export default function SecureJourney({ config, onWin, onLose }) {
 
       // 6. Draw Risk Barricades — angular hazard wedges sliding down the deck
       hazards.current.forEach((v) => {
-        const tone = HAZARD_TONE[v.size];
+        const tone = v.type === 'seeker' ? HAZARD_TONE.seeker : (v.type === 'shooter' ? HAZARD_TONE.shooter : HAZARD_TONE[v.size]);
         const r = v.radius;
 
         ctx.save();
@@ -1203,13 +1296,28 @@ export default function SecureJourney({ config, onWin, onLose }) {
         ctx.shadowColor = tone.glow;
         ctx.shadowBlur = 12;
 
-        // Down-pointing chevron plate (silhouette: arrowhead, never a blob)
+        // Draw shape depending on type
         ctx.beginPath();
-        ctx.moveTo(0, r);
-        ctx.lineTo(-r * 0.96, r * 0.14);
-        ctx.lineTo(-r * 0.62, -r * 0.9);
-        ctx.lineTo(r * 0.62, -r * 0.9);
-        ctx.lineTo(r * 0.96, r * 0.14);
+        if (v.type === 'seeker') {
+          // Diamond shape
+          ctx.moveTo(0, -r);
+          ctx.lineTo(r * 0.8, 0);
+          ctx.lineTo(0, r);
+          ctx.lineTo(-r * 0.8, 0);
+        } else if (v.type === 'shooter') {
+          // Hexagon shape
+          for (let i = 0; i < 6; i++) {
+            const angle = (i * Math.PI) / 3;
+            ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+          }
+        } else {
+          // Standard Down-pointing chevron plate (silhouette: arrowhead, never a blob)
+          ctx.moveTo(0, r);
+          ctx.lineTo(-r * 0.96, r * 0.14);
+          ctx.lineTo(-r * 0.62, -r * 0.9);
+          ctx.lineTo(r * 0.62, -r * 0.9);
+          ctx.lineTo(r * 0.96, r * 0.14);
+        }
         ctx.closePath();
 
         const grad = ctx.createLinearGradient(0, -r, 0, r);
@@ -1233,22 +1341,47 @@ export default function SecureJourney({ config, onWin, onLose }) {
         }
         ctx.restore();
 
-        // Rim + warning chevron
+        // Rim
         ctx.shadowBlur = 0;
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
         ctx.lineWidth = 1.8;
         ctx.stroke();
 
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = Math.max(2, r * 0.15);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(-r * 0.42, -r * 0.3);
-        ctx.lineTo(0, r * 0.18);
-        ctx.lineTo(r * 0.42, -r * 0.3);
-        ctx.stroke();
-        ctx.lineCap = 'butt';
+        // Draw internal markings depending on type
+        if (v.type === 'seeker') {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = Math.max(1.5, r * 0.12);
+          ctx.beginPath();
+          ctx.moveTo(0, -r * 0.5);
+          ctx.lineTo(r * 0.4, 0);
+          ctx.lineTo(0, r * 0.5);
+          ctx.lineTo(-r * 0.4, 0);
+          ctx.closePath();
+          ctx.stroke();
+        } else if (v.type === 'shooter') {
+          const isCharging = (v.shootTimer % 1.8) > 1.3;
+          ctx.fillStyle = isCharging ? '#fff' : 'rgba(255, 255, 255, 0.4)';
+          if (isCharging) {
+            ctx.shadowColor = '#fff';
+            ctx.shadowBlur = 10;
+          }
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        } else {
+          // Standard warning chevron
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = Math.max(2, r * 0.15);
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          ctx.moveTo(-r * 0.42, -r * 0.3);
+          ctx.lineTo(0, r * 0.18);
+          ctx.lineTo(r * 0.42, -r * 0.3);
+          ctx.stroke();
+          ctx.lineCap = 'butt';
+        }
 
         ctx.restore(); // reset rotate/translate
 
@@ -1359,6 +1492,26 @@ export default function SecureJourney({ config, onWin, onLose }) {
 
         ctx.restore();
       }
+
+      // 7.5. Draw Enemy Projectiles
+      enemyProjectiles.current.forEach((ep) => {
+        ctx.save();
+        ctx.translate(ep.x, ep.y);
+        ctx.shadowColor = '#EF4444';
+        ctx.shadowBlur = 8;
+
+        const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, ep.radius);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(0.4, '#FBBF24');
+        grad.addColorStop(1, '#EF4444');
+        ctx.fillStyle = grad;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, ep.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      });
 
       // 8. Draw Player (Guardian pod) — also drawn during the vault run-up,
       //    which the old code skipped entirely (the pod just vanished).
@@ -1471,6 +1624,17 @@ export default function SecureJourney({ config, onWin, onLose }) {
         ctx.save();
         ctx.fillStyle = `rgba(255, 255, 255, ${flashTimer.current * 0.65})`;
         ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+      }
+
+      // 13. Draw Escaped Hazard Bottom Damage Warning Flash
+      if (bottomFlashTimer.current > 0) {
+        ctx.save();
+        const grad = ctx.createLinearGradient(0, height, 0, height - 70);
+        grad.addColorStop(0, `rgba(239, 68, 68, ${bottomFlashTimer.current * 0.75})`);
+        grad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, height - 70, width, 70);
         ctx.restore();
       }
 

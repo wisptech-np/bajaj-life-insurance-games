@@ -372,7 +372,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
     }
   }
 
-  const radius = 75;
+  const radius = 55;
   const circumference = 2 * Math.PI * radius;
   // target score for visual wrap
   const targetScore = 1800;
@@ -392,7 +392,7 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '30px 20px 24px',
+        padding: '20px 20px 16px',
         overflowY: 'auto',
         background: 'radial-gradient(ellipse at 50% 30%, rgba(20, 97, 168, 0.5), rgba(4, 16, 31, 0.92) 70%), #04101f',
         WebkitBackdropFilter: 'blur(8px)',
@@ -402,42 +402,42 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
       {won && <Confetti />}
 
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: 12, width: '100%', maxWidth: 360 }}>
-        <p style={{ color: '#fff', fontSize: 22, fontWeight: 900, lineHeight: 1.2, margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+      <div style={{ textAlign: 'center', marginBottom: 8, width: '100%', maxWidth: 360 }}>
+        <p style={{ color: '#fff', fontSize: 18, fontWeight: 900, lineHeight: 1.2, margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
           Hi <span style={{ color: '#3B8DD4', fontWeight: 950 }}>{leadName || 'Friend'}!</span><br />
-          <span style={{ fontSize: 18, color: 'rgba(255, 255, 255, 0.85)', fontWeight: 800 }}>
+          <span style={{ fontSize: 15, color: 'rgba(255, 255, 255, 0.85)', fontWeight: 800 }}>
             {won ? 'Wealth Vault Reached!' : 'Journey Interrupted'}
           </span>
         </p>
       </div>
 
       {/* Circular Progress Ring */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ width: 150, height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
           <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r={radius} fill="none" stroke="#0c192c" strokeWidth="10" />
-            <circle cx="100" cy="100" r={radius + 6} fill="none" stroke="#172e4c" strokeWidth="1" opacity="0.3" />
+            <circle cx="100" cy="100" r={radius} fill="none" stroke="#0c192c" strokeWidth="12" />
+            <circle cx="100" cy="100" r={radius + 6} fill="none" stroke="#172e4c" strokeWidth="1.5" opacity="0.3" />
             <circle
               cx="100"
               cy="100"
               r={radius}
               fill="none"
               stroke={strokeColor}
-              strokeWidth="12"
+              strokeWidth="14"
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={circumference - progress}
               style={{
-                filter: `drop-shadow(0 0 8px ${glowColor})`,
+                filter: `drop-shadow(0 0 6px ${glowColor})`,
                 transition: 'stroke-dashoffset 1.2s ease-out',
               }}
             />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-            <span className="ls-num" style={{ fontSize: 24, color: '#fff', lineHeight: 1, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+            <span className="ls-num" style={{ fontSize: 20, color: '#fff', lineHeight: 1, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
               {animatedScore.toLocaleString()}
             </span>
-            <span className="hud-label" style={{ fontSize: 8, marginTop: 4 }}>
+            <span className="hud-label" style={{ fontSize: 8, marginTop: 2 }}>
               Points
             </span>
           </div>
@@ -448,34 +448,34 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
       <div style={{
         display: 'flex',
         width: '100%',
-        maxWidth: 360,
+        maxWidth: 340,
         background: 'rgba(255, 255, 255, 0.05)',
         border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '18px',
-        padding: '12px 6px',
-        marginBottom: 16,
+        borderRadius: '14px',
+        padding: '8px 4px',
+        marginBottom: 10,
         justifyContent: 'space-around',
         textAlign: 'center'
       }}>
         <div style={{ flex: 1 }}>
-          <div className="ls-num" style={{ fontSize: 18, color: '#fff' }}>{stats?.cleared || 0}</div>
+          <div className="ls-num" style={{ fontSize: 15, color: '#fff' }}>{stats?.cleared || 0}</div>
           <div className="hud-label" style={{ fontSize: 8 }}>Risks Cleared</div>
         </div>
         <div style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
         <div style={{ flex: 1 }}>
-          <div className="ls-num" style={{ fontSize: 18, color: '#F26522' }}>{stats?.shields || 0}</div>
+          <div className="ls-num" style={{ fontSize: 15, color: '#F26522' }}>{stats?.shields || 0}</div>
           <div className="hud-label" style={{ fontSize: 8 }}>Shields Kept</div>
         </div>
         <div style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
         <div style={{ flex: 1 }}>
-          <div className="ls-num" style={{ fontSize: 18, color: '#28A745' }}>{stats?.health || 0}%</div>
+          <div className="ls-num" style={{ fontSize: 15, color: '#28A745' }}>{stats?.health || 0}%</div>
           <div className="hud-label" style={{ fontSize: 8 }}>Final Health</div>
         </div>
       </div>
 
       {/* Motivational Message */}
-      <div style={{ textAlign: 'center', marginBottom: 16, padding: '0 12px' }}>
-        <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255, 255, 255, 0.95)', lineHeight: 1.4, margin: 0 }}>
+      <div style={{ textAlign: 'center', marginBottom: 10, padding: '0 12px' }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255, 255, 255, 0.95)', lineHeight: 1.35, margin: 0 }}>
           {won
             ? 'Shielding your life journey with early planning ensures you reach your long-term wealth goals safely.'
             : 'Unshielded financial risks can derail your journey. Add core protection layers to keep your wealth goals safe.'}
@@ -483,41 +483,41 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
       </div>
 
       {/* Action buttons */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: 10, flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: 8, flexShrink: 0 }}>
         <button
           onClick={handleShare}
           className="ls-btn"
           style={{
             display: 'inline-flex',
             backgroundColor: '#003DA6',
-            height: 48,
-            borderRadius: '14px',
-            fontSize: 16,
+            height: 40,
+            borderRadius: '10px',
+            fontSize: 14,
             width: '100%',
-            maxWidth: 320,
-            boxShadow: '0 4px 14px rgba(0, 61, 166, 0.4)',
+            maxWidth: 300,
+            boxShadow: '0 3px 10px rgba(0, 61, 166, 0.3)',
           }}
         >
-          <ShareIcon />
+          <ShareIcon size={16} />
           Share Score
         </button>
 
         {/* Action Card */}
         <div className="ls-card" style={{
           width: '100%',
-          maxWidth: 320,
+          maxWidth: 300,
           background: 'rgba(12, 25, 44, 0.85)',
-          padding: '16px 14px',
-          borderRadius: '20px',
+          padding: '12px 12px',
+          borderRadius: '16px',
           border: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
           animation: 'none',
         }}>
-          <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, lineHeight: 1.35, margin: '0 0 12px 0' }}>
+          <p style={{ color: '#fff', fontSize: 11, fontWeight: 700, lineHeight: 1.3, margin: '0 0 8px 0', textAlign: 'center' }}>
             Consult a Bajaj Life advisor to build a stable protection bridge for your family's future
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {empPhone && (
               <a
                 href={`tel:${empPhone}`}
@@ -526,27 +526,27 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
                   background: '#F59E0B',
                   color: '#000',
                   fontWeight: 900,
-                  height: 44,
-                  borderRadius: '12px',
+                  height: 36,
+                  borderRadius: '10px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 15,
+                  fontSize: 13,
                   textDecoration: 'none',
                   textTransform: 'uppercase',
                   border: '1px solid #fbbf24',
-                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)',
+                  boxShadow: '0 3px 8px rgba(245, 158, 11, 0.15)',
                 }}
               >
-                <PhoneIcon />
+                <PhoneIcon size={14} />
                 Call Specialist
               </a>
             )}
 
             {empPhone && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '2px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '1px 0' }}>
                 <div style={{ height: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 'bold', fontSize: 9, letterSpacing: '0.15em' }}>OR</span>
+                <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 'bold', fontSize: 8, letterSpacing: '0.1em' }}>OR</span>
                 <div style={{ height: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
               </div>
             )}
@@ -559,13 +559,13 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
                 background: '#28A745',
                 color: '#fff',
                 fontWeight: 900,
-                height: 44,
-                borderRadius: '12px',
-                fontSize: 15,
-                boxShadow: '0 4px 12px rgba(40, 167, 69, 0.2)',
+                height: 36,
+                borderRadius: '10px',
+                fontSize: 13,
+                boxShadow: '0 3px 8px rgba(40, 167, 69, 0.15)',
               }}
             >
-              <CalendarIcon size={16} />
+              <CalendarIcon size={14} />
               Book Consultation
             </button>
           </div>
@@ -579,21 +579,21 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
             background: 'none',
             border: 'none',
             color: 'rgba(255, 255, 255, 0.55)',
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: 800,
             textTransform: 'uppercase',
-            padding: '8px 16px',
-            marginTop: 4,
+            padding: '4px 12px',
+            marginTop: 2,
           }}
         >
-          <RotateIcon />
+          <RotateIcon size={14} />
           Play again
         </button>
       </div>
 
       {/* Disclaimer */}
-      <div style={{ width: '100%', maxWidth: 320, opacity: 0.35, marginTop: 16, padding: '0 8px 12px' }}>
-        <p style={{ fontSize: 8, textAlign: 'center', color: '#fff', lineHeight: 1.4, fontWeight: 'bold', margin: 0 }}>
+      <div style={{ width: '100%', maxWidth: 300, opacity: 0.35, marginTop: 10, padding: '0 8px 4px' }}>
+        <p style={{ fontSize: 8, textAlign: 'center', color: '#fff', lineHeight: 1.3, fontWeight: 'bold', margin: 0 }}>
           Disclaimer: The results shown in this game are indicative and based solely on the information provided by the participant. They are intended for engagement and awareness purposes only and do not constitute financial advice or a recommendation to purchase any life insurance product. Participants should seek independent professional advice before making any financial or insurance decisions. While due care has been taken in designing the game, Bajaj Life Insurance Ltd. assumes no liability for its outcomes.
         </p>
       </div>

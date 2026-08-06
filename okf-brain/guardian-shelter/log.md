@@ -7,6 +7,16 @@ timestamp: 2026-07-09T22:30:13+05:30
 
 # Guardian Shelter Change Log
 
+## [2026-08-03] Replace virus storm with acid rain storm, character hitboxes, layering, and predefined obstacles
+
+- **Acid Rain Conversion:** Replaced the "virus storm" with "acid rain". Renamed logic states (`viruses` to `acidDrops`), colors (`COLORS.virus` to `COLORS.acid`), warnings, and defeat text overlays. Changed character status from `'infected'` to `'hit'`.
+- **Tutorial Visuals:** Replaced virus SVG models with custom SVG teardrop-shaped acid droplets on the home and How to Play screens. Renamed keyframe animations from `gsVirus` to `gsRaindrop`.
+- **Character Stacking Hitbox:** Updated `restYFor()` to treat family members as solid surfaces, enabling shields to snap and rest directly on top of characters' heads when placed there.
+- **Visual Layering Sorting:** Adjusted `drawGame()` layering order so family members are rendered *before* placed shields. This draws umbrellas and other shields in front of character sprites instead of behind them.
+- **Canopy Scaling & Scallops:** Refactored scallop rendering coordinates to calculate dynamically based on `domeR`, allowing the umbrella to scale correctly. Increased default umbrella size to `w: 90` and `domeR: 45` for better coverage.
+- **Outward/Upward Deflection:** Added a horizontal push and minimum upward velocity (`v.vy = Math.min(v.vy, -150)`) on dome deflection to clean the characters underneath. Stem collision box width was restricted to `12px` to prevent invisible wide box overlaps.
+- **Obstacles on Stage:** Added predefined platforms in Level 2, 3, 4, 5, and 6 to serve as fixed deflectors/complexities.
+
 ## [2026-07-31] Revamp — placement feel, family legibility, auto-storm
 
 - **Lead form:** removed the email field, `EMAIL_RE`, its validation branch and all
