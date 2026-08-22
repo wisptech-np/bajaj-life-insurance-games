@@ -10,13 +10,15 @@ and appends the five new concepts.
 from pathlib import Path
 
 import openpyxl
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "GAMES_TRACKER.xlsx"
 
-# Client-requested column order, then the four new columns, then local-only columns.
+# Kept deliberately plain: the client's eight columns plus the four requested ones.
+# No fills, filters, frozen panes or wrapped text — the original "Games Tracker"
+# sheet is left untouched, so nothing is lost by keeping this one simple.
 CLIENT_COLS = [
     "Game Concept",
     "Reference Game Link",
@@ -28,8 +30,7 @@ CLIENT_COLS = [
     "Directory",
 ]
 NEW_COLS = ["Remediation Type", "Effort", "Priority", "Status"]
-TAIL_COLS = ["Type", "Dev Port", "Build Log"]
-HEADERS = CLIENT_COLS + NEW_COLS + TAIL_COLS
+HEADERS = CLIENT_COLS + NEW_COLS
 
 # directory -> (Remediation Type, Effort, Priority, Status)
 # Types: A asset swap | U UI rebuild | M mechanics redesign | F from scratch | B blocked
@@ -203,16 +204,6 @@ NEW_CONCEPTS = [
     },
 ]
 
-PRIORITY_FILL = {
-    "P1": "FF7A2F",
-    "P2": "FFB800",
-    "P3": "5CCBF5",
-    "P4": "2F4A64",
-    "P5": "7CD41F",
-    "BLOCKED": "FF4D4D",
-}
-
-
 def main() -> None:
     wb = openpyxl.load_workbook(SRC)
     src = wb["Games Tracker"]
@@ -232,7 +223,9 @@ def main() -> None:
     out.append(HEADERS)
 
     def emit(record: dict) -> None:
-        out.append([record.get(h, "") for h in HEADERS])
+        # Source cells come back as None, not "", and openpyxl would write the
+        # literal string "None" into the sheet.
+        out.append([("" if record.get(h) is None else record.get(h)) for h in HEADERS])
 
     for r in rows:
         directory = (r.get("Directory") or "").strip()
@@ -259,15 +252,9 @@ def main() -> None:
         emit(concept)
     print(f"appended: {len(NEW_CONCEPTS)} new concepts")
 
-    # ---- formatting -------------------------------------------------------
-    header_fill = PatternFill("solid", fgColor="00529B")
+    # ---- formatting: bold header and readable widths, nothing else --------
     for cell in out[1]:
-        cell.font = Font(bold=True, color="FFFFFF", size=11)
-        cell.fill = header_fill
-        cell.alignment = Alignment(vertical="center", wrap_text=True)
-    out.row_dimensions[1].height = 32
-    out.freeze_panes = "A2"
-    out.auto_filter.ref = f"A1:{get_column_letter(len(HEADERS))}{out.max_row}"
+        cell.font = Font(bold=True)
 
     widths = {
         "Game Concept": 46,
@@ -282,27 +269,9 @@ def main() -> None:
         "Effort": 8,
         "Priority": 10,
         "Status": 34,
-        "Type": 9,
-        "Dev Port": 10,
-        "Build Log": 40,
     }
     for i, h in enumerate(HEADERS, start=1):
         out.column_dimensions[get_column_letter(i)].width = widths.get(h, 18)
-
-    pri_col = HEADERS.index("Priority") + 1
-    for row in out.iter_rows(min_row=2, min_col=pri_col, max_col=pri_col):
-        cell = row[0]
-        colour = PRIORITY_FILL.get(str(cell.value))
-        if colour:
-            cell.fill = PatternFill("solid", fgColor=colour)
-            cell.font = Font(bold=True, color="FFFFFF" if cell.value != "P4" else "FFFFFF")
-        cell.alignment = Alignment(horizontal="center")
-
-    for row in out.iter_rows(min_row=2):
-        for cell in row:
-            cell.alignment = Alignment(
-                vertical="top", wrap_text=True, horizontal=cell.alignment.horizontal
-            )
 
     # ---- keep the do-not-repeat catalog current ---------------------------
     catalog = wb["Do-Not-Repeat Catalog"]

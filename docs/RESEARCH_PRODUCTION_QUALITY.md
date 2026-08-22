@@ -8,20 +8,32 @@
 
 ## 1. The measurement that explains the review feedback
 
-I inventoried every game's `src/` tree — lines of code, canvas primitive calls, and shipped image assets.
+Full per-game audit via `scripts/audit-assets.mjs` (layout-agnostic — an earlier pass filtered on `src/` and silently skipped the two Phaser titles). Regenerate with `node scripts/audit-assets.mjs --md docs/ASSET_AUDIT.md`; per-game table lives in `ASSET_AUDIT.md`.
 
 | Metric | Portfolio total |
 |---|---|
-| Built games | 35 (+2 Phaser titles) |
-| Lines of game code | ~186,000 |
-| **Image files shipped, whole portfolio** | **17** |
-| **Total art bytes, whole portfolio** | **~570 KB** |
-| Of which one file (`smart-match-3d/ambient_game_bg.png`) | 567 KB |
-| **Art bytes in the other 34 games combined** | **~4 KB** |
-| `ctx.drawImage` call sites, all games | 87 |
-| `ctx.fillRect` + `ctx.arc` call sites, all games | 592 |
+| Built games | **37** (35 Canvas 2D + 2 Phaser) |
+| Lines of game code | **196,984** |
+| **Image files shipped, whole portfolio** | **28** |
+| **Total art bytes, whole portfolio** | **~5.9 MB** |
+| **Games shipping zero image files** | **29 of 37** |
+| Games shipping any audio file | **0 of 37** |
+| `ctx.drawImage` call sites, all games | **81** |
+| Canvas primitive call sites (`fillRect`/`arc`/`roundRect`/`ellipse`/gradients) | **1,285** |
 
-Twenty-nine of thirty-five games ship **zero** image files. Every character, hazard, background, tile, and effect is composed at runtime from `fillRect`, `arc`, `roundRect`, and `createLinearGradient`.
+**Twenty-nine of thirty-seven games ship zero image files.** The ratio that matters is 1,285 primitive calls against 81 `drawImage` calls — roughly **16 shapes drawn for every sprite blitted**. Every character, hazard, background, tile, and effect is composed at runtime from `fillRect`, `arc`, `roundRect` and gradients.
+
+All the art that does exist sits in eight games, and is concentrated in three:
+
+| Game | Files | Size |
+|---|--:|--:|
+| `guardian-shelter` | 5 | 2,476 KB |
+| `life-soar` | 4 | 2,120 KB |
+| `tightrope-protection` | 2 | 860 KB |
+| `smart-match-3d` | 12 | 566 KB |
+| `risk-exit`, `portfolio-fit`, `risk-strike`, `wealth-drop` | 1–2 each | ~1 KB each |
+
+The last four are single flat SVG tiles of a few hundred bytes — placeholders, not art.
 
 This is the root cause, and it is a single cause. Rounded rectangles with gradient fills and a glow are what a game looks like when a programmer draws it. No amount of tuning makes a `ctx.arc` circle read as a character. The reviewer's language — *"design is too simple and basic"*, *"assets and colour combinations are not good"*, *"everything is not good, totally change it"* — is a consistent, accurate description of procedurally-drawn primitives.
 
@@ -30,6 +42,19 @@ This is the root cause, and it is a single cause. Rounded rectangles with gradie
 ### 1a. The same finding, on the audio side
 
 `shared/game-kit/audio.js` produces every sound in the portfolio from `AudioContext.createOscillator()`. There is not one sampled asset anywhere. Synthesised square/sine beeps are the audio equivalent of `ctx.arc` — they read as a prototype regardless of how well-timed they are. Game-feel literature is blunt that audio carries a disproportionate share of perceived impact; Vlambeer's *The Art of Screenshake* treats sound as one of the first and cheapest wins in its 30-tweak sequence ([Game Developer](https://www.gamedeveloper.com/design/vlambeer-co-founder-shares-advice-on-building-better-action-games), [talk video](https://www.youtube.com/watch?v=AJdEqssNZ-U)).
+
+### 1c. Three review rules are violated portfolio-wide, not per-title
+
+The same audit checked every game against the review's blanket rules. Two are far more widespread than previously believed:
+
+| Rule | Games affected | Detail |
+|---|--:|---|
+| Strip all "how to play" instructional text | **37 of 37** | Every title ships a `HowToPlayScreen` component, and in several the home screen's Start button routes *into* it rather than into the game. |
+| Time-critical input must not use `onTap` | **37 of 37** | Previously believed to be four titles. It is all of them — a 60–150 ms penalty portfolio-wide. |
+| No emoji as game assets | **4 of 37** | Much narrower than a naive grep suggests: `steady-tower` draws `★`/`✕` through `fx.floatText`, `smart-match-3d` draws `✓`, `life-soar` renders a 💡. A further 35 hits are one `✓` checkbox tick in the shared lead form — a UI glyph, trivially swapped for the new SVG icon, not a game asset. |
+| Remove the email field | **0 of 37** | Already done. Confirmed clean. |
+
+The first two are cheap, mechanical, and apply to the approved title as well. They belong in the shared foundation phase, not in per-title work.
 
 ### 1b. What is *not* broken
 
@@ -116,7 +141,7 @@ Per-game atlas, one sheet, generated at build time.
 
 WebP quality 82 for backgrounds, 88 for sprite atlases (alpha edges are where artefacts show). Lossy-PNG via pngquant only where WebP alpha proves problematic. Brotli on the server for JS/CSS.
 
-The 567 KB PNG in `smart-match-3d` is a single un-optimised background — a WebP re-encode at q82 takes it to roughly 90–120 KB with no perceptible loss. That one file is currently 99% of the portfolio's art weight, which is a fair summary of the situation.
+The art that does exist is un-optimised PNG: `guardian-shelter` (2,476 KB), `life-soar` (2,120 KB), `tightrope-protection` (860 KB) and `smart-match-3d` (566 KB) account for ~6.0 MB of the portfolio's 5.9 MB total. WebP re-encodes at q82 should take that to roughly 0.9–1.2 MB with no perceptible loss — before any new art is added. Four other games ship a single sub-kilobyte SVG tile each, which is placeholder rather than art.
 
 ### 3.4 Character animation — the licensed-art decision
 
