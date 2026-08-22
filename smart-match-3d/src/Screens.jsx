@@ -5,6 +5,10 @@ import { motion } from 'framer-motion';
 import { GOAL_BY_ID, tokenDataUri } from './data.js';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
+import { Marker, RMActionCard } from './kit/screens.jsx';
+import { metaFor } from './kit/game-meta.js';
+
+const META = metaFor('smart-match-3d');
 
 /* ─── Inline icons (UI chrome) ───────────────────────────── */
 function ShareIcon({ size = 18 }) {
@@ -149,35 +153,6 @@ function FingerGlyph({ size = 26, className, style }) {
   );
 }
 
-function TripleGlyph({ size = 22 }) {
-  return (
-    <svg viewBox="0 0 30 22" width={size * 1.36} height={size} aria-hidden="true">
-      <rect x="1" y="5" width="11" height="11" rx="3.2" fill="#F26522" />
-      <rect x="9.5" y="4" width="11" height="11" rx="3.2" fill="#FFA05C" />
-      <rect x="18" y="5" width="11" height="11" rx="3.2" fill="#F26522" />
-      <path d="M21.5 10.2l2 2.2 4-4.6" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function TrayGlyph({ size = 22 }) {
-  return (
-    <svg viewBox="0 0 30 22" width={size * 1.36} height={size} aria-hidden="true">
-      <rect x="1" y="5" width="28" height="14" rx="4" fill="none" stroke="#FF7B6E" strokeWidth="2" />
-      <rect x="4" y="8" width="6" height="8" rx="2" fill="#FF7B6E" />
-      <rect x="12" y="8" width="6" height="8" rx="2" fill="#FF7B6E" />
-      <rect x="20" y="8" width="6" height="8" rx="2" fill="#FF7B6E" />
-      <path d="M15 1.5v-0.2" stroke="#FF7B6E" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-const CUES = [
-  { glyph: <FingerGlyph size={18} />, text: 'Tap' },
-  { glyph: <TripleGlyph />, text: 'Match 3' },
-  { glyph: <TrayGlyph />, text: "Don't fill tray" },
-];
-
 export function HowToPlayScreen({ onPlay }) {
   const demoUri = tokenDataUri(GOAL_BY_ID.home);
   const sparks = [
@@ -222,16 +197,18 @@ export function HowToPlayScreen({ onPlay }) {
               />
             ))}
             <FingerGlyph className="sm3-demo-finger" />
+
+            {/* What scores and what hurts, shown on the mechanic itself
+                rather than written out underneath it. Kept inside the stage
+                bounds — .sm3-demo clips overflow to keep its rounded corners. */}
+            <Marker kind="pos" x={58} y={30} label="Match 3" size={20} />
+            <Marker kind="neg" x={168} y={30} label="Tray full" size={20} />
           </div>
         </div>
 
-        <div className="sm3-cues">
-          {CUES.map((c) => (
-            <div key={c.text} className="sm3-cue">
-              <span className="sm3-cue-glyph">{c.glyph}</span>
-              <span className="sm3-cue-text">{c.text}</span>
-            </div>
-          ))}
+        <div className="sm3-goal-line">
+          <span className="sm3-goal-tag">Goal</span>
+          <span className="sm3-goal-text">{META.goal}</span>
         </div>
 
         <motion.div whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>

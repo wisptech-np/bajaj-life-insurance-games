@@ -57,7 +57,8 @@ const GAMES = [
 
 const checkOnly = process.argv.includes('--check');
 
-const files = (await readdir(SRC)).filter((f) => f.endsWith('.js'));
+// .jsx as well as .js — the shared screen furniture (screens.jsx) lives here too.
+const files = (await readdir(SRC)).filter((f) => f.endsWith('.js') || f.endsWith('.jsx'));
 let stale = 0;
 let written = 0;
 

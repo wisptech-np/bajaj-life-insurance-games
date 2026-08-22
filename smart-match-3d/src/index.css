@@ -1124,40 +1124,32 @@ body,
 }
 
 /* Icon cues — the only words allowed on the how-to-play screen */
-.sm3-cues {
+/* One-line objective under the demo. Replaces the three icon cues: the demo
+   plus the +/- markers already carry the mechanic, so the only text left is
+   what the player is actually trying to do. */
+.sm3-goal-line {
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
+  padding: 0 4px;
+  text-align: center;
 }
 
-.sm3-cue {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 11px 6px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-
-.sm3-cue-glyph {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-}
-
-.sm3-cue-text {
+.sm3-goal-tag {
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  text-align: center;
-  line-height: 1.25;
-  color: rgba(255, 255, 255, 0.82);
+  color: #ffb800;
+}
+
+.sm3-goal-text {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 /* Looping tap → tray → merge demo */
