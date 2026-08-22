@@ -1,0 +1,128 @@
+{
+  "$comment": "Asset generation manifest. Every prompt inherits defaults.style_suffix so the whole portfolio shares one rendering doctrine (BAJAJ_ARCADE_STYLE_GUIDE.md §1). Run: node scripts/gen-assets.mjs docs/asset-manifest.json",
+  "defaults": {
+    "model": "recraft_v4_1",
+    "$resolution_note": "1k costs 2.5 credits, 2k costs 10. Output is traced SVG, so 2k buys no fidelity — keep 1k.",
+    "params": { "model_type": "vector", "aspect_ratio": "1:1", "resolution": "1k" },
+    "style_suffix": "Flat vector game art, two-tone shading with a single key light from the upper left: a base colour plus one darker shadow step along the lower-right edge, and one flat lighter highlight shape at the upper left. No outlines, no gradients, no gloss, no glow, no drop shadow, no text, no lettering, no background scenery. Bold simple silhouette that stays readable at 32 pixels. Centered, isolated subject on a plain flat background."
+  },
+  "assets": [
+    {
+      "out": "shared/assets/virus/virus-scout.svg",
+      "prompt": "A small menacing green virus blob character. Rounded blob body with exactly 5 stubby conical spikes unevenly spaced around the edge. A darker green inner core disc off-centre toward the lower right. Two flat solid black oval eyes, close-set and slightly asymmetric, no pupils, no whites, no mouth.",
+      "params": { "colors": ["#7CD41F", "#A6EE4F", "#4E9410", "#2E5D08"] }
+    },
+    {
+      "out": "shared/assets/virus/virus-brute.svg",
+      "prompt": "A large heavy menacing green virus blob character. Thick rounded blob body with exactly 9 stubby conical spikes unevenly spaced around the edge, heavier and blunter than a normal virus. A thick dark green shadow band along the lower right. A darker green inner core disc off-centre toward the lower right. Two flat solid black oval eyes, close-set and slightly asymmetric, no pupils, no whites, no mouth.",
+      "params": { "colors": ["#7CD41F", "#A6EE4F", "#4E9410", "#2E5D08"] }
+    },
+    {
+      "out": "shared/assets/virus/virus-splitter.svg",
+      "prompt": "A menacing green virus blob character about to split in two. Rounded blob body with exactly 7 stubby conical spikes unevenly spaced around the edge, and a clear seam line running across the body dividing it into two halves in slightly different shades of green. Two flat solid black oval eyes, close-set and slightly asymmetric, no pupils, no whites, no mouth.",
+      "params": { "colors": ["#7CD41F", "#A6EE4F", "#4E9410", "#2E5D08"] }
+    },
+    {
+      "out": "shared/assets/virus/virus-contaminant.svg",
+      "prompt": "A flattened wide patch of green contamination seen from above, like a puddle of hazardous slime. Irregular blobby outline with a few short rounded lobes around the edge and a darker green core in the middle. No eyes, no face, no character features.",
+      "params": { "colors": ["#7CD41F", "#A6EE4F", "#4E9410", "#2E5D08"] }
+    },
+
+    {
+      "out": "shared/assets/icons/icon-shield.svg",
+      "prompt": "A rounded heater shield with a single vertical ridge down the centre.",
+      "params": { "colors": ["#00A3E0", "#5CCBF5", "#0077A8", "#FFF4DC"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-savings.svg",
+      "prompt": "A stack of three coins seen from the side, with the top coin face visible.",
+      "params": { "colors": ["#FFB800", "#FFCE4D", "#D18F00"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-home.svg",
+      "prompt": "A simple house with a gabled roof and one lit square window.",
+      "params": { "colors": ["#FF8A34", "#C25F17", "#FFF4DC"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-car.svg",
+      "prompt": "A side profile of a small hatchback car with two round wheels.",
+      "params": { "colors": ["#5CCBF5", "#2E9AC4", "#101D2E", "#FFF4DC"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-education.svg",
+      "prompt": "A graduation mortarboard cap seen at a slight angle with a tassel hanging to the right.",
+      "params": { "colors": ["#00529B", "#003B71", "#FFB800"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-marriage.svg",
+      "prompt": "Two interlocking wedding rings, one gold and one blue.",
+      "params": { "colors": ["#FFCE4D", "#D9A420", "#00A3E0", "#0077A8"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-child.svg",
+      "prompt": "One small child standing front on, seen straight from the front, symmetrical. A large round head sitting on a simple rounded body, two short straight legs below, two short arms hanging down at the sides. Built from thick solid filled shapes. No stick figure, no thin lines, no raised arms, no motion.",
+      "params": { "colors": ["#F2D9A8", "#C9AE7C", "#FFB800"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-retirement.svg",
+      "prompt": "A large round sun disc resting on a straight horizontal horizon line, with three short straight rays above the sun. No trees, no palm, no plants, no clouds.",
+      "params": { "colors": ["#FF8A34", "#C25F17", "#FFCE4D"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-health.svg",
+      "prompt": "One single bold symmetrical love heart. Two round lobes at the top, a V dip in the middle of the top edge, and a point at the bottom. The heart is one solid unbroken filled shape. Nothing overlaps it, nothing cuts into it, no line crosses it, no crescent, no moon.",
+      "params": { "colors": ["#FFF4DC", "#D9C9A5", "#00529B"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-rewards.svg",
+      "prompt": "A six pointed star with a flat faceted centre.",
+      "params": { "colors": ["#FFB800", "#FFCE4D", "#D18F00"] }
+    },
+    {
+      "out": "shared/assets/icons/icon-family.svg",
+      "prompt": "Three simple standing figures side by side, the tallest one in the centre.",
+      "params": { "colors": ["#FFCE4D", "#D9A420", "#D18F00"] }
+    },
+
+    {
+      "out": "shared/assets/ui/icon-pause.svg",
+      "prompt": "A pause symbol: two thick vertical rounded bars side by side.",
+      "params": { "colors": ["#FFFFFF", "#5CCBF5", "#0077A8"] }
+    },
+    {
+      "out": "shared/assets/ui/icon-play.svg",
+      "prompt": "A play symbol: one thick right-pointing rounded triangle.",
+      "params": { "colors": ["#FFFFFF", "#5CCBF5", "#0077A8"] }
+    },
+    {
+      "out": "shared/assets/ui/icon-restart.svg",
+      "prompt": "A restart symbol: a circular arrow loop with one arrowhead.",
+      "params": { "colors": ["#FFFFFF", "#5CCBF5", "#0077A8"] }
+    },
+    {
+      "out": "shared/assets/ui/icon-sound-on.svg",
+      "prompt": "A speaker symbol with two curved sound waves coming from it.",
+      "params": { "colors": ["#FFFFFF", "#5CCBF5", "#0077A8"] }
+    },
+    {
+      "out": "shared/assets/ui/icon-sound-off.svg",
+      "prompt": "A muted speaker icon: a small rectangular block on the left joined to a triangular cone opening toward the right, forming one solid speaker shape, with a single straight diagonal bar crossing over it corner to corner. No sound waves, no arcs, no curves radiating out.",
+      "params": { "colors": ["#FFFFFF", "#5CCBF5", "#0077A8"] }
+    },
+    {
+      "out": "shared/assets/ui/icon-close.svg",
+      "prompt": "A close symbol: a thick rounded X cross.",
+      "params": { "colors": ["#FFFFFF", "#5CCBF5", "#0077A8"] }
+    },
+    {
+      "out": "shared/assets/ui/icon-trophy.svg",
+      "prompt": "A trophy cup with two side handles on a small base.",
+      "params": { "colors": ["#FFB800", "#FFCE4D", "#D18F00"] }
+    },
+    {
+      "out": "shared/assets/ui/icon-timer.svg",
+      "prompt": "A stopwatch with a small top button and a clock hand.",
+      "params": { "colors": ["#FFB800", "#FFCE4D", "#D18F00", "#101D2E"] }
+    }
+  ]
+}

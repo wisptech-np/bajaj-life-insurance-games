@@ -33,3 +33,9 @@ pnpm-debug.log*
 
 # Vite / Temporary files
 **/vite.config.js.timestamp-*
+
+# Local agent tooling (vendor skills + Claude Code symlinks), installed per-machine
+# via `npx skills add higgsfield-ai/skills` — not project source.
+.agents/
+.claude/
+skills-lock.json
