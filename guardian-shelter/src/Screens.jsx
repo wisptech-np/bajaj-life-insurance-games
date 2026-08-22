@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { COLORS } from './data.js';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import guardianBgImg from './guardian_shelter_bg.png';
+import guardianBgImg from './guardian_shelter_bg.webp';
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function PlayIcon({ size = 18 }) {

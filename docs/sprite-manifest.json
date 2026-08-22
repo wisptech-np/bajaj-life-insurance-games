@@ -1,0 +1,130 @@
+{
+  "$comment": "Raster gameplay sprites. Replaces canvas-primitive drawing with real art. nano_banana (1 credit) + image_background_remover (1 credit) = 2 credits per sprite. Run: node scripts/gen-assets.mjs docs/sprite-manifest.json [--only <substr>]. Then: node scripts/optimize-assets.mjs <dir> <files>",
+  "defaults": {
+    "model": "nano_banana",
+    "removeBg": true,
+    "params": { "aspect_ratio": "1:1" },
+    "style_suffix": "Polished semi-realistic mobile game art with clean cel shading and a crisp readable silhouette. Single warm key light from the upper left with a cool ambient fill. Warm cream, gold and amber tones against deep navy. Centered, isolated subject, plain flat mid-grey background. No text, no lettering, no logos, no user interface, no scenery, no drop shadow."
+  },
+  "assets": [
+    { "out": "cover-drive/src/assets/bowler-delivery.png", "prompt": "A stylised cricket fast bowler mid delivery stride, strict side profile facing left, bowling arm coming over the top, ball in hand. Full body." },
+    { "out": "cover-drive/src/assets/cricket-ball.png", "prompt": "A single cricket ball, deep red leather with a raised white stitched seam running across it, lit from the upper left. Nothing else in frame." },
+    { "out": "cover-drive/src/assets/stumps.png", "prompt": "A set of three cricket stumps with two bails resting on top, seen straight on, pale polished wood." },
+
+    { "out": "coverage-archer/assets/arrow.png", "prompt": "A single archery arrow lying horizontally pointing right, wooden shaft, steel tip, cream and gold fletching." },
+    { "out": "coverage-archer/assets/target-post.png", "prompt": "A simple wooden target post standing upright with a round straw archery target mounted on it, seen straight on." },
+
+    { "out": "guardian-shelter/src/assets/family-group.png", "prompt": "A small group of four simple stylised family figures standing together, an adult man, an adult woman, a child and an older grandparent, warm cream and gold clothing, rounded chunky friendly shapes. Full body, front facing." },
+    { "out": "guardian-shelter/src/assets/umbrella-shield.png", "prompt": "A sturdy protective umbrella shaped like a shield, canopy seen from a low three quarter angle, deep blue canopy with a gold rim and a short handle." },
+    { "out": "guardian-shelter/src/assets/house-small.png", "prompt": "A small simple family house with a gabled roof and one warmly lit window, seen straight on, warm amber walls." },
+
+    { "out": "milestone-hopper/src/assets/hopper.png", "prompt": "A small rounded stylised character standing ready to hop, front facing, chunky friendly proportions, warm cream and gold clothing with a small shield emblem on the chest. Full body." },
+    { "out": "milestone-hopper/src/assets/milestone-flag.png", "prompt": "A milestone marker flag on a short pole planted in the ground, gold pennant, seen straight on." },
+    { "out": "milestone-hopper/src/assets/lane-hazard-car.png", "prompt": "A small stylised car seen in strict side profile facing right, simple rounded body, deep navy paint with gold trim." },
+
+    { "out": "wealth-drop/src/assets/drop-ball.png", "prompt": "A single large heavy game ball, front on, warm polished gold with one bright highlight at the upper left. Solid and tactile." },
+    { "out": "wealth-drop/src/assets/peg.png", "prompt": "A single small round metal peg stud, front on, brushed steel with a warm rim light." },
+    { "out": "wealth-drop/src/assets/slot-bay.png", "prompt": "A single open collection bay or bin seen straight on, a shallow rounded container with a gold rim and dark interior." },
+
+    { "out": "smart-match-3d/src/assets/tile-blank.png", "prompt": "A single blank rounded square game tile seen straight on, light warm cream face with a soft bevelled edge, empty face." },
+    { "out": "smart-match-3d/src/assets/tray.png", "prompt": "A shallow horizontal tray or rack with seven empty slots, seen straight on, dark slate with a gold rim." },
+
+    { "out": "spiral-sprint/src/assets/descent-ball.png", "prompt": "A single round game ball, front on, warm gold with a bright highlight upper left and a darker underside." },
+    { "out": "spiral-sprint/src/assets/platform-safe.png", "prompt": "A curved arc segment of a circular platform seen from slightly above, warm gold top face with a darker side edge." },
+    { "out": "spiral-sprint/src/assets/platform-risk.png", "prompt": "A curved arc segment of a circular platform seen from slightly above, acid green top face with a darker green side edge, faintly hazardous looking." },
+
+    { "out": "steady-tower/src/assets/block-wood.png", "prompt": "A single rectangular wooden building block seen at a slight three quarter angle, warm polished timber with visible grain." },
+    { "out": "steady-tower/src/assets/block-steel.png", "prompt": "A single rectangular steel building block seen at a slight three quarter angle, brushed metal with a cool sheen and gold edge trim." },
+
+    { "out": "risk-strike/src/assets/bowling-pin.png", "prompt": "A single ten pin bowling pin standing upright, seen straight on, glossy cream with a deep navy neck stripe." },
+    { "out": "risk-strike/src/assets/bowling-ball.png", "prompt": "A single bowling ball, front on, deep navy polished surface with three finger holes and a warm highlight upper left." },
+
+    { "out": "portfolio-fit/src/assets/block-1x1.png", "prompt": "A single square puzzle block seen straight on, warm gold face with a soft bevelled edge and a darker side." },
+    { "out": "portfolio-fit/src/assets/block-2x1.png", "prompt": "A rectangular puzzle block twice as wide as tall, seen straight on, deep blue face with a soft bevelled edge." },
+    { "out": "portfolio-fit/src/assets/block-3x1.png", "prompt": "A long rectangular puzzle block three times as wide as tall, seen straight on, warm amber face with a soft bevelled edge." },
+
+    { "out": "goal-keeper/src/assets/keeper.png", "prompt": "A stylised goalkeeper crouched ready to dive, front facing, gloves raised, cream and navy kit. Full body." },
+    { "out": "goal-keeper/src/assets/football.png", "prompt": "A single football, front on, classic white panels with deep navy pentagons, warm highlight upper left." },
+    { "out": "goal-keeper/src/assets/goal-frame.png", "prompt": "A simple football goal frame with netting, seen straight on, white posts." },
+
+    { "out": "goal-orbit/src/assets/orbiter.png", "prompt": "A small rounded orbiting pod with a gold shield emblem, seen straight on, deep navy hull with gold trim." },
+    { "out": "goal-orbit/src/assets/goal-core.png", "prompt": "A glowing golden sphere core with a faint ring around it, seen straight on." },
+
+    { "out": "guardian-arena/src/assets/hero.png", "prompt": "A stylised guardian hero standing ready with a raised shield and a short staff, front facing, cream tunic with navy and gold armour trim. Full body." },
+    { "out": "guardian-arena/src/assets/upgrade-crystal.png", "prompt": "A faceted floating upgrade crystal, warm gold, seen straight on with a soft inner glow." },
+
+    { "out": "income-pipeline/src/assets/pipe-straight.png", "prompt": "A single straight metal pipe segment seen straight on, brushed steel with gold flange rings at both ends." },
+    { "out": "income-pipeline/src/assets/pipe-elbow.png", "prompt": "A single ninety degree elbow pipe segment seen straight on, brushed steel with gold flange rings." },
+    { "out": "income-pipeline/src/assets/valve.png", "prompt": "A single round pipe valve wheel seen straight on, gold spoked handwheel on a steel body." },
+
+    { "out": "legacy-echo/src/assets/runner.png", "prompt": "A small stylised running figure in mid stride, strict side profile facing right, warm cream and gold clothing. Full body." },
+    { "out": "legacy-echo/src/assets/echo-ghost.png", "prompt": "A translucent pale blue silhouette of a running figure in mid stride, side profile facing right, ghostly and semi transparent. Full body." },
+
+    { "out": "life-rush/src/assets/coin.png", "prompt": "A single gold coin seen face on, milled edge, warm highlight upper left." },
+    { "out": "life-rush/src/assets/clock.png", "prompt": "A simple round alarm clock seen straight on, cream face with navy hands and a gold rim." },
+    { "out": "life-rush/src/assets/shield-token.png", "prompt": "A small rounded shield token seen straight on, deep blue face with a gold rim." },
+
+    { "out": "life-soar/src/assets/glider.png", "prompt": "A stylised hang glider seen from behind and slightly above, warm gold canopy with a cream underside and a small pilot beneath." },
+    { "out": "life-soar/src/assets/canyon-rock.png", "prompt": "A single jagged rock outcrop seen in side profile, warm sandstone with a darker shadowed underside." },
+
+    { "out": "perfect-premium/src/assets/dial.png", "prompt": "A round control dial seen straight on, dark slate face with a gold graduated scale around the rim." },
+    { "out": "perfect-premium/src/assets/needle.png", "prompt": "A single slim pointer needle, gold with a red tip, pointing straight up on a small round pivot." },
+
+    { "out": "premium-pinball/src/assets/flipper.png", "prompt": "A single pinball flipper paddle seen straight on from above, glossy deep navy with a gold edge and a pivot post." },
+    { "out": "premium-pinball/src/assets/pinball.png", "prompt": "A single polished steel pinball, front on, bright specular highlight upper left." },
+    { "out": "premium-pinball/src/assets/bumper.png", "prompt": "A single round pinball bumper seen from above, gold cap on a navy ring base." },
+
+    { "out": "premium-pulse/src/assets/beat-orb.png", "prompt": "A glowing round pulse orb seen straight on, warm gold core with a soft outer ring." },
+
+    { "out": "premium-tiles/src/assets/tile-lane.png", "prompt": "A single tall rounded rectangular tile seen straight on, deep navy face with a subtle gold edge highlight." },
+
+    { "out": "ring-fence/src/assets/surveyor.png", "prompt": "A small stylised surveyor character holding a marker post, front facing, cream work clothes with a gold hard hat. Full body." },
+    { "out": "ring-fence/src/assets/fence-post.png", "prompt": "A single wooden fence post with a short rail stub, seen straight on, warm timber." },
+
+    { "out": "risk-exit/src/assets/arrow-block.png", "prompt": "A rounded square puzzle block with a bold arrow embossed on its face pointing right, seen straight on, deep blue face with a gold arrow." },
+    { "out": "risk-exit/src/assets/exit-gate.png", "prompt": "A simple open gateway arch seen straight on, gold frame with a dark opening." },
+
+    { "out": "risk-radar/src/assets/radar-dish.png", "prompt": "A small radar dish on a short mount, seen at a three quarter angle, brushed steel with a gold rim." },
+    { "out": "risk-radar/src/assets/wall-tile.png", "prompt": "A single square stone wall tile seen straight on, dark slate with a subtle bevel." },
+
+    { "out": "risk-slash/src/assets/shield-fruit.png", "prompt": "A rounded shield shaped object the size of a fruit, deep blue face with a gold rim, seen straight on." },
+
+    { "out": "safe-crossing/src/assets/traffic-light.png", "prompt": "A small three lamp traffic light on a short pole, seen straight on, dark navy housing with red, amber and green lamps." },
+    { "out": "safe-crossing/src/assets/car-small.png", "prompt": "A small stylised car seen from directly above, simple rounded body, warm gold paint." },
+    { "out": "safe-crossing/src/assets/pedestrian.png", "prompt": "A small stylised pedestrian figure walking, seen from directly above, cream clothing. Full body." },
+
+    { "out": "secure-journey/src/assets/unit.png", "prompt": "A small stylised guardian unit figure marching forward, front facing, cream tunic with navy and gold shield emblem. Full body." },
+    { "out": "secure-journey/src/assets/gate.png", "prompt": "A simple gateway arch spanning a path, seen straight on, gold frame." },
+
+    { "out": "sip-stack/src/assets/stack-block.png", "prompt": "A single wide flat rectangular stacking block seen straight on at a slight angle, warm gold face with a darker side edge." },
+    { "out": "sip-stack/src/assets/crane-hook.png", "prompt": "A simple crane hook on a short cable, seen straight on, brushed steel." },
+
+    { "out": "slide-to-safety/src/assets/shield-puck.png", "prompt": "A rounded shield shaped puck seen from directly above, deep blue face with a gold rim." },
+    { "out": "slide-to-safety/src/assets/ice-tile.png", "prompt": "A single square pale blue ice tile seen from directly above, faint cracks and a cool sheen." },
+
+    { "out": "smart-recall/src/assets/pad-lit.png", "prompt": "A single rounded square button pad seen straight on, brightly lit warm gold face with a soft glow." },
+    { "out": "smart-recall/src/assets/pad-dim.png", "prompt": "A single rounded square button pad seen straight on, unlit dark slate face." },
+
+    { "out": "smart-sorter/src/assets/conveyor.png", "prompt": "A short section of conveyor belt seen straight on from the side, dark rubber belt on a steel frame with gold rollers." },
+    { "out": "smart-sorter/src/assets/bin.png", "prompt": "A single open sorting bin seen straight on, dark slate body with a gold rim." },
+
+    { "out": "steady-wings/src/assets/flyer.png", "prompt": "A small stylised winged shield character in flight, strict side profile facing right, gold shield body with cream feathered wings." },
+    { "out": "steady-wings/src/assets/gate-pillar.png", "prompt": "A single tall narrow pillar seen straight on, deep navy stone with a gold cap." },
+
+    { "out": "swing-to-secure/src/assets/swinger.png", "prompt": "A small stylised character hanging from a rope with one arm, body swinging, side profile facing right, cream and gold clothing. Full body." },
+    { "out": "swing-to-secure/src/assets/rope-anchor.png", "prompt": "A single round anchor point with a short length of rope hanging from it, seen straight on, gold ring on a dark mount." },
+
+    { "out": "tightrope-protection/assets/walker.png", "prompt": "A small stylised character balancing on a wire with arms outstretched, front facing, cream and gold clothing. Full body." },
+    { "out": "tightrope-protection/assets/balance-pole.png", "prompt": "A single long slim balance pole lying horizontally, warm timber with gold end caps." },
+
+    { "out": "wealth-balloon/src/assets/balloon.png", "prompt": "A single round party balloon on a short string, seen straight on, warm gold with a bright highlight upper left." },
+    { "out": "wealth-balloon/src/assets/goal-card.png", "prompt": "A single rounded rectangular card seen straight on, cream face with a gold border, blank front." },
+
+    { "out": "wealth-carrom/src/assets/striker.png", "prompt": "A single carrom striker disc seen from directly above, glossy cream with a gold rim." },
+    { "out": "wealth-carrom/src/assets/carrom-coin.png", "prompt": "A single small carrom coin disc seen from directly above, polished dark timber with a gold inlay ring." },
+
+    { "out": "wealth-merge/src/assets/orb-small.png", "prompt": "A small round glossy orb, front on, warm gold with a bright highlight upper left." },
+    { "out": "wealth-merge/src/assets/orb-mid.png", "prompt": "A medium round glossy orb, front on, deep blue with a gold equatorial band and a bright highlight upper left." },
+    { "out": "wealth-merge/src/assets/orb-large.png", "prompt": "A large round glossy orb, front on, rich amber with a faceted gold crown band and a bright highlight upper left." }
+  ]
+}

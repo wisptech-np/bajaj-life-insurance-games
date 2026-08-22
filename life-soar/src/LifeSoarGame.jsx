@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import canyonBgImg from './canyon_bg.png';
-import gliderImg from './hang_glider.png';
+import canyonBgImg from './canyon_bg.webp';
+import gliderImg from './hang_glider.webp';
 import { WORLD, FLIGHT, RAMP, LAYOUT, MILESTONES, SCORING } from './data.js';
 
 // Derived from data.js — do not tune here, tune in data.js.

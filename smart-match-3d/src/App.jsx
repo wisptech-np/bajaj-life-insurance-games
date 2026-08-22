@@ -8,7 +8,7 @@ import SlotBookingModal from './SlotBookingModal.jsx';
 import ThankYouScreen from './ThankYouScreen.jsx';
 import { LEAD_NO_KEY } from './api.js';
 import { GAME_CONFIG } from './data.js';
-import ambientBg from './assets/ambient_game_bg.png';
+import ambientBg from './assets/ambient_game_bg.webp';
 
 export default function App() {
   const [screen, setScreen] = useState('home'); // home | howtoplay | game | results | thankyou

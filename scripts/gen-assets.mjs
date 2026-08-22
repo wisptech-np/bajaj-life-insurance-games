@@ -63,8 +63,23 @@ async function generate(asset) {
   }
 
   const { stdout } = await run(process.execPath, [CLI_JS, ...args], { maxBuffer: 1 << 24 });
-  const url = stdout.trim().split(/\s+/).find((t) => t.startsWith('http'));
+  let url = stdout.trim().split(/\s+/).find((t) => t.startsWith('http'));
   if (!url) throw new Error(`no URL in CLI output: ${stdout.slice(0, 300)}`);
+
+  // Cutting the background is a second billed job, not a flag on the first one.
+  // Chained here so a sprite is one manifest entry rather than two.
+  if (asset.removeBg ?? manifest.defaults.removeBg) {
+    const jobId = url.match(/_([0-9a-f-]{36})\.\w+$/i)?.[1];
+    if (!jobId) throw new Error(`could not read job id from ${url}`);
+    const { stdout: bg } = await run(
+      process.execPath,
+      [CLI_JS, 'generate', 'create', 'image_background_remover', '--image', jobId, '--wait', '--wait-timeout', '5m'],
+      { maxBuffer: 1 << 24 },
+    );
+    const cut = bg.trim().split(/\s+/).find((t) => t.startsWith('http'));
+    if (!cut) throw new Error(`background removal produced no URL: ${bg.slice(0, 300)}`);
+    url = cut;
+  }
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`download ${res.status} for ${url}`);

@@ -4,8 +4,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
-import introBg from './canyon_bg.png';
-import gliderImg from './hang_glider.png';
+import introBg from './canyon_bg.webp';
+import gliderImg from './hang_glider.webp';
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function HelpIcon({ size = 16 }) {

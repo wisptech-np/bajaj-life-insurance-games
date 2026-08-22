@@ -30,6 +30,21 @@ import { createInput } from './kit/input.js';
 import { createEffects, damp, Easing } from './kit/effects.js';
 import { createAudio } from './kit/audio.js';
 import { detectTier, effectBudget, fitCanvas, haptic } from './kit/device.js';
+import ballSprite from './assets/cricket-ball.webp';
+import bowlerSprite from './assets/bowler-delivery.webp';
+
+// Decode each sprite once and reuse the element. Creating an Image per frame is
+// the classic way to turn a smooth canvas game into a stuttering one.
+const SPRITE_CACHE = new Map();
+function sprite(src) {
+  let img = SPRITE_CACHE.get(src);
+  if (!img) {
+    img = new Image();
+    img.src = src;
+    SPRITE_CACHE.set(src, img);
+  }
+  return img;
+}
 import { clamp, lateCutoffSeconds, makeDelivery } from './deliveries.js';
 import {
   ballAt, bladeAtPhase, connectWindow, stanceFor, sweepContact,
@@ -661,42 +676,58 @@ function drawBowler(ctx, g, x, y, phase, cycle, tierColor, shadows) {
   const stride = Math.sin(cycle) * (1 - phase * 0.6);
   const hipY = -30 * sc;
   const shoulderY = hipY - 24 * sc;
+  const bowlerImg = sprite(bowlerSprite);
 
-  ctx.strokeStyle = COLORS.kitLt;
-  ctx.lineWidth = 6 * sc;
-  ctx.lineCap = 'round';
-  for (const s of [1, -1]) {
+  if (bowlerImg.complete && bowlerImg.naturalWidth) {
+    // Sprite is anchored at the feet. The run-up still reads because the body
+    // bobs with the stride and leans in as `phase` advances to the delivery.
+    const h = 62 * sc;
+    const w = (h * bowlerImg.naturalWidth) / bowlerImg.naturalHeight;
+    ctx.save();
+    ctx.rotate(stride * 0.05);
+    ctx.translate(0, -Math.abs(stride) * 1.6 * sc);
+    ctx.drawImage(bowlerImg, -w / 2, -h, w, h);
+    ctx.restore();
+  } else {
+    ctx.strokeStyle = COLORS.kitLt;
+    ctx.lineWidth = 6 * sc;
+    ctx.lineCap = 'round';
+    for (const s of [1, -1]) {
+      ctx.beginPath();
+      ctx.moveTo(0, hipY);
+      ctx.lineTo(s * stride * 11 * sc, 0);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = COLORS.kitLt;
     ctx.beginPath();
-    ctx.moveTo(0, hipY);
-    ctx.lineTo(s * stride * 11 * sc, 0);
+    ctx.roundRect(-8 * sc, shoulderY, 16 * sc, hipY - shoulderY + 4 * sc, 5 * sc);
+    ctx.fill();
+
+    ctx.fillStyle = COLORS.skin;
+    ctx.beginPath();
+    ctx.arc(0, shoulderY - 8 * sc, 6.6 * sc, 0, Math.PI * 2);
+    ctx.fill();
+
+    const armA = -Math.PI * 1.35 + phase * Math.PI * 1.5;
+    ctx.save();
+    ctx.translate(0, shoulderY + 3 * sc);
+    ctx.rotate(armA);
+    ctx.strokeStyle = COLORS.kitLt;
+    ctx.lineWidth = 5.2 * sc;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 22 * sc);
     ctx.stroke();
+    ctx.restore();
   }
 
-  ctx.fillStyle = COLORS.kitLt;
-  ctx.beginPath();
-  ctx.roundRect(-8 * sc, shoulderY, 16 * sc, hipY - shoulderY + 4 * sc, 5 * sc);
-  ctx.fill();
+  // The pace tier is a telegraph the player reads before the ball is released,
+  // so it has to survive the sprite swap. Drawn as a chip above the bowler.
   ctx.fillStyle = tierColor;
   ctx.beginPath();
-  ctx.roundRect(-8 * sc, shoulderY + 4 * sc, 16 * sc, 4 * sc, 2 * sc);
+  ctx.roundRect(-9 * sc, shoulderY - 22 * sc, 18 * sc, 4.5 * sc, 2.2 * sc);
   ctx.fill();
-
-  ctx.fillStyle = COLORS.skin;
-  ctx.beginPath();
-  ctx.arc(0, shoulderY - 8 * sc, 6.6 * sc, 0, Math.PI * 2);
-  ctx.fill();
-
-  const armA = -Math.PI * 1.35 + phase * Math.PI * 1.5;
-  ctx.save();
-  ctx.translate(0, shoulderY + 3 * sc);
-  ctx.rotate(armA);
-  ctx.strokeStyle = COLORS.kitLt;
-  ctx.lineWidth = 5.2 * sc;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(0, 22 * sc);
-  ctx.stroke();
-  ctx.restore();
 
   ctx.restore();
 }
@@ -843,18 +874,28 @@ function drawBall(ctx, paints, g, s, b, shadows) {
     ctx.shadowColor = 'rgba(255,110,99,0.6)';
     ctx.shadowBlur = 10;
   }
-  ctx.fillStyle = paints.ball;
-  ctx.beginPath();
-  ctx.arc(0, 0, g.ballRMax, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
+  const ballImg = sprite(ballSprite);
+  if (ballImg.complete && ballImg.naturalWidth) {
+    // The sprite carries its own seam, so spin rotates the whole ball.
+    ctx.shadowBlur = 0;
+    ctx.rotate(b.spin);
+    const d = g.ballRMax * 2;
+    ctx.drawImage(ballImg, -g.ballRMax, -g.ballRMax, d, d);
+  } else {
+    // Primitive fallback until the sprite decodes — one frame at most.
+    ctx.fillStyle = paints.ball;
+    ctx.beginPath();
+    ctx.arc(0, 0, g.ballRMax, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
 
-  ctx.rotate(b.spin);
-  ctx.strokeStyle = COLORS.ballSeam;
-  ctx.lineWidth = g.ballRMax * 0.22;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, g.ballRMax * 0.86, g.ballRMax * 0.3, 0.5, 0, Math.PI * 2);
-  ctx.stroke();
+    ctx.rotate(b.spin);
+    ctx.strokeStyle = COLORS.ballSeam;
+    ctx.lineWidth = g.ballRMax * 0.22;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, g.ballRMax * 0.86, g.ballRMax * 0.3, 0.5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 

@@ -1,7 +1,7 @@
 // ThankYouScreen.jsx — confirmation after details are shared.
 // Copied from the life-goals-bubble-shooter gold standard; copy restyled for Guardian Shelter.
 import React from 'react';
-import guardianBgImg from './guardian_shelter_bg.png';
+import guardianBgImg from './guardian_shelter_bg.webp';
 
 export default function ThankYouScreen({ details, onPlayAgain }) {
   const leadName = details?.name || '';

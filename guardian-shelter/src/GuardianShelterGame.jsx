@@ -4,11 +4,11 @@ import React, { useRef, useEffect, useState } from 'react';
 import { COLORS, GAME_CONFIG, SHIELD_TYPES, MEMBER_TYPES, LEVELS } from './data.js';
 import { createGameLoop } from './kit/loop.js';
 import { haptic } from './kit/device.js';
-import guardianBgImg from './guardian_shelter_bg.png';
-import dadImg from './family_dad.png';
-import momImg from './family_mom.png';
-import kidImg from './family_kid.png';
-import grandpaImg from './family_grandpa.png';
+import guardianBgImg from './guardian_shelter_bg.webp';
+import dadImg from './family_dad.webp';
+import momImg from './family_mom.webp';
+import kidImg from './family_kid.webp';
+import grandpaImg from './family_grandpa.webp';
 
 // Backing-store scale for the canvas. Capped at 2 because a 3x phone would
 // otherwise fill 2.09M pixels per frame for no visible gain on a 400px-wide
