@@ -5,6 +5,10 @@ import { motion } from 'framer-motion';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
 import { GAME_CONFIG, RESULT_TARGET_RUNS } from './data.js';
+import { Marker, RMActionCard } from './kit/screens.jsx';
+import { metaFor } from './kit/game-meta.js';
+
+const META = metaFor('cover-drive');
 
 const GAME_TITLE = 'Cover Drive';
 
@@ -55,16 +59,6 @@ function BowledIcon({ size = 20 }) {
   );
 }
 
-function CalendarIcon({ size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 9h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
 function ShareIcon({ size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
@@ -74,15 +68,6 @@ function ShareIcon({ size = 18 }) {
       <circle cx="18" cy="19" r="3" />
       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
       <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-  );
-}
-
-function PhoneIcon({ size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
     </svg>
   );
 }
@@ -502,21 +487,6 @@ function DemoBall() {
   );
 }
 
-/** Icon + ≤4 words. The only prose allowed on this screen. */
-function Cue({ tint, label, children }) {
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">{children}</svg>
-      <span style={{
-        fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: tint,
-        textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.15,
-      }}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
 export function HowToPlayScreen({ onPlay }) {
   return (
     <motion.div
@@ -557,25 +527,30 @@ export function HowToPlayScreen({ onPlay }) {
           How to Play
         </h2>
 
-        <div style={{ borderRadius: 18, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)' }}>
+        {/* The demo carries its own callouts. What scores and what costs you is
+            shown on the mechanic itself rather than described in a caption. */}
+        <div style={{
+          position: 'relative', borderRadius: 18, overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,0.12)',
+        }}>
           <DemoBall />
+          <Marker kind="pos" x={72} y={26} label="Tap on green" size={20} />
+          <Marker kind="neg" x={228} y={26} label="Too early" size={20} />
         </div>
 
-        <div style={{ display: 'flex', gap: 6, margin: '14px 0 16px' }}>
-          <Cue tint={ORANGE_LT} label="Read the length">
-            <ellipse cx="13" cy="15" rx="10" ry="4.5" fill="rgba(242,101,34,0.3)" stroke={ORANGE_LT} strokeWidth="2" />
-            <path d="M13 3v6" stroke={ORANGE_LT} strokeWidth="2.2" strokeLinecap="round" />
-          </Cue>
-          <Cue tint={GREEN_LT} label="Tap on green">
-            <path d="M3 15 A 12 7 0 0 1 23 15" fill="none" stroke={GREEN_LT} strokeWidth="3" strokeLinecap="round" />
-            <rect x="10.5" y="14" width="5" height="10" rx="2.5" fill="#F3F7FF" />
-            <rect x="8" y="19" width="10" height="6" rx="3" fill="#D7E3F5" />
-          </Cue>
-          <Cue tint={BLUE_LT} label="Pick your zone">
-            <path d="M3 20 A 11 11 0 0 1 23 20 Z" fill="rgba(30,107,224,0.28)" stroke={BLUE_LT} strokeWidth="1.4" />
-            <path d="M13 20 L13 5M13 20 L4.2 14.6M13 20 L21.8 14.6" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2" />
-            <circle cx="13" cy="20" r="2.4" fill="#fff" />
-          </Cue>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 8, margin: '14px 0 16px', textAlign: 'center',
+        }}>
+          <span style={{
+            fontSize: 10, fontWeight: 900, letterSpacing: '0.18em',
+            textTransform: 'uppercase', color: '#FFB800', flexShrink: 0,
+          }}>
+            Goal
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3 }}>
+            {META.goal}
+          </span>
         </div>
 
         {/* The four zones, in the same left-to-right order as the tap lanes. */}
@@ -771,7 +746,6 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
   const shieldSaves = stats?.shieldSaves || 0;
   const zoneRuns = stats?.zoneRuns || {};
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
-  const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
   const [animatedRuns, setAnimatedRuns] = React.useState(0);
 
@@ -918,54 +892,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot, retryLa
         <span>Share Score</span>
       </button>
 
-      {/* Lead / booking card */}
-      <div style={{
-        width: '100%', maxWidth: 360,
-        background: 'rgba(255,255,255,0.05)',
-        WebkitBackdropFilter: 'blur(12px)',
-        backdropFilter: 'blur(12px)',
-        borderRadius: 22, padding: '18px 16px',
-        border: '1px solid rgba(255,255,255,0.12)',
-        textAlign: 'center', marginBottom: 16, zIndex: 2,
-      }}>
-        <p style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.35, margin: '0 0 16px 0' }}>
-          Life bowls the unplayable ball eventually. A specialist can set your cover so one delivery never ends the innings.
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', display: 'flex' }}>
-            <button
-              onClick={onBookSlot}
-              style={{
-                width: '100%',
-                background: `linear-gradient(180deg, ${ORANGE_LT} 0%, ${ORANGE} 100%)`,
-                color: '#fff', fontWeight: 900, padding: '15px 20px', borderRadius: 12,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                fontSize: 17, border: 'none', cursor: 'pointer', textTransform: 'uppercase',
-                boxShadow: '0 4px 16px rgba(242,101,34,0.35)',
-              }}
-            >
-              <CalendarIcon size={18} />
-              <span>Book a Slot</span>
-            </button>
-          </motion.div>
-
-          {empPhone && (
-            <a
-              href={`tel:${empPhone}`}
-              style={{
-                background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: 900,
-                padding: '14px 20px', borderRadius: 12,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                fontSize: 16, textDecoration: 'none', textTransform: 'uppercase',
-                border: '1px solid rgba(255,255,255,0.18)',
-              }}
-            >
-              <PhoneIcon />
-              <span>Call Specialist</span>
-            </a>
-          )}
-        </div>
+      {/* Lead / booking card — the shared one. This screen used to put Book a
+          Slot first with a ghost "Call Specialist" under it and no divider,
+          which is three separate divergences from the approved title. */}
+      <div style={{ zIndex: 2, width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <RMActionCard message={META.rmMessage} onBookSlot={onBookSlot} />
       </div>
 
       {/* Retry / Home */}

@@ -945,11 +945,9 @@ export default function GuardianShelterGame({ onWin, onLose }) {
       ctx.fill();
       ctx.stroke();
 
-      // Label
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.font = 'bold 9px Poppins';
-      ctx.textAlign = 'center';
-      ctx.fillText("DRAG SHIELDS ONTO STAGE TO SHELTER FAMILY", GAME_CONFIG.fieldWidth / 2, GAME_CONFIG.trayY + 18);
+      // No tray label. The review's portfolio-wide rule is that no game carries
+      // "how to play" text on the play screen — that is what the How to Play
+      // screen is for, and it now demonstrates this exact drag.
 
       // Buttons
       const count = ref.trayShields.length;

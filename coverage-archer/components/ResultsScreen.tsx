@@ -1,12 +1,16 @@
-// ResultsScreen — canonical repo scoring screen (guardian-shelter is the reference):
-// animated count-up, SVG progress ring, confetti on a win, Share Score, glass action
-// card with Call Specialist + Book Consultation, ghost Play again, tiny disclaimer.
+// ResultsScreen — canonical repo scoring screen: animated count-up, SVG progress
+// ring, confetti on a win, Share Score, the shared Call Now / OR / Book a Slot
+// card, ghost Play again, tiny disclaimer.
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { GameResult } from '../types';
 import { GAME_CONFIG } from '../data';
 import { buildShareUrl, encryptPayload } from '../utils/crypto';
 import { shortenUrl } from '../utils/shortener';
+import { RMActionCard } from '../kit/screens.jsx';
+import { metaFor } from '../kit/game-meta.js';
+
+const META = metaFor('coverage-archer');
 
 interface Props {
   result: GameResult;
@@ -24,23 +28,6 @@ function ShareIcon({ size = 18 }: { size?: number }) {
       <circle cx="18" cy="19" r="3" />
       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
       <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-  );
-}
-
-function PhoneIcon({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-    </svg>
-  );
-}
-
-function CalendarIcon({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 9h18M8 3v4M16 3v4" />
     </svg>
   );
 }
@@ -236,33 +223,11 @@ const ResultsScreen: React.FC<Props> = ({ result, onRetry, onHome, onBookSlot })
         <span>Share Score</span>
       </motion.button>
 
-      {/* Action card */}
-      <div className="glass-card relative z-10 mb-5 w-full max-w-[340px] px-4 py-5 text-center">
-        <p className="m-0 mb-4 text-[15px] font-bold leading-snug text-white">
-          Consult a specialist to size the cover your family actually needs.
-        </p>
-
-        <div className="flex flex-col gap-3">
-          {empPhone && (
-            <a href={`tel:${empPhone}`} className="btn-primary btn-press" style={{ textDecoration: 'none' }}>
-              <PhoneIcon />
-              <span>Call Specialist</span>
-            </a>
-          )}
-
-          {empPhone && (
-            <div className="my-1 flex items-center gap-3">
-              <div className="h-px flex-1 bg-white/10" />
-              <span className="text-[9px] font-bold tracking-[0.15em] text-white/30">OR</span>
-              <div className="h-px flex-1 bg-white/10" />
-            </div>
-          )}
-
-          <motion.button whileTap={{ scale: 0.96 }} onClick={onBookSlot} className="btn-accent">
-            <CalendarIcon />
-            <span>Book Consultation</span>
-          </motion.button>
-        </div>
+      {/* Action card — the shared one. The shape here was already right; the
+          labels ("Call Specialist" / "Book Consultation") and the local button
+          classes were not, and label drift is what the parity review flagged. */}
+      <div className="relative z-10 flex w-full justify-center">
+        <RMActionCard message={META.rmMessage} onBookSlot={onBookSlot} />
       </div>
 
       {/* Ghost actions */}

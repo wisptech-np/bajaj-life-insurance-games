@@ -36,21 +36,22 @@ HEADERS = CLIENT_COLS + NEW_COLS
 # Types: A asset swap | U UI rebuild | M mechanics redesign | F from scratch | B blocked
 REMEDIATION = {
     # --- Tier 1: asset swap ------------------------------------------------
-    "smart-match-3d": ("A — asset swap", "2d", "P1", "Phase 2 — proving trio"),
+    "smart-match-3d": ("A — asset swap", "2d", "P1", "Screens done — art still to swap"),
     "wealth-drop": ("A+U — asset swap + UI rebuild", "3d", "P1", "Phase 2 — proving trio"),
     "milestone-hopper": ("M+A — mechanics redesign + assets", "5d", "P1", "Phase 2 — proving trio"),
     "portfolio-fit": ("A — asset swap", "2d", "P2", "Phase 3 — stream A"),
     "risk-strike": ("A+U — asset swap + UI rebuild", "3d", "P2", "Phase 3 — stream A"),
     "steady-tower": ("A+U — asset swap + UI rebuild", "3d", "P2", "Phase 3 — stream A"),
     "spiral-sprint": ("A+U+M — assets, UI, longer run", "4d", "P2", "Phase 3 — stream A"),
+    "cover-drive": ("A — asset swap", "2d", "P1", "Done — sprites + screens shipped"),
     # --- Tier 2/3: mechanics ----------------------------------------------
     "swing-to-secure": ("M+U+A — mechanics, UI, assets", "6d", "P2", "Phase 3 — stream B"),
-    "life-soar": ("M+A — mechanics redesign + assets", "6d", "P2", "Phase 3 — stream B"),
+    "life-soar": ("M+A — mechanics redesign + assets", "6d", "P2", "Screens + virus art done — mechanics open"),
     "secure-journey": ("M+A — virus HP tiers, real powerups", "7d", "P2", "Phase 3 — stream B"),
-    "coverage-archer": ("M+A — physics retune, single-player", "7d", "P2", "Phase 3 — stream C"),
+    "coverage-archer": ("M+A — physics retune, single-player", "7d", "P2", "Screens + archer art done — physics open"),
     "tightrope-protection": ("M+A — restore wire, crows to virus", "6d", "P2", "Phase 3 — stream C"),
     # --- Tier 4: from scratch ---------------------------------------------
-    "guardian-shelter": ("F — from scratch", "8d", "P2", "Phase 3 — stream C"),
+    "guardian-shelter": ("F — from scratch", "8d", "P2", "Screens done — rebuild decision open"),
     "risk-exit": ("F — from scratch", "7d", "P2", "Phase 3 — stream C"),
     "balance-block-journey": ("F — never built, new build", "7d", "P3", "Phase 4 — never built"),
     "shield-cascade": ("F — never built, new build", "8d", "P3", "Phase 4 — never built"),

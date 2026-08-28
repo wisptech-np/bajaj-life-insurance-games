@@ -1,23 +1,32 @@
 import Phaser from 'phaser';
 import { DPR, GAME_CONFIG as CFG, RISKS, RiskKind, RiskDef } from '../../data';
+import archerIdleUrl from '../../assets/archer-idle.webp';
+import archerDrawUrl from '../../assets/archer-draw.webp';
 
-// All textures are generated procedurally on canvas — no image files, no emoji.
+// Risks, arrows and particles are generated procedurally on canvas — no emoji.
 // Every texture is rasterized at DPR scale (canvas dims x DPR, ctx.scale(DPR)) and
 // MainScene displays it at 1/DPR with the camera zoomed by DPR, so world size is
 // unchanged — crisp on retina, bit-identical on DPR-1 screens.
+//
+// The archer is the exception: he is the character the player watches on every
+// shot, and a stick figure assembled from arcs is exactly the "asset issue" the
+// review flagged. He is composited from two pieces of real art instead.
 export default class PreloadScene extends Phaser.Scene {
   constructor() {
     super('PreloadScene');
   }
 
   preload() {
-    this.createArcherSpritesheet();
+    this.load.image('archer_idle_src', archerIdleUrl);
+    this.load.image('archer_draw_src', archerDrawUrl);
     this.createRiskTextures();
     this.createArrowTexture();
     this.createParticleTextures();
   }
 
   create() {
+    // Built in create(), not preload(), because it needs the loaded art.
+    this.createArcherSpritesheet();
     this.scene.start('MainScene');
   }
 
@@ -69,6 +78,48 @@ export default class PreloadScene extends Phaser.Scene {
 
   /* ── Archer ─────────────────────────────────────────────────── */
 
+  /**
+   * Blit the two archer paintings into the 5-frame sheet MainScene expects.
+   *
+   * MainScene's contract is frame 0 idle, 1 half draw, 2 full draw, 3 release,
+   * 4 victory. Two paintings cover it: bow-down for 0 and 4, bow-drawn for the
+   * three shot frames. The half-draw/full-draw distinction is not lost — the
+   * power ring MainScene draws around the archer is what actually reads the
+   * charge, and it is continuous where five discrete frames were not.
+   *
+   * Returns false if either image is missing so the procedural archer below
+   * still runs; that path is the fallback, not dead code.
+   */
+  private blitArcherArt(
+    ctx: CanvasRenderingContext2D,
+    frameWidth: number,
+    frameHeight: number,
+    numFrames: number
+  ): boolean {
+    if (!this.textures.exists('archer_idle_src') || !this.textures.exists('archer_draw_src')) {
+      return false;
+    }
+    const idle = this.textures.get('archer_idle_src').getSourceImage() as HTMLImageElement;
+    const drawn = this.textures.get('archer_draw_src').getSourceImage() as HTMLImageElement;
+    if (!idle?.width || !drawn?.width) return false;
+
+    // frame -> source painting
+    const byFrame = [idle, drawn, drawn, drawn, idle];
+
+    for (let f = 0; f < numFrames; f++) {
+      const src = byFrame[f];
+      // Fit inside the cell preserving aspect, then sit the figure on the
+      // cell's floor so his feet land where the procedural archer's did.
+      const scale = Math.min(frameWidth / src.width, frameHeight / src.height);
+      const w = src.width * scale;
+      const h = src.height * scale;
+      const x = f * frameWidth + (frameWidth - w) / 2;
+      const y = frameHeight - h;
+      ctx.drawImage(src, x, y, w, h);
+    }
+    return true;
+  }
+
   private createArcherSpritesheet() {
     const frameWidth = 64;
     const frameHeight = 64;
@@ -81,6 +132,15 @@ export default class PreloadScene extends Phaser.Scene {
     if (!texture) return;
     const ctx = texture.context;
     ctx.scale(DPR, DPR);
+
+    if (this.blitArcherArt(ctx, frameWidth, frameHeight, numFrames)) {
+      texture.refresh();
+      this.textures.addSpriteSheet('archer_spritesheet', texture.canvas as unknown as HTMLImageElement, {
+        frameWidth: frameWidth * DPR,
+        frameHeight: frameHeight * DPR,
+      });
+      return;
+    }
 
     for (let f = 0; f < numFrames; f++) {
       const ox = f * frameWidth + frameWidth / 2;

@@ -9,40 +9,15 @@ interface Props {
   onBack: () => void;
 }
 
+import archerDrawUrl from '../assets/archer-draw.webp';
+import { Marker } from '../kit/screens.jsx';
+import { metaFor } from '../kit/game-meta.js';
+
+const META = metaFor('coverage-archer');
+
 const LOOP = '4s';
 
 /* ── Icon-led labels (<= 4 words each) ─────────────────────── */
-function PullIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M18 11V6a2 2 0 0 0-4 0v5" />
-      <path d="M14 10V4a2 2 0 0 0-4 0v6" />
-      <path d="M10 10.5V3a2 2 0 0 0-4 0v11" />
-      <path d="M6 14v-2a2 2 0 0 0-4 0v5a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-2" />
-    </svg>
-  );
-}
-
-function WindIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00AEEF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 8h10a3 3 0 1 0-3-3" />
-      <path d="M3 13h14a3 3 0 1 1-3 3" />
-      <path d="M3 18h7" />
-    </svg>
-  );
-}
-
-function CoreIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F26522" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="12" cy="12" r="4" fill="#F26522" stroke="none" />
-      <path d="M12 1v3M12 20v3M1 12h3M20 12h3" />
-    </svg>
-  );
-}
-
 /* ── The looping demo ──────────────────────────────────────── */
 function ArcheryDemo() {
   // Timeline over LOOP: 0.10 draw -> 0.45 release -> 0.78 impact -> reset
@@ -155,15 +130,9 @@ function ArcheryDemo() {
         </text>
       </g>
 
-      {/* Archer */}
-      <g transform="translate(34 118)">
-        <ellipse cx="0" cy="20" rx="7.5" ry="11" fill="#003DA6" />
-        <circle cx="0" cy="6" r="6" fill="#FFCDB2" />
-        <path d="M-6 6 a6 6 0 0 1 12 0" fill="#003DA6" />
-        <path d="M8 -4 C 17 4, 17 20, 8 28" stroke="#D97706" strokeWidth="3" strokeLinecap="round" fill="none" />
-        <rect x="-5" y="31" width="3.5" height="6" fill="#fff" />
-        <rect x="1.5" y="31" width="3.5" height="6" fill="#fff" />
-      </g>
+      {/* Archer — the same painting MainScene blits, so the tutorial and the
+          game show the player the same character. */}
+      <image href={archerDrawUrl} x="14" y="104" width="42" height="54" preserveAspectRatio="xMidYMax meet" />
 
       {/* Bowstring pulling back with the finger */}
       <line x1="42" y1="114" x2="42" y2="142" stroke="#fff" strokeWidth="1.6" opacity="0.85">
@@ -232,12 +201,6 @@ function ArcheryDemo() {
   );
 }
 
-const LABELS = [
-  { icon: <PullIcon />, text: 'Pull back' },
-  { icon: <WindIcon />, text: 'Mind the wind' },
-  { icon: <CoreIcon />, text: 'Hit the core' },
-];
-
 const HowToPlayPopup: React.FC<Props> = ({ onStart, onBack }) => {
   return (
     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-[#04122B]/70 backdrop-blur-md p-4">
@@ -264,23 +227,19 @@ const HowToPlayPopup: React.FC<Props> = ({ onStart, onBack }) => {
         </h2>
 
         {/* Looping demo of the real mechanic */}
-        <div className="mb-4 h-[180px] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#04122B]">
+        <div className="relative mb-4 h-[180px] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#04122B]">
           <ArcheryDemo />
+          {/* What scores and what costs a shot, marked on the demo itself. */}
+          <Marker kind="pos" x={236} y={44} label="Hit the core" size={20} />
+          <Marker kind="neg" x={128} y={152} label="Miss wastes an arrow" size={20} />
         </div>
 
-        {/* Three icon-led labels — the only copy on the screen */}
-        <div className="mb-5 grid grid-cols-3 gap-2">
-          {LABELS.map((l) => (
-            <div
-              key={l.text}
-              className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5"
-            >
-              {l.icon}
-              <span className="text-[9px] font-black uppercase tracking-wider text-blue-100/85 text-center leading-tight">
-                {l.text}
-              </span>
-            </div>
-          ))}
+        {/* One line, the objective. */}
+        <div className="mb-5 flex items-center justify-center gap-2 text-center">
+          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.18em] text-[#FFB800]">
+            Goal
+          </span>
+          <span className="text-[13px] font-bold leading-snug text-white/90">{META.goal}</span>
         </div>
 
         <button onClick={onStart} className="btn-primary btn-press w-full">

@@ -6,6 +6,10 @@ import { COLORS } from './data.js';
 import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
 import guardianBgImg from './guardian_shelter_bg.webp';
+import { Marker, RMActionCard } from './kit/screens.jsx';
+import { metaFor } from './kit/game-meta.js';
+
+const META = metaFor('guardian-shelter');
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function PlayIcon({ size = 18 }) {
@@ -58,16 +62,6 @@ function ShieldIcon({ size = 26, stroke = '#fff' }) {
   );
 }
 
-function CalendarIcon({ size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 9h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
 function ShareIcon({ size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
@@ -76,14 +70,6 @@ function ShareIcon({ size = 18 }) {
       <circle cx="18" cy="19" r="3" />
       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
       <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-  );
-}
-
-function PhoneIcon({ size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
     </svg>
   );
 }
@@ -469,71 +455,28 @@ export function HowToPlayScreen({ onPlay }) {
               <path d="M8,1 C11,6 13,10 13,12 A 5 5 0 0 1 3,12 C3,10 5,6 8,1 Z" fill="#49E24B" />
             </svg>
           </div>
+
+          {/* What earns the score and what costs it, called out on the demo
+              itself rather than described in chips underneath it. */}
+          <Marker kind="pos" x={64} y={30} label="Shield covers" size={20} />
+          <Marker kind="neg" x={196} y={30} label="Left exposed" size={20} />
         </div>
 
-        {/* Three icon-led labels — the only copy on this screen */}
+        {/* One line, the objective. Replaces three icon chips that between
+            them still had to be read. */}
         <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: 8,
-          marginBottom: 18
+          display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 8, marginBottom: 18, textAlign: "center",
         }}>
-          {[
-            {
-              color: '#FACC15',
-              label: 'DRAG',
-              icon: (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M18 11V6a2 2 0 0 0-4 0v5" />
-                  <path d="M14 10V4a2 2 0 0 0-4 0v6" />
-                  <path d="M10 10.5V7a2 2 0 0 0-4 0v7" />
-                  <path d="M6 14v-2a2 2 0 0 0-4 0v4a7 7 0 0 0 7 7h4a7 7 0 0 0 7-7v-4a2 2 0 0 0-4 0" />
-                </svg>
-              ),
-            },
-            {
-              color: '#3B8DD4',
-              label: 'COVER',
-              icon: (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M2 12a10 10 0 0 1 20 0 4 4 0 0 0-5 0 4 4 0 0 0-5 0 4 4 0 0 0-5 0 4 4 0 0 0-5 0z" fill="rgba(59,141,212,0.25)" />
-                  <path d="M12 12v7a3 3 0 0 0 6 0" />
-                </svg>
-              ),
-            },
-            {
-              color: '#49E24B',
-              label: 'DEFLECT',
-              icon: (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M8,2 C10,5 11,7 11,8 A 3 3 0 0 1 5,8 C5,7 6,5 8,2 Z" fill="rgba(73,226,75,0.3)" />
-                  <path d="M4 12h8M8 8v8" />
-                  <path d="M13 15l7 6M20 13l-7 8" />
-                </svg>
-              ),
-            },
-          ].map((chip) => (
-            <div
-              key={chip.label}
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 5,
-                padding: '9px 2px',
-                borderRadius: 12,
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.09)',
-                color: chip.color,
-              }}
-            >
-              {chip.icon}
-              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', color: '#fff', whiteSpace: 'nowrap' }}>
-                {chip.label}
-              </span>
-            </div>
-          ))}
+          <span style={{
+            fontSize: 10, fontWeight: 900, letterSpacing: "0.18em",
+            textTransform: "uppercase", color: "#FFB800", flexShrink: 0,
+          }}>
+            Goal
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.92)", lineHeight: 1.3 }}>
+            {META.goal}
+          </span>
         </div>
 
         {/* Play Button */}
@@ -566,7 +509,6 @@ export function HowToPlayScreen({ onPlay }) {
 export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
   const score = stats?.score || 0;
   const leadName = sessionStorage.getItem('lastSubmittedName') || '';
-  const empPhone = sessionStorage.getItem('gamification_emp_mobile') || '';
 
   const [animatedScore, setAnimatedScore] = React.useState(0);
 
@@ -742,84 +684,11 @@ export function ResultsScreen({ stats, won, onRetry, onHome, onBookSlot }) {
         <span>Share Score</span>
       </button>
 
-      {/* Action Card Section */}
-      <div style={{
-        width: '100%',
-        maxWidth: 360,
-        background: 'rgba(15, 23, 42, 0.75)',
-        WebkitBackdropFilter: 'blur(12px)',
-        backdropFilter: 'blur(12px)',
-        borderRadius: '24px',
-        padding: '20px 18px',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        textAlign: 'center',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-        marginBottom: 20,
-      }}>
-        <p style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', lineHeight: 1.35, margin: '0 0 18px 0' }}>
-          Consult a specialist to shield your goals against potential risks.
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {empPhone && (
-            <a
-              href={`tel:${empPhone}`}
-              style={{
-                background: '#FF8A3D',
-                color: '#fff',
-                fontWeight: 900,
-                padding: '15px 20px',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                fontSize: 17,
-                textDecoration: 'none',
-                textTransform: 'uppercase',
-                border: '1px solid #FF8A3D',
-                boxShadow: '0 4px 12px rgba(255, 138, 61, 0.25)',
-              }}
-            >
-              <PhoneIcon />
-              <span>Call Specialist</span>
-            </a>
-          )}
-
-          {empPhone && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
-              <div style={{ height: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-              <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 'bold', fontSize: 9, letterSpacing: '0.15em' }}>OR</span>
-              <div style={{ height: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-            </div>
-          )}
-
-          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-            <button
-              onClick={onBookSlot}
-              style={{
-                width: '100%',
-                background: '#28A745',
-                color: '#fff',
-                fontWeight: 900,
-                padding: '15px 20px',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                fontSize: 17,
-                border: 'none',
-                cursor: 'pointer',
-                textTransform: 'uppercase',
-                boxShadow: '0 4px 12px rgba(40, 167, 69, 0.25)',
-              }}
-            >
-              <CalendarIcon size={18} />
-              <span>Book Consultation</span>
-            </button>
-          </motion.div>
-        </div>
+      {/* Action card — the shared one. This screen had the right shape but
+          said "Call Specialist" / "Book Consultation" in its own orange and
+          green, which is how 37 games ended up looking like 37 vendors. */}
+      <div style={{ zIndex: 2, width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <RMActionCard message={META.rmMessage} onBookSlot={onBookSlot} />
       </div>
 
       {/* Play again action */}

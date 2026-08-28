@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import canyonBgImg from './canyon_bg.webp';
 import gliderImg from './hang_glider.webp';
+import virusImg from './assets/virus.webp';
+
+// Decode the virus once and reuse the element; a new Image per frame is the
+// classic way to turn a smooth canvas game into a stuttering one.
+const VIRUS_SPRITE = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: virusImg }) : null;
 import { WORLD, FLIGHT, RAMP, LAYOUT, MILESTONES, SCORING } from './data.js';
 
 // Derived from data.js — do not tune here, tune in data.js.
@@ -899,42 +904,60 @@ export default function LifeSoarGame({ onWin, onLose }) {
             ctx.fill();
             ctx.stroke();
           } else if (h.type === 'float') {
-            // Bobbing Green Virus
-            ctx.beginPath();
-            ctx.arc(hx, h.y, h.radius, 0, Math.PI * 2);
-            const virusGrad = ctx.createRadialGradient(hx - 3, h.y - 3, 2, hx, h.y, h.radius);
-            virusGrad.addColorStop(0, '#4ADE80');
-            virusGrad.addColorStop(0.7, '#16A34A');
-            virusGrad.addColorStop(1, '#14532D');
-            ctx.fillStyle = virusGrad;
-            ctx.strokeStyle = '#22C55E';
-            ctx.lineWidth = 1.5;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = 'rgba(22, 163, 74, 0.4)';
-            ctx.fill();
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-
-            // Spikes on the virus blob
-            const numSpikes = 8;
-            ctx.strokeStyle = '#22C55E';
-            ctx.lineWidth = 2.5;
-            for (let i = 0; i < numSpikes; i++) {
-              const ang = (i / numSpikes) * Math.PI * 2 + state.elapsed * 3;
-              const sx1 = hx + Math.cos(ang) * h.radius;
-              const sy1 = h.y + Math.sin(ang) * h.radius;
-              const sx2 = hx + Math.cos(ang) * (h.radius + 6);
-              const sy2 = h.y + Math.sin(ang) * (h.radius + 6);
+            // The risk antagonist, and the one thing the style guide fixes across
+            // the whole portfolio: it is always the green virus. Drawn from the
+            // shared painting, with the arc-and-spokes version kept underneath
+            // for the frame before the image decodes.
+            const r = h.radius;
+            if (VIRUS_SPRITE && VIRUS_SPRITE.complete && VIRUS_SPRITE.naturalWidth) {
+              const d = r * 2.6;
+              ctx.save();
+              ctx.translate(hx, h.y);
+              // Slow spin, so it reads as alive rather than pasted on.
+              ctx.rotate(Math.sin(state.elapsed * 1.6 + h.x) * 0.18);
+              ctx.shadowBlur = 12;
+              ctx.shadowColor = 'rgba(22, 163, 74, 0.45)';
+              ctx.drawImage(VIRUS_SPRITE, -d / 2, -d / 2, d, d);
+              ctx.restore();
+              ctx.shadowBlur = 0;
+            } else {
+              // Bobbing Green Virus
               ctx.beginPath();
-              ctx.moveTo(sx1, sy1);
-              ctx.lineTo(sx2, sy2);
-              ctx.stroke();
-
-              // Spike cap
-              ctx.beginPath();
-              ctx.arc(sx2, sy2, 2.5, 0, Math.PI * 2);
-              ctx.fillStyle = '#EF4444'; // Red spiky tips
+              ctx.arc(hx, h.y, h.radius, 0, Math.PI * 2);
+              const virusGrad = ctx.createRadialGradient(hx - 3, h.y - 3, 2, hx, h.y, h.radius);
+              virusGrad.addColorStop(0, '#4ADE80');
+              virusGrad.addColorStop(0.7, '#16A34A');
+              virusGrad.addColorStop(1, '#14532D');
+              ctx.fillStyle = virusGrad;
+              ctx.strokeStyle = '#22C55E';
+              ctx.lineWidth = 1.5;
+              ctx.shadowBlur = 10;
+              ctx.shadowColor = 'rgba(22, 163, 74, 0.4)';
               ctx.fill();
+              ctx.stroke();
+              ctx.shadowBlur = 0;
+
+              // Spikes on the virus blob
+              const numSpikes = 8;
+              ctx.strokeStyle = '#22C55E';
+              ctx.lineWidth = 2.5;
+              for (let i = 0; i < numSpikes; i++) {
+                const ang = (i / numSpikes) * Math.PI * 2 + state.elapsed * 3;
+                const sx1 = hx + Math.cos(ang) * h.radius;
+                const sy1 = h.y + Math.sin(ang) * h.radius;
+                const sx2 = hx + Math.cos(ang) * (h.radius + 6);
+                const sy2 = h.y + Math.sin(ang) * (h.radius + 6);
+                ctx.beginPath();
+                ctx.moveTo(sx1, sy1);
+                ctx.lineTo(sx2, sy2);
+                ctx.stroke();
+
+                // Spike cap
+                ctx.beginPath();
+                ctx.arc(sx2, sy2, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#EF4444'; // Red spiky tips
+                ctx.fill();
+              }
             }
           }
         }
@@ -1178,7 +1201,9 @@ export default function LifeSoarGame({ onWin, onLose }) {
             textShadow: '0 2px 6px rgba(0,0,0,0.7)',
           }}
         >
-          <span>{pressed ? 'Diving' : 'Hold anywhere'}</span>
+          {/* State, not instruction. "Hold anywhere" told the player how to
+              play mid-run, which the review asked every title to drop. */}
+          <span>{pressed ? 'Diving' : 'Gliding'}</span>
         </div>
       </div>
 

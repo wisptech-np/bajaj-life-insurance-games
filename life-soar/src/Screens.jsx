@@ -6,6 +6,11 @@ import { buildShareUrl } from './utils/crypto';
 import { shortenUrl } from './utils/shortener';
 import introBg from './canyon_bg.webp';
 import gliderImg from './hang_glider.webp';
+import virusImg from './assets/virus.webp';
+import { Marker } from './kit/screens.jsx';
+import { metaFor } from './kit/game-meta.js';
+
+const META = metaFor('life-soar');
 
 /* ─── Inline icons ─────────────────────────────────────── */
 function HelpIcon({ size = 16 }) {
@@ -759,43 +764,25 @@ function HowToPlayDemo() {
           30%, 100% { transform: scale(1.6); opacity: 0; }
         }
       `}} />
-    </div>
-  );
-}
 
-/* three icon-led labels — the only words allowed on this screen */
-function DemoLegend() {
-  const item = (icon, label, color) => (
-    <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1 }}>
+      {/* Scored and penalised, called out on the mechanic itself rather than
+          described in a legend the player has to read and map back. */}
+      {/* Pinned subjects for the callouts. The strip behind them scrolls, so
+          anchoring a marker to it would only line up for part of the loop. */}
       <div style={{
-        width: 38, height: 38, borderRadius: 12,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: `${color}22`, border: `1.5px solid ${color}66`, color,
-      }}>{icon}</div>
-      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
-    </div>
-  );
+        position: 'absolute', left: 148, top: 36,
+        width: 20, height: 22,
+        background: 'linear-gradient(180deg, #60A5FA, #2563EB)',
+        boxShadow: '0 0 10px rgba(59,130,246,0.6)',
+        clipPath: 'polygon(50% 0%, 100% 30%, 80% 82%, 50% 100%, 20% 82%, 0% 30%)',
+      }} />
+      <img src={virusImg} alt="" draggable={false} style={{
+        position: 'absolute', left: 146, top: 116, width: 34, height: 34,
+        filter: 'drop-shadow(0 0 8px rgba(22,163,74,0.55))',
+      }} />
 
-  const finger = (down) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-      style={{ transform: down ? 'none' : 'rotate(180deg)' }}>
-      <path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V5a2 2 0 0 0-4 0v5M10 10.5V2a2 2 0 0 0-4 0v12" />
-      <path d="M6 14v-2.5a2 2 0 0 0-4 0V17a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1.5" />
-    </svg>
-  );
-
-  return (
-    <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-      {item(finger(true), 'Hold · Dive', '#F26522')}
-      {item(finger(false), 'Release · Soar', '#3B8DD4')}
-      {item(
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M12 3 3 20h18L12 3Zm0 6 4.2 8H7.8L12 9Z" />
-        </svg>,
-        'Avoid Spikes', '#EF4444'
-      )}
+      <Marker kind="pos" x={200} y={47} label="Collect cover" size={20} />
+      <Marker kind="neg" x={200} y={133} label="Virus hurts" size={20} />
     </div>
   );
 }
@@ -825,7 +812,21 @@ export function HowToPlayScreen({ onPlay }) {
         </h2>
 
         <HowToPlayDemo />
-        <DemoLegend />
+
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 8, margin: '14px 0 16px', textAlign: 'center',
+        }}>
+          <span style={{
+            fontSize: 10, fontWeight: 900, letterSpacing: '0.18em',
+            textTransform: 'uppercase', color: '#FFB800', flexShrink: 0,
+          }}>
+            Goal
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3 }}>
+            {META.goal}
+          </span>
+        </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ width: '100%' }}>
           <button

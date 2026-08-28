@@ -32,6 +32,20 @@ import { createAudio } from './kit/audio.js';
 import { detectTier, effectBudget, fitCanvas, haptic } from './kit/device.js';
 import ballSprite from './assets/cricket-ball.webp';
 import bowlerSprite from './assets/bowler-delivery.webp';
+import batsmanIdleSprite from './assets/batsman-idle.webp';
+import batsmanDriveSprite from './assets/batsman-drive.webp';
+
+/**
+ * Where the gloves sit in each painting, as a fraction of its own box. These
+ * are the anchor drawBatter() pins to pose.hx/hy, so they are measured off the
+ * art itself — re-measure if either sprite is regenerated or re-cropped.
+ */
+const BATTER_ART = {
+  stance: { src: batsmanIdleSprite, gx: 0.13, gy: 0.32 },
+  drive: { src: batsmanDriveSprite, gx: 0.20, gy: 0.37 },
+};
+/** Readability boost over true projected height; the bat and ball carry one too. */
+const BATTER_ART_SCALE = 1.85;
 
 // Decode each sprite once and reuse the element. Creating an Image per frame is
 // the classic way to turn a smooth canvas game into a stuttering one.
@@ -127,6 +141,7 @@ const _proj = { x: 0, y: 0, r: 0, groundY: 0, dz: 0 };
 const _projB = { x: 0, y: 0, r: 0, groundY: 0, dz: 0 };
 const _projC = { x: 0, y: 0, r: 0, groundY: 0, dz: 0 };
 const _projD = { x: 0, y: 0, r: 0, groundY: 0, dz: 0 };
+const _projE = { x: 0, y: 0, r: 0, groundY: 0, dz: 0 };
 const _ball = { x: 0, y: 0, h: 0 };
 const _blade = { ax: 0, ay: 0, bx: 0, by: 0, theta: 0, phase: 0 };
 const _stance = { pivotX: 0, pivotY: 0, standX: 0, reachM: 0 };
@@ -515,82 +530,106 @@ function drawBatter(ctx, paints, g, pose, shadows) {
 
   ctx.translate(lean * 5 * sc, 0);
 
-  // Back leg + front pad. Pads are the cream slabs that read as "batter".
-  ctx.fillStyle = COLORS.pad;
-  ctx.strokeStyle = COLORS.padLine;
-  ctx.lineWidth = 1.1 * sc;
-  for (const [px, tilt] of [[5.5 * sc, 0.08], [-7 * sc, -0.16 - lean * 0.1]]) {
-    ctx.save();
-    ctx.translate(px, hipY);
-    ctx.rotate(tilt);
-    ctx.beginPath();
-    ctx.roundRect(-5 * sc, 0, 10 * sc, 36 * sc, 4 * sc);
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(160,150,120,0.7)';
-    ctx.lineWidth = 1 * sc;
-    for (let k = 1; k <= 3; k++) {
-      ctx.beginPath();
-      ctx.moveTo(-5 * sc, k * 9 * sc);
-      ctx.lineTo(5 * sc, k * 9 * sc);
-      ctx.stroke();
-    }
+  // The batter's BODY, and only the body. Both sprites are deliberately
+  // bat-less: the bat below is drawn on the segment physics collides with, so
+  // art with a bat baked in would either double it or drift off the collision.
+  const art = pose.swinging ? BATTER_ART.drive : BATTER_ART.stance;
+  const batterImg = sprite(art.src);
+  const usingArt = batterImg.complete && batterImg.naturalWidth > 0;
+
+  if (usingArt) {
+    // Sized off the projection so he belongs on the pitch, then given the same
+    // readability boost the bat and ball already carry — at true projected
+    // scale everything on this pitch would be too small to read on a phone.
+    const h = Math.max(24 * sc, (pose.feetScreenY - pose.crownScreenY) * BATTER_ART_SCALE);
+    const w = (h * batterImg.naturalWidth) / batterImg.naturalHeight;
+    // Anchored by the GLOVES, not the feet. The handle below is drawn from
+    // pose.hx/hy, so the hands are the one point that has to be exact — anchor
+    // anywhere else and the bat hangs off the end of his arms. Scaling about
+    // that same point is what lets the boost above not break the join.
+    // No lean rotation here: pose.hx/hy already carry the swing, and rotating
+    // the figure would walk the gloves off the handle. The drive sprite is the
+    // lean.
+    const offX = bx + lean * 5 * sc;
+    ctx.drawImage(batterImg, pose.hx - offX - art.gx * w, pose.hy - art.gy * h, w, h);
+  } else {
+    // Back leg + front pad. Pads are the cream slabs that read as "batter".
+    ctx.fillStyle = COLORS.pad;
     ctx.strokeStyle = COLORS.padLine;
     ctx.lineWidth = 1.1 * sc;
+    for (const [px, tilt] of [[5.5 * sc, 0.08], [-7 * sc, -0.16 - lean * 0.1]]) {
+      ctx.save();
+      ctx.translate(px, hipY);
+      ctx.rotate(tilt);
+      ctx.beginPath();
+      ctx.roundRect(-5 * sc, 0, 10 * sc, 36 * sc, 4 * sc);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(160,150,120,0.7)';
+      ctx.lineWidth = 1 * sc;
+      for (let k = 1; k <= 3; k++) {
+        ctx.beginPath();
+        ctx.moveTo(-5 * sc, k * 9 * sc);
+        ctx.lineTo(5 * sc, k * 9 * sc);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = COLORS.padLine;
+      ctx.lineWidth = 1.1 * sc;
+      ctx.restore();
+    }
+
+    // Torso. The lean has to pivot about the HIPS: ctx.rotate() turns about the
+    // current origin, which is at the top of the canvas, so rotating here without
+    // moving the origin first swings the torso a hip-height's worth of arc away
+    // from the head and pads (72 px at lean = 1 on a 390 px canvas).
+    ctx.fillStyle = paints.torso;
+    ctx.save();
+    ctx.translate(0, hipY);
+    ctx.rotate(lean * 0.12);
+    ctx.translate(0, -hipY);
+    ctx.beginPath();
+    ctx.roundRect(-9 * sc, shoulderY, 18 * sc, hipY - shoulderY + 6 * sc, 6 * sc);
+    ctx.fill();
+    ctx.fillStyle = COLORS.brandBlue;
+    ctx.beginPath();
+    ctx.roundRect(-9 * sc, shoulderY, 18 * sc, 5 * sc, [6 * sc, 6 * sc, 0, 0]);
+    ctx.fill();
+    ctx.restore();
+
+    // Neck, so the helmet reads as attached to the shoulders.
+    ctx.fillStyle = COLORS.skin;
+    ctx.beginPath();
+    ctx.roundRect(-3.2 * sc, headY + 4 * sc, 6.4 * sc, shoulderY - headY - 2 * sc, 2 * sc);
+    ctx.fill();
+
+    // Helmet: blue shell, grille bars, all drawn.
+    ctx.save();
+    ctx.translate(-1 * sc, headY);
+    ctx.rotate(lean * 0.16);
+    if (shadows) {
+      ctx.shadowColor = COLORS.brandBlueGlow;
+      ctx.shadowBlur = 6 * sc;
+    }
+    ctx.fillStyle = paints.helmet;
+    ctx.beginPath();
+    ctx.arc(0, 0, 8.6 * sc, Math.PI * 0.98, Math.PI * 2.15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = COLORS.skin;
+    ctx.beginPath();
+    ctx.arc(0, 1.4 * sc, 6.4 * sc, Math.PI * 1.75, Math.PI * 0.62);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(20,30,50,0.85)';
+    ctx.lineWidth = 1.3 * sc;
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath();
+      ctx.moveTo(-8 * sc, -1.5 * sc + k * 3.4 * sc);
+      ctx.lineTo(2.5 * sc, -2.6 * sc + k * 3.4 * sc);
+      ctx.stroke();
+    }
     ctx.restore();
   }
-
-  // Torso. The lean has to pivot about the HIPS: ctx.rotate() turns about the
-  // current origin, which is at the top of the canvas, so rotating here without
-  // moving the origin first swings the torso a hip-height's worth of arc away
-  // from the head and pads (72 px at lean = 1 on a 390 px canvas).
-  ctx.fillStyle = paints.torso;
-  ctx.save();
-  ctx.translate(0, hipY);
-  ctx.rotate(lean * 0.12);
-  ctx.translate(0, -hipY);
-  ctx.beginPath();
-  ctx.roundRect(-9 * sc, shoulderY, 18 * sc, hipY - shoulderY + 6 * sc, 6 * sc);
-  ctx.fill();
-  ctx.fillStyle = COLORS.brandBlue;
-  ctx.beginPath();
-  ctx.roundRect(-9 * sc, shoulderY, 18 * sc, 5 * sc, [6 * sc, 6 * sc, 0, 0]);
-  ctx.fill();
-  ctx.restore();
-
-  // Neck, so the helmet reads as attached to the shoulders.
-  ctx.fillStyle = COLORS.skin;
-  ctx.beginPath();
-  ctx.roundRect(-3.2 * sc, headY + 4 * sc, 6.4 * sc, shoulderY - headY - 2 * sc, 2 * sc);
-  ctx.fill();
-
-  // Helmet: blue shell, grille bars, all drawn.
-  ctx.save();
-  ctx.translate(-1 * sc, headY);
-  ctx.rotate(lean * 0.16);
-  if (shadows) {
-    ctx.shadowColor = COLORS.brandBlueGlow;
-    ctx.shadowBlur = 6 * sc;
-  }
-  ctx.fillStyle = paints.helmet;
-  ctx.beginPath();
-  ctx.arc(0, 0, 8.6 * sc, Math.PI * 0.98, Math.PI * 2.15);
-  ctx.closePath();
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = COLORS.skin;
-  ctx.beginPath();
-  ctx.arc(0, 1.4 * sc, 6.4 * sc, Math.PI * 1.75, Math.PI * 0.62);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(20,30,50,0.85)';
-  ctx.lineWidth = 1.3 * sc;
-  for (let k = 0; k < 3; k++) {
-    ctx.beginPath();
-    ctx.moveTo(-8 * sc, -1.5 * sc + k * 3.4 * sc);
-    ctx.lineTo(2.5 * sc, -2.6 * sc + k * 3.4 * sc);
-    ctx.stroke();
-  }
-  ctx.restore();
   ctx.restore();
 
   /* -- the bat, in absolute screen space -------------------------------- */
@@ -649,11 +688,14 @@ function drawBatter(ctx, paints, g, pose, shadows) {
   ctx.fill();
   ctx.restore();
 
-  // Gloved hands over the handle.
-  ctx.fillStyle = COLORS.pad;
-  ctx.beginPath();
-  ctx.arc(pose.hx, pose.hy, 4.6 * sc, 0, Math.PI * 2);
-  ctx.fill();
+  // Gloved hands over the handle — only for the primitive batter, which has no
+  // arms of its own. The art already has gloves, drawn on this exact point.
+  if (!usingArt) {
+    ctx.fillStyle = COLORS.pad;
+    ctx.beginPath();
+    ctx.arc(pose.hx, pose.hy, 4.6 * sc, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -1005,7 +1047,6 @@ export default function CoverDriveGame({ config, onWin, onLose }) {
   const [muted, setMuted] = useState(false);
   const [banner, setBanner] = useState(null);
   const [card, setCard] = useState(null);
-  const [hint, setHint] = useState(true);
   const [over, setOver] = useState(false);
   const [ballsBowled, setBallsBowled] = useState(0);
   const [wickets, setWickets] = useState(0);
@@ -1577,7 +1618,8 @@ export default function CoverDriveGame({ config, onWin, onLose }) {
           straight into the tap time as frame-phase noise. */
     const FIXED_STEP = BALANCE.loop.fixedStep;
     const pose = {
-      standScreenX: 0, hx: 0, hy: 0, ax: 0, ay: 0, bx: 0, by: 0,
+      standScreenX: 0, feetScreenY: 0, crownScreenY: 0,
+      hx: 0, hy: 0, ax: 0, ay: 0, bx: 0, by: 0,
       trailAx: null, trailBx: 0, trailBy: 0, halfW: 4, sweetFrac: 0.7,
       lean: 0, swinging: false,
     };
@@ -1591,14 +1633,21 @@ export default function CoverDriveGame({ config, onWin, onLose }) {
       // stays inside physics' 0–1.55 m collision span the whole way.
       const hBlade = 0.92 - 0.66 * clamp(phase, 0, 1);
 
-      // Four separate scratch records: every one of these is read after the
+      // Five separate scratch records: every one of these is read after the
       // next is written, so they cannot share a buffer.
       const hands = projectPitch(g, P, st.pivotX, st.pivotY, hBlade + 0.20, _proj);
       const inner = projectPitch(g, P, bl.ax, bl.ay, hBlade + 0.06, _projB);
       const outer = projectPitch(g, P, bl.bx, bl.by, hBlade, _projC);
       const feet = projectPitch(g, P, st.standX, 0.05, 0, _projD);
+      // The batter is drawn as art now, so he needs a real projected height
+      // rather than a pixel constant: feet and crown both come off the same
+      // stance point, which is also where the bat is projected from. Anchoring
+      // the art to the crease instead left the bat hanging below the gloves.
+      const crown = projectPitch(g, P, st.standX, 0.05, 1.78, _projE);
 
       pose.standScreenX = feet.x;
+      pose.feetScreenY = feet.y;
+      pose.crownScreenY = crown.y;
       pose.hx = hands.x; pose.hy = hands.y;
       pose.ax = inner.x; pose.ay = inner.y;
       pose.bx = outer.x; pose.by = outer.y;
@@ -1771,7 +1820,6 @@ export default function CoverDriveGame({ config, onWin, onLose }) {
       onDown: (p) => {
         audio.unlock();
         if (s.ended) return;
-        setHint(false);
         const aim = clamp(p.x / Math.max(1, s.W), 0, 0.9999);
         s.aim = aim;
         s.aimLocked = true;
@@ -1933,16 +1981,6 @@ export default function CoverDriveGame({ config, onWin, onLose }) {
           </div>
         )}
 
-        {/* First-ball hint ------------------------------------------- */}
-        {hint && !over && (
-          <div style={styles.hintWrap} className="cd-hint">
-            <div style={styles.hint}>
-              <strong style={{ color: COLORS.orangeLt }}>Tap a zone</strong> as the needle hits the{' '}
-              <strong style={{ color: COLORS.greenLt }}>green</strong>
-            </div>
-          </div>
-        )}
-
         {/* Auto-pause veil ------------------------------------------- */}
         {paused && !over && (
           <div style={styles.pauseVeil}>
@@ -1998,10 +2036,9 @@ const CSS = `
 .cd-stage { animation: cdIn 420ms cubic-bezier(0.22,1,0.36,1) both; }
 .cd-banner { animation: cdBanner 1.05s ease-out both; }
 .cd-card { animation: cdCard 320ms cubic-bezier(0.22,1,0.36,1) both; }
-.cd-hint { animation: cdHint 1.6s ease-in-out infinite; }
 .cd-shield { animation: cdShield 0.9s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .cd-stage, .cd-banner, .cd-card, .cd-hint, .cd-shield { animation: none !important; }
+  .cd-stage, .cd-banner, .cd-card, .cd-shield { animation: none !important; }
 }
 `;
 
@@ -2190,23 +2227,6 @@ const styles = {
     fontSize: 10,
     fontWeight: 700,
     color: 'rgba(255,255,255,0.85)',
-  },
-  hintWrap: {
-    position: 'absolute',
-    top: 168,
-    left: 0,
-    right: 0,
-    display: 'flex',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-  },
-  hint: {
-    ...glass,
-    borderRadius: 999,
-    padding: '6px 14px',
-    fontSize: 11,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.9)',
   },
   pauseVeil: {
     position: 'absolute',

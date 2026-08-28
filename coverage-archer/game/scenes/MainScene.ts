@@ -131,7 +131,9 @@ export default class MainScene extends Phaser.Scene {
 
     // Archer
     this.archer = this.add.sprite(CFG.ARCHER_X, CFG.ARCHER_Y, 'archer_spritesheet', 0);
-    this.archer.setScale(1.15 / DPR);
+    // Was 1.15 when he was drawn from arcs; painted art needs the room or the
+    // detail that makes him worth painting is invisible at phone size.
+    this.archer.setScale(1.5 / DPR);
     this.tweens.add({
       targets: this.archer,
       y: CFG.ARCHER_Y - 3,

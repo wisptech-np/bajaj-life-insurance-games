@@ -55,6 +55,10 @@ export const DEFAULT_RM_MESSAGE =
 
 export const RM_MESSAGE = {
   'smart-match-3d': 'A simple conversation can protect every goal you just matched',
+  'cover-drive': 'Life bowls the unplayable ball eventually. A specialist can set your cover so one delivery never ends the innings.',
+  'guardian-shelter': 'The shields you placed here take one conversation to place for real',
+  'life-soar': 'A specialist can keep you gliding when the air turns rough',
+  'coverage-archer': 'Every risk you just hit is one a specialist can cover for real',
   'wealth-drop': 'Markets bounce both ways. A specialist can show you how cover keeps your goals funded either way.',
   'portfolio-fit': 'A specialist can show you which gaps your plan still has room for',
   'steady-tower': 'De-risking is easier with someone who knows which block to pull',
